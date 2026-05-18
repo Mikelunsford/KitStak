@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import {
   getOpportunity,
@@ -80,6 +81,11 @@ export function OpportunityDetailPage() {
           )}
         </div>
       </div>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="opportunity" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

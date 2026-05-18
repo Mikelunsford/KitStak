@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useShipment, useTransitionShipment, useShipShipment } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { SHIPMENT_FSM } from '@/lib/workflow/vendors_inventory_ops';
@@ -38,6 +39,11 @@ export function ShipmentDetailPage() {
         <dt className="text-ink-dim">Carrier</dt><dd className="text-ink">{d.carrier ?? ''}</dd>
         <dt className="text-ink-dim">Tracking</dt><dd className="text-ink">{d.tracking_number ?? ''}</dd>
       </dl>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="shipment" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

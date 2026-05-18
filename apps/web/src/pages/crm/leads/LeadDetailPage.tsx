@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { leadsKeys } from '@/lib/queryKeys/leads';
 import { getLead } from '@/lib/services/leadsService';
 
@@ -53,6 +54,11 @@ export function LeadDetailPage() {
         <dt className="text-ink-dim">Converted opportunity id</dt>
         <dd>{l.converted_opportunity_id ?? ''}</dd>
       </dl>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="lead" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import {
@@ -131,6 +132,11 @@ export function ProjectDetailPage() {
         />
         <Button type="submit">Add phase</Button>
       </form>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="project" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

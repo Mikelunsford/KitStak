@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useExpense, useTransitionExpense } from '@/lib/hooks/useExpenses';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { EXPENSE_FSM } from '@/lib/workflow/vendors_inventory_ops';
@@ -48,6 +49,11 @@ export function ExpenseDetailPage() {
         <dt className="text-ink-dim">Reimbursable</dt><dd className="text-ink">{d.reimbursable ? 'Yes' : 'No'}</dd>
         <dt className="text-ink-dim">Description</dt><dd className="text-ink">{d.description ?? ''}</dd>
       </dl>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="expense" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

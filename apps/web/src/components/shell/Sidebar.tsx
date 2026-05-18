@@ -15,12 +15,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+
 /**
  * Sidebar. five-pillar IA in order: 3PL Operations, Manufacturing,
  * Co-Pack and Ecom, KitForce, KitCost. Each pillar shows its children
  * only when the matching `plugins.<pillar>` flag is on for the active
- * org. Pillars 2 through 5 ship as gated stubs in Wave 1; Wave 2 wires
- * the real org_feature_flags fetch via `useOrgFlags()`.
+ * org. The bundle gate is driven by `useOrgFlags()` which reads the live
+ * org_feature_flags table via settings-api.
  *
  * Below the `md:` breakpoint this renders as a slide-in drawer driven by
  * AppShell. At md and above it stays a fixed `w-56` rail.
@@ -90,24 +92,6 @@ const PILLARS: ReadonlyArray<Pillar> = [
   },
 ];
 
-/**
- * Placeholder org flag map. Wave 2 replaces this with the real
- * `useOrgFlags()` hook that calls `org_feature_flags`. For Wave 1 every
- * pillar is gated off by default so the Sidebar renders only Dashboard
- * plus the pillar headers (collapsed, no children visible).
- *
- * TODO(Wave 2 Agent A): wire useOrgFlags() and replace this stub.
- */
-function useOrgFlagsStub(): Record<string, boolean> {
-  return {
-    'plugins.three_pl': false,
-    'plugins.manufacturing': false,
-    'plugins.copack_ecom': false,
-    'plugins.kitforce': false,
-    'plugins.kitcost': false,
-  };
-}
-
 const STORAGE_KEY = 'kitstak.sidebar.openCategories.v1';
 
 function readPersistedOpen(): Set<string> {
@@ -153,7 +137,8 @@ export interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
-  const flags = useOrgFlagsStub();
+  const orgFlags = useOrgFlags();
+  const flags = orgFlags.data;
   const { pathname } = useLocation();
   const activePillar = useMemo(() => findActivePillar(pathname), [pathname]);
 

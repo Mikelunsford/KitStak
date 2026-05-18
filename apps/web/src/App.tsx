@@ -6,7 +6,6 @@ import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminProtectedRoute } from './auth/AdminProtectedRoute';
 import { PortalRoute } from './auth/PortalRoute';
 import { BrandingProvider } from './whitelabel/BrandingProvider';
-import { NotFoundPage } from './pages/NotFoundPage';
 
 /**
  * App. consumes the flat ROUTES table and wraps each route in the
@@ -53,7 +52,7 @@ export function App() {
             />
           ))}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<NotFoundPage />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
       </Suspense>
     </BrandingProvider>

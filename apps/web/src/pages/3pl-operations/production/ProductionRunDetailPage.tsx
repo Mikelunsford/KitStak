@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useProductionRun, useStartProductionRun, useCompleteProductionRun } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -36,6 +37,11 @@ export function ProductionRunDetailPage() {
         <dt className="text-ink-dim">Produced</dt><dd className="text-ink">{String(d.quantity_produced)}</dd>
         <dt className="text-ink-dim">Scheduled</dt><dd className="text-ink">{d.scheduled_for ?? ''}</dd>
       </dl>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="production_run" entityId={id ?? null} />
+      </section>
     </section>
   );
 }
