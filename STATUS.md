@@ -4,6 +4,8 @@ Last updated: 2026-05-18
 
 ## Current state
 
+**Wave 6 Customer Zero chassis fixes shipped (PRs #13, #14, #15, #16 merged · main at `a91b0f9`).** Phase 6 opened with the operator signing in to `www.kitstak.com` and the Topbar rendering "No workspace" despite a fully provisioned `kitstak` org and stamped JWT claims. Four rapid-fire hotfixes landed all the foundational SPA -> edge-function wiring gaps that Wave 5's probe matrix could not have caught: apiClient relative URLs + missing auth headers (PR #13), CORS allow-headers missing `apikey` (PR #14), Sidebar pillar paths drifted from the routes table (PR #15), Sidebar surfaced only pillars while the Phase 6 quote-to-cash flow needs Workspace / Sales / Procurement / Inventory / Finance / Tools / Admin (PR #16). Plus an operator-data fixup seeding `org_feature_flags` for the `kitstak` org (which had been provisioned before migration 0040's `seed_org_settings` shipped). Phase 6 chassis closed; the operator-led quote-to-cash workflow exercise is the remaining Phase 6 gate.
+
 **Wave 5 probes closed at 48 / 48 green on staging (PR #9 + PR #10 merged · commits `32d7acd` and `ebe8f5d`).** Phase 4 (marketing site) skipped at operator direction (built in parallel outside this session). Phase 5 shipped the 48-probe RLS matrix; the matrix's first real run surfaced six constitutional violations which the same phase resolved via four hotfixes: Node 22 in the probe workflow (native WebSocket), staging branch rebase to apply 37 Wave 2 migrations, probe seed schema corrections, and the substantive 403→404 fixes (quotes-api / projects-api side-car capability shims, admin-console-api `verify_jwt = false`, and forward migration `0041` redefining `convert_quote_to_project` to take `p_caller_org_id` explicitly). Final probe run: 48 / 48 in 31s. Sentry and analytics remain deferred per operator.
 
 **Wave 3 integration shipped (PR #8 merged · commit `209c106`).** AuditTimeline mounted on every state-having detail page (13 total); Sidebar live `useOrgFlags()`; global `ErrorBoundary`; NotFoundPage dual-import Vite warning fixed; `apps/web/playwright.config.ts` plus smoke + rls-probe scaffolds.
@@ -92,9 +94,46 @@ The probe matrix's first real run surfaced six constitutional violations the mat
 - **F-Wave3-OBS-01**: Sentry SPA + edge-function capture, blocked on `VITE_SENTRY_DSN`.
 - **F-Wave2-AGENT-A-05** (carried): operator-gated merge of domain side-car capabilities into the master byte-mirrored `_shared/capabilities.ts`. The per-bundle shim pattern now lives in invoicing-api, quotes-api, and projects-api as the supported interim.
 
-## Wave 6 scope (next phase, awaiting operator go)
+## Wave 6 deliverables (shipped this phase, chassis portion)
 
-Customer Zero cutover. Operator exercises the full Pillar-1 workflow on prod against the seeded `kitstak` org from Wave 1: create a customer, run a quote-to-cash flow end-to-end, generate the audit chain, verify period close. Surfaces any small gaps (missing copy, missing buttons, capability-gate corrections) for inline fixes.
+- **PR #13** (commit `6540819`): `apps/web/src/lib/apiClient.ts` rewritten to prepend `VITE_SUPABASE_URL + '/functions/v1'` to non-absolute paths, attach `apikey: VITE_SUPABASE_ANON_KEY`, and attach `Authorization: Bearer <access_token>` from `supabase.auth.getSession()`. Falls back to the anon Bearer for `verify_jwt = false` bundles. Closes `F-Wave6-API-01`.
+- **PR #14** (commit `7f9acb5`): `apikey` added to `Access-Control-Allow-Headers` in both `_shared/cors.ts` and `_shared/responses.ts`. Closes `F-Wave6-API-02`. Spawns `F-Wave6-CORS-01` to consolidate the two drifted lists.
+- **PR #15** (commit `94b4d01`): `apps/web/src/components/shell/Sidebar.tsx` pillar children realigned from `/three-pl/*` to `/3pl-operations/*` to match the routes table. Closes `F-Wave6-NAV-01`.
+- **PR #16** (commit `a91b0f9`): Sidebar refactored to unify pillar and core sections under one `NavSection` type with optional `flag?: string`. New core sections: WORKSPACE (Customers/Leads/Opportunities), SALES (Quotes/Projects/Invoices/Payments/Credit notes), PROCUREMENT (Vendors/POs/Vendor bills/Expenses), INVENTORY (Items/Warehouses/Stock levels/Stock movements), FINANCE (gated on `finance.journal_entries.enabled`: COA/Journal entries/Period close), TOOLS (Search/Imports/Exports), ADMIN (Settings/Branding/Flags/Numbering). 3PL Operations gains Production runs. Closes `F-Wave6-NAV-03`.
+- **Operator data fixup (no PR)**: `select public.seed_org_settings('ba4622dd-eb46-41b6-b2dd-95c922bf44dd')` inserted the 10 default flag rows; `UPDATE` enabled `plugins.three_pl`, `feature.collaboration`, `feature.global_search`, `feature.imports`, `feature.exports`; `INSERT ON CONFLICT` enabled `finance.journal_entries.enabled`. The `kitstak` org was provisioned in Wave 1, before migration 0040 shipped `seed_org_settings`, so the seed never fired retroactively.
+
+### Gates verified at Wave 6 chassis close
+
+- `pnpm typecheck` zero errors.
+- `pnpm lint` zero errors, zero warnings.
+- `pnpm test` 5 of 5.
+- `pnpm test:contract` 25 of 25.
+- `pnpm build` succeeds.
+- `pnpm bundle-budget` **28.57 kB / 40 kB** (up 2.63 kB from 25.94: ~0.14 kB apiClient logic + ~2.49 kB for 24 new lucide-react icon imports for the expanded Sidebar).
+- Brand validation greps: zero user-facing violations.
+- TS1 read-only zone untouched.
+
+## Wave 6 remaining work (operator-led quote-to-cash exercise)
+
+Phase 6 gate per `SESSION-CATALYST.md` §9: "operator successfully exercises the full Pillar-1 workflow on prod, every state-change writes audit_log, no 500s." The chassis is now wired. The exercise itself is the next step:
+
+1. Sign in to `www.kitstak.com` as `mike@kitstak.com` against the seeded `kitstak` org.
+2. **Workspace -> Customers -> New**: create a customer.
+3. **Sales -> Quotes -> New** (against that customer) -> Send -> Accept -> Convert to Project.
+4. **Sales -> Invoices -> New** (against that project) -> Send -> Post payment.
+5. **3PL Operations -> Receiving** -> create one and complete.
+6. **3PL Operations -> Shipments** -> create one and ship.
+7. Every detail page should render an `AuditTimeline` section with rows.
+
+Tracked as `F-Wave6-FLOW-01`. Any small gaps surfaced during the exercise (missing copy, missing buttons, capability-gate corrections, broken navigation) are fixed inline per the Phase 6 protocol.
+
+## Wave 6 open follow-ups
+
+- `F-Wave6-FLOW-01`: operator-led quote-to-cash exercise on prod (the remaining Phase 6 gate).
+- `F-Wave6-CORS-01`: consolidate the two CORS allow-headers lists by having `responses.ts` import from `cors.ts`. Deferred to Phase 7 polish.
+- `F-Wave6-NAV-02`: align other pillar child paths when those pillars light up.
+
+(Carried open follow-ups from prior waves: `F-Wave5-TEST-02`, `F-Wave5-CO-01`, `F-Wave5-CO-02`, `F-Wave2-AGENT-A-05`, `F-Wave2-CO-01`, `F-Wave2-DNDKIT-01`.)
 
 ## Open risks
 
