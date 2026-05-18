@@ -1,18 +1,27 @@
 import { useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { ItemPicker } from '@/components/ui/pickers';
 import {
   useQuote, useSubmitQuote, useApproveQuote, useReviseQuote,
   useCancelQuote, useSendQuote, useConvertQuoteToProject,
   useAddLineItem, useRemoveLineItem,
 } from '@/lib/hooks/useQuotes';
+import { useCustomer } from '@/lib/hooks/useCustomer';
+import { useItem } from '@/lib/hooks/useItems';
 import { canTransition, QUOTE_FSM } from '@/lib/workflow/sales';
 import { formatCents } from '@/lib/money';
 import type { QuoteState } from '@/lib/types/sales';
 
+/**
+ * QuoteDetailPage. Header now resolves customer display_name with a link to
+ * the customer detail page. Line-add form uses ItemPicker; selecting an item
+ * pre-fills sku, unit_price_cents, and item_id, with tax/discount inputs
+ * exposed (the handler already accepts them per G-QUOTE-LINE-01).
+ */
 export function QuoteDetailPage() {
   const { id } = useParams();
   const { data, isLoading, error } = useQuote(id);
@@ -25,9 +34,18 @@ export function QuoteDetailPage() {
   const send = useSendQuote();
   const convert = useConvertQuoteToProject();
 
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [lineName, setLineName] = useState('');
+  const [lineSku, setLineSku] = useState('');
   const [lineQty, setLineQty] = useState('1000');
   const [linePrice, setLinePrice] = useState('0');
+  const [lineDiscountBps, setLineDiscountBps] = useState('0');
+  const [lineTaxId, setLineTaxId] = useState('');
+  const [lineIsTaxable, setLineIsTaxable] = useState(true);
+
+  const customerId = data?.quote.customer_id ?? null;
+  const customer = useCustomer(customerId ?? undefined);
+  const selectedItem = useItem(selectedItemId ?? undefined);
 
   if (isLoading) return <p className="p-8 text-ink-dim">Loading.</p>;
   if (error || !data) return <p className="p-8 text-accent">Quote not found.</p>;
@@ -35,18 +53,37 @@ export function QuoteDetailPage() {
   const { quote, lineItems } = data;
   const state = quote.state as QuoteState;
 
+  const onPickItem = (itemId: string | null) => {
+    setSelectedItemId(itemId);
+    if (itemId && selectedItem.data) {
+      setLineName(selectedItem.data.name);
+      setLineSku(selectedItem.data.sku);
+      setLinePrice(String(selectedItem.data.unit_price_cents));
+    }
+  };
+
   const onAddLine = async (e: FormEvent) => {
     e.preventDefault();
     if (!id) return;
     await addLine.mutateAsync({
       name: lineName,
+      sku: lineSku || null,
+      item_id: selectedItemId,
       kind: 'item',
       quantity_e3: lineQty,
       unit_price_cents: linePrice,
-      discount_bps: 0,
-      is_taxable: true,
+      discount_bps: Number(lineDiscountBps) || 0,
+      tax_id: lineTaxId || null,
+      is_taxable: lineIsTaxable,
     });
-    setLineName(''); setLineQty('1000'); setLinePrice('0');
+    setSelectedItemId(null);
+    setLineName('');
+    setLineSku('');
+    setLineQty('1000');
+    setLinePrice('0');
+    setLineDiscountBps('0');
+    setLineTaxId('');
+    setLineIsTaxable(true);
   };
 
   return (
@@ -55,6 +92,17 @@ export function QuoteDetailPage() {
         <div>
           <h1 className="text-4xl font-display tracking-wide text-ink">{quote.number}</h1>
           {quote.title && <p className="text-ink-dim">{quote.title}</p>}
+          {customerId && (
+            <p className="text-ink-dim text-sm mt-1">
+              Customer:{' '}
+              <Link
+                to={`/crm/customers/${customerId}`}
+                className="text-ink hover:text-accent"
+              >
+                {customer.data?.display_name ?? customerId}
+              </Link>
+            </p>
+          )}
         </div>
         <span className="px-3 py-1 border border-line font-mono text-sm">
           {state}
@@ -134,26 +182,61 @@ export function QuoteDetailPage() {
       </table>
 
       {['draft', 'revise_requested'].includes(state) && (
-        <form onSubmit={onAddLine} className="flex gap-3 items-end flex-wrap">
-          <TextInput
-            label="New line name"
-            value={lineName}
-            onChange={(e) => setLineName(e.target.value)}
-            required
+        <form onSubmit={onAddLine} className="flex flex-col gap-3 border border-line p-4">
+          <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
+          <ItemPicker
+            value={selectedItemId}
+            onChange={onPickItem}
+            label="Item (optional, pre-fills name and price)"
+            filter={{ active: true }}
           />
-          <TextInput
-            label="Qty (e3)"
-            value={lineQty}
-            onChange={(e) => setLineQty(e.target.value)}
-            inputMode="numeric"
-          />
-          <TextInput
-            label="Unit price (cents)"
-            value={linePrice}
-            onChange={(e) => setLinePrice(e.target.value)}
-            inputMode="numeric"
-          />
-          <Button type="submit">Add line</Button>
+          <div className="flex gap-3 flex-wrap items-end">
+            <TextInput
+              label="Name"
+              value={lineName}
+              onChange={(e) => setLineName(e.target.value)}
+              required
+            />
+            <TextInput
+              label="SKU"
+              value={lineSku}
+              onChange={(e) => setLineSku(e.target.value)}
+            />
+            <TextInput
+              label="Qty (e3)"
+              value={lineQty}
+              onChange={(e) => setLineQty(e.target.value)}
+              inputMode="numeric"
+            />
+            <TextInput
+              label="Unit price (cents)"
+              value={linePrice}
+              onChange={(e) => setLinePrice(e.target.value)}
+              inputMode="numeric"
+            />
+            <TextInput
+              label="Discount bps"
+              value={lineDiscountBps}
+              onChange={(e) => setLineDiscountBps(e.target.value)}
+              inputMode="numeric"
+            />
+            <TextInput
+              label="Tax id (optional)"
+              value={lineTaxId}
+              onChange={(e) => setLineTaxId(e.target.value)}
+            />
+            <label className="flex items-center gap-2 mt-6">
+              <input
+                type="checkbox"
+                checked={lineIsTaxable}
+                onChange={(e) => setLineIsTaxable(e.target.checked)}
+              />
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Taxable
+              </span>
+            </label>
+            <Button type="submit">Add line</Button>
+          </div>
         </form>
       )}
 

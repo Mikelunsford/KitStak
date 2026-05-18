@@ -1,24 +1,56 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { CustomerPicker } from '@/components/ui/pickers';
 import { useCreateQuote } from '@/lib/hooks/useQuotes';
 import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
+import type { CreateQuoteRequest } from '@/lib/types/sales';
 
+/**
+ * QuoteCreatePage. Captures the rich quote-header shape that
+ * CreateQuoteRequestSchema accepts. Customer is the FK pivot; the rest are
+ * optional headers (default_tax_id, payment_method_id, pricing_tier_id are
+ * picker-driven once those pages ship; for 6.5 we accept raw UUID inputs).
+ *
+ * Closes G-QUOTE-FORM-01 (customer picker) and G-QUOTE-FORM-02 (other
+ * optional fields).
+ */
 export function QuoteCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const create = useCreateQuote();
   const { data: currencies } = useCurrenciesList();
+
+  const prefilledCustomerId = searchParams.get('customer_id');
+
   const [number, setNumber] = useState('');
   const [title, setTitle] = useState('');
+  const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [currencyCode, setCurrencyCode] = useState('USD');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [defaultTaxId, setDefaultTaxId] = useState('');
+  const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [pricingTierId, setPricingTierId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [internalNotes, setInternalNotes] = useState('');
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const result = await create.mutateAsync({
-      number, title: title || null, currency_code: currencyCode,
-    });
+    const body: CreateQuoteRequest = {
+      number,
+      title: title || null,
+      currency_code: currencyCode,
+      customer_id: customerId,
+      expiration_date: expirationDate || null,
+      default_tax_id: defaultTaxId || null,
+      payment_method_id: paymentMethodId || null,
+      pricing_tier_id: pricingTierId || null,
+      notes: notes || null,
+      internal_notes: internalNotes || null,
+    };
+    const result = await create.mutateAsync(body);
     navigate(`/3pl-operations/quotes/${result.id}`);
   };
 
@@ -32,22 +64,77 @@ export function QuoteCreatePage() {
           onChange={(e) => setNumber(e.target.value)}
           required
         />
+        <CustomerPicker
+          value={customerId}
+          onChange={setCustomerId}
+          label="Customer"
+        />
         <TextInput
           label="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">Currency</span>
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Currency
+          </span>
           <select
             value={currencyCode}
             onChange={(e) => setCurrencyCode(e.target.value)}
             className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           >
             {(currencies ?? [{ code: 'USD' }]).map((c) => (
-              <option key={c.code} value={c.code}>{c.code}</option>
+              <option key={c.code} value={c.code}>
+                {c.code}
+              </option>
             ))}
           </select>
+        </label>
+        <TextInput
+          label="Expiration date"
+          type="date"
+          value={expirationDate}
+          onChange={(e) => setExpirationDate(e.target.value)}
+        />
+        <TextInput
+          label="Default tax id"
+          value={defaultTaxId}
+          onChange={(e) => setDefaultTaxId(e.target.value)}
+          placeholder="optional uuid"
+        />
+        <TextInput
+          label="Payment method id"
+          value={paymentMethodId}
+          onChange={(e) => setPaymentMethodId(e.target.value)}
+          placeholder="optional uuid"
+        />
+        <TextInput
+          label="Pricing tier id"
+          value={pricingTierId}
+          onChange={(e) => setPricingTierId(e.target.value)}
+          placeholder="optional uuid"
+        />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Notes
+          </span>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
+          />
+        </label>
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Internal notes
+          </span>
+          <textarea
+            value={internalNotes}
+            onChange={(e) => setInternalNotes(e.target.value)}
+            rows={2}
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
+          />
         </label>
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}

@@ -4,6 +4,55 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] · Wave 6.5 Workflow Integration Remediation
+
+The Phase 6 workflow integration audit identified 41 cross-domain wiring gaps that the operator's `F-Wave6-FLOW-01` quote-to-cash exercise surfaced. The 48-probe matrix could not have caught these: probes hit edge functions directly with service-role JWTs; they do not traverse cross-domain SPA workflows. Phase 6.5 closed 39 of 41 gaps (2 LARGE line-normalization gaps deferred to Phase 7 with payload-JSON editors shipped as the interim).
+
+Dispatch shape: Shape B from the audit (4 specialized agents across 2 stages plus 2 finishers per the new finisher-recovery pattern when Stage agents hit transient API blips).
+
+### Added
+
+- 5 forward migrations (0042 to 0046): seed_org_settings backfill for pre-0040 orgs, provision_organization self-healing patch, `project_line_items` table with RLS + audit trigger + capability set, `convert_quote_to_project` redefinition to carry line items, `convert_project_to_invoice` RPC, FK hardening sweep with new `project_id` columns on receiving_orders / shipments / expenses.
+- 5 reusable pickers at `apps/web/src/components/ui/pickers/`: Customer, Project, Invoice, Item, Vendor. Shared props contract consumed across 12+ pages.
+- 9 new create pages: PaymentCreatePage, CreditNoteCreatePage, ReceivingOrderCreatePage, ShipmentCreatePage, VendorBillCreatePage, LeadCreatePage, OpportunityCreatePage, ContactCreatePage, JournalEntryCreatePage.
+- 6 new routes registered in `apps/web/src/routes.ts` (organized in 3 marker-bounded sections per agent).
+- 4 new endpoints on `projects-api`: GET/POST/PATCH/DELETE `/projects/:id/line-items` and POST `/projects/:id/convert-to-invoice`. All gated via per-bundle `requireProjectCap` shim (D-011).
+- Sales side-car extensions (byte-mirrored): `ProjectLineItemSchema`, `CreateProjectLineItemRequestSchema`, `UpdateProjectLineItemRequestSchema`, `ConvertProjectToInvoiceResponseSchema`. 4 new caps `project.line_item.{create,read,update,delete}` seeded across all 8 roles.
+- Query-string carry-through wiring on 6 create pages (Quote, Project, Invoice, PO, Expense, plus the 3 new Stage-2 pages) so the "New X for this customer/vendor/project" CTAs from detail pages prefill the appropriate picker.
+
+### Changed
+
+- `ProjectDetailPage` rebuilt: customer + source quote display, line items / materials section with `ProjectLineItem` CRUD, related receiving / shipments / invoices sections, "Create invoice from project" button calling the new RPC.
+- `VendorBillDetailPage` gained vendor display link plus "Record payment" form.
+- `CustomerDetailPage` gained 6 related-entity sections (Quotes / Projects / Invoices / Payments / Contacts / Activities) with deep-link CTAs.
+- `OpportunityDetailPage` gained customer link and "Create quote from opportunity" CTA.
+- `POCreatePage` gained VendorPicker plus line items at create time (chain-POST pattern).
+- `ExpenseCreatePage` gained category + vendor + project pickers.
+- `VendorDetailPage` gained 4 related-entity sections.
+- `QuoteCreatePage` / `InvoiceCreatePage` gained CustomerPicker plus 6 additional optional fields each.
+- `provision_organization` patched to call `seed_org_settings()` forward (no more empty-flag-table orgs).
+
+### Constitutional
+
+- Singular `_shared/{types,workflow,capabilities,money}.ts` untouched. Sales side-car extended; byte-mirror parity intact across all 22 pairs (parity test 25 / 25).
+- All 5 migrations forward-only and idempotent.
+- All new POST/PATCH/DELETE endpoints require `Idempotency-Key`.
+- `convert_project_to_invoice` follows the migration-0041 SECURITY DEFINER pattern with explicit `p_caller_org_id`.
+- `project_line_items` ships with RLS Pattern A and the audit-on-state-change trigger.
+- Brand discipline: zero violations on changed files.
+
+### Lessons codified
+
+- Cross-domain wiring is not a free byproduct of disjoint-domain dispatch; future multi-agent waves must explicitly charter a shared-UI agent (like 6.5-A) and a schema/RPC agent (like 6.5-B) before dispatching dependent-UI agents (like 6.5-C, 6.5-D).
+- The finisher agent pattern: when a Stage agent fails partway through, spawn a small follow-up agent with the residual scope and a tight gate. Faster than re-dispatching the full Stage agent.
+- `G-OPS-FLAG-01` (shipped earlier in PR #19) is the same string-literal drift class as `F-Wave6-CORS-01`. Phase 7 stabilization should sweep for similar drift and canonicalize cross-boundary constants in `_shared/`.
+
+## [0.6.1] · G-OPS-FLAG-01 hotfix (PR #19) + Phase 7 prep CORS consolidation (PR #18)
+
+PR #18 closed `F-Wave6-CORS-01` by having `_shared/responses.ts` import `corsHeaders()` from `_shared/cors.ts`; one source of truth for CORS allow-headers. PR #18 also added the seed_org_settings backfill proposal (operator decision then locked as Option A + B follow-up, both shipped in Phase 6.5 migrations 0042 + 0043).
+
+PR #19 was the standalone `G-OPS-FLAG-01` hotfix surfaced by the Phase 6 workflow integration audit. `ops-api` bundle gate read `plugins.3pl`; canonical `seed_org_settings` writes `plugins.three_pl`; every shipments / receiving / production call returned 404 for any org seeded canonically. Standardized on `plugins.three_pl` across 8 files (3 active code, 5 comment/doc). No migration needed. Same class of bug as `F-Wave6-CORS-01`.
+
 ## [0.6.0] · Wave 6 Customer Zero chassis fixes
 
 Phase 6 surfaced four foundational SPA -> edge-function wiring gaps that Wave 5's probe matrix could not have caught (the probes hit edge functions directly via service-role JWT, bypassing `apiClient`). All four landed in rapid succession from a single operator session on `www.kitstak.com`. Phase 6 chassis closed; operator quote-to-cash workflow exercise pending.

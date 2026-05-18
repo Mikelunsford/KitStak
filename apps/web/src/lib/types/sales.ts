@@ -412,3 +412,64 @@ export const ReorderPhasesRequestSchema = z.object({
   phase_ids: z.array(UuidSchema).min(1),
 });
 export type ReorderPhasesRequest = z.infer<typeof ReorderPhasesRequestSchema>;
+
+// ---------------------------------------------------------------------------
+// project_line_items (carryover target for convert_quote_to_project, shipped
+// in migration 0044). The discount_percent column is operator-facing percent
+// (0..100) rather than the basis-points form used on quote_line_items; the
+// RPC translates between the two during conversion.
+// ---------------------------------------------------------------------------
+
+export const ProjectLineItemSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  project_id: UuidSchema,
+  item_id: UuidSchema.nullable(),
+  source_quote_line_item_id: UuidSchema.nullable(),
+  name: z.string(),
+  description: z.string().nullable(),
+  quantity: z.union([z.number(), z.string()]),
+  unit_price_cents: CentsSchema,
+  tax_rate_id: UuidSchema.nullable(),
+  discount_percent: z.union([z.number(), z.string()]),
+  position: z.number().int(),
+});
+export type ProjectLineItem = z.infer<typeof ProjectLineItemSchema>;
+
+export const CreateProjectLineItemRequestSchema = z.object({
+  item_id: UuidSchema.nullable().optional(),
+  source_quote_line_item_id: UuidSchema.nullable().optional(),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  quantity: z.union([z.number().nonnegative(), z.string().regex(/^\d+(\.\d+)?$/)])
+    .default(0),
+  unit_price_cents: CentsSchema.default(0),
+  tax_rate_id: UuidSchema.nullable().optional(),
+  discount_percent: z.union([
+    z.number().min(0).max(100),
+    z.string().regex(/^\d+(\.\d+)?$/),
+  ]).default(0),
+  position: z.number().int().optional(),
+});
+export type CreateProjectLineItemRequest = z.infer<
+  typeof CreateProjectLineItemRequestSchema
+>;
+
+export const UpdateProjectLineItemRequestSchema =
+  CreateProjectLineItemRequestSchema.partial();
+export type UpdateProjectLineItemRequest = z.infer<
+  typeof UpdateProjectLineItemRequestSchema
+>;
+
+// ---------------------------------------------------------------------------
+// convert_project_to_invoice response (shipped in migration 0045). The
+// projects-api handler returns the new invoice id so the SPA can route the
+// operator straight to the draft invoice.
+// ---------------------------------------------------------------------------
+
+export const ConvertProjectToInvoiceResponseSchema = z.object({
+  invoice_id: UuidSchema,
+});
+export type ConvertProjectToInvoiceResponse = z.infer<
+  typeof ConvertProjectToInvoiceResponseSchema
+>;

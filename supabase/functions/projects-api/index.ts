@@ -13,6 +13,7 @@ import { requireCaller } from '../_shared/tenant.ts';
 import {
   CreateProjectRequestSchema, TransitionRequestSchema,
   ReorderPhasesRequestSchema, ProjectStateSchema, ProjectPhaseStateSchema,
+  CreateProjectLineItemRequestSchema, UpdateProjectLineItemRequestSchema,
 } from '../_shared/types/sales.ts';
 import {
   PROJECT_FSM, PROJECT_PHASE_FSM, canTransition,
@@ -324,6 +325,148 @@ const reorderPhases = async (ctx: RouteCtx) => {
   );
 };
 
+// --- project line items (shipped in migration 0044) ---
+
+const listLineItems = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'projects.line_item.read');
+  const client = admin();
+  const { data: parent } = await client
+    .from('projects').select('id')
+    .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
+  if (!parent) throw new ApiError('NOT_FOUND', 404);
+  const { data, error } = await client
+    .from('project_line_items').select('*')
+    .eq('project_id', ctx.params.id)
+    .eq('org_id', caller.orgId)
+    .order('position', { ascending: true });
+  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  return ok({ items: data ?? [] });
+};
+
+const createLineItem = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'projects.line_item.create');
+  const body = await parseBody(ctx.req, CreateProjectLineItemRequestSchema);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/projects/:id/line-items', body,
+    async () => {
+      const client = admin();
+      const { data: parent } = await client
+        .from('projects').select('id')
+        .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
+      if (!parent) throw new ApiError('NOT_FOUND', 404);
+
+      let position = body.position;
+      if (position === undefined) {
+        const { data: maxRow } = await client
+          .from('project_line_items').select('position')
+          .eq('project_id', ctx.params.id)
+          .order('position', { ascending: false }).limit(1).maybeSingle();
+        position = ((maxRow?.position as number) ?? -1) + 1;
+      }
+
+      const insert = {
+        org_id: caller.orgId,
+        project_id: ctx.params.id,
+        item_id: body.item_id ?? null,
+        source_quote_line_item_id: body.source_quote_line_item_id ?? null,
+        name: body.name,
+        description: body.description ?? null,
+        quantity: body.quantity,
+        unit_price_cents: body.unit_price_cents,
+        tax_rate_id: body.tax_rate_id ?? null,
+        discount_percent: body.discount_percent,
+        position,
+        created_by: caller.userId,
+        updated_by: caller.userId,
+      };
+      const { data, error } = await client
+        .from('project_line_items').insert(insert).select('*').maybeSingle();
+      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      return created(data);
+    },
+  );
+};
+
+const updateLineItem = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'projects.line_item.update');
+  const body = await parseBody(ctx.req, UpdateProjectLineItemRequestSchema);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/projects/:id/line-items/:lineId', body,
+    async () => {
+      const client = admin();
+      const { data: parent } = await client
+        .from('projects').select('id')
+        .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
+      if (!parent) throw new ApiError('NOT_FOUND', 404);
+      const { data, error } = await client
+        .from('project_line_items')
+        .update({ ...body, updated_by: caller.userId })
+        .eq('id', ctx.params.lineId)
+        .eq('project_id', ctx.params.id)
+        .eq('org_id', caller.orgId)
+        .select('*').maybeSingle();
+      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (!data) throw new ApiError('NOT_FOUND', 404);
+      return ok(data);
+    },
+  );
+};
+
+const deleteLineItem = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'projects.line_item.delete');
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/projects/:id/line-items/:lineId-delete', null,
+    async () => {
+      const client = admin();
+      const { data: parent } = await client
+        .from('projects').select('id')
+        .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
+      if (!parent) throw new ApiError('NOT_FOUND', 404);
+      const { error } = await client
+        .from('project_line_items').delete()
+        .eq('id', ctx.params.lineId)
+        .eq('project_id', ctx.params.id)
+        .eq('org_id', caller.orgId);
+      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      return ok({ id: ctx.params.lineId, deleted: true });
+    },
+  );
+};
+
+// --- convert project to invoice (shipped in migration 0045) ---
+//
+// p_caller_org_id closes the cross-tenant gate at the RPC boundary, same
+// pattern as convert_quote_to_project. NOT_FOUND on cross-tenant /
+// missing; STATE_CONFLICT on a project not in ready_to_ship / completed.
+
+const convertToInvoice = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'projects.convert_to_invoice');
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/projects/:id/convert-to-invoice', {},
+    async () => {
+      const client = admin();
+      const { data, error } = await client.rpc('convert_project_to_invoice', {
+        p_project_id: ctx.params.id,
+        p_caller_org_id: caller.orgId,
+        p_actor: caller.userId,
+      });
+      if (error) {
+        if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+        if (/STATE_CONFLICT/.test(error.message)) {
+          throw new ApiError('STATE_CONFLICT', 409, error.message);
+        }
+        throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      }
+      return created({ invoice_id: data });
+    },
+  );
+};
+
 // silence unused
 void ProjectStateSchema;
 void ProjectPhaseStateSchema;
@@ -335,6 +478,13 @@ const ROUTES: Route[] = [
   { method: 'PATCH',  path: '/projects/:id',                            handler: updateProject },
   { method: 'DELETE', path: '/projects/:id',                            handler: deleteProject },
   { method: 'POST',   path: '/projects/:id/transition',                 handler: transitionProject },
+
+  { method: 'POST',   path: '/projects/:id/convert-to-invoice',         handler: convertToInvoice },
+
+  { method: 'GET',    path: '/projects/:id/line-items',                 handler: listLineItems },
+  { method: 'POST',   path: '/projects/:id/line-items',                 handler: createLineItem },
+  { method: 'PATCH',  path: '/projects/:id/line-items/:lineId',         handler: updateLineItem },
+  { method: 'DELETE', path: '/projects/:id/line-items/:lineId',         handler: deleteLineItem },
 
   { method: 'POST',   path: '/projects/:id/phases',                     handler: createPhase },
   { method: 'PATCH',  path: '/projects/:id/phases/:phaseId',            handler: updatePhase },

@@ -1,8 +1,15 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, type FormEvent } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 
-import { useCreateExpense } from '@/lib/hooks/useExpenses';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/TextInput';
+import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
+import {
+  useCreateExpense,
+  useExpenseCategoriesList,
+} from '@/lib/hooks/useExpenses';
+import type { Expense } from '@/lib/types/vendors_inventory_ops';
 
 const FormSchema = z.object({
   expense_date: z.string().min(1),
@@ -13,16 +20,42 @@ const FormSchema = z.object({
   reimbursable: z.boolean(),
 });
 
+/**
+ * ExpenseCreatePage. Closes G-EXP-FORM-01. Wires the three FK pivots the
+ * expenses table already supports per ExpenseSchema: expense_category_id
+ * (via the category select), vendor_id (via VendorPicker), and project_id
+ * (added by migration 0046; sent at top level since the side-car schema
+ * does not enumerate it yet but the column exists in Postgres). All three
+ * pickers are optional so a quick out-of-pocket expense entry stays one
+ * field minimum (date + amount).
+ *
+ * Reads ?vendor_id= and ?project_id= from the query string so vendor and
+ * project detail pages can prefill the new-expense form via deep link.
+ */
 export function ExpenseCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const create = useCreateExpense();
+  const categories = useExpenseCategoriesList();
   const today = new Date().toISOString().slice(0, 10);
+
+  const prefilledVendorId = searchParams.get('vendor_id');
+  const prefilledProjectId = searchParams.get('project_id');
+
   const [date, setDate] = useState(today);
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState('USD');
   const [reimbursable, setReimbursable] = useState(false);
+  const [categoryId, setCategoryId] = useState('');
+  const [vendorId, setVendorId] = useState<string | null>(prefilledVendorId);
+  const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const activeCategories = useMemo(
+    () => (categories.data ?? []).filter((c) => c.is_active),
+    [categories.data],
+  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,41 +73,111 @@ export function ExpenseCreatePage() {
       setErrors(fe);
       return;
     }
-    const out = await create.mutateAsync({
+    setErrors({});
+    const body: Partial<Expense> & { project_id?: string } = {
       ...parsed.data,
       description: parsed.data.description ?? null,
-    });
+    };
+    if (categoryId) body.expense_category_id = categoryId;
+    if (vendorId) body.vendor_id = vendorId;
+    if (projectId) body.project_id = projectId;
+    const out = await create.mutateAsync(body);
     navigate(`/3pl-operations/expenses/${out.id}`);
   }
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW EXPENSE</h1>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
-        <label className="flex flex-col gap-1">
-          <span className="text-ink-dim">Date</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-line bg-bg-2 px-3 py-2 text-ink" />
-          {errors.expense_date ? <span className="text-accent text-xs">{errors.expense_date}</span> : null}
+      <h1 className="text-4xl font-display tracking-wide text-ink">
+        NEW EXPENSE
+      </h1>
+      <form
+        onSubmit={onSubmit}
+        className="flex flex-col gap-4 font-sans text-sm"
+      >
+        <TextInput
+          label="Date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          {...(errors.expense_date ? { error: errors.expense_date } : {})}
+        />
+        <TextInput
+          label="Description"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+        />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Category (optional)
+          </span>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            disabled={categories.isLoading}
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+          >
+            <option value="">
+              {categories.isLoading ? 'Loading.' : 'Select a category.'}
+            </option>
+            {activeCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} {'·'} {c.display_name}
+              </option>
+            ))}
+          </select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-ink-dim">Description</span>
-          <input value={desc} onChange={(e) => setDesc(e.target.value)} className="border border-line bg-bg-2 px-3 py-2 text-ink" />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-ink-dim">Amount (cents)</span>
-          <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="border border-line bg-bg-2 px-3 py-2 text-ink" />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-ink-dim">Currency</span>
-          <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} className="border border-line bg-bg-2 px-3 py-2 text-ink" />
-        </label>
+        <VendorPicker
+          value={vendorId}
+          onChange={setVendorId}
+          label="Vendor (optional)"
+        />
+        <ProjectPicker
+          value={projectId}
+          onChange={setProjectId}
+          label="Project (optional)"
+        />
+        <TextInput
+          label="Amount (cents)"
+          type="number"
+          value={String(amount)}
+          onChange={(e) => setAmount(Number(e.target.value))}
+          inputMode="numeric"
+        />
+        <TextInput
+          label="Currency"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+          maxLength={3}
+          required
+        />
         <label className="flex gap-2 items-center">
-          <input type="checkbox" checked={reimbursable} onChange={(e) => setReimbursable(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={reimbursable}
+            onChange={(e) => setReimbursable(e.target.checked)}
+          />
           <span className="text-ink">Reimbursable</span>
         </label>
-        <button type="submit" disabled={create.isPending} className="self-start px-4 py-2 bg-accent text-on-primary">
-          {create.isPending ? 'Saving.' : 'Create'}
-        </button>
+
+        {create.error && (
+          <p className="text-accent font-sans text-sm">
+            {(create.error as Error).message}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? 'Saving.' : 'Save expense'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/3pl-operations/expenses')}
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </section>
   );

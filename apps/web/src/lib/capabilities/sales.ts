@@ -68,6 +68,11 @@ export const SALES_CAPABILITIES = [
   'projects.phase.write',
   'projects.phase.transition',
   'projects.phase.reorder',
+  'projects.line_item.create',
+  'projects.line_item.read',
+  'projects.line_item.update',
+  'projects.line_item.delete',
+  'projects.convert_to_invoice',
 ] as const;
 
 export type SalesCapability = (typeof SALES_CAPABILITIES)[number];
@@ -100,6 +105,9 @@ const SALES_ROLE_CAPS: ReadonlyArray<SalesCapability> = [
   'projects.transition',
   'projects.phase.read', 'projects.phase.write',
   'projects.phase.transition', 'projects.phase.reorder',
+  'projects.line_item.create', 'projects.line_item.read',
+  'projects.line_item.update', 'projects.line_item.delete',
+  'projects.convert_to_invoice',
 ];
 
 const OPS_CAPS: ReadonlyArray<SalesCapability> = [
@@ -111,6 +119,7 @@ const OPS_CAPS: ReadonlyArray<SalesCapability> = [
   'projects.transition',
   'projects.phase.read', 'projects.phase.write',
   'projects.phase.transition', 'projects.phase.reorder',
+  'projects.line_item.read', 'projects.line_item.update',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<SalesCapability> = [
@@ -131,6 +140,8 @@ const ACCOUNTING_CAPS: ReadonlyArray<SalesCapability> = [
   'quotes.version.read', 'quotes.pdf.read',
   'projects.project.read', 'projects.transition',
   'projects.phase.read', 'projects.phase.transition',
+  'projects.line_item.read',
+  'projects.convert_to_invoice',
 ];
 
 const VIEWER_CAPS: ReadonlyArray<SalesCapability> = [
@@ -142,6 +153,7 @@ const VIEWER_CAPS: ReadonlyArray<SalesCapability> = [
   'quotes.quote.read', 'quotes.version.read', 'quotes.pdf.read',
   'quotes.template.read', 'quotes.approval.read',
   'projects.project.read', 'projects.phase.read',
+  'projects.line_item.read',
 ];
 
 const EXTERNAL_CAPS: ReadonlyArray<SalesCapability> = [

@@ -1,9 +1,14 @@
-import { useParams } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/TextInput';
 import {
   useVendorBill, useVendorBillPayments, useTransitionVendorBill,
+  useCreateVendorBillPayment,
 } from '@/lib/hooks/useVendorBills';
+import { useVendor } from '@/lib/hooks/useVendors';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { VENDOR_BILL_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { VendorBillStatus } from '@/lib/types/vendors_inventory_ops';
@@ -13,52 +18,189 @@ export function VendorBillDetailPage() {
   const bill = useVendorBill(id);
   const payments = useVendorBillPayments(id);
   const transition = useTransitionVendorBill(id ?? '');
+  const createPayment = useCreateVendorBillPayment(id ?? '');
   const caps = useVioCapabilities();
 
+  // G-VB-DETAIL-01: resolve vendor display_name + link.
+  const vendor = useVendor(bill.data?.vendor_id);
+
+  // G-VB-DETAIL-02: record-payment form state.
+  const [paymentDate, setPaymentDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [paymentAmountCents, setPaymentAmountCents] = useState('0');
+  const [paymentCurrency, setPaymentCurrency] = useState('USD');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+
   if (bill.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
-  if (bill.error || !bill.data) return <p className="px-8 py-12 text-accent">Bill not found.</p>;
+  if (bill.error || !bill.data) {
+    return <p className="px-8 py-12 text-accent">Bill not found.</p>;
+  }
   const d = bill.data;
-  const next = VENDOR_BILL_FSM.transitions.filter((t) => t.from === d.status).map((t) => t.to);
+  const next = VENDOR_BILL_FSM.transitions
+    .filter((t) => t.from === d.status)
+    .map((t) => t.to);
+
+  async function onRecordPayment(e: FormEvent) {
+    e.preventDefault();
+    await createPayment.mutateAsync({
+      payment_date: paymentDate,
+      amount_cents: paymentAmountCents,
+      currency_code: paymentCurrency,
+      method: paymentMethod || null,
+      reference: paymentReference || null,
+      notes: paymentNotes || null,
+    });
+    setPaymentAmountCents('0');
+    setPaymentMethod('');
+    setPaymentReference('');
+    setPaymentNotes('');
+  }
+
+  const vendorLabel = vendor.data
+    ? vendor.data.display_name
+    : vendor.isLoading
+      ? 'Loading.'
+      : 'Unknown vendor';
+
   return (
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">BILL {d.bill_number ?? d.id.slice(0, 8)}</h1>
-        <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>
+        <h1 className="text-4xl font-display tracking-wide text-ink">
+          BILL {d.bill_number ?? d.id.slice(0, 8)}
+        </h1>
+        <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
+          {d.status}
+        </span>
       </header>
       {caps.can('vendor_bills.vendor_bill.transition') && next.length > 0 ? (
         <div className="flex gap-2">
           {next.map((to) => (
-            <button key={to} onClick={() => transition.mutate(to as VendorBillStatus)} disabled={transition.isPending}
-              className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2">
+            <button
+              key={to}
+              onClick={() => transition.mutate(to as VendorBillStatus)}
+              disabled={transition.isPending}
+              className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
+            >
               {to.replace('_', ' ')}
             </button>
           ))}
         </div>
       ) : null}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Vendor</dt><dd className="text-ink">{d.vendor_id}</dd>
-        <dt className="text-ink-dim">Bill date</dt><dd className="text-ink">{d.bill_date}</dd>
-        <dt className="text-ink-dim">Due</dt><dd className="text-ink">{d.due_date ?? ''}</dd>
-        <dt className="text-ink-dim">Total</dt><dd className="text-ink">{String(d.total_cents)}</dd>
-        <dt className="text-ink-dim">Paid</dt><dd className="text-ink">{String(d.paid_cents)}</dd>
-        <dt className="text-ink-dim">Balance</dt><dd className="text-ink">{String(d.balance_cents)}</dd>
+        <dt className="text-ink-dim">Vendor</dt>
+        <dd className="text-ink">
+          <Link
+            to={`/3pl-operations/vendors/${d.vendor_id}`}
+            className="text-accent hover:underline"
+          >
+            {vendorLabel}
+          </Link>
+        </dd>
+        <dt className="text-ink-dim">Bill date</dt>
+        <dd className="text-ink">{d.bill_date}</dd>
+        <dt className="text-ink-dim">Due</dt>
+        <dd className="text-ink">{d.due_date ?? ''}</dd>
+        <dt className="text-ink-dim">Total</dt>
+        <dd className="text-ink">{String(d.total_cents)}</dd>
+        <dt className="text-ink-dim">Paid</dt>
+        <dd className="text-ink">{String(d.paid_cents)}</dd>
+        <dt className="text-ink-dim">Balance</dt>
+        <dd className="text-ink">{String(d.balance_cents)}</dd>
       </dl>
+
       <h2 className="text-2xl font-display tracking-wide text-ink">PAYMENTS</h2>
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
-          <tr><th className="px-4 py-2">Date</th><th className="px-4 py-2">Amount</th><th className="px-4 py-2">Method</th><th className="px-4 py-2">Reference</th></tr>
+          <tr>
+            <th className="px-4 py-2">Date</th>
+            <th className="px-4 py-2">Amount</th>
+            <th className="px-4 py-2">Method</th>
+            <th className="px-4 py-2">Reference</th>
+          </tr>
         </thead>
         <tbody>
-          {(payments.data ?? []).map((p) => (
-            <tr key={p.id} className="border-t border-line">
-              <td className="px-4 py-2 text-ink">{p.payment_date}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(p.amount_cents)}</td>
-              <td className="px-4 py-2 text-ink-dim">{p.method ?? ''}</td>
-              <td className="px-4 py-2 text-ink-dim">{p.reference ?? ''}</td>
+          {(payments.data ?? []).length === 0 ? (
+            <tr>
+              <td colSpan={4} className="px-4 py-3 text-ink-dim text-center">
+                No payments recorded.
+              </td>
             </tr>
-          ))}
+          ) : (
+            (payments.data ?? []).map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-4 py-2 text-ink">{p.payment_date}</td>
+                <td className="px-4 py-2 text-ink-dim">{String(p.amount_cents)}</td>
+                <td className="px-4 py-2 text-ink-dim">{p.method ?? ''}</td>
+                <td className="px-4 py-2 text-ink-dim">{p.reference ?? ''}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
+
+      {caps.can('vendor_bills.payment.write') ? (
+        <form
+          onSubmit={onRecordPayment}
+          className="flex flex-col gap-3 border border-line p-4"
+        >
+          <h3 className="font-display tracking-wider text-ink">RECORD PAYMENT</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <TextInput
+              label="Payment date"
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              required
+            />
+            <TextInput
+              label="Amount (cents)"
+              value={paymentAmountCents}
+              onChange={(e) => setPaymentAmountCents(e.target.value)}
+              inputMode="numeric"
+              required
+            />
+            <TextInput
+              label="Currency"
+              value={paymentCurrency}
+              onChange={(e) => setPaymentCurrency(e.target.value.toUpperCase())}
+              maxLength={3}
+            />
+            <TextInput
+              label="Method"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              placeholder="ach, wire, card, check."
+            />
+            <TextInput
+              label="Reference"
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+            />
+          </div>
+          <label className="flex flex-col gap-2">
+            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+              Notes
+            </span>
+            <textarea
+              value={paymentNotes}
+              onChange={(e) => setPaymentNotes(e.target.value)}
+              rows={2}
+              className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
+            />
+          </label>
+          {createPayment.error && (
+            <p className="text-accent font-sans text-sm">
+              {(createPayment.error as Error).message}
+            </p>
+          )}
+          <Button type="submit" disabled={createPayment.isPending}>
+            {createPayment.isPending ? 'Saving.' : 'Record payment'}
+          </Button>
+        </form>
+      ) : null}
 
       <section className="mt-6">
         <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
