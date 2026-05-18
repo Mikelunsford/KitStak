@@ -4,11 +4,11 @@ Last updated: 2026-05-18
 
 ## Current state
 
-**Wave 5 probes shipped on branch `claude/phase-5-probes` (PR pending).** Phase 4 (marketing site) skipped at operator direction (built in parallel outside this session). Phase 5 lands the real RLS probe matrix (48 cross-tenant tests via ephemeral fixtures), hardens the smoke spec to real Playwright actions, and adds `docs/operations/probes.md` runbook. Specs `test.skip` until staging Supabase secrets land in the GH `staging` environment (operator pulling keys from `supabase branches get staging` per D-009). Sentry and analytics deferred per operator. Bundle holds at 25.94 kB gzip; all six gates green.
+**Wave 5 probes closed at 48 / 48 green on staging (PR #9 + PR #10 merged · commits `32d7acd` and `ebe8f5d`).** Phase 4 (marketing site) skipped at operator direction (built in parallel outside this session). Phase 5 shipped the 48-probe RLS matrix; the matrix's first real run surfaced six constitutional violations which the same phase resolved via four hotfixes: Node 22 in the probe workflow (native WebSocket), staging branch rebase to apply 37 Wave 2 migrations, probe seed schema corrections, and the substantive 403→404 fixes (quotes-api / projects-api side-car capability shims, admin-console-api `verify_jwt = false`, and forward migration `0041` redefining `convert_quote_to_project` to take `p_caller_org_id` explicitly). Final probe run: 48 / 48 in 31s. Sentry and analytics remain deferred per operator.
 
 **Wave 3 integration shipped (PR #8 merged · commit `209c106`).** AuditTimeline mounted on every state-having detail page (13 total); Sidebar live `useOrgFlags()`; global `ErrorBoundary`; NotFoundPage dual-import Vite warning fixed; `apps/web/playwright.config.ts` plus smoke + rls-probe scaffolds.
 
-**Wave 2 domain ports shipped (PR #4 merged · commit `e1dd9ba`).** Pillar 1 (3PL Operations) is lit at the schema, API, and SPA layers. Pillars 2-3 (Manufacturing, Co-Pack and Ecom) are plumbed (schemas plus edge function bundles, feature-flag-gated off). All 37 forward-only migrations are applied at the remote (Postgres 17.6.1.121, GA channel, region `us-west-1`).
+**Wave 2 domain ports shipped (PR #4 merged · commit `e1dd9ba`).** Pillar 1 (3PL Operations) is lit at the schema, API, and SPA layers. Pillars 2-3 (Manufacturing, Co-Pack and Ecom) are plumbed (schemas plus edge function bundles, feature-flag-gated off). 41 forward-only migrations now applied at the remote (Postgres 17.6.1.121, GA channel, region `us-west-1`).
 
 ### Migrations applied (40 slots used, 0005 and 0006 intentionally empty)
 
@@ -71,9 +71,26 @@ Both workflows now pin `supabase/setup-cli@v1` with `version: latest`. `deploy-f
 
 Sentry SPA + edge-function capture and analytics provider deferred per operator decision. Both remain follow-ups for a later wave.
 
-## Phase 5 operator handoff
+## Phase 5 close (hotfixes that landed during the phase)
 
-The probe spec is wired; the workflow `.github/workflows/nightly-rls-probe.yml` was already in place from Wave 1. To activate the first green nightly run, three GH Actions secrets need to land under a `staging` environment (sourced from `supabase branches get staging` per D-009): `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`. The orchestrator wires these once the operator confirms the values; the operator never needs to expose them in chat.
+The probe matrix's first real run surfaced six constitutional violations the matrix was designed to catch. All resolved in the same phase, on top of three infrastructure hotfixes to unblock the probe runtime:
+
+1. **Probe workflow on Node 22** (`9a0eaf8`). `@supabase/realtime-js@2.105+` requires native WebSocket; Node 20 lacks it. Bumped just `nightly-rls-probe.yml`'s `actions/setup-node` to Node 22. Other workflows stay on Node 20.
+2. **Staging branch rebase** (no code change). The Supabase preview branch `staging` was created at migration 0003 and missed all 37 Wave 2 migrations. Rebased via the Supabase Management API; the rebase also redeploys functions from main onto staging.
+3. **Probe seed schema corrections** (`fe913e6`). The probe's fixture bootstrap used several wrong column names (`name` → `display_name` on warehouses; `given_name` / `family_name` → `first_name` / `last_name` on contacts; `state` → `status` on leads / invoices / credit notes / purchase_orders / vendor_bills / expenses / journal_entries; `title` → `display_name` and `state` → `stage` on opportunities; `posted_on` → `entry_date` on journal_entries); missing required document numbers and period_year / period_month on journal entries; `amount_cents 0` on payments (CHECK > 0).
+4. **Constitutional 403→404 / 401→404 fixes** (`ae02e8c`). Two patterns:
+   - Quotes-api and projects-api imported `requireCap` from the singular handler-helpers, which only knows the 14 `org.*` capabilities. Every `quotes.*` / `projects.*` cap check returned `FORBIDDEN`. Fix: per-bundle `_helpers.ts` with `requireSalesCap` wrapping the side-car `SALES_CAPABILITIES_BY_ROLE`, mirroring the invoicing-api pattern. The singular byte-mirrored `_shared/capabilities.ts` was not touched.
+   - Admin-console-api had `verify_jwt = true` so the Supabase gateway returned 401 to anonymous callers before the handler could throw its 404. Fix: `[functions.admin-console-api] verify_jwt = false` in `config.toml` (handler already correctly returns 404 for anonymous).
+5. **Forward migration `0041`** (`ebe8f5d`). The probe still saw 409 STATE_CONFLICT cross-tenant on `quotes-api convert-to-project`. Root cause: `convert_quote_to_project` checked `v_org_id <> public.current_org_id()`, but the handler invokes the RPC via the service-role client, which has no JWT claim. `current_org_id()` returned NULL; the comparison evaluated to NULL (treated as false); the cross-tenant guard never fired; the next check (`state != 'approved'`) won. Fix: drop the 3-arg RPC, recreate as 4-arg taking `p_caller_org_id`, surface mismatch as `NOT_FOUND`. Handler passes `caller.orgId`. Forward-only; idempotent.
+
+**Final probe run on commit `ebe8f5d`**: 48 / 48 passed in 31s.
+
+## Phase 5 open follow-ups
+
+- **F-Wave5-TEST-02**: dry-run smoke selectors against live staging once Phase 6 starts exercising the full SPA workflow.
+- **F-Wave5-INFRA-01**: `migrate.yml` failed against the production-db pooler with "Tenant or user not found" while applying 0041. The Supabase GH integration's auto-apply unblocked this specific deploy (0041 is in the prod migration table). The pooler connection string in `migrate.yml` and / or the `SUPABASE_DB_PASSWORD` / `SUPABASE_PROJECT_REF` secrets need a check-in before the workflow can be relied on for future schema changes. The orchestrator updated `SUPABASE_DB_PASSWORD` from the keys file's rotated value during the phase; the failure may be a pooler-username format issue (`postgres.<ref>` user encoding).
+- **F-Wave3-OBS-01**: Sentry SPA + edge-function capture, blocked on `VITE_SENTRY_DSN`.
+- **F-Wave2-AGENT-A-05** (carried): operator-gated merge of domain side-car capabilities into the master byte-mirrored `_shared/capabilities.ts`. The per-bundle shim pattern now lives in invoicing-api, quotes-api, and projects-api as the supported interim.
 
 ## Wave 6 scope (next phase, awaiting operator go)
 
