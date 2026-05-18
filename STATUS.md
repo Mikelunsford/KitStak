@@ -133,6 +133,11 @@ Tracked as `F-Wave6-FLOW-01`. Any small gaps surfaced during the exercise (missi
 - `F-Wave6-CORS-01`: consolidate the two CORS allow-headers lists by having `responses.ts` import from `cors.ts`. Deferred to Phase 7 polish.
 - `F-Wave6-NAV-02`: align other pillar child paths when those pillars light up.
 
+## Phase 7 prep in flight
+
+- **F-Wave6-CORS-01 patched** (subject to PR merge). `supabase/functions/_shared/responses.ts` now imports `corsHeaders()` from `./cors.ts` and uses it inside `withCommonHeaders` and `noContent`. The private `CORS_HEADERS` constant has been removed. One source of truth for CORS allow-headers; the drift trap that surfaced in Wave 6 hotfix 2 (missing `apikey`) cannot recur via this route.
+- **`seed_org_settings` backfill proposal authored** at `03-workspace/journal/phase-7-prep-seed-backfill-proposal.md`. Operator decision pending between Option A (data-shaped backfill in slot 0042 plus a follow-up `provision_organization` patch), Option B (DDL-only `provision_organization` patch plus a manual per-org seed by the operator), or A + B together. Migration slot 0042 reserved; no migration ships until the operator picks.
+
 (Carried open follow-ups from prior waves: `F-Wave5-TEST-02`, `F-Wave5-CO-01`, `F-Wave5-CO-02`, `F-Wave2-AGENT-A-05`, `F-Wave2-CO-01`, `F-Wave2-DNDKIT-01`.)
 
 ## Open risks
