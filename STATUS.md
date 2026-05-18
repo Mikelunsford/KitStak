@@ -4,6 +4,8 @@ Last updated: 2026-05-18
 
 ## Current state
 
+**Wave 3 integration shipped on branch `claude/funny-lamport-360f5c` (PR pending).** Single-agent integration pass on top of Wave 2 domain ports. AuditTimeline is mounted on every state-having detail page (13 total); Sidebar moved off the Wave-1 `useOrgFlagsStub` to a live `useOrgFlags()` wrapping `useFlags`; a global `ErrorBoundary` wraps the App tree; the NotFoundPage dual-import Vite warning is gone; and `apps/web/playwright.config.ts` plus a smoke / RLS scaffold land. Specs `test.skip` until Phase 5 wires staging Supabase secrets. Bundle holds at 25.94 kB gzip against the 40 kB cap. Gate matrix all green.
+
 **Wave 2 domain ports shipped (PR #4 merged · commit `e1dd9ba`).** Pillar 1 (3PL Operations) is lit at the schema, API, and SPA layers. Pillars 2-3 (Manufacturing, Co-Pack and Ecom) are plumbed (schemas plus edge function bundles, feature-flag-gated off). All 37 forward-only migrations are applied at the remote (Postgres 17.6.1.121, GA channel, region `us-west-1`).
 
 ### Migrations applied (40 slots used, 0005 and 0006 intentionally empty)
@@ -49,9 +51,19 @@ Two GitHub Actions failures after PR #4 merge required a hotfix:
 
 Both workflows now pin `supabase/setup-cli@v1` with `version: latest`. `deploy-functions.yml` BUNDLES array extended to all 23 functions (Wave 1's 2 plus Wave 2's 21). `config.toml` adds `[functions.tenants-api] verify_jwt = false` so the public host-resolver route serves pre-auth (closes `F-Wave2-AGENT-A-06`).
 
-## Wave 3 scope
+## Wave 3 deliverables (shipped this phase)
 
-Integration. Wire BrandingProvider to load from `/tenants-api/branding` at app boot. Wire AppShell layout. Wire AuditTimeline into every detail page that has state transitions. Wire global error boundary, 404 page, FeatureUnavailable page. Optional Sentry SPA init if DSN present. Drop `apps/web/playwright.config.ts` and the smoke spec, then run the full E2E flow (signup, signin, switch org, create customer, create quote, send, accept, convert to project, send invoice, post payment, run receiving order, ship shipment, view audit log).
+- Sidebar pillar gates wired to live `useOrgFlags()` (closes `F-Wave2-API-03`).
+- Global `ErrorBoundary` mounted in `main.tsx` below `AuthProvider`.
+- NotFoundPage Vite static-plus-dynamic chunk warning eliminated by wildcard `Navigate to="/404"` (closes `F-Wave2-BUILD-01`).
+- `AuditTimeline` mounted on every state-having detail page (quotes, projects, purchase orders, vendor bills, expenses, receiving orders, production runs, shipments, leads, opportunities, in addition to the three from Wave 2: invoices, credit notes, journal entries). Heading style normalized across all 13.
+- `apps/web/playwright.config.ts` plus `apps/web/playwright/{smoke,rls-probe}.spec.ts` scaffolds land. `test:e2e` and `test:rls` scripts point at the new config. Specs `test.skip` until Phase 5 wires staging Supabase secrets.
+
+`BrandingProvider` and `Topbar.useMe` gating already shipped in Wave 2 (both call their hook with `enabled: isAuthed`); no changes needed this phase. Sentry SPA init deferred (no `VITE_SENTRY_DSN` in the operator's keys file).
+
+## Wave 4 scope (next phase, awaiting operator go)
+
+Marketing site at `www.kitstak.com`. Operator decision needed before dispatch: sibling repo `kitstak/marketing` versus routed static path under the existing Vercel project (`project-8d8cx`). Pillar pages, pricing matching PRD, tagline "Built to Ship" on every page.
 
 ## Open risks
 

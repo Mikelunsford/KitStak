@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useReceivingOrder, useTransitionReceivingOrder } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { RECEIVING_ORDER_FSM } from '@/lib/workflow/vendors_inventory_ops';
@@ -33,6 +34,11 @@ export function ReceivingOrderDetailPage() {
         <dt className="text-ink-dim">Received</dt><dd className="text-ink">{d.received_date ?? ''}</dd>
         <dt className="text-ink-dim">Reference</dt><dd className="text-ink">{d.reference ?? ''}</dd>
       </dl>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="receiving_order" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

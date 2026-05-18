@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
+import { ErrorBoundary } from './components/shell/ErrorBoundary';
 import './styles.css';
 
 // Per 00-canon/01-architecture.md "State management": staleTime 30_000,
@@ -28,7 +29,9 @@ ReactDOM.createRoot(rootEl).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import {
   usePurchaseOrder, usePurchaseOrderLines, useTransitionPurchaseOrder,
 } from '@/lib/hooks/usePurchaseOrders';
@@ -83,6 +84,11 @@ export function PODetailPage() {
           ))}
         </tbody>
       </table>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="purchase_order" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

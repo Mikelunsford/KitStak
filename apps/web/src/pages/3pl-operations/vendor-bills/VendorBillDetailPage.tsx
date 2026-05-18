@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 
+import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import {
   useVendorBill, useVendorBillPayments, useTransitionVendorBill,
 } from '@/lib/hooks/useVendorBills';
@@ -58,6 +59,11 @@ export function VendorBillDetailPage() {
           ))}
         </tbody>
       </table>
+
+      <section className="mt-6">
+        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+        <AuditTimeline entityType="vendor_bill" entityId={id ?? null} />
+      </section>
     </section>
   );
 }

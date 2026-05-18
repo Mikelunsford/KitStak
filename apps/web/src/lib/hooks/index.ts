@@ -18,6 +18,7 @@ export {
   useResetNumbering,
 } from './useSettings';
 export { useFlags, useUpsertFlag } from './useFlags';
+export { useOrgFlags } from './useOrgFlags';
 
 // CRM (Wave 2, Agent B)
 export { useCustomers } from './useCustomers';
