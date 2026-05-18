@@ -1,16 +1,39 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  Boxes,
+  ArrowLeftRight,
   BarChart3,
+  BookOpen,
+  Boxes,
+  Briefcase,
+  Building2,
+  CalendarCheck,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
+  CreditCard,
+  DollarSign,
+  Download,
   Factory,
+  FileMinus,
+  FileSpreadsheet,
+  FileText,
+  Flag,
+  Hash,
   Home,
+  Package,
   PackageOpen,
+  Palette,
+  Receipt,
+  Search,
+  Settings,
+  Target,
+  TrendingUp,
   Truck,
+  Upload,
   Users,
   Wallet,
+  Warehouse,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -18,32 +41,113 @@ import {
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 
 /**
- * Sidebar. five-pillar IA in order: 3PL Operations, Manufacturing,
- * Co-Pack and Ecom, KitForce, KitCost. Each pillar shows its children
- * only when the matching `plugins.<pillar>` flag is on for the active
- * org. The bundle gate is driven by `useOrgFlags()` which reads the live
- * org_feature_flags table via settings-api.
+ * Sidebar. Navigation IA grouped into collapsible sections. Core sections
+ * (Workspace, Sales, Procurement, Inventory, Finance, Tools, Admin) are
+ * always rendered; admin and route-level guards still apply at the page
+ * boundary. Pillar sections (3PL Operations, Manufacturing, Co-Pack and
+ * Ecom, KitForce, KitCost) gate on `plugins.<pillar>` flags and render
+ * disabled when off for the active org.
  *
  * Below the `md:` breakpoint this renders as a slide-in drawer driven by
  * AppShell. At md and above it stays a fixed `w-56` rail.
  */
 
-interface PillarChild {
+interface NavChild {
   to: string;
   label: string;
   icon: LucideIcon;
 }
 
-interface Pillar {
+interface NavSection {
   key: string;
   label: string;
   icon: LucideIcon;
-  /** Feature-flag key from org_feature_flags. Bundle gate. */
-  flag: string;
-  children: PillarChild[];
+  /** Optional `org_feature_flags.flag_key`. When set, the section is
+   *  disabled (and children hidden) if the flag is off for the active org. */
+  flag?: string;
+  children: NavChild[];
 }
 
-const PILLARS: ReadonlyArray<Pillar> = [
+const CORE_SECTIONS: ReadonlyArray<NavSection> = [
+  {
+    key: 'workspace',
+    label: 'WORKSPACE',
+    icon: Users,
+    children: [
+      { to: '/crm/customers', label: 'Customers', icon: Users },
+      { to: '/crm/leads', label: 'Leads', icon: TrendingUp },
+      { to: '/crm/opportunities', label: 'Opportunities', icon: Target },
+    ],
+  },
+  {
+    key: 'sales',
+    label: 'SALES',
+    icon: FileText,
+    children: [
+      { to: '/3pl-operations/quotes', label: 'Quotes', icon: FileText },
+      { to: '/3pl-operations/projects', label: 'Projects', icon: Briefcase },
+      { to: '/invoicing/invoices', label: 'Invoices', icon: FileSpreadsheet },
+      { to: '/invoicing/payments', label: 'Payments', icon: DollarSign },
+      { to: '/invoicing/credit-notes', label: 'Credit notes', icon: FileMinus },
+    ],
+  },
+  {
+    key: 'procurement',
+    label: 'PROCUREMENT',
+    icon: Building2,
+    children: [
+      { to: '/3pl-operations/vendors', label: 'Vendors', icon: Building2 },
+      { to: '/3pl-operations/purchase-orders', label: 'Purchase orders', icon: ClipboardList },
+      { to: '/3pl-operations/vendor-bills', label: 'Vendor bills', icon: Receipt },
+      { to: '/3pl-operations/expenses', label: 'Expenses', icon: CreditCard },
+    ],
+  },
+  {
+    key: 'inventory',
+    label: 'INVENTORY',
+    icon: Package,
+    children: [
+      { to: '/3pl-operations/items', label: 'Items', icon: Package },
+      { to: '/3pl-operations/warehouses', label: 'Warehouses', icon: Warehouse },
+      { to: '/3pl-operations/stock/levels', label: 'Stock levels', icon: BarChart3 },
+      { to: '/3pl-operations/stock/movements', label: 'Stock movements', icon: ArrowLeftRight },
+    ],
+  },
+  {
+    key: 'finance',
+    label: 'FINANCE',
+    icon: Wallet,
+    flag: 'finance.journal_entries.enabled',
+    children: [
+      { to: '/finance/coa', label: 'Chart of accounts', icon: BookOpen },
+      { to: '/finance/journal-entries', label: 'Journal entries', icon: Wallet },
+      { to: '/finance/period-close', label: 'Period close', icon: CalendarCheck },
+    ],
+  },
+  {
+    key: 'tools',
+    label: 'TOOLS',
+    icon: Search,
+    children: [
+      { to: '/search', label: 'Search', icon: Search },
+      { to: '/imports', label: 'Imports', icon: Upload },
+      { to: '/exports', label: 'Exports', icon: Download },
+    ],
+  },
+  {
+    key: 'admin',
+    label: 'ADMIN',
+    icon: Settings,
+    children: [
+      { to: '/admin/settings', label: 'Settings', icon: Settings },
+      { to: '/admin/branding', label: 'Branding', icon: Palette },
+      { to: '/admin/flags', label: 'Feature flags', icon: Flag },
+      { to: '/admin/numbering', label: 'Numbering', icon: Hash },
+    ],
+  },
+];
+
+const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
   {
     key: 'three_pl',
     label: '3PL OPERATIONS',
@@ -51,6 +155,7 @@ const PILLARS: ReadonlyArray<Pillar> = [
     flag: 'plugins.three_pl',
     children: [
       { to: '/3pl-operations/receiving', label: 'Receiving', icon: PackageOpen },
+      { to: '/3pl-operations/production', label: 'Production runs', icon: Factory },
       { to: '/3pl-operations/shipments', label: 'Shipments', icon: Truck },
     ],
   },
@@ -92,6 +197,11 @@ const PILLARS: ReadonlyArray<Pillar> = [
   },
 ];
 
+const ALL_SECTIONS: ReadonlyArray<NavSection> = [
+  ...CORE_SECTIONS,
+  ...PILLAR_SECTIONS,
+];
+
 const STORAGE_KEY = 'kitstak.sidebar.openCategories.v1';
 
 function readPersistedOpen(): Set<string> {
@@ -116,11 +226,11 @@ function writePersistedOpen(open: Set<string>): void {
   }
 }
 
-function findActivePillar(pathname: string): string | null {
-  for (const pillar of PILLARS) {
-    for (const child of pillar.children) {
+function findActiveSection(pathname: string): string | null {
+  for (const section of ALL_SECTIONS) {
+    for (const child of section.children) {
       if (pathname === child.to || pathname.startsWith(`${child.to}/`)) {
-        return pillar.key;
+        return section.key;
       }
     }
   }
@@ -140,24 +250,24 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   const orgFlags = useOrgFlags();
   const flags = orgFlags.data;
   const { pathname } = useLocation();
-  const activePillar = useMemo(() => findActivePillar(pathname), [pathname]);
+  const activeSection = useMemo(() => findActiveSection(pathname), [pathname]);
 
   const [openCategories, setOpenCategories] = useState<Set<string>>(() => {
     const persisted = readPersistedOpen();
-    if (activePillar) persisted.add(activePillar);
+    if (activeSection) persisted.add(activeSection);
     return persisted;
   });
 
   useEffect(() => {
-    if (!activePillar) return;
+    if (!activeSection) return;
     setOpenCategories((prev) => {
-      if (prev.has(activePillar)) return prev;
+      if (prev.has(activeSection)) return prev;
       const next = new Set(prev);
-      next.add(activePillar);
+      next.add(activeSection);
       writePersistedOpen(next);
       return next;
     });
-  }, [activePillar]);
+  }, [activeSection]);
 
   const toggle = (key: string) => {
     setOpenCategories((prev) => {
@@ -192,25 +302,28 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
         DASHBOARD
       </NavLink>
 
-      {PILLARS.map((pillar) => {
-        const isOn = flags[pillar.flag] === true;
-        const isOpen = openCategories.has(pillar.key);
-        const Icon = pillar.icon;
+      {ALL_SECTIONS.map((section) => {
+        const isOn = section.flag === undefined || flags[section.flag] === true;
+        const isOpen = openCategories.has(section.key);
+        const Icon = section.icon;
+        const disabledTitle = section.flag?.startsWith('plugins.')
+          ? 'Pillar not enabled for this workspace.'
+          : 'Feature not enabled for this workspace.';
         return (
-          <div key={pillar.key} className="flex flex-col">
+          <div key={section.key} className="flex flex-col">
             <button
               type="button"
-              onClick={() => toggle(pillar.key)}
+              onClick={() => toggle(section.key)}
               aria-expanded={isOpen}
               disabled={!isOn}
               className={cn(
                 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-display tracking-wider',
-                activePillar === pillar.key
+                activeSection === section.key
                   ? 'bg-bg-2 text-ink'
                   : 'text-ink-dim hover:bg-bg-2 hover:text-ink',
                 !isOn && 'opacity-50 cursor-not-allowed',
               )}
-              title={isOn ? undefined : 'Pillar not enabled for this workspace.'}
+              title={isOn ? undefined : disabledTitle}
             >
               {isOpen ? (
                 <ChevronDown className="h-3.5 w-3.5 shrink-0" />
@@ -218,11 +331,11 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
                 <ChevronRight className="h-3.5 w-3.5 shrink-0" />
               )}
               <Icon className="h-4 w-4" />
-              <span className="flex-1">{pillar.label}</span>
+              <span className="flex-1">{section.label}</span>
             </button>
             {isOn && isOpen && (
               <div className="ml-6 flex flex-col border-l border-line pl-2">
-                {pillar.children.map((child) => {
+                {section.children.map((child) => {
                   const ChildIcon = child.icon;
                   return (
                     <NavLink
