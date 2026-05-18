@@ -1,0 +1,24 @@
+name: deploy-preview
+
+on:
+  pull_request:
+
+jobs:
+  vercel-preview:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}

@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/routes.ts","./src/vite-env.d.ts","./src/components/ui/button.tsx","./src/components/ui/logo.tsx","./src/components/ui/textinput.tsx","./src/lib/apiclient.ts","./src/lib/money.test.ts","./src/lib/money.ts","./src/lib/supabase.ts","./src/lib/types.ts","./src/pages/dashboardpage.tsx","./src/pages/signinpage.tsx"],"version":"5.9.3"}

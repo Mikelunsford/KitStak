@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: 10 22 40;
+    --bg-2: 15 29 51;
+    --bg-3: 21 37 64;
+    --ink: 245 241 232;
+    --ink-dim: 138 155 176;
+    --ink-faint: 45 63 85;
+    --brand: 200 16 46;
+    --accent: 200 16 46;
+    --accent-bright: 230 46 77;
+    --border: 26 44 71;
+    --border-strong: 45 63 85;
+  }
+
+  body {
+    font-family: 'Inter Tight', system-ui, sans-serif;
+    background-color: theme('colors.bg.DEFAULT');
+    color: theme('colors.ink.DEFAULT');
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bebas Neue', system-ui, sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  code, pre, .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}

@@ -1,0 +1,37 @@
+project_id = "zmnvwhqjahwidprnjxrq"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "https://www.kitstak.com"
+additional_redirect_urls = ["https://app.kitstak.com", "http://localhost:5173"]
+jwt_expiry = 3600
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
