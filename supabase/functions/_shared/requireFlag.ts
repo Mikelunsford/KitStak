@@ -5,7 +5,7 @@
 //   Bundle-level gate    Entire Edge function bundle returns 404 NOT_FOUND
 //                        when the flag is off. Hides the plugin surface
 //                        entirely. Used for the five pillar plugins:
-//                        plugins.3pl, plugins.manufacturing,
+//                        plugins.three_pl, plugins.manufacturing,
 //                        plugins.copack_ecom, plugins.kitforce,
 //                        plugins.kitcost. Implement at the top of the
 //                        bundle's index.ts, not via this helper.

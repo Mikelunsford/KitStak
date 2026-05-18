@@ -1,7 +1,7 @@
 // Feature flag reader.
 //
 // Source of truth: public.org_feature_flags(org_id, flag_key, is_enabled,
-// config). Bundle-level gates (e.g. plugins.3pl on the ops-api bundle)
+// config). Bundle-level gates (e.g. plugins.three_pl on the ops-api bundle)
 // return 404 NOT_FOUND to hide the surface entirely. Per-route gates (e.g.
 // finance.expenses inside an active bundle) return 403 FEATURE_DISABLED
 // with details.flag so the SPA can route to /feature-unavailable.
@@ -36,7 +36,7 @@ function cacheKey(orgId: string, flagKey: string): string {
  * on RLS denial or query error.
  *
  * `flagKey` is dot-namespaced: `<domain>.<feature>`. Examples:
- *   plugins.3pl, plugins.manufacturing, plugins.copack_ecom,
+ *   plugins.three_pl, plugins.manufacturing, plugins.copack_ecom,
  *   plugins.kitforce, plugins.kitcost,
  *   addons.whitelabel, addons.kitforce, addons.kitcost,
  *   finance.journal_entries.enabled, finance.expenses,

@@ -1,6 +1,6 @@
 # ops-api
 
-3PL Operations bundle. Receiving, production, shipments. **Bundle-gated by `plugins.3pl`.** When the flag is off for the caller's org, every route returns `404 NOT_FOUND` (bundle-level gate). When on, the route table dispatches normally.
+3PL Operations bundle. Receiving, production, shipments. **Bundle-gated by `plugins.three_pl`.** When the flag is off for the caller's org, every route returns `404 NOT_FOUND` (bundle-level gate). When on, the route table dispatches normally.
 
 The 404 response is canonical:
 
@@ -10,7 +10,7 @@ The 404 response is canonical:
 
 Status 404, `x-request-id` echoed, CORS headers attached.
 
-## Resources (when `plugins.3pl=true`)
+## Resources (when `plugins.three_pl=true`)
 
 ### Receiving orders
 

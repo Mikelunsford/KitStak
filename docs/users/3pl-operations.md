@@ -26,4 +26,4 @@ Stock levels are read-only. Available quantity is `on_hand - reserved`, derived 
 
 ## Feature flag
 
-The 3PL operations bundle is gated by `plugins.3pl`. When disabled, the ops-api returns 404 for every route and the pillar pages render empty. Org admins enable it from `/admin/flags`.
+The 3PL operations bundle is gated by `plugins.three_pl`. When disabled, the ops-api returns 404 for every route and the pillar pages render empty. Org admins enable it from `/admin/flags`.

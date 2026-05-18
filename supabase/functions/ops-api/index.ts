@@ -1,6 +1,6 @@
 // ops-api bundle.
 //
-// BUNDLE GATE: plugins.3pl. Constitutional rule (AUDIT.md / 00-canon):
+// BUNDLE GATE: plugins.three_pl. Constitutional rule (AUDIT.md / 00-canon):
 //   Bundle gate off  -> every route returns 404 NOT_FOUND envelope.
 //   Per-route flag   -> 403 FEATURE_DISABLED with details.flag. (Not used here.)
 //
@@ -9,7 +9,7 @@
 // UNAUTHORIZED / NO_ACTIVE_ORG envelopes; we only reach the flag read once
 // the caller resolves.
 //
-// Routes (when plugins.3pl is enabled for the caller's org):
+// Routes (when plugins.three_pl is enabled for the caller's org):
 //   GET    /receiving-orders                 list
 //   POST   /receiving-orders                 create
 //   GET    /receiving-orders/:id             read
@@ -466,7 +466,7 @@ const TABLE: Route[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Bundle-level dispatcher: gate on plugins.3pl before any route runs.
+// Bundle-level dispatcher: gate on plugins.three_pl before any route runs.
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
@@ -477,7 +477,7 @@ Deno.serve(async (req: Request) => {
   // route() error envelope (UNAUTHORIZED / NO_ACTIVE_ORG via requireCaller).
   const ctx = readCallerContext(req);
   if (ctx.orgId) {
-    const flag = await getFlag(ctx.orgId, 'plugins.3pl');
+    const flag = await getFlag(ctx.orgId, 'plugins.three_pl');
     if (!flag.enabled) {
       // Hide the entire bundle: every method, every path -> 404.
       return fromApiError(new ApiError('NOT_FOUND', 404));
