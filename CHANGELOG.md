@@ -4,6 +4,44 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] · Wave 6 Customer Zero chassis fixes
+
+Phase 6 surfaced four foundational SPA -> edge-function wiring gaps that Wave 5's probe matrix could not have caught (the probes hit edge functions directly via service-role JWT, bypassing `apiClient`). All four landed in rapid succession from a single operator session on `www.kitstak.com`. Phase 6 chassis closed; operator quote-to-cash workflow exercise pending.
+
+### Fixed (F-Wave6-API-01, PR #13)
+- `apps/web/src/lib/apiClient.ts` called `fetch(path, init)` with relative paths (`/auth-api/me`, etc.). Vercel's catch-all SPA rewrite (`/(.*) -> /index.html`) returned `index.html`; `response.json()` rejected; every authenticated SPA call silently failed; Topbar rendered "No workspace". Fix: prepend `VITE_SUPABASE_URL + '/functions/v1'` to non-absolute paths, attach `apikey: VITE_SUPABASE_ANON_KEY` (Supabase gateway routing requirement), attach `Authorization: Bearer <access_token>` from `supabase.auth.getSession()` when a session exists. Falls back to the anon Bearer otherwise so `verify_jwt = false` bundles (`tenants-api/resolve-host`, `notifications-worker`, `admin-console-api`) still resolve pre-auth.
+
+### Fixed (F-Wave6-API-02, PR #14)
+- `_shared/cors.ts` and `_shared/responses.ts` did not list `apikey` in `Access-Control-Allow-Headers`. After F-Wave6-API-01 wired the SPA to send `apikey` + `Authorization`, browser preflight `OPTIONS` blocked every request. Fix: add `apikey` to both allow-headers lists. Drift noted: the two lists have diverged (`cors.ts` also lists `x-request-id` and `x-worker-secret`; `responses.ts` does not). Tracked as F-Wave6-CORS-01 follow-up.
+
+### Fixed (F-Wave6-NAV-01, PR #15)
+- Sidebar pointed Pillar 1 children at `/three-pl/receiving` and `/three-pl/shipments`. The flat ROUTES table registers them under `/3pl-operations/receiving` and `/3pl-operations/shipments` (matching the `pages/3pl-operations/` folder convention from Wave 2 domain ports). Clicking either rendered `/404`. Fix: align two Sidebar entries.
+
+### Added (F-Wave6-NAV-03, PR #16)
+- Sidebar refactored to unify the section type into one `NavSection` interface with optional `flag?: string`. Split into `CORE_SECTIONS` (always rendered) and `PILLAR_SECTIONS` (flag-gated, same disabled-state UI). New core sections:
+  - **WORKSPACE**: Customers, Leads, Opportunities
+  - **SALES**: Quotes, Projects, Invoices, Payments, Credit notes
+  - **PROCUREMENT**: Vendors, Purchase orders, Vendor bills, Expenses
+  - **INVENTORY**: Items, Warehouses, Stock levels, Stock movements
+  - **FINANCE** (gated on `finance.journal_entries.enabled`): Chart of accounts, Journal entries, Period close
+  - **TOOLS**: Search, Imports, Exports
+  - **ADMIN**: Settings, Branding, Feature flags, Numbering (route-level `AdminProtectedRoute` still enforces role)
+- 3PL Operations gains Production runs as a third pillar child (receiving / production / shipments triad).
+
+### Data fixup (no PR)
+- Direct SQL on prod via Supabase MCP: `select public.seed_org_settings('ba4622dd-eb46-41b6-b2dd-95c922bf44dd')` to insert the 10 default flag rows for the `kitstak` org (which was provisioned in Wave 1, before migration 0040 shipped `seed_org_settings`). Then `UPDATE` to enable `plugins.three_pl`, `feature.collaboration`, `feature.global_search`, `feature.imports`, `feature.exports`, and `INSERT ON CONFLICT` to enable `finance.journal_entries.enabled`. Pillars 2-5 stay off per the wave plan.
+
+### Status
+- Migration count holds at 41 (no schema changes this phase).
+- All 23 edge function bundles redeployed automatically after F-Wave6-API-02 push (deploy-functions.yml fires on `supabase/functions/**` changes).
+- Bundle size: 28.57 kB gzip / 40 kB cap (up 2.63 kB from 25.94, attributed to apiClient session-refresh logic + 24 new lucide-react icon imports for the expanded Sidebar).
+- Brand discipline preserved: zero user-facing violations on changed files.
+
+### Open follow-ups
+- `F-Wave6-CORS-01`: consolidate the two CORS allow-headers lists by having `responses.ts` import from `cors.ts`. Deferred to Phase 7 polish.
+- `F-Wave6-NAV-02`: align other pillar child paths (`/manufacturing/*`, `/copack/*`, `/kitforce/*`, `/kitcost/*`) when those pillars light up.
+- `F-Wave6-FLOW-01`: operator-led quote-to-cash exercise on prod. The chassis is wired; the workflow exercise is the remaining Phase 6 gate.
+
 ## [0.5.1] · Wave 5 Hotfix 5: migrate.yml pooler hostname (F-Wave5-INFRA-01)
 
 ### Fixed

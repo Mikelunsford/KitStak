@@ -76,9 +76,9 @@ kitstak/
 
 ## Current status
 
-Wave 5 probes closed at 48 / 48 green on staging. Pillar 1 (3PL Operations) lit at the schema, API, and SPA layers. Pillars 2-3 (Manufacturing, Co-Pack and Ecom) plumbed. 41 forward-only migrations applied. Bundle holds at 25.94 kB gzip against the 40 kB cap.
+Wave 6 Customer Zero chassis fixes shipped (four hotfixes, PRs #13-#16). The SPA -> edge-function wiring gaps that Wave 5's probe matrix could not catch are resolved: `apiClient` prepends the Supabase functions URL and attaches the session JWT, CORS allow-headers list `apikey`, Sidebar pillar paths match the routes table, and the Sidebar surfaces the full Pillar-1 quote-to-cash navigation (Workspace, Sales, Procurement, Inventory, Finance, Tools, Admin). 41 forward-only migrations applied. Bundle 28.57 kB gzip against the 40 kB cap.
 
-Next phase: Customer Zero cutover (operator exercises full quote-to-cash on prod against the seeded `kitstak` org).
+Phase 6 chassis closed; the operator-led quote-to-cash workflow exercise on prod is the remaining Phase 6 gate. Phase 7 (Stabilization) follows once that exercise lands clean.
 
 See `STATUS.md` for the full breakdown, `CHANGELOG.md` for the release history, and `03-workspace/journal/` for per-wave closeouts.
 
