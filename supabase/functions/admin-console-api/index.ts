@@ -3,7 +3,7 @@
 //
 // Bundle-level gate: when the flag is off for the caller's org, the entire
 // bundle returns 404 NOT_FOUND so the surface is invisible. This is the
-// constitutional pattern for plugin-style gates (cf. plugins.3pl and the
+// constitutional pattern for plugin-style gates (cf. plugins.three_pl and the
 // five pillar bundles). A 403 where 404 is required is a release blocker.
 //
 // Wave 2 ships a stub: empty handlers behind the bundle gate. Once the flag

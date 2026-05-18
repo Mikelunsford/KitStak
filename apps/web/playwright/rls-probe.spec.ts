@@ -216,7 +216,7 @@ async function bootstrapOrg(
   // admin-console, and finance journal entries. plugins.three_pl on org A
   // and (by default) on org B; we will flip these mid-test for the gate
   // probes.
-  await setFlag(orgId, 'plugins.3pl', true);
+  await setFlag(orgId, 'plugins.three_pl', true);
   await setFlag(orgId, 'finance.journal_entries.enabled', true);
   // platform_admin.enabled stays off everywhere; the probe verifies that
   // a non-platform-admin caller hitting admin-console-api gets 404.
@@ -696,9 +696,9 @@ test.describe('@rls cross-tenant probe matrix', () => {
 
   // --- Category 4: bundle gate probes ----------------------------------
 
-  test('@rls ops-api with plugins.3pl off returns 404 (bundle gate)', async () => {
+  test('@rls ops-api with plugins.three_pl off returns 404 (bundle gate)', async () => {
     if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
-    await setFlag(orgB!.id, 'plugins.3pl', false);
+    await setFlag(orgB!.id, 'plugins.three_pl', false);
     try {
       // The bundle cache is 5 min. The CI run is fresh, so this read sees
       // the just-written flag. For a long-lived worker we'd need a
@@ -710,18 +710,18 @@ test.describe('@rls cross-tenant probe matrix', () => {
       );
       expect(res.status, GATE_404_MESSAGE).toBe(404);
     } finally {
-      await setFlag(orgB!.id, 'plugins.3pl', true);
+      await setFlag(orgB!.id, 'plugins.three_pl', true);
     }
   });
 
-  test('@rls ops-api with plugins.3pl off returns 404 on shipments too', async () => {
+  test('@rls ops-api with plugins.three_pl off returns 404 on shipments too', async () => {
     if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
-    await setFlag(orgB!.id, 'plugins.3pl', false);
+    await setFlag(orgB!.id, 'plugins.three_pl', false);
     try {
       const res = await callFn(orgB!.ownerJwt, 'GET', `/ops-api/shipments`);
       expect(res.status, GATE_404_MESSAGE).toBe(404);
     } finally {
-      await setFlag(orgB!.id, 'plugins.3pl', true);
+      await setFlag(orgB!.id, 'plugins.three_pl', true);
     }
   });
 

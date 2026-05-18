@@ -25,7 +25,7 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
 > = {
   starter: {
     // Plugins
-    'plugins.3pl': true,
+    'plugins.three_pl': true,
     'plugins.manufacturing': false,
     'plugins.copack_ecom': false,
     'plugins.kitforce': false,
@@ -43,7 +43,7 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
   },
   professional: {
     // Plugins
-    'plugins.3pl': true,
+    'plugins.three_pl': true,
     'plugins.manufacturing': true,
     'plugins.copack_ecom': true,
     'plugins.kitforce': false,
@@ -61,7 +61,7 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
   },
   enterprise: {
     // Plugins (all on)
-    'plugins.3pl': true,
+    'plugins.three_pl': true,
     'plugins.manufacturing': true,
     'plugins.copack_ecom': true,
     'plugins.kitforce': true,
