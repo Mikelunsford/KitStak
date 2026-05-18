@@ -45,17 +45,52 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: supabase/setup-cli@v1
+        # Pin a version that recognises `db.major_version = 17`. CLI 1.180.0
+        # predates PG17 GA support and rejects config.toml at startup. The
+        # remote KitStak project runs Postgres 17.x (engine 17 GA channel),
+        # confirmed via Supabase Management API on 2026-05-18.
         with:
-          version: 1.180.0
+          version: latest
 
       - name: Deploy each bundle
         run: |
           set -euo pipefail
-          # Wave 1 bundles. Add new bundles to this list as they ship;
-          # one bundle per pillar plus shared infrastructure functions.
+          # Bundles registered to date.
+          #   Wave 1: audit-chain-verify, idempotency-gc.
+          #   Wave 2: 21 new bundles across Agents A through F.
+          # Append new bundle names below as future waves ship them.
+          # Order is informational; deploys run sequentially.
           BUNDLES=(
+            # Wave 1 scheduled functions
             audit-chain-verify
             idempotency-gc
+            # Wave 2 Agent A: identity, tenancy, branding, admin
+            auth-api
+            tenants-api
+            settings-api
+            admin-console-api
+            # Wave 2 Agent B: CRM
+            crm-api
+            # Wave 2 Agent C: sales chassis, quoting, projects
+            sales-config-api
+            quotes-api
+            projects-api
+            # Wave 2 Agent D: invoicing, payments, finance
+            invoicing-api
+            finance-api
+            # Wave 2 Agent E: vendors, inventory, 3PL ops
+            vendors-api
+            inventory-api
+            ops-api
+            # Wave 2 Agent F: cross-cutting, portals, workers
+            collaboration-api
+            search-api
+            customer-portal-api
+            dashboard-api
+            exports-api
+            imports-api
+            notifications-worker
+            pdf-worker
           )
           for bundle in "${BUNDLES[@]}"; do
             echo "==> Deploying $bundle"

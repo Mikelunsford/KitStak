@@ -41,3 +41,11 @@ policy = "oneshot"
 # from a cron runner without a session.
 [functions.notifications-worker]
 verify_jwt = false
+
+# tenants-api exposes a public route (/tenants/resolve-host) that must work
+# pre-auth so the SPA can resolve a custom hostname back to an org before
+# the user signs in. The bundle dispatcher gates the authenticated routes
+# (e.g. /branding) with requireCaller() at the handler level. Closes
+# F-Wave2-AGENT-A-06.
+[functions.tenants-api]
+verify_jwt = false

@@ -68,9 +68,15 @@ kitstak/
 
 ## Deployment
 
-- Push to `main` triggers `deploy-prod` (Vercel) and gates `migrate` on success.
+- Push to `main` with changes under `supabase/migrations/**` triggers `migrate.yml`. The job runs against prod through the IPv4 pooler at `aws-0-us-west-1.pooler.supabase.com` and is gated by the `production-db` GitHub environment.
+- `deploy-functions.yml` fires on `workflow_run` after `migrate.yml` succeeds, pinning `head_sha` so function code deploys at the same SHA the schema was applied at. Closes the TS1 R-W2-01 deploy-ordering lesson.
+- Push to `main` with changes under `apps/web/**` triggers `deploy-prod.yml` (Vercel). Production runs at `https://www.kitstak.com`.
 - Pull requests get a Vercel preview.
-- Production runs at `https://www.kitstak.com`.
+- Nightly: `audit-chain-verify.yml`, `idempotency-gc.yml`, `nightly-rls-probe.yml` (against the staging Supabase preview branch; skip-with-clear-message when secrets absent).
+
+## Current status
+
+Wave 2 domain ports shipped. Pillar 1 (3PL Operations) lit. Pillars 2-3 plumbed. See `STATUS.md` for the full breakdown, `CHANGELOG.md` for the release history, and `03-workspace/journal/` for per-wave closeouts.
 
 ## License
 
