@@ -4,18 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
+        // The three customer-overridable surfaces resolve through CSS
+        // variables so BrandingProvider's runtime injection can repaint
+        // the theme without a rebuild. Defaults live in styles.css :root.
         bg: {
-          DEFAULT: '#0a1628',
+          DEFAULT: 'rgb(var(--bg) / <alpha-value>)',
           2: '#0f1d33',
           3: '#152540',
         },
         ink: {
-          DEFAULT: '#f5f1e8',
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
           dim: '#8a9bb0',
           faint: '#2d3f55',
         },
         accent: {
-          DEFAULT: '#c8102e',
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
           bright: '#e62e4d',
           soft: 'rgba(200, 16, 46, 0.1)',
         },
@@ -30,7 +33,7 @@ export default {
       },
       fontFamily: {
         display: ['Bebas Neue', 'system-ui', 'sans-serif'],
-        sans: ['Inter Tight', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Inter Tight', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       spacing: {

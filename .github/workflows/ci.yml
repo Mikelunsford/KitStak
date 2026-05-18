@@ -23,4 +23,5 @@ jobs:
       - run: pnpm --filter web typecheck
       - run: pnpm --filter web lint
       - run: pnpm --filter web test
+      - run: pnpm --filter web test:contract
       - run: pnpm --filter web build

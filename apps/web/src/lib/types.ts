@@ -7,12 +7,20 @@ export const CentsSchema = z.union([
 
 export const UuidSchema = z.string().uuid();
 
+export const OrgStatusSchema = z.enum([
+  'provisioning',
+  'active',
+  'suspended',
+  'archived',
+]);
+export type OrgStatus = z.infer<typeof OrgStatusSchema>;
+
 export const OrgSchema = z.object({
   id: UuidSchema,
   slug: z.string(),
   display_name: z.string(),
   default_currency_code: z.string().default('USD'),
-  status: z.enum(['active', 'suspended', 'archived']),
+  status: OrgStatusSchema,
 });
 export type Org = z.infer<typeof OrgSchema>;
 
@@ -82,3 +90,16 @@ export const BrandingSchema = z.object({
   app_name_override: z.string().nullable(),
 });
 export type Branding = z.infer<typeof BrandingSchema>;
+
+export const SsoProviderSchema = z.enum(['saml', 'oidc']);
+export type SsoProvider = z.infer<typeof SsoProviderSchema>;
+
+export const SsoConnectionSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  provider: SsoProviderSchema,
+  display_name: z.string(),
+  is_active: z.boolean(),
+  default_role_code: RoleCodeSchema,
+});
+export type SsoConnection = z.infer<typeof SsoConnectionSchema>;

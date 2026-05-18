@@ -4,23 +4,19 @@
 
 @layer base {
   :root {
+    /* Defaults for the customer-overridable surfaces. BrandingProvider
+       mutates these at runtime; Tailwind colors resolve through rgb(var(--x)). */
     --bg: 10 22 40;
-    --bg-2: 15 29 51;
-    --bg-3: 21 37 64;
     --ink: 245 241 232;
-    --ink-dim: 138 155 176;
-    --ink-faint: 45 63 85;
-    --brand: 200 16 46;
     --accent: 200 16 46;
-    --accent-bright: 230 46 77;
-    --border: 26 44 71;
-    --border-strong: 45 63 85;
+    --brand: 200 16 46;
+    --font-sans: 'Inter Tight';
   }
 
   body {
-    font-family: 'Inter Tight', system-ui, sans-serif;
-    background-color: theme('colors.bg.DEFAULT');
-    color: theme('colors.ink.DEFAULT');
+    font-family: var(--font-sans), system-ui, sans-serif;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
     -webkit-font-smoothing: antialiased;
   }
 

@@ -1,0 +1,23 @@
+name: idempotency-gc
+
+on:
+  schedule:
+    # Daily at 08:30 UTC.
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke idempotency-gc
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          GC_TRIGGER_SECRET: ${{ secrets.GC_TRIGGER_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${GC_TRIGGER_SECRET}" \
+            -H "Content-Type: application/json" \
+            "${SUPABASE_FUNCTION_URL}/idempotency-gc")
+          echo "$response"
