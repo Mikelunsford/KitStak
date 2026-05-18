@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run src",
-    "test:contract": "vitest run test/contract"
+    "test:contract": "vitest run --config vitest.contract.config.ts",
+    "test:rls": "playwright test --config playwright.config.ts --grep @rls",
+    "test:e2e": "playwright test --config playwright.config.ts",
+    "bundle-budget": "size-limit"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -39,6 +42,11 @@
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "vitest": "^2.0.0"
+    "vitest": "^2.0.0",
+    "@playwright/test": "^1.47.0",
+    "playwright": "^1.47.0",
+    "@axe-core/playwright": "^4.10.0",
+    "size-limit": "^11.1.0",
+    "@size-limit/preset-app": "^11.1.0"
   }
 }

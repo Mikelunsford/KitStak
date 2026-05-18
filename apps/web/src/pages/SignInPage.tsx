@@ -1,10 +1,11 @@
 import { FormEvent, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { z } from 'zod';
+
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/auth/AuthContext';
 
 const SignInSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -12,16 +13,18 @@ const SignInSchema = z.object({
 });
 
 export function SignInPage() {
-  const { status, signIn } = useAuth();
+  const { state, signIn } = useAuth();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (status === 'authenticated') {
-    const from = (location.state as { from?: string } | null)?.from ?? '/';
+  if (state.status === 'authenticated') {
+    const from = (location.state as { from?: string } | null)?.from ?? '/dashboard';
     return <Navigate to={from} replace />;
   }
 
@@ -58,9 +61,7 @@ export function SignInPage() {
             <h1 className="text-4xl font-display tracking-wide text-ink">
               SIGN IN
             </h1>
-            <p className="font-sans text-ink-dim">
-              Built to Ship.
-            </p>
+            <p className="font-sans text-ink-dim">Built to Ship.</p>
           </div>
 
           <form onSubmit={onSubmit} className="flex flex-col gap-5">

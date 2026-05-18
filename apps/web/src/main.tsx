@@ -2,14 +2,21 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import { App } from './App';
-import { AuthProvider } from './lib/auth';
-import { BrandingProvider } from './lib/branding';
+import { AuthProvider } from './auth/AuthContext';
 import './styles.css';
 
+// Per 00-canon/01-architecture.md "State management": staleTime 30_000,
+// refetchOnWindowFocus false, retry 1. Configured once here so every
+// useQuery call inherits the policy.
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 },
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
   },
 });
 
@@ -21,9 +28,7 @@ ReactDOM.createRoot(rootEl).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <BrandingProvider>
-            <App />
-          </BrandingProvider>
+          <App />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
