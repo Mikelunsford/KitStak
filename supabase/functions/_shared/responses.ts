@@ -1,3 +1,5 @@
+import { corsHeaders } from './cors.ts';
+
 export type ApiErrorCode =
   | 'UNAUTHORIZED'
   | 'NO_ACTIVE_ORG'
@@ -24,13 +26,6 @@ const STATUS_FOR_CODE: Record<string, number> = {
   VALIDATION_ERROR: 422,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
-};
-
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'apikey, authorization, content-type, idempotency-key, x-request-id',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
 };
 
 export class ApiError extends Error {
@@ -70,7 +65,7 @@ function withCommonHeaders(
     headers: {
       'Content-Type': 'application/json',
       'x-request-id': requestId,
-      ...CORS_HEADERS,
+      ...corsHeaders(),
       ...extra,
     },
   });
@@ -86,7 +81,7 @@ export function created<T>(data: T): Response {
 }
 
 export function noContent(): Response {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+  return new Response(null, { status: 204, headers: corsHeaders() });
 }
 
 export function fromApiError(error: ApiError): Response {
