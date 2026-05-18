@@ -29,7 +29,7 @@ const STATUS_FOR_CODE: Record<string, number> = {
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, content-type, idempotency-key, x-request-id',
+    'apikey, authorization, content-type, idempotency-key, x-request-id',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
 };
 
