@@ -50,8 +50,8 @@ const PILLARS: ReadonlyArray<Pillar> = [
     icon: PackageOpen,
     flag: 'plugins.three_pl',
     children: [
-      { to: '/three-pl/receiving', label: 'Receiving', icon: PackageOpen },
-      { to: '/three-pl/shipments', label: 'Shipments', icon: Truck },
+      { to: '/3pl-operations/receiving', label: 'Receiving', icon: PackageOpen },
+      { to: '/3pl-operations/shipments', label: 'Shipments', icon: Truck },
     ],
   },
   {
