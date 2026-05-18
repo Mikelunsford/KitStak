@@ -1,22 +1,54 @@
 name: migrate
 
+# Forward-only migrations against prod. Fires on push to main when files
+# under supabase/migrations change. deploy-functions.yml is workflow_run
+# gated on this workflow's success and pins head_sha so the function code
+# we deploy matches the schema we just applied.
+#
+# Manual approval gate on environment 'production-db'. Configure required
+# reviewers in repo Settings -> Environments.
+#
+# GitHub Actions runners are IPv4-only; direct db hostname db.<ref>.supabase.co
+# resolves to IPv6 in most regions. Route through the IPv4 pooler (session
+# mode on :5432). `supabase link` probes the IPv6 host and aborts before
+# --db-url-based steps can run, so we skip linking and pass --db-url on
+# every step.
+
 on:
-  workflow_run:
-    workflows: ["deploy-prod"]
-    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
 
 jobs:
-  apply:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  push-migrations:
+    name: supabase db push
     runs-on: ubuntu-latest
+    environment: production-db
+    timeout-minutes: 10
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
         with:
-          version: latest
-      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
-      - run: supabase db push
+          version: 1.180.0
+
+      - name: List pending migrations
+        run: |
+          supabase migration list \
+            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+
+      - name: Apply migrations (forward-only)
+        run: |
+          supabase db push \
+            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+
+      - name: Verify final migration count
+        run: |
+          supabase migration list \
+            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"

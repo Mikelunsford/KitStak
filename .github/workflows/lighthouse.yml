@@ -1,0 +1,48 @@
+name: lighthouse
+
+# Lighthouse CI against the Vercel preview deployment for the PR.
+# Thresholds enforced per 00-canon/01-architecture.md performance budgets:
+#   LCP under 2.5s
+#   CLS under 0.1
+#   TBT under 200ms
+# Any threshold breach fails the workflow.
+#
+# Gated by the repo variable LIGHTHOUSE_ENABLED. Set it to 'true' once
+# Vercel preview Deployment Protection is dropped or a Protection Bypass
+# secret is configured. While disabled, the workflow is a no-op so
+# preview-protected previews do not produce false negatives (401 redirect
+# loops register as 404 to the runner).
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lighthouse:
+    name: Lighthouse against preview
+    if: vars.LIGHTHOUSE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v11
+        with:
+          configPath: ./apps/web/.lighthouserc.cjs
+          uploadArtifacts: true
+          temporaryPublicStorage: true

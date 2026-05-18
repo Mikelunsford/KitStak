@@ -95,7 +95,7 @@ No backfill required. No data loss. Forward-only.
 | ID            | Status      | Title                                                        |
 |---------------|-------------|--------------------------------------------------------------|
 | F-Wave1-01    | Partial     | Operator org `kitstak` seated with `mike@kitstak.com` as `org_owner`. App_metadata claims `kitstak_org_id` and `kitstak_org_role` populated. Acme Corp demo org still to be provisioned when a real demo customer is identified. |
-| F-Wave1-02    | Done        | `GC_TRIGGER_SECRET`, `AUDIT_VERIFY_SECRET`, `SUPABASE_FUNCTION_URL` set in GitHub Actions secrets (plus Vercel triplet and Supabase triplet — nine total). |
+| F-Wave1-02    | Done        | `GC_TRIGGER_SECRET`, `AUDIT_VERIFY_SECRET`, `SUPABASE_FUNCTION_URL` set in GitHub Actions secrets (plus Vercel triplet and Supabase triplet; nine total). |
 | F-Wave1-03    | Done        | Both Edge Functions deployed via MCP at v1 (`verify_jwt=false`; bearer-secret auth via Edge Function env). Secrets set via Supabase Management API. Smoke-tested with valid bearer: `audit-chain-verify` returns `{checked_org_count: N, broken_count: 0}`; `idempotency-gc` returns `{deleted: 0, cutoff: <iso>}`. |
 | F-Wave1-04    | In flight   | Nightly workflows scheduled (08:30 UTC and 09:00 UTC). Manual smoke-test green. Seven-day streak clock starts on the first scheduled run after 2026-05-18. |
 | F-Wave1-05    | Done        | `apps/web/src/lib/database.types.ts` regenerated from the live schema (MCP `generate_typescript_types`). Deliberately gitignored per `.gitignore:7`; local artifact only. |

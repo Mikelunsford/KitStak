@@ -1,0 +1,64 @@
+name: deploy-functions
+
+# Deploy Supabase Edge Functions to prod. Triggers:
+#   1. push to main on supabase/functions/** or config.toml. Fires
+#      immediately for changes that do not touch migrations.
+#   2. workflow_run after migrate.yml completes successfully on main.
+#      Fires AFTER schema is up to date so coordinated migration plus
+#      handler PRs deploy the function code only once the matching DDL
+#      is live. Pins head_sha to the SHA migrate.yml just ran against
+#      so the functions we deploy match the migrations that were just
+#      applied. Closes the deploy-ordering race (R-W2-01 in TS1).
+#   3. workflow_dispatch for manual redeploys.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_run:
+    workflows: ['migrate']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: supabase functions deploy
+    runs-on: ubuntu-latest
+    environment: production-functions
+    timeout-minutes: 15
+    # Only fire on the migrate.yml success conclusion when triggered via
+    # workflow_run. push and workflow_dispatch always run.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On workflow_run, default checkout is the workflow's default
+          # branch SHA. Pin to the head_sha that migrate.yml just ran
+          # against so the functions we deploy match the migrations that
+          # were just applied.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 1.180.0
+
+      - name: Deploy each bundle
+        run: |
+          set -euo pipefail
+          # Wave 1 bundles. Add new bundles to this list as they ship;
+          # one bundle per pillar plus shared infrastructure functions.
+          BUNDLES=(
+            audit-chain-verify
+            idempotency-gc
+          )
+          for bundle in "${BUNDLES[@]}"; do
+            echo "==> Deploying $bundle"
+            supabase functions deploy "$bundle" --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+          done
+          echo "All ${#BUNDLES[@]} functions deployed."

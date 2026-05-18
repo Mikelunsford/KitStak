@@ -18,6 +18,10 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter web typecheck",
     "test": "pnpm --filter web test",
-    "test:contract": "pnpm --filter web test:contract"
+    "test:contract": "pnpm --filter web test:contract",
+    "test:rls": "pnpm --filter web test:rls",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "bundle-budget": "pnpm --filter web bundle-budget",
+    "gen:types": "supabase gen types typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > apps/web/src/lib/database.types.ts"
   }
 }

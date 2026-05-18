@@ -2,14 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Self-hosted brand fonts.
+ *
+ * Wave 1 ships @font-face declarations only. Actual woff2 files live at
+ * /fonts/<family>.woff2 and are added in a follow-up. Theme-Pack lists
+ * Bebas Neue (display), Inter Tight (body), and JetBrains Mono (code).
+ * font-display: swap so the SPA paints in a system fallback while the
+ * font request resolves. Kitstak ships no production Google Fonts CDN
+ * usage. See apps/web/public/fonts/README.txt.
+ *
+ * TODO(Wave 1 follow-up F-Wave1-FONTS-01): drop the woff2 files into
+ * apps/web/public/fonts/ to activate these declarations. The site stays
+ * legible in the system fallback until then.
+ */
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/fonts/BebasNeue-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter Tight';
+  src: url('/fonts/InterTight-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter Tight';
+  src: url('/fonts/InterTight-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
-    /* Defaults for the customer-overridable surfaces. BrandingProvider
-       mutates these at runtime; Tailwind colors resolve through rgb(var(--x)). */
-    --bg: 10 22 40;
-    --ink: 245 241 232;
-    --accent: 200 16 46;
-    --brand: 200 16 46;
+    /*
+     * Kitstak design tokens. Stored as `r g b` triplets so callers can
+     * compose alpha through `rgb(var(--token) / <alpha>)`. BrandingProvider
+     * mutates the customer-overridable surfaces (--bg, --brand, --accent,
+     * --ink, --font-sans) at runtime.
+     *
+     * Hex source-of-truth in parent Theme-Pack.md. Keep the two in sync.
+     */
+    --bg: 10 22 40;           /* #0a1628 */
+    --bg-2: 15 29 51;         /* #0f1d33 */
+    --bg-3: 21 37 64;         /* #152540 */
+
+    --ink: 245 241 232;       /* #f5f1e8 */
+    --ink-dim: 138 155 176;   /* #8a9bb0 */
+    --ink-faint: 45 63 85;    /* #2d3f55 */
+
+    --brand: 10 22 40;        /* defaults to --bg so unbranded orgs match navy chrome */
+    --accent: 200 16 46;      /* #c8102e */
+    --accent-bright: 230 46 77; /* #e62e4d */
+
+    --line: 26 44 71;         /* #1a2c47 */
+    --line-strong: 45 63 85;  /* #2d3f55 */
+
+    --success: 46 204 113;    /* #2ecc71 */
+    --warning: 243 156 18;    /* #f39c12 */
+    --danger: 200 16 46;      /* #c8102e */
+    --info: 52 152 219;       /* #3498db */
+
     --font-sans: 'Inter Tight';
   }
 
@@ -26,6 +94,6 @@
   }
 
   code, pre, .mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
 }

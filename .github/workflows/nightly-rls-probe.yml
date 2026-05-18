@@ -1,0 +1,78 @@
+name: nightly-rls-probe
+
+# Cross-tenant RLS probe with ephemeral fixtures. The spec at
+# apps/web/playwright/rls-probe.spec.ts creates two ephemeral users and
+# orgs via the service role, probes cross-tenant access, asserts every
+# cross-tenant read returns 200 plus empty array and every cross-tenant
+# workflow POST returns 404 (never 403 where 404 is the constitutional
+# answer), then tears down. Requires the staging environment to provide
+# STAGING_SUPABASE_URL, STAGING_SUPABASE_ANON_KEY, and
+# STAGING_SUPABASE_SERVICE_ROLE_KEY. Without those the probe skips with
+# a clear message so the gate is green with zero false positives, not
+# green from silently doing nothing.
+#
+# Per D-009 the staging environment is a Supabase preview branch.
+# Secrets are sourced from `supabase branches get staging` and stored
+# under the GitHub Actions 'staging' environment. Do NOT default to
+# pointing at prod; the fixture creates and deletes rows.
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # 09:00 UTC daily = 04:00 ET / 02:00 MT
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: Cross-tenant RLS probe against staging
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 10
+    steps:
+      - name: Verify staging secrets are configured
+        id: secrets
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "${STAGING_SUPABASE_URL:-}" ] || [ -z "${STAGING_SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::notice::STAGING_SUPABASE_URL or STAGING_SUPABASE_SERVICE_ROLE_KEY not configured. Skipping nightly RLS probe. Configure these secrets under the 'staging' environment (sourced from supabase branches get staging) to enable the probe."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.configured == 'true'
+
+      - uses: pnpm/action-setup@v4
+        if: steps.secrets.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Run RLS probe
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm test:rls
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Upload report on failure
+        if: failure() && steps.secrets.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-rls-report
+          path: apps/web/playwright-report
