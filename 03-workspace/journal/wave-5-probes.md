@@ -205,3 +205,50 @@ under 200 lines.
 - `idempotency-gc` and `audit-chain-verify` workflows continue to run
   every night against staging once the secrets are wired. Phase 6 can
   flip them to point at prod via the same secret pattern.
+
+## Close-out addendum (added after PR #9 merge, post probe-activation)
+
+The journal above documents the state at PR #9 commit time. The full
+journey from PR #9 merge through 48 / 48 green took five hotfixes. All
+shipped within Phase 5 and are now on `main`:
+
+| Hotfix | Commit | Scope | Why |
+|---|---|---|---|
+| 1 | `9a0eaf8` | Bump `nightly-rls-probe.yml` to Node 22 | `@supabase/realtime-js@2.105+` requires native WebSocket (Node 22 ships it, Node 20 does not). First probe run failed before any test executed. |
+| 2 | rebase | Rebase the staging Supabase preview branch onto main via the Management API `rebase_branch` | The staging branch was created at migration 0003 and missed all 37 Wave 2 migrations. The rebase also redeploys functions from main onto the branch. |
+| 3 | `fe913e6` | Fix RLS probe seed schema mismatches | The agent's seed used several wrong column names: `name` -> `display_name` (warehouses); `given_name` / `family_name` -> `first_name` / `last_name` (contacts); `state` -> `status` (leads, invoices, credit_notes, purchase_orders, vendor_bills, expenses, journal_entries); `title` -> `display_name` and `state` -> `stage` (opportunities, with `discovery` instead of `open`); `posted_on` -> `entry_date` (journal_entries). Missing required `*_number` columns; missing `period_year` / `period_month` on journal entries; `amount_cents 0` on payments (CHECK `> 0`). |
+| 4 | `ae02e8c` | Fix 6 constitutional 403 -> 404 violations the probe matrix surfaced | Two patterns. (a) quotes-api and projects-api imported `requireCap` from `_shared/handler-helpers.ts`, which checks the singular `_shared/capabilities.ts` table containing only the 14 `org.*` capabilities. Every `quotes.*` / `projects.*` cap check returned FORBIDDEN. Fix: per-bundle `_helpers.ts` with `requireSalesCap` wrapping `SALES_CAPABILITIES_BY_ROLE` from the sales side-car, mirroring the invoicing-api pattern. The singular byte-mirrored canon was not touched. (b) admin-console-api had `verify_jwt = true` so the Supabase gateway returned 401 to anonymous callers before the handler could throw its 404. Fix: `[functions.admin-console-api] verify_jwt = false` in `config.toml`. The handler already correctly returns 404 for anonymous. |
+| 5 | `ebe8f5d` | Migration 0041 + `quotes-api/index.ts` handler update | After hotfix 4 the probe matrix still saw 409 STATE_CONFLICT cross-tenant on `quotes-api convert-to-project`. Root cause: `convert_quote_to_project` checked `v_org_id <> public.current_org_id()`, but the handler invokes the RPC via the service-role client which has no JWT claim. `current_org_id()` returned NULL; SQL three-valued logic made `<> NULL` evaluate to NULL (treated as false); the cross-tenant guard silently no-opped; the next check (`state != 'approved'`) won. Fix: drop the 3-arg RPC, recreate as 4-arg taking `p_caller_org_id`, surface mismatch as `NOT_FOUND`. Handler passes `caller.orgId`. |
+
+After hotfix 5 (commit `ebe8f5d`), the staging branch was rebased a
+second time to pick up migration 0041 plus the updated quotes-api
+function. Final nightly-rls-probe run against staging on commit
+`ebe8f5d`: **48 / 48 passed in 31s**.
+
+One additional follow-up surfaced and closed in the same phase:
+
+| Hotfix | Commit | Scope | Why |
+|---|---|---|---|
+| 5b (F-Wave5-INFRA-01) | `48466c7` | `migrate.yml` pooler hostname `aws-0-us-west-1` -> `aws-1-us-west-1` | The Wave 2 hotfix 1 fix corrected the region (`us-west-2` -> `us-west-1`) but kept the wrong prefix. The authoritative pooler from the Supabase Management API is `aws-1-us-west-1.pooler.supabase.com`. The Supabase GH integration's auto-apply masked this until Phase 5 triggered the formal `migrate.yml` path. |
+
+The probe matrix is now a permanent constitutional verifier. Every
+nightly run reads the constitution by running 48 ephemeral fixtures
+through the entire route surface. A regression on any cross-tenant
+404, bundle-gate 404, per-route 403 FEATURE_DISABLED, Pattern C
+positive control, unauthenticated 401, or audit_log RLS will fail the
+nightly job and emit a Playwright artifact for triage.
+
+## Phase 5 final risks closed (post-hotfix)
+
+- `F-Wave5-API-01`: quotes-api transitions return 404 cross-tenant (per-bundle `requireSalesCap`).
+- `F-Wave5-API-02`: projects-api detail returns 404 cross-tenant (per-bundle `requireSalesCap`).
+- `F-Wave5-API-03`: admin-console-api anonymous returns 404 (`verify_jwt = false`).
+- `F-Wave5-API-04`: `convert_quote_to_project` cross-tenant returns 404 (migration 0041 + handler).
+- `F-Wave5-INFRA-01`: `migrate.yml` pooler hostname corrected.
+
+## Phase 5 open follow-ups (carried forward)
+
+- `F-Wave5-TEST-02`: dry-run smoke selectors against live staging once Phase 6 starts exercising the SPA workflow.
+- `F-Wave5-CO-01`: Sentry SPA + edge-function capture (blocked on `VITE_SENTRY_DSN`).
+- `F-Wave5-CO-02`: analytics provider (operator-deferred).
+- `F-Wave2-AGENT-A-05` (carried): operator-gated merge of domain side-car capabilities into the master byte-mirrored `_shared/capabilities.ts`. Per-bundle shim pattern now lives in invoicing-api, quotes-api, and projects-api as the supported interim.

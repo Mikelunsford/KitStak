@@ -4,6 +4,67 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] · Wave 5 Hotfix 5: migrate.yml pooler hostname (F-Wave5-INFRA-01)
+
+### Fixed
+- `.github/workflows/migrate.yml` pooler hostname corrected from `aws-0-us-west-1.pooler.supabase.com` to `aws-1-us-west-1.pooler.supabase.com`. Wave 2 hotfix 1 (PR #5) fixed the region tail (`us-west-2` -> `us-west-1`) but the prefix change to `aws-0` was based on Supabase docs at the time. The authoritative pooler host per the Supabase Management API (`GET /v1/projects/<ref>/config/database/pooler`) is `aws-1-us-west-1.pooler.supabase.com`. The `aws-0` prefix DNS-resolves but routes to a different tenant pool, returning `FATAL: Tenant or user not found (SQLSTATE XX000)` on every connection attempt.
+- The Supabase GitHub integration's auto-apply path (used by Preview branches) bypasses the pooler and uses the Management API, so this bug was masked through Phase 4 and only surfaced when Phase 5's probe matrix triggered the formal `migrate.yml` path on prod.
+- Verified post-fix via `workflow_dispatch` (run 26057079796): `Connecting to remote database... Remote database is up to date. ✓`
+
+### Status
+- Migration count holds at 41 applied (slots 0001 - 0041; 0005 / 0006 intentionally empty). No migration changes.
+
+## [0.5.0] · Wave 5 Probes and Observability
+
+### Added
+- `apps/web/playwright/rls-probe.spec.ts` (895+ lines, 48 `@rls`-tagged tests). Bootstraps two ephemeral orgs plus one user per org via `supabase.auth.admin.createUser` and `auth.admin.updateUserById` (stamps `kitstak_org_id` / `kitstak_org_role` onto `app_metadata`), then signs in to mint a real JWT. `test.afterAll` tears down via service-role, best-effort and idempotent. Skips at module level when any of `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` is absent.
+  - Categories: list reads (10) and unqualified reads (2) cross-tenant return 200 + []; detail reads (6) cross-tenant return 200 + []; workflow POSTs (11) return 404 (never 403); bundle gates `plugins.three_pl` and `platform_admin.enabled` (4) return 404 when off; per-route flag `finance.journal_entries.enabled` (2) returns 403 FEATURE_DISABLED with `details.flag`; customer-portal-api Pattern B (2) rejects non-customer_user; Pattern C globals (3) stay readable; unauthenticated guard (3) returns 401; switch-org cross-tenant (2) returns 404 / 201; audit_log RLS (2).
+- `apps/web/playwright/smoke.spec.ts`: hardened from URL placeholders to real `page.fill` / `page.click` / `expect(page).toHaveURL` sequences for the full Pillar-1 quote-to-cash flow plus AuditTimeline verification.
+- `docs/operations/probes.md`: operator-facing runbook covering the three nightly workflows (RLS probe, audit chain verify, idempotency GC), failure triage, manual re-run via `workflow_dispatch`, and the staging secret contract per D-009.
+- `supabase/functions/quotes-api/_helpers.ts` and `supabase/functions/projects-api/_helpers.ts`: per-bundle `requireSalesCap` shims wrapping the side-car `SALES_CAPABILITIES_BY_ROLE`. Matches the established invoicing-api `_helpers.ts` pattern. The singular byte-mirrored `_shared/capabilities.ts` is unchanged.
+
+### Fixed (constitutional violations surfaced by the probe matrix on first run)
+- **F-Wave5-API-01** (quotes-api): every transition handler (send / approve / convert / update) returned 403 cross-tenant because it imported `requireCap` from the singular handler-helpers, which only knows the 14 `org.*` capabilities. Fix: switch to the new per-bundle `requireSalesCap` shim.
+- **F-Wave5-API-02** (projects-api): same pattern, same fix.
+- **F-Wave5-API-03** (admin-console-api): anonymous callers got 401 from the platform gateway before the handler's 404 could fire. Fix: `[functions.admin-console-api] verify_jwt = false` in `supabase/config.toml`, matching the tenants-api pattern. The handler's existing `assertBundleEnabled` already returns 404 for anonymous.
+- **F-Wave5-API-04** (`convert_quote_to_project` RPC): the cross-tenant guard used `public.current_org_id()` which returns NULL under the service-role client, so the check `v_org_id <> NULL` evaluated to NULL in three-valued SQL logic and the guard silently no-opped. The next check (`state != 'approved'`) won and the caller saw 409 STATE_CONFLICT for a quote in another tenant.
+
+### Migration
+- `0041_fix_convert_quote_to_project_cross_tenant.sql`: drops the 3-arg form of `convert_quote_to_project`; recreates as a 4-arg form taking `p_caller_org_id uuid` explicitly. Merges the missing-quote and cross-tenant branches into one `NOT_FOUND` raise. Forward-only, idempotent.
+
+### Workflow hotfix
+- `.github/workflows/nightly-rls-probe.yml`: `actions/setup-node` bumped to Node 22. `@supabase/realtime-js@2.105+` requires native WebSocket support, which Node 22 ships but Node 20 lacks. Other workflows stay on Node 20 because they do not use the supabase-js client at runtime.
+
+### Not changed
+- 22 byte-identical canon pairs intact (`pnpm test:contract` 25 / 25).
+- 14 state machines, 8 roles, ~120 capabilities, money cents end-to-end, audit hash chain, JWT claim shape all unchanged.
+- Bundle size: 25.94 kB gzip against the 40 kB cap.
+
+### Final state
+- RLS probe matrix: 48 / 48 passed in 31s on staging post-PR-10.
+- Three nightly workflows wired: `nightly-rls-probe` (09:00 UTC), `audit-chain-verify`, `idempotency-gc`.
+- `staging` GitHub Actions environment configured with `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY`, `STAGING_SUPABASE_SERVICE_ROLE_KEY` (sourced from the Supabase preview branch named `staging` per D-009).
+
+## [0.3.0] · Wave 3 Integration
+
+### Added
+- `apps/web/src/lib/hooks/useOrgFlags.ts`: wraps `useFlags()` and reduces `OrgFeatureFlag[]` to `Record<string, boolean>` keyed by `flag_key`. Sidebar now reads live org feature flags. Closes `F-Wave2-API-03` (Sidebar `useOrgFlagsStub` removed).
+- `apps/web/src/components/shell/ErrorBoundary.tsx`: global render-time error catcher mounted in `main.tsx` between `AuthProvider` and `<App />`. Brand-clean fallback (`SOMETHING WENT WRONG / Refresh to try again. / RELOAD`).
+- `apps/web/playwright.config.ts`: Chromium-only Playwright config; testDir `./playwright`; baseURL from `process.env.PLAYWRIGHT_BASE_URL`; `webServer` runs `pnpm dev` locally and is undefined in CI.
+- `apps/web/playwright/smoke.spec.ts` and `apps/web/playwright/rls-probe.spec.ts`: scaffolds for the Phase-5 specs; `test.skip` until staging secrets are wired.
+
+### Changed
+- `apps/web/src/App.tsx`: wildcard `*` route now `Navigate to="/404"` so `NotFoundPage` stays a single lazy chunk. Closes `F-Wave2-BUILD-01` (Vite static-plus-dynamic chunk warning).
+- AuditTimeline mounted on the ten remaining state-having detail pages (quotes, projects, purchase orders, vendor bills, expenses, receiving orders, production runs, shipments, leads, opportunities). All thirteen state-having detail pages now share the same heading style (`text-2xl font-display tracking-wide text-ink mb-3`).
+
+### Not changed
+- `BrandingProvider` and `Topbar.useMe` were already gated on `isAuthed` from Wave 2; no rewire needed.
+- 22 byte-identical canon pairs intact.
+
+### Status
+- Bundle size: 25.94 kB gzip / 40 kB cap (up from 25.55 kB; AuditTimeline mount + ErrorBoundary + hooks reorganization).
+- All six gates green: typecheck, lint, test, test:contract (25 / 25), build (no dual-import warning), bundle-budget.
+
 ## [0.2.2] · Wave 2 Hotfix: Deno workspace import map for zod
 
 ### Fixed
