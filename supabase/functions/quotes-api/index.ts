@@ -314,14 +314,19 @@ const convertToProject = async (ctx: RouteCtx) => {
     ctx.req, caller, BUNDLE, '/quotes/:id/convert-to-project', body,
     async () => {
       const client = admin();
+      // p_caller_org_id closes the cross-tenant gate at the RPC boundary.
+      // The 0016 RPC relied on public.current_org_id() which returns NULL
+      // under the service-role client; migration 0041 takes the org id as
+      // an explicit param and surfaces a missing-or-cross-tenant quote as
+      // NOT_FOUND (constitutional 404, never 403).
       const { data, error } = await client.rpc('convert_quote_to_project', {
         p_quote_id: ctx.params.id,
         p_actor: caller.userId,
+        p_caller_org_id: caller.orgId,
         p_project_number: body.project_number ?? null,
       });
       if (error) {
         if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
-        if (/FORBIDDEN/.test(error.message)) throw new ApiError('FORBIDDEN', 403);
         if (/STATE_CONFLICT/.test(error.message)) {
           throw new ApiError('STATE_CONFLICT', 409, error.message);
         }
