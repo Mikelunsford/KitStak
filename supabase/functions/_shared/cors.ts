@@ -14,7 +14,7 @@ export function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers':
-      'authorization, content-type, x-request-id, idempotency-key, x-worker-secret',
+      'apikey, authorization, content-type, x-request-id, idempotency-key, x-worker-secret',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Expose-Headers':
       'x-request-id, idempotent-replay, retry-after',
