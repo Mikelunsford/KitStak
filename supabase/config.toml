@@ -49,3 +49,13 @@ verify_jwt = false
 # F-Wave2-AGENT-A-06.
 [functions.tenants-api]
 verify_jwt = false
+
+# admin-console-api is a bundle-gated surface (platform_admin.enabled). The
+# constitutional pattern is to return 404 NOT_FOUND when the gate is off so
+# the surface is invisible. With verify_jwt = true the platform gateway
+# returns 401 to anonymous callers before the handler can run, leaking the
+# fact that the bundle exists. The handler's assertBundleEnabled() already
+# treats anonymous as flag-off and throws 404, so verify_jwt = false is the
+# correct setting. Closes F-Wave5-API-03.
+[functions.admin-console-api]
+verify_jwt = false

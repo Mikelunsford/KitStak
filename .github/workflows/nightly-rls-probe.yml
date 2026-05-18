@@ -50,7 +50,10 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.secrets.outputs.configured == 'true'
         with:
-          node-version: 20
+          # Node 22 because @supabase/realtime-js requires native WebSocket
+          # (added in Node 22). Probe uses supabase-js admin client for
+          # fixture bootstrap; the realtime client is initialized eagerly.
+          node-version: 22
           cache: pnpm
 
       - name: Install

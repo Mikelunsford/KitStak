@@ -4,7 +4,9 @@ Last updated: 2026-05-18
 
 ## Current state
 
-**Wave 3 integration shipped on branch `claude/funny-lamport-360f5c` (PR pending).** Single-agent integration pass on top of Wave 2 domain ports. AuditTimeline is mounted on every state-having detail page (13 total); Sidebar moved off the Wave-1 `useOrgFlagsStub` to a live `useOrgFlags()` wrapping `useFlags`; a global `ErrorBoundary` wraps the App tree; the NotFoundPage dual-import Vite warning is gone; and `apps/web/playwright.config.ts` plus a smoke / RLS scaffold land. Specs `test.skip` until Phase 5 wires staging Supabase secrets. Bundle holds at 25.94 kB gzip against the 40 kB cap. Gate matrix all green.
+**Wave 5 probes shipped on branch `claude/phase-5-probes` (PR pending).** Phase 4 (marketing site) skipped at operator direction (built in parallel outside this session). Phase 5 lands the real RLS probe matrix (48 cross-tenant tests via ephemeral fixtures), hardens the smoke spec to real Playwright actions, and adds `docs/operations/probes.md` runbook. Specs `test.skip` until staging Supabase secrets land in the GH `staging` environment (operator pulling keys from `supabase branches get staging` per D-009). Sentry and analytics deferred per operator. Bundle holds at 25.94 kB gzip; all six gates green.
+
+**Wave 3 integration shipped (PR #8 merged · commit `209c106`).** AuditTimeline mounted on every state-having detail page (13 total); Sidebar live `useOrgFlags()`; global `ErrorBoundary`; NotFoundPage dual-import Vite warning fixed; `apps/web/playwright.config.ts` plus smoke + rls-probe scaffolds.
 
 **Wave 2 domain ports shipped (PR #4 merged · commit `e1dd9ba`).** Pillar 1 (3PL Operations) is lit at the schema, API, and SPA layers. Pillars 2-3 (Manufacturing, Co-Pack and Ecom) are plumbed (schemas plus edge function bundles, feature-flag-gated off). All 37 forward-only migrations are applied at the remote (Postgres 17.6.1.121, GA channel, region `us-west-1`).
 
@@ -61,9 +63,21 @@ Both workflows now pin `supabase/setup-cli@v1` with `version: latest`. `deploy-f
 
 `BrandingProvider` and `Topbar.useMe` gating already shipped in Wave 2 (both call their hook with `enabled: isAuthed`); no changes needed this phase. Sentry SPA init deferred (no `VITE_SENTRY_DSN` in the operator's keys file).
 
-## Wave 4 scope (next phase, awaiting operator go)
+## Wave 5 deliverables (shipped this phase)
 
-Marketing site at `www.kitstak.com`. Operator decision needed before dispatch: sibling repo `kitstak/marketing` versus routed static path under the existing Vercel project (`project-8d8cx`). Pillar pages, pricing matching PRD, tagline "Built to Ship" on every page.
+- `apps/web/playwright/rls-probe.spec.ts`: 48 cross-tenant probes against a Supabase preview branch named `staging`. Bootstraps two ephemeral orgs plus one user per org, seeds one row per primary entity into org A, then probes from user B's JWT. Categories: list reads (10) and unqualified reads (2) cross-tenant return 200 + []; detail reads (6) cross-tenant return 200 + []; workflow POSTs (11) return 404 (never 403); bundle gates `plugins.three_pl` and `platform_admin.enabled` (4) return 404 when off; per-route flag `finance.journal_entries.enabled` (2) returns 403 FEATURE_DISABLED with `details.flag`; customer-portal-api Pattern B (2) rejects non-customer_user roles; Pattern C globals (3) stay readable; unauthenticated guard (3) returns 401; switch-org cross-tenant (2) returns 404 / 201; audit_log RLS (2). Tagged `@rls` so `pnpm test:rls` picks them up. Skips cleanly when staging secrets are absent.
+- `apps/web/playwright/smoke.spec.ts`: hardened from URL placeholders to real `page.fill` / `page.click` / `expect(page).toHaveURL` sequences for signin, switch org, customer create, quote send + accept, convert to project, invoice send, payment post, receiving order, shipment, AuditTimeline verification. Tagged `@smoke`. Test-skips when `PLAYWRIGHT_BASE_URL` or smoke credentials are absent.
+- `docs/operations/probes.md`: operator-facing runbook covering all three nightly workflows (RLS probe, audit chain verify, idempotency GC), how to read failures, how to re-run on demand, and the staging secret contract.
+
+Sentry SPA + edge-function capture and analytics provider deferred per operator decision. Both remain follow-ups for a later wave.
+
+## Phase 5 operator handoff
+
+The probe spec is wired; the workflow `.github/workflows/nightly-rls-probe.yml` was already in place from Wave 1. To activate the first green nightly run, three GH Actions secrets need to land under a `staging` environment (sourced from `supabase branches get staging` per D-009): `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`. The orchestrator wires these once the operator confirms the values; the operator never needs to expose them in chat.
+
+## Wave 6 scope (next phase, awaiting operator go)
+
+Customer Zero cutover. Operator exercises the full Pillar-1 workflow on prod against the seeded `kitstak` org from Wave 1: create a customer, run a quote-to-cash flow end-to-end, generate the audit chain, verify period close. Surfaces any small gaps (missing copy, missing buttons, capability-gate corrections) for inline fixes.
 
 ## Open risks
 
