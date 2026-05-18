@@ -1,0 +1,98 @@
+/**
+ * Payments service. Wraps invoicing-api/payments.
+ */
+
+import { z } from 'zod';
+
+import { apiRequest } from '@/lib/apiClient';
+import {
+  PaymentAllocationSchema,
+  PaymentSchema,
+  type Payment,
+  type PaymentAllocation,
+} from '@/lib/types/finance';
+
+const PaymentListSchema = z.array(PaymentSchema);
+const AllocationListSchema = z.array(PaymentAllocationSchema);
+
+export type PaymentCreate = {
+  payment_number: string;
+  customer_id?: string;
+  amount_cents: number | string;
+  currency_code?: string;
+  payment_method?: string;
+  reference_number?: string;
+  received_at?: string;
+  notes?: string;
+};
+
+export type PaymentPatch = Partial<PaymentCreate>;
+
+export type PaymentApplyBody = {
+  allocations: Array<{ invoice_id: string; amount_cents: number | string }>;
+};
+
+export type ListPaymentsFilters = {
+  customer_id?: string;
+  cursor?: string;
+  limit?: number;
+};
+
+function qs(f: ListPaymentsFilters): string {
+  const p = new URLSearchParams();
+  if (f.customer_id) p.set('customer_id', f.customer_id);
+  if (f.cursor) p.set('cursor', f.cursor);
+  if (f.limit !== undefined) p.set('limit', String(f.limit));
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listPayments(
+  filters: ListPaymentsFilters = {},
+): Promise<Payment[]> {
+  const data = await apiRequest<unknown>(`/invoicing-api/payments${qs(filters)}`, {
+    method: 'GET',
+  });
+  return PaymentListSchema.parse(data);
+}
+
+export async function getPayment(id: string): Promise<Payment> {
+  const data = await apiRequest<unknown>(`/invoicing-api/payments/${id}`, {
+    method: 'GET',
+  });
+  return PaymentSchema.parse(data);
+}
+
+export async function createPayment(body: PaymentCreate): Promise<Payment> {
+  const data = await apiRequest<unknown>(`/invoicing-api/payments`, {
+    method: 'POST',
+    body,
+  });
+  return PaymentSchema.parse(data);
+}
+
+export async function updatePayment(
+  id: string,
+  body: PaymentPatch,
+): Promise<Payment> {
+  const data = await apiRequest<unknown>(`/invoicing-api/payments/${id}`, {
+    method: 'PATCH',
+    body,
+  });
+  return PaymentSchema.parse(data);
+}
+
+export async function deletePayment(id: string): Promise<void> {
+  await apiRequest<unknown>(`/invoicing-api/payments/${id}`, { method: 'DELETE' });
+}
+
+export async function applyPayment(
+  id: string,
+  body: PaymentApplyBody,
+): Promise<PaymentAllocation[]> {
+  const data = await apiRequest<unknown>(`/invoicing-api/payments/${id}/apply`, {
+    method: 'POST',
+    body,
+  });
+  return AllocationListSchema.parse(data);
+}

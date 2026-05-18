@@ -35,3 +35,9 @@ file_size_limit = "50MiB"
 [edge_runtime]
 enabled = true
 policy = "oneshot"
+
+# notifications-worker is authenticated via the X-Worker-Secret header, not
+# a Supabase JWT. Disable JWT verification so the scheduled drain can post
+# from a cron runner without a session.
+[functions.notifications-worker]
+verify_jwt = false
