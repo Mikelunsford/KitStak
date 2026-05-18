@@ -34,7 +34,11 @@ Last updated: 2026-05-18
 - Brand validation greps: zero user-facing violations.
 - TS1 read-only zone untouched.
 
-### Wave 2 CI hotfix (this branch)
+### Wave 2 second hotfix (this branch): Deno workspace import map
+
+PR #5's hotfix unblocked the pooler connection and CLI version. The next `deploy-functions` run advanced past those errors and deployed the first two bundles (`audit-chain-verify`, `idempotency-gc`), then failed on `auth-api` with `Relative import path "zod" not prefixed with / or ./ or ../`. The Supabase Preview check on the same SHA failed the same way. Root cause: all 6 side-car type files use bare `from 'zod'`, which the SPA resolves via `node_modules` but Deno cannot resolve without an import map. Fix in this branch: `supabase/functions/deno.json` ships a workspace import map (`"zod": "npm:zod@3.23.8"`) and the deploy workflow passes `--import-map` explicitly. No canon files touched; byte-mirror parity intact (`test:contract` 25 / 25).
+
+### Wave 2 first hotfix (PR #5, merged)
 
 Two GitHub Actions failures after PR #4 merge required a hotfix:
 
