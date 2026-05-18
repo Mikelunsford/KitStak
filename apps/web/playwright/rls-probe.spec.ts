@@ -238,7 +238,7 @@ async function bootstrapOrg(
       .insert({
         org_id: orgId,
         code: 'MAIN',
-        name: 'Main',
+        display_name: 'Main',
         is_default: true,
         created_by: ownerUserId,
         updated_by: ownerUserId,
@@ -267,53 +267,65 @@ async function bootstrapOrg(
     return data.id as string;
   };
 
+  // Short, unique-per-fixture document numbers so the (org_id, *_number)
+  // uniques never collide across concurrent probe runs.
+  const docNum = (prefix: string) => `${prefix}-${label}-${FIXTURE_SUFFIX}`.slice(0, 32);
+  const today = new Date();
+  const period_year = today.getUTCFullYear();
+  const period_month = today.getUTCMonth() + 1;
+
   const customerId = await ins('customers', {
     display_name: `Probe Customer ${label}`,
   });
   const contactId = await ins('contacts', {
     customer_id: customerId,
-    given_name: 'Probe',
-    family_name: label,
+    first_name: 'Probe',
+    last_name: label,
     email: `contact.${label.toLowerCase()}.${FIXTURE_SUFFIX}@kitstak.local`,
   });
   const leadId = await ins('leads', {
     display_name: `Probe Lead ${label}`,
-    state: 'new',
+    status: 'new',
   });
   const opportunityId = await ins('opportunities', {
     customer_id: customerId,
-    title: `Probe Opp ${label}`,
-    state: 'open',
+    display_name: `Probe Opp ${label}`,
+    stage: 'discovery',
   });
   const itemId = await ins('items', {
     sku: `RLS-PROBE-${label}-${FIXTURE_SUFFIX}`.slice(0, 32),
     name: `Probe Item ${label}`,
   });
   const quoteId = await ins('quotes', {
+    number: docNum('Q'),
     customer_id: customerId,
     currency_code: 'USD',
     state: 'draft',
   });
   const projectId = await ins('projects', {
+    number: docNum('P'),
     customer_id: customerId,
     name: `Probe Project ${label}`,
-    state: 'active',
+    state: 'pending',
   });
   const invoiceId = await ins('invoices', {
+    invoice_number: docNum('INV'),
     customer_id: customerId,
     currency_code: 'USD',
-    state: 'draft',
+    status: 'draft',
   });
   const paymentId = await ins('payments', {
+    payment_number: docNum('PMT'),
     customer_id: customerId,
     currency_code: 'USD',
-    amount_cents: 0,
+    amount_cents: 1,
     received_at: new Date().toISOString(),
   });
   const creditNoteId = await ins('credit_notes', {
+    credit_note_number: docNum('CN'),
     customer_id: customerId,
     currency_code: 'USD',
-    state: 'draft',
+    status: 'draft',
   });
   const vendorId = await ins('vendors', {
     display_name: `Probe Vendor ${label}`,
@@ -321,18 +333,18 @@ async function bootstrapOrg(
   const purchaseOrderId = await ins('purchase_orders', {
     vendor_id: vendorId,
     currency_code: 'USD',
-    state: 'draft',
+    status: 'draft',
   });
   const vendorBillId = await ins('vendor_bills', {
     vendor_id: vendorId,
     currency_code: 'USD',
-    state: 'draft',
+    status: 'draft',
   });
   const expenseId = await ins('expenses', {
     vendor_id: vendorId,
     currency_code: 'USD',
     amount_cents: 0,
-    state: 'draft',
+    status: 'draft',
   });
   const receivingOrderId = await ins('receiving_orders', {
     warehouse_id: warehouseId,
@@ -351,8 +363,11 @@ async function bootstrapOrg(
     payload: {},
   });
   const journalEntryId = await ins('journal_entries', {
-    posted_on: new Date().toISOString().slice(0, 10),
-    state: 'draft',
+    entry_number: docNum('JE'),
+    entry_date: today.toISOString().slice(0, 10),
+    period_year,
+    period_month,
+    status: 'draft',
   });
 
   return {
