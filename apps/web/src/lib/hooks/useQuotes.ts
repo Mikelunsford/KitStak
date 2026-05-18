@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import { quotesKeys } from '@/lib/queryKeys/quotes';
 import {
@@ -52,11 +53,18 @@ export const useSendQuote     = () => useQuoteAction(sendQuote);
 
 export function useConvertQuoteToProject() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   return useMutation({
     mutationFn: (id: string) => convertQuoteToProject(id),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: quotesKeys.all });
       void qc.invalidateQueries({ queryKey: ['sales', 'projects'] });
+      // G-CONVERT-02: navigate to the newly created project so the operator
+      // can immediately continue the chain instead of staying on the source
+      // quote with no breadcrumb forward.
+      if (result?.project_id) {
+        navigate(`/3pl-operations/projects/${result.project_id}`);
+      }
     },
   });
 }

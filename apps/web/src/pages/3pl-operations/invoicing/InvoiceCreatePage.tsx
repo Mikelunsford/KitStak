@@ -1,18 +1,31 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/TextInput';
+import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
 
 /**
- * InvoiceCreatePage. useState + Zod safeParse pattern. The number is
- * caller-supplied for now; a Wave 3 follow-up replaces this with
- * next_doc_number RPC integration.
+ * InvoiceCreatePage. Captures the FK pivots that the handler already
+ * accepts (G-INV-FORM-01): customer, project, quote. Line items are added
+ * on the detail page after creation; the create handler does not accept
+ * lines inline today. The source-quote linkage is captured as an optional
+ * UUID input until the quote selection pattern (filtered by customer) is
+ * added in a later wave.
  */
 export function InvoiceCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const create = useCreateInvoice();
 
+  const prefilledCustomerId = searchParams.get('customer_id');
+  const prefilledProjectId = searchParams.get('project_id');
+
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
+  const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
+  const [quoteId, setQuoteId] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -24,6 +37,9 @@ export function InvoiceCreatePage() {
       const body: {
         invoice_number: string;
         currency_code: string;
+        customer_id?: string;
+        project_id?: string;
+        quote_id?: string;
         issue_date?: string;
         due_date?: string;
         notes?: string;
@@ -31,6 +47,9 @@ export function InvoiceCreatePage() {
         invoice_number: invoiceNumber,
         currency_code: currency,
       };
+      if (customerId) body.customer_id = customerId;
+      if (projectId) body.project_id = projectId;
+      if (quoteId) body.quote_id = quoteId;
       if (issueDate) body.issue_date = issueDate;
       if (dueDate) body.due_date = dueDate;
       if (notes) body.notes = notes;
@@ -54,6 +73,23 @@ export function InvoiceCreatePage() {
             className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
           />
         </Field>
+        <CustomerPicker
+          value={customerId}
+          onChange={setCustomerId}
+          label="Customer"
+        />
+        <ProjectPicker
+          value={projectId}
+          onChange={setProjectId}
+          label="Project (optional)"
+          filter={customerId ? { customer_id: customerId } : undefined}
+        />
+        <TextInput
+          label="Source quote id (optional)"
+          value={quoteId}
+          onChange={(e) => setQuoteId(e.target.value)}
+          placeholder="optional uuid"
+        />
         <Field label="Currency">
           <input
             type="text"
@@ -96,20 +132,16 @@ export function InvoiceCreatePage() {
         )}
 
         <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider text-sm disabled:opacity-50"
-          >
-            CREATE
-          </button>
-          <button
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? 'Saving.' : 'Create'}
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => navigate('/invoicing/invoices')}
-            className="px-4 py-2 border border-line text-ink font-display tracking-wider text-sm"
           >
-            CANCEL
-          </button>
+            Cancel
+          </Button>
         </div>
       </form>
     </section>

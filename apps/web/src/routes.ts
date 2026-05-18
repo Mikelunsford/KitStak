@@ -396,6 +396,60 @@ const PeriodClosePage = lazy(() =>
 );
 // === End Agent D ===
 
+// === Agent 6.5-A: quote-to-cash create routes ===
+const PaymentCreatePage = lazy(() =>
+  import('./pages/3pl-operations/payments/PaymentCreatePage').then((m) => ({
+    default: m.PaymentCreatePage,
+  })),
+);
+const CreditNoteCreatePage = lazy(() =>
+  import('./pages/3pl-operations/credit-notes/CreditNoteCreatePage').then((m) => ({
+    default: m.CreditNoteCreatePage,
+  })),
+);
+const JournalEntryCreatePage = lazy(() =>
+  import('./pages/finance/JournalEntryCreatePage').then((m) => ({
+    default: m.JournalEntryCreatePage,
+  })),
+);
+// === End Agent 6.5-A ===
+
+// === Agent 6.5-D: crm lazy imports ===
+const LeadCreatePage = lazy(() =>
+  import('./pages/crm/leads/LeadCreatePage').then((m) => ({
+    default: m.LeadCreatePage,
+  })),
+);
+const OpportunityCreatePage = lazy(() =>
+  import('./pages/crm/opportunities/OpportunityCreatePage').then((m) => ({
+    default: m.OpportunityCreatePage,
+  })),
+);
+const ContactCreatePage = lazy(() =>
+  import('./pages/crm/contacts/ContactCreatePage').then((m) => ({
+    default: m.ContactCreatePage,
+  })),
+);
+// === End Agent 6.5-D ===
+
+// === Agent 6.5-C: ops + procurement lazy imports ===
+const ReceivingOrderCreatePage = lazy(() =>
+  import('./pages/3pl-operations/receiving/ReceivingOrderCreatePage').then((m) => ({
+    default: m.ReceivingOrderCreatePage,
+  })),
+);
+const ShipmentCreatePage = lazy(() =>
+  import('./pages/3pl-operations/shipments/ShipmentCreatePage').then((m) => ({
+    default: m.ShipmentCreatePage,
+  })),
+);
+const VendorBillCreatePage = lazy(() =>
+  import('./pages/3pl-operations/vendor-bills/VendorBillCreatePage').then((m) => ({
+    default: m.VendorBillCreatePage,
+  })),
+);
+// === End Agent 6.5-C ===
+
 export const ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/signin',
@@ -725,4 +779,19 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/finance/journal-entries/:id',      element: JournalEntryDetailPage,  guard: 'protected', layout: 'shell' },
   { path: '/finance/period-close',             element: PeriodClosePage,         guard: 'admin',     layout: 'shell' },
   // === End Agent D ===
+  // === Agent 6.5-A: quote-to-cash create routes ===
+  { path: '/3pl-operations/payments/new',      element: PaymentCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/credit-notes/new',  element: CreditNoteCreatePage,    guard: 'protected', layout: 'shell' },
+  { path: '/finance/journal-entries/new',      element: JournalEntryCreatePage,  guard: 'protected', layout: 'shell' },
+  // === End Agent 6.5-A ===
+  // === Agent 6.5-D: crm routes ===
+  { path: '/crm/leads/new',                    element: LeadCreatePage,          guard: 'protected', layout: 'shell' },
+  { path: '/crm/opportunities/new',            element: OpportunityCreatePage,   guard: 'protected', layout: 'shell' },
+  { path: '/crm/contacts/new',                 element: ContactCreatePage,       guard: 'protected', layout: 'shell' },
+  // === End Agent 6.5-D ===
+  // === Agent 6.5-C: ops + procurement routes ===
+  { path: '/3pl-operations/receiving/new',     element: ReceivingOrderCreatePage, guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/shipments/new',     element: ShipmentCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/vendor-bills/new',  element: VendorBillCreatePage,     guard: 'protected', layout: 'shell' },
+  // === End Agent 6.5-C ===
 ] as const;

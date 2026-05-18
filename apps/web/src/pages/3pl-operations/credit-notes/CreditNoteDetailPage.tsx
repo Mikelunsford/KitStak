@@ -1,16 +1,23 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useCreditNote } from '@/lib/hooks/useCreditNotes';
+import { useInvoice } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
 
 /**
  * CreditNoteDetailPage. Header with amount, applied, reason, source invoice.
+ * Closes G-CN-DETAIL-01 by surfacing a link back to the source invoice when
+ * one is attached. If the invoice id is set but the fetch fails (RLS scope
+ * change, deleted invoice), the label degrades to "not found" rather than
+ * blocking the page.
  */
 export function CreditNoteDetailPage() {
   const { id } = useParams();
   const creditNoteId = id ?? '';
   const cn = useCreditNote(creditNoteId);
+  const sourceInvoiceId = cn.data?.source_invoice_id ?? null;
+  const sourceInvoice = useInvoice(sourceInvoiceId ?? '');
 
   if (!creditNoteId) return <p>Missing credit note id.</p>;
   if (cn.isLoading) return <p className="px-8 py-8">Loading.</p>;
@@ -28,6 +35,23 @@ export function CreditNoteDetailPage() {
         <p className="text-ink-dim font-sans uppercase text-xs mt-1">
           Status: {row.status}
         </p>
+        {sourceInvoiceId && (
+          <p className="font-sans text-sm text-ink-dim mt-2">
+            Source invoice:{' '}
+            {sourceInvoice.isLoading ? (
+              <span>Loading.</span>
+            ) : sourceInvoice.data ? (
+              <Link
+                to={`/invoicing/invoices/${sourceInvoiceId}`}
+                className="text-accent underline"
+              >
+                {sourceInvoice.data.invoice_number}
+              </Link>
+            ) : (
+              <span>not found</span>
+            )}
+          </p>
+        )}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
