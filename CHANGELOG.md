@@ -4,6 +4,21 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] · Wave 2 Hotfix: Deno workspace import map for zod
+
+### Fixed
+- Deno bundling failure on every edge function bundle that imports a side-car (`_shared/types/<domain>.ts`). All six side-car type files use the bare specifier `from 'zod'`. The SPA resolves it via `node_modules`; Deno requires `npm:zod` or an import map. The bare import worked for Wave 0 / Wave 1 because the only deployed functions (`audit-chain-verify`, `idempotency-gc`) never imported `_shared/types.ts`. Wave 2 added 21 bundles that import their domain side-car, exercising the bare specifier for the first time and breaking both `deploy-functions` (run #3) and `Supabase Preview` (failed-to-bundle).
+
+### Added
+- `supabase/functions/deno.json`: workspace-level Deno import map with `"imports": { "zod": "npm:zod@3.23.8" }`. Pinned to the same minor as the SPA's `zod ^3.23.0` so the resolver does not drift between SPA tests and the edge runtime.
+- `.github/workflows/deploy-functions.yml`: passes `--import-map ./supabase/functions/deno.json` to every `supabase functions deploy` call. Belt-and-suspenders alongside Supabase's own deno.json auto-discovery used by the Preview branch.
+
+### Not changed
+- Byte-mirror canon: all 22 pairs still byte-identical (`pnpm test:contract` 25 / 25).
+- Side-car type files unchanged on both sides.
+- Bundle size unchanged at 25.55 kB / 40 kB.
+- No migrations changed.
+
 ## [0.2.1] · Wave 2 Hotfix: CI pooler hostname, CLI version, bundle list
 
 ### Fixed

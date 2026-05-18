@@ -92,8 +92,13 @@ jobs:
             notifications-worker
             pdf-worker
           )
+          # Pass the workspace import map explicitly so bundles that import
+          # bare `zod` (every _shared/types/<domain>.ts side-car) resolve to
+          # npm:zod. Belt-and-suspenders alongside supabase/functions/deno.json.
           for bundle in "${BUNDLES[@]}"; do
             echo "==> Deploying $bundle"
-            supabase functions deploy "$bundle" --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+            supabase functions deploy "$bundle" \
+              --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" \
+              --import-map ./supabase/functions/deno.json
           done
           echo "All ${#BUNDLES[@]} functions deployed."
