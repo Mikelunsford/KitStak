@@ -78,6 +78,7 @@ No backfill required. No data loss. Forward-only.
 | R-W1-IDEMP-01      | Nightly idempotency GC                                 | Closed   | `idempotency-gc` Edge Function plus `.github/workflows/idempotency-gc.yml`. |
 | R-W1-SSO-01        | SSO/SAML schema                                        | Closed   | Schema only. Provider integration carried as `R-W2-CO-SSO-01`. |
 | R-W1-CONTRACT-01   | `pnpm test:contract` byte-parity runner                | Closed   | Byte-parity plus money behaviour parity tests; wired into CI. |
+| R-W1-FSM-02        | Audit trigger raised `42883 digest does not exist`     | Closed   | Surfaced on first `provisioning → active` transition. `set search_path = public` excluded the `extensions` schema where `pgcrypto.digest` lives. Migration `0003_fix_audit_search_path.sql` fully-qualifies the call as `extensions.digest`. |
 
 ## Carried to Wave 2
 
@@ -91,13 +92,15 @@ No backfill required. No data loss. Forward-only.
 
 ## Follow-ups (operator)
 
-| ID            | Title                                                        |
-|---------------|--------------------------------------------------------------|
-| F-Wave1-01    | Provision the Acme Corp demo org via `provision_organization` after migration 0002 lands. |
-| F-Wave1-02    | Add `GC_TRIGGER_SECRET`, `AUDIT_VERIFY_SECRET`, `SUPABASE_FUNCTION_URL` to GitHub Actions secrets. |
-| F-Wave1-03    | Deploy the two Edge Functions (`supabase functions deploy idempotency-gc audit-chain-verify`). |
-| F-Wave1-04    | Verify the nightly workflows succeed for seven consecutive days; once green, count toward the v1 30-day streak. |
-| F-Wave1-05    | Regenerate typed database client (`supabase gen types typescript --linked > apps/web/src/lib/database.types.ts`). |
+| ID            | Status      | Title                                                        |
+|---------------|-------------|--------------------------------------------------------------|
+| F-Wave1-01    | Partial     | Operator org `kitstak` seated with `mike@kitstak.com` as `org_owner`. App_metadata claims `kitstak_org_id` and `kitstak_org_role` populated. Acme Corp demo org still to be provisioned when a real demo customer is identified. |
+| F-Wave1-02    | Done        | `GC_TRIGGER_SECRET`, `AUDIT_VERIFY_SECRET`, `SUPABASE_FUNCTION_URL` set in GitHub Actions secrets (plus Vercel triplet and Supabase triplet — nine total). |
+| F-Wave1-03    | Done        | Both Edge Functions deployed via MCP at v1 (`verify_jwt=false`; bearer-secret auth via Edge Function env). Secrets set via Supabase Management API. Smoke-tested with valid bearer: `audit-chain-verify` returns `{checked_org_count: N, broken_count: 0}`; `idempotency-gc` returns `{deleted: 0, cutoff: <iso>}`. |
+| F-Wave1-04    | In flight   | Nightly workflows scheduled (08:30 UTC and 09:00 UTC). Manual smoke-test green. Seven-day streak clock starts on the first scheduled run after 2026-05-18. |
+| F-Wave1-05    | Done        | `apps/web/src/lib/database.types.ts` regenerated from the live schema (MCP `generate_typescript_types`). Deliberately gitignored per `.gitignore:7`; local artifact only. |
+| F-Wave1-06    | Pending     | Rotate credentials that touched chat during Wave 1 deploy: Vercel token, Supabase access token, DB password, `GC_TRIGGER_SECRET`, `AUDIT_VERIFY_SECRET`. One-click each in their respective dashboards, then re-run `gh secret set` (and POST to the Supabase secrets API for the two shared secrets). |
+| F-Wave1-07    | Pending     | Secure or delete `C:\Users\Mike Lunsford\Desktop\KitStak\Docs\SUPABASE ENV.MD`. Single plaintext file with every credential for the project is a single point of failure. |
 
 ## Constitutional invariants verified
 
@@ -107,7 +110,7 @@ No backfill required. No data loss. Forward-only.
 - **Audit**: trigger is the sole writer for `organizations.status` transitions. `kitstak_audit_canonical` is shared between trigger and verifier so chain math cannot diverge. Per-org `pg_advisory_xact_lock` serialises concurrent writers within a transaction. Nightly verifier fails CI on a broken chain.
 - **Capabilities**: 14 codes seeded across the eight-role policy in byte-mirrored canon. `requireCap` arrives in Wave 2 with the first state-changing handler.
 - **Zod canon**: four byte-mirrored files (types, workflow, capabilities, money); drift is a release blocker enforced by `pnpm test:contract` in CI.
-- **Migration rules**: `0002_identity_branding_provisioning.sql` is forward-only, idempotent, carries the required header (Wave, Phase, Closes, DOWN MIGRATION, date), and aligns with each constitutional rule.
+- **Migration rules**: `0002_identity_branding_provisioning.sql` and the hotfix `0003_fix_audit_search_path.sql` are forward-only, idempotent, carry the required header (Wave, Phase, Closes, DOWN MIGRATION, date), and align with each constitutional rule. 0003 was authored under the operator's explicit plain-text approval per the "stop and confirm on audit_log changes" rule.
 - **Banned dependencies**: untouched. No new top-level dependency. `@types/node` is a devDependency required by the contract test runner (`node:fs`, `node:url`); not in the runtime bundle.
 - **Branding**: server-rendered. SPA reads `org_branding` through Supabase under the user's RLS scope. No client-side persistence of branding values.
 - **Copy**: no em dashes, double hyphens, or emojis in user-facing copy. Verified.
