@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+import { supabase } from '@/lib/supabase';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+const FUNCTIONS_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1`;
+
 const EnvelopeSchema = z.object({
   data: z.unknown(),
   meta: z.record(z.unknown()).optional(),
@@ -42,17 +53,27 @@ type ApiRequestOptions = {
 };
 
 export async function apiRequest<T>(
-  url: string,
+  path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
   const method = options.method ?? 'GET';
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const bearer = session?.access_token ?? SUPABASE_ANON_KEY;
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${bearer}`,
     ...options.headers,
   };
   if (method !== 'GET') {
     headers['Idempotency-Key'] = crypto.randomUUID();
   }
+
+  const url = path.startsWith('http')
+    ? path
+    : `${FUNCTIONS_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
 
   const init: RequestInit = { method, headers };
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
