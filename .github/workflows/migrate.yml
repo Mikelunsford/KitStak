@@ -34,21 +34,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Supabase CLI
+        # Pin a version that recognises `db.major_version = 17`. CLI 1.180.0
+        # predates PG17 GA support and rejects config.toml at startup. The
+        # remote KitStak project runs Postgres 17.x (engine 17 GA channel),
+        # confirmed via Supabase Management API on 2026-05-18.
         uses: supabase/setup-cli@v1
         with:
-          version: 1.180.0
+          version: latest
 
       - name: List pending migrations
         run: |
           supabase migration list \
-            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
 
       - name: Apply migrations (forward-only)
         run: |
           supabase db push \
-            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
 
       - name: Verify final migration count
         run: |
           supabase migration list \
-            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-west-1.pooler.supabase.com:5432/postgres"

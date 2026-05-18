@@ -74,6 +74,9 @@ kitstak/
     migrations/    # NNNN_snake_case.sql forward-only
     functions/
       _shared/     # types.ts, responses.ts, idempotency.ts, money.ts, etc.
+        types/         # per-domain Zod side-cars, byte-mirrored
+        workflow/      # per-domain FSM side-cars, byte-mirrored
+        capabilities/  # per-domain capability tuples, byte-mirrored
       <bundle>-api/
   00-canon/
   docs/
@@ -93,6 +96,16 @@ kitstak/
 - Wire: cents as integer or string. Never floats.
 - Currency snapshotted at issuance.
 - Helpers byte-mirrored across `_shared/money.ts` and `apps/web/src/lib/money.ts`.
+
+## Canon partition pattern
+
+Four canon files are byte-mirrored between `apps/web/src/lib/` and `supabase/functions/_shared/`: `types.ts`, `workflow.ts`, `capabilities.ts`, `money.ts`. Each singular file carries cross-cutting foundation only.
+
+Per-domain extensions live in side-cars under `_shared/types/<domain>.ts`, `_shared/workflow/<domain>.ts`, `_shared/capabilities/<domain>.ts`, each paired with a byte-identical SPA mirror at `apps/web/src/lib/{types,workflow,capabilities}/<domain>.ts`. Domain agents extend their side-car only; the singular foundation files stay stable. `_shared/workflow/cross_cutting.ts` aggregates every domain FSM into `ALL_STATE_MACHINES` so callers can iterate uniformly.
+
+`apps/web/test/contract/parity.test.ts` asserts byte-equality for all singular pairs plus every side-car pair. Drift on either is a release blocker.
+
+`apps/web/tsconfig.json` sets `allowImportingTsExtensions: true` so the SPA mirror can use the explicit `.ts` import suffix that Deno requires on the edge side. This is what lets the SPA copy be byte-identical with the Deno-side file.
 
 ## Multi-tenancy (RLS patterns)
 
