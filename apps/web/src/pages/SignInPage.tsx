@@ -1,8 +1,10 @@
 import { FormEvent, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { z } from 'zod';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { useAuth } from '@/lib/auth';
 
 const SignInSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -10,12 +12,20 @@ const SignInSchema = z.object({
 });
 
 export function SignInPage() {
+  const { status, signIn } = useAuth();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  if (status === 'authenticated') {
+    const from = (location.state as { from?: string } | null)?.from ?? '/';
+    return <Navigate to={from} replace />;
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsed = SignInSchema.safeParse({ email, password });
     if (!parsed.success) {
@@ -29,7 +39,11 @@ export function SignInPage() {
       return;
     }
     setErrors({});
+    setFormError(null);
     setSubmitting(true);
+    const { error } = await signIn(parsed.data.email, parsed.data.password);
+    setSubmitting(false);
+    if (error) setFormError(error);
   }
 
   return (
@@ -68,6 +82,11 @@ export function SignInPage() {
               onChange={(e) => setPassword(e.target.value)}
               {...(errors.password ? { error: errors.password } : {})}
             />
+            {formError ? (
+              <p role="alert" className="font-sans text-sm text-accent">
+                {formError}
+              </p>
+            ) : null}
             <Button type="submit" disabled={submitting} className="mt-2">
               {submitting ? 'Signing in...' : 'Sign in'}
             </Button>

@@ -1,13 +1,25 @@
 import { Logo } from '@/components/ui/Logo';
+import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/lib/auth';
+import { useBranding } from '@/lib/branding';
 
 export function DashboardPage() {
+  const { user, signOut } = useAuth();
+  const { branding } = useBranding();
+  const appName = branding.app_name_override ?? 'KITSTAK';
+
   return (
     <main className="min-h-screen bg-bg text-ink">
       <header className="border-b border-line px-8 py-6 flex items-center justify-between">
         <Logo size="compact" />
-        <span className="font-sans text-sm text-ink-dim tracking-wide">
-          Wave 0 · Foundation
-        </span>
+        <div className="flex items-center gap-6">
+          <span className="font-sans text-sm text-ink-dim tracking-wide">
+            Wave 1 · Identity
+          </span>
+          {user ? (
+            <Button onClick={() => void signOut()}>Sign out</Button>
+          ) : null}
+        </div>
       </header>
 
       <section className="px-8 py-16 max-w-5xl mx-auto flex flex-col gap-8">
@@ -15,7 +27,7 @@ export function DashboardPage() {
           BUILT TO SHIP.
         </h1>
         <p className="font-sans text-lg text-ink-dim max-w-2xl">
-          The operating system for 3PLs, manufacturers, and co-pack operations. The foundation is in place. Identity, branding, and the first lit pillar arrive in the next wave.
+          Signed in to {appName}. Identity, branding, and the first lit pillar arrive in the next wave.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
