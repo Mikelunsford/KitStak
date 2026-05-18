@@ -1,0 +1,414 @@
+// Sales-domain Zod canon. Byte-mirror of apps/web/src/lib/types/sales.ts.
+// Every monetary field uses CentsSchema; the wire accepts integer or string
+// so BigInt can round-trip without lossy float coercion.
+
+import { z } from 'zod';
+
+export const CentsSchema = z.union([
+  z.number().int(),
+  z.string().regex(/^-?\d+$/),
+]);
+export const BpsSchema = z.number().int().min(0).max(100_000);
+export const QuantityE3Schema = z.union([
+  z.number().int().min(0),
+  z.string().regex(/^\d+$/),
+]);
+export const UuidSchema = z.string().uuid();
+
+// ---------------------------------------------------------------------------
+// currencies + exchange rates
+// ---------------------------------------------------------------------------
+
+export const CurrencySchema = z.object({
+  code: z.string().length(3),
+  name: z.string(),
+  symbol: z.string().nullable(),
+  is_zero_decimal: z.boolean(),
+  is_active: z.boolean(),
+});
+export type Currency = z.infer<typeof CurrencySchema>;
+
+export const ExchangeRateSchema = z.object({
+  id: UuidSchema,
+  base_currency_code: z.string().length(3),
+  quote_currency_code: z.string().length(3),
+  rate_e9: z.union([z.number().int().positive(), z.string().regex(/^\d+$/)]),
+  effective_date: z.string(),
+  source: z.string(),
+});
+export type ExchangeRate = z.infer<typeof ExchangeRateSchema>;
+
+// ---------------------------------------------------------------------------
+// taxes + payment_methods + pricing_tiers + customer_pricing_overrides
+// ---------------------------------------------------------------------------
+
+export const TaxSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  rate_bps: BpsSchema,
+  is_compound: z.boolean(),
+  is_active: z.boolean(),
+  default_for_org: z.boolean(),
+  notes: z.string().nullable(),
+});
+export type Tax = z.infer<typeof TaxSchema>;
+
+export const PaymentMethodKindSchema = z.enum([
+  'manual', 'ach', 'wire', 'card', 'check', 'other',
+]);
+export type PaymentMethodKind = z.infer<typeof PaymentMethodKindSchema>;
+
+export const PaymentMethodSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  label: z.string(),
+  kind: PaymentMethodKindSchema,
+  is_active: z.boolean(),
+  default_for_org: z.boolean(),
+  notes: z.string().nullable(),
+});
+export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
+
+export const PricingTierSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  discount_bps: BpsSchema,
+  is_active: z.boolean(),
+  sort_order: z.number().int(),
+});
+export type PricingTier = z.infer<typeof PricingTierSchema>;
+
+export const CustomerPricingOverrideSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  customer_id: UuidSchema,
+  item_id: UuidSchema,
+  unit_price_cents: CentsSchema.nullable(),
+  discount_bps: BpsSchema.nullable(),
+  currency_code: z.string().length(3).nullable(),
+  is_active: z.boolean(),
+  effective_from: z.string().nullable(),
+  effective_to: z.string().nullable(),
+});
+export type CustomerPricingOverride = z.infer<typeof CustomerPricingOverrideSchema>;
+
+// ---------------------------------------------------------------------------
+// items + categories + units
+// ---------------------------------------------------------------------------
+
+export const UnitSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  label: z.string(),
+  is_active: z.boolean(),
+});
+export type Unit = z.infer<typeof UnitSchema>;
+
+export const ItemCategorySchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  parent_id: UuidSchema.nullable(),
+  is_active: z.boolean(),
+  sort_order: z.number().int(),
+});
+export type ItemCategory = z.infer<typeof ItemCategorySchema>;
+
+export const ItemKindSchema = z.enum([
+  'product', 'service', 'kit', 'subscription', 'bundle',
+]);
+export type ItemKind = z.infer<typeof ItemKindSchema>;
+
+export const ItemSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  sku: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  category_id: UuidSchema.nullable(),
+  unit_id: UuidSchema.nullable(),
+  kind: ItemKindSchema,
+  unit_price_cents: CentsSchema,
+  unit_cost_cents: CentsSchema.nullable(),
+  currency_code: z.string().length(3),
+  default_tax_id: UuidSchema.nullable(),
+  is_active: z.boolean(),
+  is_taxable: z.boolean(),
+  is_sellable: z.boolean(),
+  is_purchasable: z.boolean(),
+  metadata: z.record(z.unknown()),
+});
+export type Item = z.infer<typeof ItemSchema>;
+
+// ---------------------------------------------------------------------------
+// VAS + job types
+// ---------------------------------------------------------------------------
+
+export const VasKindSchema = z.enum(['flat', 'per_unit', 'hourly', 'tiered']);
+export type VasKind = z.infer<typeof VasKindSchema>;
+
+export const ValueAddedServiceSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  kind: VasKindSchema,
+  base_price_cents: CentsSchema,
+  currency_code: z.string().length(3),
+  default_tax_id: UuidSchema.nullable(),
+  is_active: z.boolean(),
+});
+export type ValueAddedService = z.infer<typeof ValueAddedServiceSchema>;
+
+export const JobTypeSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  is_active: z.boolean(),
+  sort_order: z.number().int(),
+});
+export type JobType = z.infer<typeof JobTypeSchema>;
+
+// ---------------------------------------------------------------------------
+// quotes + line items + versions + approvals + templates
+// ---------------------------------------------------------------------------
+
+export const QuoteStateSchema = z.enum([
+  'draft', 'submitted', 'revise_requested',
+  'approved', 'project_pending', 'cancelled',
+]);
+export type QuoteState = z.infer<typeof QuoteStateSchema>;
+
+export const QuoteSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  number: z.string(),
+  customer_id: UuidSchema.nullable(),
+  state: QuoteStateSchema,
+  submitted_at: z.string().nullable(),
+  revise_requested_at: z.string().nullable(),
+  approved_at: z.string().nullable(),
+  project_pending_at: z.string().nullable(),
+  cancelled_at: z.string().nullable(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  expiration_date: z.string().nullable(),
+  currency_code: z.string().length(3),
+  subtotal_cents: CentsSchema,
+  discount_cents: CentsSchema,
+  tax_cents: CentsSchema,
+  total_cents: CentsSchema,
+  default_tax_id: UuidSchema.nullable(),
+  payment_method_id: UuidSchema.nullable(),
+  pricing_tier_id: UuidSchema.nullable(),
+  requires_approval: z.boolean(),
+  notes: z.string().nullable(),
+  internal_notes: z.string().nullable(),
+  sent_at: z.string().nullable(),
+  accepted_at: z.string().nullable(),
+  converted_to_project_id: UuidSchema.nullable(),
+});
+export type Quote = z.infer<typeof QuoteSchema>;
+
+export const QuoteLineKindSchema = z.enum(['item', 'vas', 'discount', 'note']);
+export type QuoteLineKind = z.infer<typeof QuoteLineKindSchema>;
+
+export const QuoteLineItemSchema = z.object({
+  id: UuidSchema,
+  quote_id: UuidSchema,
+  position: z.number().int(),
+  item_id: UuidSchema.nullable(),
+  vas_id: UuidSchema.nullable(),
+  sku: z.string().nullable(),
+  name: z.string(),
+  description: z.string().nullable(),
+  kind: QuoteLineKindSchema,
+  quantity_e3: QuantityE3Schema,
+  unit_price_cents: CentsSchema,
+  discount_bps: BpsSchema,
+  tax_id: UuidSchema.nullable(),
+  tax_rate_snapshot: BpsSchema,
+  is_taxable: z.boolean(),
+  line_subtotal_cents: CentsSchema,
+  line_discount_cents: CentsSchema,
+  line_tax_cents: CentsSchema,
+  line_total_cents: CentsSchema,
+});
+export type QuoteLineItem = z.infer<typeof QuoteLineItemSchema>;
+
+export const QuoteVersionSchema = z.object({
+  id: UuidSchema,
+  quote_id: UuidSchema,
+  version_number: z.number().int(),
+  triggered_state: z.string(),
+  payload_jsonb: z.unknown(),
+  created_at: z.string(),
+});
+export type QuoteVersion = z.infer<typeof QuoteVersionSchema>;
+
+export const QuoteApprovalDecisionSchema = z.enum([
+  'pending', 'approved', 'rejected', 'cancelled',
+]);
+export type QuoteApprovalDecision = z.infer<typeof QuoteApprovalDecisionSchema>;
+
+export const QuoteApprovalSchema = z.object({
+  id: UuidSchema,
+  quote_id: UuidSchema,
+  requested_by: UuidSchema.nullable(),
+  requested_at: z.string(),
+  approver_id: UuidSchema.nullable(),
+  decision: QuoteApprovalDecisionSchema,
+  decided_at: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+export type QuoteApproval = z.infer<typeof QuoteApprovalSchema>;
+
+export const QuoteTemplateSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  default_currency_code: z.string().length(3).nullable(),
+  default_tax_id: UuidSchema.nullable(),
+  default_payment_method_id: UuidSchema.nullable(),
+  line_items_jsonb: z.unknown(),
+  footer_text: z.string().nullable(),
+  is_active: z.boolean(),
+});
+export type QuoteTemplate = z.infer<typeof QuoteTemplateSchema>;
+
+// ---------------------------------------------------------------------------
+// projects + project_phases
+// ---------------------------------------------------------------------------
+
+export const ProjectStateSchema = z.enum([
+  'pending', 'ready_to_build', 'in_production',
+  'ready_to_ship', 'completed', 'cancelled',
+]);
+export type ProjectState = z.infer<typeof ProjectStateSchema>;
+
+export const ProjectSchema = z.object({
+  id: UuidSchema,
+  org_id: UuidSchema,
+  number: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  customer_id: UuidSchema.nullable(),
+  source_quote_id: UuidSchema.nullable(),
+  job_type_id: UuidSchema.nullable(),
+  state: ProjectStateSchema,
+  pending_at: z.string().nullable(),
+  ready_to_build_at: z.string().nullable(),
+  in_production_at: z.string().nullable(),
+  ready_to_ship_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  cancelled_at: z.string().nullable(),
+  start_date: z.string().nullable(),
+  due_date: z.string().nullable(),
+  currency_code: z.string().length(3),
+  budget_cents: CentsSchema,
+  notes: z.string().nullable(),
+  internal_notes: z.string().nullable(),
+});
+export type Project = z.infer<typeof ProjectSchema>;
+
+export const ProjectPhaseStateSchema = z.enum([
+  'pending', 'active', 'completed', 'cancelled',
+]);
+export type ProjectPhaseState = z.infer<typeof ProjectPhaseStateSchema>;
+
+export const ProjectPhaseSchema = z.object({
+  id: UuidSchema,
+  project_id: UuidSchema,
+  position: z.number().int(),
+  name: z.string(),
+  description: z.string().nullable(),
+  state: ProjectPhaseStateSchema,
+  pending_at: z.string().nullable(),
+  active_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  cancelled_at: z.string().nullable(),
+  start_date: z.string().nullable(),
+  due_date: z.string().nullable(),
+});
+export type ProjectPhase = z.infer<typeof ProjectPhaseSchema>;
+
+// ---------------------------------------------------------------------------
+// Request / response payload schemas
+// ---------------------------------------------------------------------------
+
+export const CreateQuoteRequestSchema = z.object({
+  number: z.string().min(1),
+  customer_id: UuidSchema.nullable().optional(),
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  currency_code: z.string().length(3).default('USD'),
+  expiration_date: z.string().nullable().optional(),
+  default_tax_id: UuidSchema.nullable().optional(),
+  payment_method_id: UuidSchema.nullable().optional(),
+  pricing_tier_id: UuidSchema.nullable().optional(),
+  notes: z.string().nullable().optional(),
+  internal_notes: z.string().nullable().optional(),
+});
+export type CreateQuoteRequest = z.infer<typeof CreateQuoteRequestSchema>;
+
+export const UpdateQuoteRequestSchema = CreateQuoteRequestSchema.partial();
+export type UpdateQuoteRequest = z.infer<typeof UpdateQuoteRequestSchema>;
+
+export const CreateQuoteLineRequestSchema = z.object({
+  position: z.number().int().optional(),
+  item_id: UuidSchema.nullable().optional(),
+  vas_id: UuidSchema.nullable().optional(),
+  sku: z.string().nullable().optional(),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  kind: QuoteLineKindSchema.default('item'),
+  quantity_e3: QuantityE3Schema.default(1000),
+  unit_price_cents: CentsSchema.default(0),
+  discount_bps: BpsSchema.default(0),
+  tax_id: UuidSchema.nullable().optional(),
+  is_taxable: z.boolean().default(true),
+});
+export type CreateQuoteLineRequest = z.infer<typeof CreateQuoteLineRequestSchema>;
+
+export const ConvertQuoteToProjectRequestSchema = z.object({
+  project_number: z.string().nullable().optional(),
+});
+export type ConvertQuoteToProjectRequest = z.infer<
+  typeof ConvertQuoteToProjectRequestSchema
+>;
+
+export const CreateProjectRequestSchema = z.object({
+  number: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  customer_id: UuidSchema.nullable().optional(),
+  job_type_id: UuidSchema.nullable().optional(),
+  currency_code: z.string().length(3).default('USD'),
+  budget_cents: CentsSchema.default(0),
+  start_date: z.string().nullable().optional(),
+  due_date: z.string().nullable().optional(),
+});
+export type CreateProjectRequest = z.infer<typeof CreateProjectRequestSchema>;
+
+export const TransitionRequestSchema = z.object({
+  to: z.string(),
+  reason: z.string().nullable().optional(),
+});
+export type TransitionRequest = z.infer<typeof TransitionRequestSchema>;
+
+export const ReorderPhasesRequestSchema = z.object({
+  phase_ids: z.array(UuidSchema).min(1),
+});
+export type ReorderPhasesRequest = z.infer<typeof ReorderPhasesRequestSchema>;
