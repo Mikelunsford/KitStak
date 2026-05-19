@@ -354,3 +354,78 @@ export const ShipmentSchema = z.object({
   updated_at: Iso,
 });
 export type Shipment = z.infer<typeof ShipmentSchema>;
+
+// ---------------------------------------------------------------------------
+// 3PL Ops — payload line shapes (API-boundary validation)
+//
+// F-Wave7-LINEFORM-VALIDATE-01: receiving / shipment / production_run
+// payloads carry `lines` (and for production_run, `consumed` + `produced`)
+// arrays. The DB triggers in migration 0048 tolerate malformed entries by
+// skipping them, but the API boundary now rejects malformed payloads up
+// front so the operator sees a structured 422 instead of a silently
+// dropped stock movement.
+//
+// Wire shape today (payload is jsonb, lines come from the SPA's freeform
+// JSON editor): `{ item_id: uuid, quantity: number|numeric-string,
+// unit_cost_cents?: cents }`. We keep the optional descriptive fields
+// (`name`, `description`, `uom`, `reference`, `quantity_expected`) as
+// passthrough so the existing SPA template
+// `[{ item_id, name, quantity_expected }]` still validates once the
+// operator fills in a real item_id.
+//
+// Production runs split into two distinct shapes per migration 0048:
+//   * consumed: array of line objects, item_id REQUIRED (no fallback in
+//     trigger; lines without item_id are skipped).
+//   * produced: SINGLE object, all fields optional; trigger coalesces
+//     item_id -> output_item_id and quantity -> quantity_produced.
+// ---------------------------------------------------------------------------
+
+export const ReceivingOrderLineSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.optional(),
+  uom: z.string().min(1).max(16).optional(),
+  reference: z.string().optional(),
+}).passthrough();
+export type ReceivingOrderLine = z.infer<typeof ReceivingOrderLineSchema>;
+
+export const ShipmentLineSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.optional(),
+  uom: z.string().min(1).max(16).optional(),
+  reference: z.string().optional(),
+}).passthrough();
+export type ShipmentLine = z.infer<typeof ShipmentLineSchema>;
+
+export const ProductionRunConsumedLineSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.optional(),
+  uom: z.string().min(1).max(16).optional(),
+  reference: z.string().optional(),
+}).passthrough();
+export type ProductionRunConsumedLine = z.infer<typeof ProductionRunConsumedLineSchema>;
+
+export const ProductionRunProducedSchema = z.object({
+  item_id: Uuid.optional(),
+  quantity: Qty.optional(),
+  unit_cost_cents: Cents.optional(),
+}).passthrough();
+export type ProductionRunProduced = z.infer<typeof ProductionRunProducedSchema>;
+
+export const ReceivingOrderPayloadSchema = z.object({
+  lines: z.array(ReceivingOrderLineSchema).optional(),
+}).passthrough();
+export type ReceivingOrderPayload = z.infer<typeof ReceivingOrderPayloadSchema>;
+
+export const ShipmentPayloadSchema = z.object({
+  lines: z.array(ShipmentLineSchema).optional(),
+}).passthrough();
+export type ShipmentPayload = z.infer<typeof ShipmentPayloadSchema>;
+
+export const ProductionRunPayloadSchema = z.object({
+  consumed: z.array(ProductionRunConsumedLineSchema).optional(),
+  produced: ProductionRunProducedSchema.optional(),
+}).passthrough();
+export type ProductionRunPayload = z.infer<typeof ProductionRunPayloadSchema>;
