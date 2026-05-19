@@ -165,6 +165,7 @@ export const ExpenseSchema = z.object({
   expense_number: z.string().nullable(),
   expense_category_id: Uuid.nullable(),
   vendor_id: Uuid.nullable(),
+  project_id: Uuid.nullable().optional(),
   submitter_user_id: Uuid.nullable(),
   status: ExpenseStatusSchema,
   currency_code: Currency,

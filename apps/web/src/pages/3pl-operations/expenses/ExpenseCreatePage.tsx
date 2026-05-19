@@ -24,10 +24,9 @@ const FormSchema = z.object({
  * ExpenseCreatePage. Closes G-EXP-FORM-01. Wires the three FK pivots the
  * expenses table already supports per ExpenseSchema: expense_category_id
  * (via the category select), vendor_id (via VendorPicker), and project_id
- * (added by migration 0046; sent at top level since the side-car schema
- * does not enumerate it yet but the column exists in Postgres). All three
- * pickers are optional so a quick out-of-pocket expense entry stays one
- * field minimum (date + amount).
+ * (added by migration 0046 and enumerated on ExpenseSchema per
+ * F-Wave7-EXPENSE-SCHEMA-01). All three pickers are optional so a quick
+ * out-of-pocket expense entry stays one field minimum (date + amount).
  *
  * Reads ?vendor_id= and ?project_id= from the query string so vendor and
  * project detail pages can prefill the new-expense form via deep link.
@@ -74,7 +73,7 @@ export function ExpenseCreatePage() {
       return;
     }
     setErrors({});
-    const body: Partial<Expense> & { project_id?: string } = {
+    const body: Partial<Expense> = {
       ...parsed.data,
       description: parsed.data.description ?? null,
     };
