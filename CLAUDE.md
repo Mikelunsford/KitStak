@@ -15,7 +15,7 @@ Ship fast, validate with the first operator, defer perfection where the chassis 
 ### Money rules
 - Storage: BIGINT cents in Postgres. `_cents` column suffix everywhere.
 - Math: `roundHalfEven` (banker's rounding). Never floating point for monetary math.
-- Wire: cents as integer or string. Never floats. `bigintReplacer` for serialization.
+- Wire: cents as integer or string. Never floats.
 - Currency: snapshotted at issuance on every line item.
 - Mirror: `_shared/money.ts` byte-identical to `apps/web/src/lib/money.ts`. Enforced by `money.parity.test.ts` contract test.
 

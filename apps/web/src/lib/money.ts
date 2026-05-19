@@ -28,7 +28,3 @@ export function formatCents(cents: number | string, currency = 'USD'): string {
     maximumFractionDigits: isZeroDecimal ? 0 : 2,
   }).format(value);
 }
-
-export function bigintReplacer(_key: string, value: unknown): unknown {
-  return typeof value === 'bigint' ? value.toString() : value;
-}
