@@ -1,10 +1,96 @@
 # Kitstak Status
 
-Last updated: 2026-05-18
+Last updated: 2026-05-19
 
 ## Current state
 
-**Wave 6.5 workflow integration remediation shipped (subject to PR merge).** The Phase 6 workflow integration audit at `03-workspace/journal/phase-6-workflow-integration-audit.md` identified 41 cross-domain wiring gaps surfaced by the operator's `F-Wave6-FLOW-01` prod exercise. Phase 6.5 closed 39 of them (2 LARGE line-normalization gaps deferred to Phase 7). Shape B dispatch: 4 specialized agents across 2 stages plus 2 finishers (transient API blips wiped both Stage agent runs partway; finisher pattern proved out as a first-class recovery). Shipped: 5 migrations (0042 to 0046), side-car extensions for sales (`project_line_items` + 4 caps), 5 reusable pickers, 9 new create pages, 14 patched pages, query-string carry-through on 6 create pages, 6 new routes, `projects-api POST /projects/:id/convert-to-invoice` RPC. Bundle 29.25 kB / 40 kB. All 6 gates green, byte-mirror parity intact across 22 pairs. Full journal at `03-workspace/journal/wave-6-5-workflow-integration.md`.
+**Wave 6.5 hotfix (PR #21) merged at `3322db3`.** Three SPA bugs surfaced by the F-Wave6-FLOW-01 prod re-test after Wave 6.5: ProjectDetailPage rendered the ErrorBoundary fallback because `useProjects.ts` shipped with a `ProjectLineItemPlaceholder` TODO (Canon Steward pass missed replacing it with the real `ProjectLineItem` type from the side-car); `useConvertQuoteToProject` had no `onError` handler so STATE_CONFLICT failures swallowed silently; 8 list pages had no "New X" CTAs to the Wave 6.5 create pages. All fixed. Bundle 28.9 kB / 40 kB. Vercel auto-deployed on merge. **Phase 6.5 fully landed on prod.**
+
+**Wave 6.5 workflow integration remediation merged (PR #20 at `bee9654`).** The Phase 6 workflow integration audit at `03-workspace/journal/phase-6-workflow-integration-audit.md` identified 41 cross-domain wiring gaps surfaced by the operator's `F-Wave6-FLOW-01` prod exercise. Phase 6.5 closed 39 of them (2 LARGE line-normalization gaps deferred to Phase 7). Shape B dispatch: 4 specialized agents across 2 stages plus 2 finishers (transient API blips wiped both Stage agent runs partway; finisher pattern proved out as a first-class recovery). Shipped: 5 migrations (0042 to 0046, all verified applied at remote), side-car extensions for sales (`project_line_items` + 4 caps), 5 reusable pickers, 9 new create pages, 14 patched pages, query-string carry-through on 6 create pages, 6 new routes, `projects-api POST /projects/:id/convert-to-invoice` RPC. Byte-mirror parity intact across 22 pairs. Full journal at `03-workspace/journal/wave-6-5-workflow-integration.md`.
+
+## Outstanding work and drift register
+
+### Phase 6 verification gate (the only thing blocking Phase 7 declaration)
+
+- **`F-Wave6-FLOW-01`**: operator-led quote-to-cash exercise on prod. After PR #21 vercel deploy: hard-refresh `www.kitstak.com`, walk Customer create -> Quote create with CustomerPicker -> Approve quote -> Convert to project (now surfaces errors inline if blocked) -> Project detail (now renders MATERIALS, RECEIVING, SHIPMENTS, INVOICES sections without crashing) -> Add a material -> Create receiving order from the deep-linked CTA -> Create shipment from the deep-linked CTA -> Mark project completed -> Create invoice from project -> Receive payment. Each detail page should render `HISTORY` (AuditTimeline) with rows. Any new gaps surfaced are fixed inline per the §7 hotfix loop.
+
+### Operator-gated (waiting on explicit operator authorization beyond a phase go)
+
+- **`F-Wave2-AGENT-A-05`**: master capability table consolidation. Fold all domain caps from the 6 side-cars into the singular `_shared/capabilities.ts`. Removes the per-bundle `requireXxxCap` shim pattern (D-011) in favor of a single `requireCap`.
+- **`F-Wave2-CO-01`**: pdf-worker real render. Needs operator-approved JS PDF dependency (`pdfkit` or `jsPDF`, both BSD). Today `pdf-worker` returns a 501 stub.
+- **`F-Wave2-DNDKIT-01`**: project-phase reorder UI. Needs operator-approved `dnd-kit` dependency. Today reorder uses Up / Down buttons.
+- **`F-Wave5-CO-01`** / **`F-Wave3-OBS-01`**: Sentry SPA + edge-function capture. Needs operator-approved DSN.
+- **`F-Wave5-CO-02`**: analytics provider selection. Needs operator pick (PostHog / Segment / Mixpanel / etc.).
+
+### Phase 7 stabilization scope (spawned from Phase 6.5)
+
+- **`F-Wave7-LINES-01`**: receiving / shipment line normalization. Today lines are stored as `payload` JSON on `receiving_orders` and `shipments`. The 6.5 audit flagged operational ergonomics; constitution does not mandate normalization. New tables (`receiving_order_line_items`, `shipment_line_items`) plus handler updates plus side-car schemas. Reserves migration slots from 0047.
+- **`F-Wave7-LISTFILTER-01`**: server-side list filters. `CustomerDetailPage` and `VendorDetailPage` filter quotes / projects / invoices / payments / POs / vendor bills / expenses / receiving client-side after pulling the full org list. Lift filters into the list services (`useQuotesList`, `useProjectsList`, etc.). Server endpoints already support the filters.
+- **`F-Wave7-CRM-SCHEMA-01`**: extend `CustomerCreateSchema` side-car to include `default_payment_terms_days` (called out by audit, not in current side-car).
+- **`F-Wave7-EXPENSE-SCHEMA-01`**: extend `ExpenseSchema` side-car to enumerate `project_id` (column shipped in migration 0046 but Zod schema does not enumerate it; `ExpenseCreatePage` uses a typed cast to send it).
+- **`F-Wave7-LITDRIFT-01`**: canonicalize cross-boundary string literals in `_shared/`. The `G-OPS-FLAG-01` and `F-Wave6-CORS-01` bugs were the same class: a literal duplicated at the read site and the write site, drifting in isolation. Canonicalize all flag keys, header names, and other cross-boundary constants as named imports from `_shared/`.
+- **`F-Wave7-CANON-STEWARD-01`**: pre-PR grep guardrail. Add a pre-commit check that fails the diff if it introduces or leaves a `Placeholder` / `TODO 6.5-*` / `TODO Canon Steward` marker. The placeholder pattern (parallel agents stub each other's types so neither blocks) is useful; the resolution step needs a guardrail because the Canon Steward miss in Phase 6.5 was caught only at operator re-test.
+
+### Other carried open
+
+- **`F-Wave5-TEST-02`**: smoke selectors dry-run against staging. The Playwright smoke spec is scaffolded but selectors have not been validated against live staging. Eventually expand into a cross-domain workflow smoke that walks one full quote-to-cash chain (the only existing cross-domain verifier today is the operator running F-Wave6-FLOW-01).
+- **`F-Wave6-NAV-02`**: align other pillar child paths (Manufacturing, Co-Pack and Ecom, KitForce, KitCost) when those pillars light up. Pillar 1 paths fixed in PR #15.
+
+### Closed in this session
+
+- `F-Wave6-API-01` / `02`, `F-Wave6-NAV-01` / `03`: Wave 6 chassis PRs #13 to #16.
+- `F-Wave6-CORS-01`: PR #18 (CORS consolidation).
+- `G-OPS-FLAG-01`: PR #19 hotfix (string-literal drift).
+- 39 of 41 audit gaps: Phase 6.5 PR #20.
+- `F-Wave6-DATA-01`: migrations 0042 + 0043 (seed_org_settings backfill plus provision_organization self-heal).
+- ProjectDetailPage crash, convert silent fail, list page CTAs: PR #21.
+
+## Drift register
+
+### Code-level: HELD on every hard constitutional constraint
+
+| Constraint | State |
+|---|---|
+| Money rules (cents-as-bigint, `_cents` suffix, roundHalfEven, byte-mirrored helpers) | Held. `project_line_items` uses `bigint unit_price_cents`. |
+| RLS Pattern A on every tenant-scoped table | Held. `project_line_items` got Pattern A from migration 0044. Cross-tenant `convert_project_to_invoice` follows the migration-0041 `p_caller_org_id` pattern. |
+| Migration rules (forward-only, idempotent, no edits post-apply) | Held. 5 new migrations 0042 to 0046 all forward-only with constitutional headers. |
+| Idempotency (`Idempotency-Key` on every non-GET, hashed, stored) | Held. All new `projects-api` POST/PATCH/DELETE endpoints require it. |
+| Audit log (append-only, hash chain, auto-state-transition triggers) | Held. `project_line_items` ships with auto-trigger from migration 0044; `audit_log` entity_type enum extended. |
+| Capabilities (D-011 per-bundle `requireXxxCap` shim) | Held. `projects-api` extended with `project.line_item.*` caps via `requireProjectCap` shim. |
+| Banned deps | Held. No new top-level deps. |
+| Brand discipline | Held. All copy clean; lucide-react icons only; no em dashes, no double hyphens, no emojis. |
+| TS1 read-only zone | Held. No writes. |
+| Byte-mirror parity (22 pairs) | Held. `test:contract` 25/25 across every PR. |
+
+### Code-level: MINOR DRIFTS (workarounds in code with durable follow-ups filed)
+
+| Drift | Workaround | Follow-up |
+|---|---|---|
+| `ExpenseSchema` side-car omits `project_id` (DB column exists from migration 0046) | `ExpenseCreatePage` uses a typed cast `Partial<Expense> & { project_id?: string }` to send it; server-side Zod accepts/strips | `F-Wave7-EXPENSE-SCHEMA-01` |
+| `CustomerCreateSchema` side-car omits `default_payment_terms_days` | `CustomerCreatePage` does not capture the field | `F-Wave7-CRM-SCHEMA-01` |
+| List services don't expose `customer_id` / `vendor_id` / `project_id` filters | `CustomerDetailPage` / `VendorDetailPage` filter client-side after pulling full org list | `F-Wave7-LISTFILTER-01` |
+| `receiving_orders` and `shipments` store lines as payload JSON | Payload-JSON editor on the create pages (operator can hand-edit JSON; constitution does not mandate normalization) | `F-Wave7-LINES-01` |
+
+### Process-level: DRIFTS that surfaced + codified responses
+
+1. **Wave 2's disjoint-domain dispatch produced 0 cross-domain seams.** Six agents each shipped a domain CRUD; nobody owned the seams between domains. 41 gaps surfaced when operator exercised quote-to-cash end-to-end. **Response**: Phase 6.5 codified Shape B (shared-UI agent + schema/RPC agent before dependent-UI agents) as the future-wave pattern. Documented in `wave-6-5-workflow-integration.md` lessons section.
+
+2. **Canon Steward missed a TODO placeholder during consolidation.** Agent 6.5-A shipped `ProjectLineItemPlaceholder` in `useProjects.ts` with a TODO marker for the orchestrator to replace once 6.5-B's real `ProjectLineItem` type landed. The Canon Steward pass missed the marker. The placeholder field names (`quantity_e3`, `line_total_cents`) did not match the real schema (`quantity`, `discount_percent`, no precomputed total); `formatCents(undefined)` threw at first render of a real row, ErrorBoundary caught. Operator caught it at re-test. **Response**: hotfix PR #21 replaced the placeholder; `F-Wave7-CANON-STEWARD-01` codifies a pre-commit grep guardrail.
+
+3. **String-literal drift across boundaries: recurring pattern.** Two instances in two consecutive waves: CORS allow-headers (`cors.ts` and `responses.ts` drifted; `F-Wave6-CORS-01`) and feature flag key (`ops-api` read `plugins.3pl` while `seed_org_settings` wrote `plugins.three_pl`; `G-OPS-FLAG-01`). Same class of bug. **Response**: both closed in this session (PR #18 + PR #19). `F-Wave7-LITDRIFT-01` spawns a sweep to canonicalize all cross-boundary string literals in `_shared/`.
+
+4. **Transient API blips during agent runs.** Phase 6.5 Stage agents hit API connection errors mid-run three times (twice in Stage 1, once in Stage 2). Each agent had landed ~95% of deliverables before failing. **Response**: discovered the finisher-agent recovery pattern. Spawn a small follow-up agent with the residual scope (specific files to fix, specific gates to pass) as its charter. Faster than re-dispatching the full Stage agent and the partial work is durable. Documented in `wave-6-5-workflow-integration.md` and now codified in `SESSION-CATALYST.md`.
+
+5. **48-probe matrix is necessary but not sufficient.** Probes hit edge functions directly with service-role JWTs; they cannot surface SPA-edge integration gaps or cross-domain workflow gaps. Phase 6 chassis revealed 4 such bugs (apiClient URL, CORS, Sidebar paths, Sidebar expansion); Phase 6.5 audit revealed 41 more. The only existing cross-domain verifier is the operator running `F-Wave6-FLOW-01` by hand. **Response**: tracked under `F-Wave5-TEST-02` (smoke selector hardening) but scope needs to grow into a real browser-driven workflow smoke that walks one full quote-to-cash chain pre-merge.
+
+### Spine-level: INTACT
+
+- The constitution at `CLAUDE.md` still governs every sub-agent prompt.
+- Multi-agent dispatch protocol still works (Wave 6.5 proved it at 4 agents + 2 finishers).
+- Cowork orchestrator role intact (canon updates, gate enforcement, PR opening, Canon Steward consolidation).
+- Phase boundaries plus operator-gated decisions intact.
+- All 22 byte-mirror canon pairs intact.
+- 46 migrations applied at remote; no migration-rule violations.
 
 **Wave 6 Customer Zero chassis fixes shipped (PRs #13, #14, #15, #16, #17, #18, #19 merged · main at `a90eded`).** Phase 6 opened with the operator signing in to `www.kitstak.com` and the Topbar rendering "No workspace" despite a fully provisioned `kitstak` org and stamped JWT claims. Four rapid-fire hotfixes landed all the foundational SPA -> edge-function wiring gaps that Wave 5's probe matrix could not have caught: apiClient relative URLs + missing auth headers (PR #13), CORS allow-headers missing `apikey` (PR #14), Sidebar pillar paths drifted from the routes table (PR #15), Sidebar surfaced only pillars while the Phase 6 quote-to-cash flow needs Workspace / Sales / Procurement / Inventory / Finance / Tools / Admin (PR #16). Plus an operator-data fixup seeding `org_feature_flags` for the `kitstak` org (which had been provisioned before migration 0040's `seed_org_settings` shipped). Phase 6 chassis closed; the operator-led quote-to-cash workflow exercise is the remaining Phase 6 gate.
 

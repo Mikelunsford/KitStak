@@ -4,6 +4,20 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] · Wave 6.5 hotfix (PR #21)
+
+Three SPA regressions surfaced by operator F-Wave6-FLOW-01 re-test on post-Wave-6.5 prod. All three fixed in PR #21. SPA-only, Vercel auto-deployed, no migration, no edge function.
+
+### Fixed
+
+- ProjectDetailPage rendered the ErrorBoundary "something is wrong" page on first load. `useProjects.ts` shipped with `ProjectLineItemPlaceholder` (a TODO type Agent 6.5-A authored so it would not block on Agent 6.5-B's side-car landing). The Canon Steward consolidation pass missed replacing it with the real `ProjectLineItem` schema. Placeholder field names (`quantity_e3`, `line_total_cents`, `discount_bps`) did not match the real schema (`quantity`, `discount_percent`, no precomputed total). `formatCents(undefined)` threw on first row render. Fix: imports the real types from `@/lib/types/sales`; ProjectDetailPage reads `l.quantity` and computes line subtotal client-side as `qty * unit_price_cents * (1 - discount_percent/100)`; material-add form sends `quantity` (not `quantity_e3`) plus required `discount_percent: 0`; `useConvertProjectToInvoice` return type fixed to `{ invoice_id }` per the actual projects-api response (handler at `supabase/functions/projects-api/index.ts:465`); convert-to-invoice click handler navigates via `result.invoice_id`.
+- "Convert to project" button click did nothing visible. `useConvertQuoteToProject` had no `onError` handler; STATE_CONFLICT (quote not in approved state) silently swallowed. Fix: QuoteDetailPage disables the convert button while pending, shows "Converting." label, renders `convert.error` inline when the mutation fails.
+- 8 list pages had no "New X" CTAs to the Wave 6.5 create pages. Operator landed on OpportunitiesPipelinePage, LeadsKanbanPage, ContactsListPage, ReceivingOrdersListPage, ShipmentsListPage, PaymentsListPage, CreditNotesListPage, JournalEntriesListPage and saw no button. Fix: each gains an accent-styled Link CTA in the header matching the existing VendorBillsListPage pattern. ReceivingOrders had a pre-existing broken "Refresh" link pointing to `/3pl-operations/receiving`; corrected to `/3pl-operations/receiving/new` with the right label. ContactsListPage carries `customer_id` through the query string when present.
+
+### Lesson codified
+
+The placeholder coordination pattern (parallel agents stub each other's types so neither blocks) is useful; the Canon Steward resolution step needs a guardrail. `F-Wave7-CANON-STEWARD-01` follow-up: add a pre-commit check that fails the diff if a `Placeholder` / `TODO 6.5-*` / `TODO Canon Steward` marker is introduced or left in code.
+
 ## [0.7.0] · Wave 6.5 Workflow Integration Remediation
 
 The Phase 6 workflow integration audit identified 41 cross-domain wiring gaps that the operator's `F-Wave6-FLOW-01` quote-to-cash exercise surfaced. The 48-probe matrix could not have caught these: probes hit edge functions directly with service-role JWTs; they do not traverse cross-domain SPA workflows. Phase 6.5 closed 39 of 41 gaps (2 LARGE line-normalization gaps deferred to Phase 7 with payload-JSON editors shipped as the interim).
