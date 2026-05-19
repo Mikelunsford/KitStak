@@ -1,0 +1,60 @@
+# canon-steward-check allowlist
+# F-Wave7-CANON-STEWARD-01
+#
+# Format: <rule>|<file>|<snippet>
+#   rule    = marker | orphan-link | orphan-route
+#   file    = repo-relative path (forward slashes, no leading ./)
+#   snippet = the trimmed first 160 chars of the offending line, OR the route
+#             path itself for orphan-route entries
+#
+# Line numbers are intentionally NOT load-bearing: line drift must not cause
+# a previously-allowed entry to silently fall back into failing CI.
+#
+# Every entry below MUST cite the follow-up that will close it. STATUS.md
+# tracks the open follow-ups; an item is gone from this file the moment the
+# follow-up lands and the violation is gone from the tree.
+#
+# DO NOT add new entries without a follow-up ID and a one-line reason.
+
+# ---------------------------------------------------------------------------
+# marker: stale Phase 6.5 sequencing TODOs.
+# These four markers are intentional cross-agent sequencing notes from the
+# Phase 6.5 wave. They reference work that other agents in that wave shipped
+# (or did not). They are factual, narrative-only comments and the underlying
+# work is complete. Tracking the cleanup as a low-priority follow-up.
+# Follow-up: F-Wave7-STALE-6_5-TODOS-01 (sweep these four comments out of
+# tree once Phase 7 is closed; no behavioural impact).
+# ---------------------------------------------------------------------------
+marker|apps/web/src/pages/crm/opportunities/OpportunityDetailPage.tsx|// TODO 6.5-D: QuoteCreatePage at apps/web/src/pages/3pl-operations/quotes/QuoteCreatePage.tsx
+marker|apps/web/src/pages/crm/customers/CustomerDetailPage.tsx|* TODO 6.5-D: the quotes and projects list services do not currently accept a
+marker|apps/web/src/pages/3pl-operations/projects/ProjectDetailPage.tsx|// TODO 6.5-A: receiving / shipment project_id filtering is best-effort
+marker|apps/web/src/lib/hooks/useProjects.ts|// TODO 6.5-A: these wrap the projects-api endpoints Agent 6.5-B ships in
+
+# ---------------------------------------------------------------------------
+# orphan-route: sales-config sub-pages.
+# These six routes are deep settings reachable from the items / quotes /
+# admin surfaces rather than from the primary Sidebar. They are NOT silent
+# orphans of the PR #27 / PR #34 class because no `<Link to="..."/new">`
+# points at a missing /new route; the static route is registered and the
+# detail surfaces link to them. The Sidebar IA intentionally does not
+# surface every config sub-page.
+# Follow-up: F-Wave7-SIDEBAR-IA-01 (decide whether sales-config and VAS
+# should get their own collapsible Sidebar section in Phase 8 or remain
+# linked from the admin / items surfaces only).
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/taxes
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/currencies
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/exchange-rates
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/payment-methods
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/pricing-tiers
+orphan-route|apps/web/src/routes.ts|/3pl-operations/vas
+
+# ---------------------------------------------------------------------------
+# orphan-route: /imports/history.
+# Reachable from the Imports wizard (/imports), which is in the Sidebar
+# Tools section. Sidebar surfaces /imports and the wizard surfaces a link
+# to history. Not a true orphan.
+# Follow-up: F-Wave7-SIDEBAR-IA-01 (same as above; either promote to
+# Sidebar or drop from this allowlist when the IA decision lands).
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/imports/history
