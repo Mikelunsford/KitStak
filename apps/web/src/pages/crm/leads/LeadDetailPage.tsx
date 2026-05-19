@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { leadsKeys } from '@/lib/queryKeys/leads';
 import { getLead } from '@/lib/services/leadsService';
 
@@ -49,10 +50,10 @@ export function LeadDetailPage() {
         <dd>{l.estimated_value_cents}</dd>
         <dt className="text-ink-dim">Currency</dt>
         <dd>{l.currency_code ?? ''}</dd>
-        <dt className="text-ink-dim">Converted customer id</dt>
-        <dd>{l.converted_customer_id ?? ''}</dd>
-        <dt className="text-ink-dim">Converted opportunity id</dt>
-        <dd>{l.converted_opportunity_id ?? ''}</dd>
+        <dt className="text-ink-dim">Converted customer</dt>
+        <dd>{l.converted_customer_id ? <EntityLabel kind="customer" id={l.converted_customer_id} /> : ''}</dd>
+        <dt className="text-ink-dim">Converted opportunity</dt>
+        <dd>{l.converted_opportunity_id ? <EntityLabel kind="opportunity" id={l.converted_opportunity_id} /> : ''}</dd>
       </dl>
 
       <section className="mt-6">

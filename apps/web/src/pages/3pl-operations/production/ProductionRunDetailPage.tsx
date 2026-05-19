@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useProductionRun, useStartProductionRun, useCompleteProductionRun } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -31,8 +32,8 @@ export function ProductionRunDetailPage() {
         ) : null}
       </div>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink">{d.warehouse_id}</dd>
-        <dt className="text-ink-dim">Output item</dt><dd className="text-ink">{d.output_item_id}</dd>
+        <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink"><EntityLabel kind="warehouse" id={d.warehouse_id} /></dd>
+        <dt className="text-ink-dim">Output item</dt><dd className="text-ink"><EntityLabel kind="item" id={d.output_item_id} /></dd>
         <dt className="text-ink-dim">Planned</dt><dd className="text-ink">{String(d.quantity_planned)}</dd>
         <dt className="text-ink-dim">Produced</dt><dd className="text-ink">{String(d.quantity_produced)}</dd>
         <dt className="text-ink-dim">Scheduled</dt><dd className="text-ink">{d.scheduled_for ?? ''}</dd>

@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import {
   useJournalEntry,
   usePostJournalEntry,
@@ -78,7 +79,7 @@ export function JournalEntryDetailPage() {
           <tbody>
             {lines.map((l) => (
               <tr key={l.id} className="border-b border-line">
-                <td className="py-2 font-mono text-xs">{l.account_id}</td>
+                <td className="py-2 font-mono text-xs"><EntityLabel kind="account" id={l.account_id} /></td>
                 <td className="py-2 text-right">{formatCents(l.debit_cents as number | string, 'USD')}</td>
                 <td className="py-2 text-right">{formatCents(l.credit_cents as number | string, 'USD')}</td>
                 <td className="py-2 text-ink-dim">{l.memo ?? ''}</td>

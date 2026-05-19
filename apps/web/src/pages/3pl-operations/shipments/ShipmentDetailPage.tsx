@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useShipment, useTransitionShipment, useShipShipment } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { SHIPMENT_FSM } from '@/lib/workflow/vendors_inventory_ops';
@@ -34,7 +35,7 @@ export function ShipmentDetailPage() {
         ) : null}
       </div>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink">{d.warehouse_id}</dd>
+        <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink"><EntityLabel kind="warehouse" id={d.warehouse_id} /></dd>
         <dt className="text-ink-dim">Ship date</dt><dd className="text-ink">{d.ship_date ?? ''}</dd>
         <dt className="text-ink-dim">Carrier</dt><dd className="text-ink">{d.carrier ?? ''}</dd>
         <dt className="text-ink-dim">Tracking</dt><dd className="text-ink">{d.tracking_number ?? ''}</dd>
