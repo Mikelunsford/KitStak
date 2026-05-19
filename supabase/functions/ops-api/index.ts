@@ -48,6 +48,10 @@ import {
   ReceivingOrderSchema, ReceivingOrderStatusSchema,
   ProductionRunSchema, ProductionRunStatusSchema,
   ShipmentSchema, ShipmentStatusSchema,
+  ReceivingOrderLineSchema, ReceivingOrderPayloadSchema,
+  ShipmentLineSchema, ShipmentPayloadSchema,
+  ProductionRunConsumedLineSchema, ProductionRunProducedSchema,
+  ProductionRunPayloadSchema,
   type ReceivingOrder, type ProductionRun, type Shipment,
 } from '../_shared/types/vendors_inventory_ops.ts';
 import {
@@ -80,6 +84,12 @@ async function loadOrgScoped<T>(table: string, caller: Caller, id: string): Prom
 // Zod inputs
 // ---------------------------------------------------------------------------
 
+// F-Wave7-LINEFORM-VALIDATE-01: payload.lines (and consumed/produced) are
+// validated at the API boundary using shared line schemas from
+// _shared/types/vendors_inventory_ops.ts. A POST/PATCH that carries a line
+// with a missing or non-UUID item_id now returns 422 VALIDATION_ERROR with
+// structured fieldErrors instead of a silently trigger-skipped row.
+
 const ReceivingCreate = z.object({
   warehouse_id: z.string().uuid(),
   purchase_order_id: z.string().uuid().optional().nullable(),
@@ -88,17 +98,13 @@ const ReceivingCreate = z.object({
   expected_date: z.string().optional().nullable(),
   reference: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  payload: z.record(z.unknown()).default({}),
+  payload: ReceivingOrderPayloadSchema.default({}),
 });
 const ReceivingUpdate = ReceivingCreate.partial();
 const ReceivingTransition = z.object({ to: ReceivingOrderStatusSchema });
 const ReceivingReceive = z.object({
   received_date: z.string().optional(),
-  lines: z.array(z.object({
-    item_id: z.string().uuid(),
-    quantity: z.union([z.number(), z.string()]),
-    unit_cost_cents: z.union([z.number().int(), z.string()]).default(0),
-  })).default([]),
+  lines: z.array(ReceivingOrderLineSchema).default([]),
 });
 
 const ProductionCreate = z.object({
@@ -108,21 +114,13 @@ const ProductionCreate = z.object({
   quantity_planned: z.union([z.number(), z.string()]).default(0),
   scheduled_for: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  payload: z.record(z.unknown()).default({}),
+  payload: ProductionRunPayloadSchema.default({}),
 });
 const ProductionUpdate = ProductionCreate.partial();
 const ProductionComplete = z.object({
   quantity_produced: z.union([z.number(), z.string()]),
-  consumed: z.array(z.object({
-    item_id: z.string().uuid(),
-    quantity: z.union([z.number(), z.string()]),
-    unit_cost_cents: z.union([z.number().int(), z.string()]).default(0),
-  })).default([]),
-  produced: z.object({
-    item_id: z.string().uuid().optional(),
-    quantity: z.union([z.number(), z.string()]).optional(),
-    unit_cost_cents: z.union([z.number().int(), z.string()]).optional(),
-  }).optional(),
+  consumed: z.array(ProductionRunConsumedLineSchema).default([]),
+  produced: ProductionRunProducedSchema.optional(),
 });
 
 const ShipmentCreate = z.object({
@@ -134,7 +132,7 @@ const ShipmentCreate = z.object({
   carrier: z.string().optional().nullable(),
   tracking_number: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  payload: z.record(z.unknown()).default({}),
+  payload: ShipmentPayloadSchema.default({}),
 });
 const ShipmentUpdate = ShipmentCreate.partial();
 const ShipmentTransition = z.object({ to: ShipmentStatusSchema });
@@ -142,11 +140,7 @@ const ShipmentShip = z.object({
   ship_date: z.string().optional(),
   carrier: z.string().optional().nullable(),
   tracking_number: z.string().optional().nullable(),
-  lines: z.array(z.object({
-    item_id: z.string().uuid(),
-    quantity: z.union([z.number(), z.string()]),
-    unit_cost_cents: z.union([z.number().int(), z.string()]).default(0),
-  })).default([]),
+  lines: z.array(ShipmentLineSchema).default([]),
 });
 
 // ---------------------------------------------------------------------------
