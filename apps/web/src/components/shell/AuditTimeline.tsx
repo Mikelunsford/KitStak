@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { supabase } from '@/lib/supabase';
 import { AuditEntrySchema, type AuditEntry } from '@/lib/types';
 
@@ -61,7 +62,7 @@ export function AuditTimeline({
 }: AuditTimelineProps) {
   const enabled = entityId !== null;
   const query = useQuery({
-    queryKey: ['audit_log', entityType, entityId] as const,
+    queryKey: auditLogKeys.byEntity(entityType, entityId as string),
     queryFn: () => fetchAuditTimeline(entityType, entityId as string, limit),
     enabled,
     staleTime: 30_000,

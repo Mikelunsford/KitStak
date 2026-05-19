@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { quotesKeys } from '@/lib/queryKeys/quotes';
 import {
   listQuotes, getQuote, createQuote, submitQuote, approveQuote,
@@ -41,6 +42,11 @@ function useQuoteAction(action: (id: string) => Promise<unknown>) {
     onSuccess: (_data, id) => {
       void qc.invalidateQueries({ queryKey: quotesKeys.byId(id) });
       void qc.invalidateQueries({ queryKey: quotesKeys.all });
+      // F-Wave6-AUDIT-02: state-change mutations also write an audit_log row
+      // via the BEFORE UPDATE trg_audit_quotes_state trigger; the timeline
+      // query cache must be invalidated or the operator sees the pre-mutation
+      // snapshot (TanStack staleTime 30s, refetchOnWindowFocus false).
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', id) });
     },
   });
 }
@@ -56,9 +62,14 @@ export function useConvertQuoteToProject() {
   const navigate = useNavigate();
   return useMutation({
     mutationFn: (id: string) => convertQuoteToProject(id),
-    onSuccess: (result) => {
+    onSuccess: (result, id) => {
       void qc.invalidateQueries({ queryKey: quotesKeys.all });
       void qc.invalidateQueries({ queryKey: ['sales', 'projects'] });
+      // F-Wave6-AUDIT-02: convert RPC drives a quote.state approved ->
+      // project_pending transition that writes an audit row; invalidate
+      // the source quote's timeline so the operator returning to the page
+      // sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', id) });
       // G-CONVERT-02: navigate to the newly created project so the operator
       // can immediately continue the chain instead of staying on the source
       // quote with no breadcrumb forward.
