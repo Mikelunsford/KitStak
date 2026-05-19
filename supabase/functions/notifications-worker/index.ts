@@ -1,49 +1,25 @@
-// notifications-worker: pulls undelivered notifications and marks them
-// delivered. Authenticated by the X-Worker-Secret header (config.toml entry
-// sets verify_jwt = false; the secret is the bearer of trust here).
+// notifications-worker: pulls undelivered notifications and invokes the
+// per-channel sender. Authenticated by the X-Worker-Secret header
+// (config.toml entry sets verify_jwt = false; the secret is the bearer of
+// trust here).
 //
 // POST /drain
 //   Pulls up to MAX_BATCH undelivered notifications across all orgs (sorted
-//   by queued_at asc), invokes the channel's transport (a no-op in v1, since
-//   no email provider is wired), then stamps delivered_at.
+//   by queued_at asc), invokes the channel's sender (see
+//   `_shared/notifications/senders.ts`), and stamps `delivered_at` only when
+//   the sender returns ok:true. Failed sends leave the row pending so the
+//   next drain re-attempts them; the response counter reports both delivered
+//   and failed for the operator's dashboard.
+//
+// Closes F-Wave6-NOTIF-01 (drift-audit-consolidated 2026-05-18, Tier 1):
+// the previous `deliverChannel` stub silently stamped `delivered_at` on
+// email/webhook rows with only a `console.warn`, causing silent data loss.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { ApiError, ok, fromApiError, noContent } from '../_shared/responses.ts';
+import { senderFor, type NotificationRow } from '../_shared/notifications/senders.ts';
 
 const MAX_BATCH = 200;
-
-interface NotificationRow {
-  id: string;
-  org_id: string;
-  recipient_user_id: string;
-  channel: string;
-  subject: string;
-  body: string | null;
-  payload: Record<string, unknown>;
-}
-
-async function deliverChannel(row: NotificationRow): Promise<boolean> {
-  // v1: in-app notifications need no transport (the SPA reads the row).
-  // Email and webhook transports are TODO; we mark them delivered to clear
-  // the queue, but log a warning so the operator wires a real transport
-  // before relying on these channels.
-  if (row.channel === 'inapp') return true;
-  if (row.channel === 'email') {
-    console.warn(
-      'notifications-worker: email transport not wired, marking delivered',
-      { notification_id: row.id },
-    );
-    return true;
-  }
-  if (row.channel === 'webhook') {
-    console.warn(
-      'notifications-worker: webhook transport not wired, marking delivered',
-      { notification_id: row.id },
-    );
-    return true;
-  }
-  return false;
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return noContent();
@@ -87,24 +63,45 @@ Deno.serve(async (req: Request) => {
   let delivered = 0;
   let failed = 0;
   for (const row of (data ?? []) as NotificationRow[]) {
-    const okSend = await deliverChannel(row);
-    if (!okSend) {
+    const sender = senderFor(row.channel);
+    const result = await sender(row);
+
+    if (!result.ok) {
+      // Failure path: leave `delivered_at` NULL so the next drain re-attempts
+      // the row (when `retryable: true`) or operator inspection picks it up
+      // (when `retryable: false`). One structured log line per attempt; the
+      // string MUST NOT contain "transport not wired" (regression guard).
       failed += 1;
+      console.warn('notifications-worker: send failed', {
+        notification_id: row.id,
+        channel: row.channel,
+        reason: result.reason,
+        retryable: result.retryable,
+        message: result.message ?? null,
+      });
       continue;
     }
+
     const { error: updErr } = await client
       .from('notifications')
       .update({ delivered_at: new Date().toISOString() })
       .eq('id', row.id);
+
     if (updErr) {
       console.error('notifications-worker: stamp delivered_at failed', {
         notification_id: row.id,
+        channel: row.channel,
         message: updErr.message,
       });
       failed += 1;
-    } else {
-      delivered += 1;
+      continue;
     }
+
+    delivered += 1;
+    console.info('notifications-worker: send succeeded', {
+      notification_id: row.id,
+      channel: row.channel,
+    });
   }
 
   return ok({
