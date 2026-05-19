@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useReceivingOrder, useTransitionReceivingOrder } from '@/lib/hooks/useOps';
+import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { RECEIVING_ORDER_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ReceivingOrderStatus } from '@/lib/types/vendors_inventory_ops';
@@ -8,11 +9,14 @@ import type { ReceivingOrderStatus } from '@/lib/types/vendors_inventory_ops';
 export function ReceivingOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const r = useReceivingOrder(id);
+  const warehouses = useWarehousesList();
   const transition = useTransitionReceivingOrder(id ?? '');
   const caps = useVioCapabilities();
   if (r.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (r.error || !r.data) return <p className="px-8 py-12 text-accent">Receiving order not found.</p>;
   const d = r.data;
+  const warehouse = warehouses.data?.find((w) => w.id === d.warehouse_id);
+  const warehouseLabel = warehouse ? `${warehouse.code} · ${warehouse.display_name}` : d.warehouse_id;
   const next = RECEIVING_ORDER_FSM.transitions.filter((t) => t.from === d.status).map((t) => t.to);
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
@@ -29,7 +33,7 @@ export function ReceivingOrderDetailPage() {
         </div>
       ) : null}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink">{d.warehouse_id}</dd>
+        <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink">{warehouseLabel}</dd>
         <dt className="text-ink-dim">Expected</dt><dd className="text-ink">{d.expected_date ?? ''}</dd>
         <dt className="text-ink-dim">Received</dt><dd className="text-ink">{d.received_date ?? ''}</dd>
         <dt className="text-ink-dim">Reference</dt><dd className="text-ink">{d.reference ?? ''}</dd>
