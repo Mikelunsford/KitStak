@@ -64,7 +64,8 @@ phasing:
     - "Wave 5 — Probes (cross-tenant RLS)"
     - "Wave 6 — Customer Zero"
     - "Phase 6: quote-to-cash gate closed at 347062f (polish carryover landed in PRs #31 to #35)" # source: STATUS.md current state as of 2026-05-19
-    - "Phase 7: Stabilization (active)"                                  # source: STATUS.md Phase 7 stabilization scope
+    - "Phase 7: Stabilization closed at 9846f1e (PRs #37 to #48; 14 follow-ups closed in 3 parallel cycles)" # source: STATUS.md current state as of 2026-05-19; phase-7-stabilization-closeout.md journal
+    - "Phase 8: open (carryover follow-ups filed; scope TBD)"            # source: STATUS.md Phase 8 carryover section
 
 conventions:
   branch_pattern: "claude/<slug>"                                      # source: user-confirmed 2026-05-18. Matches 100% of git history; wave/domain provenance lives in commit messages and PR titles rather than branch names. Revisit if non-Claude-Code authors start dispatching.

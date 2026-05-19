@@ -76,9 +76,11 @@ kitstak/
 
 ## Current status
 
-Phase 6 F-Wave6-FLOW-01 quote-to-cash gate has been walked end-to-end on prod and the polish carryover is closed (baseline `347062f`). Six hotfix PRs (#24 through #29) landed during the walkthrough itself; five polish PRs (#31 through #35) cleared the carryover bucket the morning after. 48 forward-only migrations applied at the remote (latest: 0047 hardens the project_line_items audit trigger, 0048 hardens the emit_movements triggers). Byte-mirror parity intact across 22 pairs (`pnpm test:contract` 25/25). Bundle 29.4 / 40 kB.
+Phase 7 (Stabilization) is now closed (baseline `9846f1e`). All fourteen stabilization follow-ups closed across twelve PRs (#37 through #48) in three parallel cycles: low-coupling cleanups, boundary canon work, and schema normalisation. 50 forward-only migrations applied at the remote (latest: 0049 adds `customers.default_payment_terms_days`, 0050 normalises receiving / shipment line items into dedicated tables with Pattern A RLS). Byte-mirror parity intact across 26 pairs (`pnpm test:contract` 26/26; `constants` pair added this phase). Bundle 29.73 / 40 kB.
 
-Phase 6 is closed. Phase 7 (Stabilization) is the active scope; the close-out journal at `03-workspace/journal/phase-6-polish-closeout.md` covers the five PRs and the two reframes (AUDIT-02 as a TanStack cache-invalidation class, esm.sh URL imports as a systemic deploy risk).
+Phase 6 quote-to-cash gate also remains closed (baseline `347062f`). Six hotfix PRs (#24 through #29) landed during the operator walkthrough; five polish PRs (#31 through #35) cleared the carryover bucket the morning after.
+
+The Phase 7 close-out journal at `03-workspace/journal/phase-7-stabilization-closeout.md` covers the twelve PRs and the three reframes (CRM-SCHEMA-01 refusal as a pattern win, parallel migration-number collision codified, Agent Router cycles validated for stabilization scope).
 
 See `STATUS.md` for the full breakdown, the Outstanding Work and Drift Register sections for what is in flight, `CHANGELOG.md` for release history, and `03-workspace/journal/` for per-wave closeouts.
 
