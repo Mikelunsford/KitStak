@@ -10,7 +10,7 @@
 // which inserts allocation rows; recompute triggers on payment_allocations
 // keep payments.unapplied_cents and invoices.paid_cents in sync.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';

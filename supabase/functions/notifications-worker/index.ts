@@ -15,7 +15,7 @@
 // the previous `deliverChannel` stub silently stamped `delivered_at` on
 // email/webhook rows with only a `console.warn`, causing silent data loss.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from '@supabase/supabase-js';
 import { ApiError, ok, fromApiError, noContent } from '../_shared/responses.ts';
 import { senderFor, type NotificationRow } from '../_shared/notifications/senders.ts';
 

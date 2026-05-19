@@ -8,7 +8,7 @@
 // handlers still pass an explicit `.eq('org_id', caller.orgId)` filter so a
 // caller without an org claim cannot read another org's row.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {

@@ -31,7 +31,7 @@
 //   POST   /shipments/:id/transition         state transition
 //   POST   /shipments/:id/ship               -> shipped
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import { route, type Route } from '../_shared/route.ts';
 import { ApiError, ok, fromApiError } from '../_shared/responses.ts';

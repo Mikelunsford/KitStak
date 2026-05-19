@@ -18,7 +18,7 @@
 // stock_levels and stock_movements are read-only via constitutional design;
 // movements are emitted by triggers in 0030/0032. No POST exposed.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 import { route, type Route } from '../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,

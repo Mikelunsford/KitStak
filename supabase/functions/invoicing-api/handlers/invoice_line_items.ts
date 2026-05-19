@@ -7,7 +7,7 @@
 // Pattern B RLS through parent invoice. Each mutation triggers a
 // recompute_invoice_totals RPC call so the header totals stay in sync.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';

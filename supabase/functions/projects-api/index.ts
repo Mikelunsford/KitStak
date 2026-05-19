@@ -1,7 +1,7 @@
 // projects-api: CRUD for projects + project_phases, state transitions,
 // drag-drop phase reorder.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {

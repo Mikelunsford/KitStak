@@ -10,7 +10,7 @@
 // recompute trigger keeps applied_cents and invoices.credit_allocated_cents
 // synced. Each allocation row produces an auto-JE via 0024.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';

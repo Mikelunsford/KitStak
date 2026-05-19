@@ -4,7 +4,7 @@
 // Routing: flat `Route[]` dispatched via `_shared/route.ts`. Every non-GET
 // goes through `respondWithIdempotency` + `requireCap` + the workflow check.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {

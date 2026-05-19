@@ -1,6 +1,6 @@
 // vendors-api: vendor_bills + vendor_bill_payments handlers.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, respondWithIdempotency, created,

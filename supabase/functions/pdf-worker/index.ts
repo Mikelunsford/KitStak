@@ -13,7 +13,7 @@ import { parseBody } from '../_shared/handler-helpers.ts';
 import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 const BUNDLE = 'pdf-worker';
 
