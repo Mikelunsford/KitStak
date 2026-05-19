@@ -76,9 +76,9 @@ kitstak/
 
 ## Current status
 
-Wave 6.5 workflow integration remediation shipped (PR #20 at `bee9654`) plus hotfix (PR #21 at `3322db3`). The Phase 6 workflow integration audit at `03-workspace/journal/phase-6-workflow-integration-audit.md` identified 41 cross-domain wiring gaps the 48-probe matrix could not catch (probes hit edge functions directly with service-role JWTs; they do not traverse SPA-edge integration). Phase 6.5 closed 39 of them (2 LARGE line-normalization gaps deferred to Phase 7). 46 forward-only migrations applied at the remote (next slot 0047). Bundle 28.9 kB gzip against the 40 kB cap. Byte-mirror parity intact across 22 pairs (`pnpm test:contract` 25/25).
+Phase 6 F-Wave6-FLOW-01 quote-to-cash gate has been walked end-to-end on prod (baseline `0d190e3`). The operator walked customer create through invoice send and payment receive; six hotfix PRs (#24 through #29) landed during the walkthrough itself, each closing a chassis-drift bug surfaced by the operator at a specific step. 48 forward-only migrations applied at the remote (latest: 0047 hardens the project_line_items audit trigger, 0048 hardens the emit_movements triggers). Byte-mirror parity intact across 22 pairs (`pnpm test:contract` 25/25).
 
-Phase 6 chassis closed and the cross-domain wiring is in place. The remaining Phase 6 gate is the operator-led quote-to-cash workflow exercise on prod (`F-Wave6-FLOW-01`). Phase 7 (Stabilization) follows once that exercise lands clean.
+Phase 6 is now substantially closed. Residual UX clunkiness is tracked under "Phase 6 polish carryover" in STATUS.md and folded into Phase 7. Phase 7 (Stabilization) is the active scope.
 
 See `STATUS.md` for the full breakdown, the Outstanding Work and Drift Register sections for what is in flight, `CHANGELOG.md` for release history, and `03-workspace/journal/` for per-wave closeouts.
 

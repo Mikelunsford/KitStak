@@ -63,7 +63,8 @@ phasing:
     - "Wave 3 — Integration"
     - "Wave 5 — Probes (cross-tenant RLS)"
     - "Wave 6 — Customer Zero"
-    - "Phase 6 — Chassis (in progress)"                                # source: latest commit f97bc24
+    - "Phase 6: quote-to-cash gate substantially passed at 0d190e3"     # source: STATUS.md current state as of 2026-05-19
+    - "Phase 7: Stabilization (active)"                                  # source: STATUS.md Phase 7 stabilization scope
 
 conventions:
   branch_pattern: "claude/<slug>"                                      # source: user-confirmed 2026-05-18. Matches 100% of git history; wave/domain provenance lives in commit messages and PR titles rather than branch names. Revisit if non-Claude-Code authors start dispatching.
