@@ -14,6 +14,7 @@ export function JournalEntriesListPage() {
     <section className="px-8 py-8 flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">JOURNAL ENTRIES</h1>
+        <Link to="/finance/journal-entries/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New journal entry</Link>
       </header>
 
       {isLoading ? (

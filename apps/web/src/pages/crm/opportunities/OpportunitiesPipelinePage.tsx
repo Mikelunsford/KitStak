@@ -18,7 +18,10 @@ export function OpportunitiesPipelinePage() {
 
   return (
     <section className="px-8 py-10 max-w-7xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">PIPELINE</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-4xl font-display tracking-wide text-ink">PIPELINE</h1>
+        <Link to="/crm/opportunities/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New opportunity</Link>
+      </header>
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
       ) : (

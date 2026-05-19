@@ -126,9 +126,19 @@ export function QuoteDetailPage() {
           <Button variant="secondary" onClick={() => send.mutate(id)}>Send</Button>
         )}
         {canTransition(QUOTE_FSM, state, 'project_pending') && id && (
-          <Button onClick={() => convert.mutate(id)}>Convert to project</Button>
+          <Button
+            onClick={() => convert.mutate(id)}
+            disabled={convert.isPending}
+          >
+            {convert.isPending ? 'Converting.' : 'Convert to project'}
+          </Button>
         )}
       </div>
+      {convert.isError && (
+        <p className="text-accent font-sans text-sm">
+          Convert failed: {convert.error instanceof Error ? convert.error.message : 'unknown error'}
+        </p>
+      )}
 
       <table className="w-full border border-line">
         <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
