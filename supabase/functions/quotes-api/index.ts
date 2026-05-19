@@ -8,7 +8,7 @@ import { z } from 'https://esm.sh/zod@3.23.8';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, respondWithIdempotency, created,
+  admin, parseBody, parseLimit, paginate, respondWithIdempotency, created,
 } from '../_shared/handler-helpers.ts';
 import { requireSalesCap as requireCap } from './_helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
@@ -40,7 +40,7 @@ const listQuotes = async (ctx: RouteCtx) => {
   const { data, error } = await q;
   if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
   const rows = data ?? [];
-  return ok({ items: rows.slice(0, limit), next_cursor: null });
+  return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
 };
 
 const getQuote = async (ctx: RouteCtx) => {

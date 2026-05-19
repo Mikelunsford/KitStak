@@ -21,7 +21,8 @@
 import { z } from 'https://esm.sh/zod@3.23.8';
 import { route, type Route } from '../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,
+  respondWithIdempotency, created,
   requireCaller, requireVioCap,
 } from './shared.ts';
 import {
@@ -58,16 +59,19 @@ const TABLE: Route[] = [
   // -------------------------------------------------------------- warehouses
   {
     method: 'GET', path: '/warehouses',
-    handler: async ({ req }) => {
+    handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'warehouses.warehouse.read');
+      const limit = parseLimit(url);
       const { data, error } = await admin()
         .from('warehouses').select('*')
         .eq('org_id', caller.orgId)
         .is('deleted_at', null)
-        .order('display_name', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(limit + 1);
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-      return ok((data ?? []).map((r) => WarehouseSchema.parse(r)));
+      const parsed = (data ?? []).map((r) => WarehouseSchema.parse(r)) as Array<Warehouse>;
+      return ok(paginate(parsed, limit));
     },
   },
   {
@@ -142,17 +146,20 @@ const TABLE: Route[] = [
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'stock.level.read');
+      const limit = parseLimit(url);
       let q = admin()
         .from('stock_levels').select('*')
         .eq('org_id', caller.orgId)
-        .order('warehouse_id', { ascending: true });
+        .order('updated_at', { ascending: false })
+        .limit(limit + 1);
       const wh = url.searchParams.get('warehouse_id');
       if (wh) q = q.eq('warehouse_id', wh);
       const item = url.searchParams.get('item_id');
       if (item) q = q.eq('item_id', item);
       const { data, error } = await q;
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-      return ok((data ?? []).map((r) => StockLevelSchema.parse(r)));
+      const parsed = (data ?? []).map((r) => StockLevelSchema.parse(r));
+      return ok(paginateByUpdatedAt(parsed, limit));
     },
   },
   // -------------------------------------------------------------- stock_movements
@@ -181,15 +188,18 @@ const TABLE: Route[] = [
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'stock.bom.read');
+      const limit = parseLimit(url);
       let q = admin()
         .from('bom_items').select('*')
         .eq('org_id', caller.orgId)
-        .order('sort_order', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(limit + 1);
       const pid = url.searchParams.get('parent_item_id');
       if (pid) q = q.eq('parent_item_id', pid);
       const { data, error } = await q;
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-      return ok((data ?? []).map((r) => BomItemSchema.parse(r)));
+      const parsed = (data ?? []).map((r) => BomItemSchema.parse(r));
+      return ok(paginate(parsed, limit));
     },
   },
   {
