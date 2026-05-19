@@ -2,7 +2,7 @@
 
 Date: 2026-05-19
 Branch: phase-7/inventory/line-normalization
-Migration: 0049_receiving_shipment_line_items.sql
+Migration: 0050_receiving_shipment_line_items.sql (renumbered from 0049 to avoid collision with the CRM-SCHEMA-01 migration that landed first as 0049_customers_default_payment_terms_days.sql)
 
 ## Motivation
 
@@ -156,7 +156,7 @@ effect on count.
 
 ## Files touched
 
-* `supabase/migrations/0049_receiving_shipment_line_items.sql` (new)
+* `supabase/migrations/0050_receiving_shipment_line_items.sql` (new)
 * `supabase/functions/_shared/types/vendors_inventory_ops.ts` (extended)
 * `supabase/functions/_shared/capabilities/vendors_inventory_ops.ts` (extended)
 * `apps/web/src/lib/types/vendors_inventory_ops.ts` (byte-mirror)

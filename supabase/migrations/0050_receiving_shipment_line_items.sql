@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration: 0049_receiving_shipment_line_items.sql
+-- Migration: 0050_receiving_shipment_line_items.sql
 -- Wave: 7
 -- Phase: 7 stabilization (schema normalisation)
 -- Closes: F-Wave7-LINES-01 (receiving / shipment line items stored as

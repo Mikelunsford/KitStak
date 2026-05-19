@@ -431,7 +431,7 @@ export const ProductionRunPayloadSchema = z.object({
 export type ProductionRunPayload = z.infer<typeof ProductionRunPayloadSchema>;
 
 // ---------------------------------------------------------------------------
-// 3PL Ops - normalised line item tables (F-Wave7-LINES-01, migration 0049)
+// 3PL Ops - normalised line item tables (F-Wave7-LINES-01, migration 0050)
 //
 // Receiving + shipment line items now live in their own tables. The handler
 // layer dual-writes both the new tables and the parent's payload.lines JSON
