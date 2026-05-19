@@ -9,7 +9,7 @@ import {
 } from '@/lib/types/cross_cutting';
 import { z } from 'zod';
 
-const ListSchema = z.object({ items: z.array(SavedViewSchema) });
+const ListSchema = z.array(SavedViewSchema);
 
 export async function listSavedViews(entityType: string): Promise<SavedView[]> {
   const data = await apiRequest<unknown>(
@@ -18,7 +18,7 @@ export async function listSavedViews(entityType: string): Promise<SavedView[]> {
   );
   const parsed = ListSchema.safeParse(data);
   if (!parsed.success) throw new Error('saved-views list invalid envelope');
-  return parsed.data.items;
+  return parsed.data;
 }
 
 export async function createSavedView(

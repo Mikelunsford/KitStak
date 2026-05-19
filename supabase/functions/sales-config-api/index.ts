@@ -306,7 +306,7 @@ const listCurrencies = async (ctx: RouteCtx) => {
   const { data, error } = await client
     .from('currencies').select('*').order('code', { ascending: true });
   if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  return ok({ items: data ?? [] });
+  return ok(data ?? []);
 };
 
 const listExchangeRates = async (ctx: RouteCtx) => {

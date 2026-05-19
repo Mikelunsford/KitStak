@@ -241,7 +241,7 @@ const listNotifications: Route = {
       .order('queued_at', { ascending: false })
       .limit(limit);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-    return ok({ items: data ?? [] });
+    return ok(data ?? []);
   },
 };
 
@@ -297,7 +297,7 @@ const listSavedViews: Route = {
       .eq('entity_type', entityType)
       .or(`owner_user_id.eq.${caller.userId},is_shared.eq.true`);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-    return ok({ items: data ?? [] });
+    return ok(data ?? []);
   },
 };
 

@@ -16,13 +16,13 @@ export async function getPortalMe(): Promise<PortalCustomerView> {
   return PortalCustomerViewSchema.parse(data);
 }
 
-const PortalInvoicesSchema = z.object({ items: z.array(PortalInvoiceSummarySchema) });
+const PortalInvoicesSchema = z.array(PortalInvoiceSummarySchema);
 
 export async function listPortalInvoices(): Promise<PortalInvoiceSummary[]> {
   const data = await apiRequest<unknown>('/customer-portal-api/portal/invoices', {
     method: 'GET',
   });
-  return PortalInvoicesSchema.parse(data).items;
+  return PortalInvoicesSchema.parse(data);
 }
 
 const PortalQuoteSchema = z.object({
@@ -35,13 +35,13 @@ const PortalQuoteSchema = z.object({
   currency_code: z.string(),
 });
 export type PortalQuote = z.infer<typeof PortalQuoteSchema>;
-const PortalQuotesSchema = z.object({ items: z.array(PortalQuoteSchema) });
+const PortalQuotesSchema = z.array(PortalQuoteSchema);
 
 export async function listPortalQuotes(): Promise<PortalQuote[]> {
   const data = await apiRequest<unknown>('/customer-portal-api/portal/quotes', {
     method: 'GET',
   });
-  return PortalQuotesSchema.parse(data).items;
+  return PortalQuotesSchema.parse(data);
 }
 
 const PortalProjectSchema = z.object({
@@ -52,13 +52,13 @@ const PortalProjectSchema = z.object({
   expected_completion_at: z.string().nullable(),
 });
 export type PortalProject = z.infer<typeof PortalProjectSchema>;
-const PortalProjectsSchema = z.object({ items: z.array(PortalProjectSchema) });
+const PortalProjectsSchema = z.array(PortalProjectSchema);
 
 export async function listPortalProjects(): Promise<PortalProject[]> {
   const data = await apiRequest<unknown>('/customer-portal-api/portal/projects', {
     method: 'GET',
   });
-  return PortalProjectsSchema.parse(data).items;
+  return PortalProjectsSchema.parse(data);
 }
 
 const PortalAttachmentSchema = z.object({
@@ -70,7 +70,7 @@ const PortalAttachmentSchema = z.object({
   storage_path: z.string(),
 });
 export type PortalAttachment = z.infer<typeof PortalAttachmentSchema>;
-const PortalAttachmentsSchema = z.object({ items: z.array(PortalAttachmentSchema) });
+const PortalAttachmentsSchema = z.array(PortalAttachmentSchema);
 
 export async function listPortalAttachments(
   entityType: string,
@@ -80,5 +80,5 @@ export async function listPortalAttachments(
     `/customer-portal-api/portal/attachments?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId)}`,
     { method: 'GET' },
   );
-  return PortalAttachmentsSchema.parse(data).items;
+  return PortalAttachmentsSchema.parse(data);
 }

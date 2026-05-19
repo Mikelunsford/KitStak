@@ -7,7 +7,7 @@ import {
 } from '@/lib/types/cross_cutting';
 import { z } from 'zod';
 
-const ListSchema = z.object({ items: z.array(NotificationSchema) });
+const ListSchema = z.array(NotificationSchema);
 
 export async function listNotifications(): Promise<Notification[]> {
   const data = await apiRequest<unknown>('/collaboration-api/notifications', {
@@ -15,7 +15,7 @@ export async function listNotifications(): Promise<Notification[]> {
   });
   const parsed = ListSchema.safeParse(data);
   if (!parsed.success) throw new Error('notifications list invalid envelope');
-  return parsed.data.items;
+  return parsed.data;
 }
 
 export async function markNotificationRead(id: string): Promise<Notification> {
