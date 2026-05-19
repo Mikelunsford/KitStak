@@ -341,7 +341,7 @@ const listLineItems = async (ctx: RouteCtx) => {
     .eq('org_id', caller.orgId)
     .order('position', { ascending: true });
   if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  return ok({ items: data ?? [] });
+  return ok(data ?? []);
 };
 
 const createLineItem = async (ctx: RouteCtx) => {
