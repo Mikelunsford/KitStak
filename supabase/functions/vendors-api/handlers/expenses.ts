@@ -16,6 +16,7 @@ import { EXPENSE_FSM } from '../../_shared/workflow/vendors_inventory_ops.ts';
 const ExpCreate = z.object({
   expense_category_id: z.string().uuid().optional().nullable(),
   vendor_id: z.string().uuid().optional().nullable(),
+  project_id: z.string().uuid().optional().nullable(),
   expense_number: z.string().optional().nullable(),
   expense_date: z.string().optional(),
   description: z.string().optional().nullable(),
