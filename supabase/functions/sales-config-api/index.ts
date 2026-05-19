@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, paginate, respondWithIdempotency,
+  admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency,
   created,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
@@ -140,6 +140,7 @@ function genericGet(table: string) {
   return async (ctx: RouteCtx) => {
     const caller = requireCaller(ctx.req);
     requireCap(caller, capForRead(table));
+    parseUuidParam(ctx.params.id);
     const client = admin();
     const { data, error } = await client
       .from(table)
@@ -213,6 +214,7 @@ function genericUpdate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
   return async (ctx: RouteCtx) => {
     const caller = requireCaller(ctx.req);
     requireCap(caller, capForWrite(table));
+    parseUuidParam(ctx.params.id);
     const body = await parseBody(ctx.req, schema);
     return respondWithIdempotency(
       ctx.req, caller, BUNDLE, route, body,
@@ -239,6 +241,7 @@ function genericSoftDelete(table: string, route: string) {
   return async (ctx: RouteCtx) => {
     const caller = requireCaller(ctx.req);
     requireCap(caller, capForWrite(table));
+    parseUuidParam(ctx.params.id);
     return respondWithIdempotency(
       ctx.req, caller, BUNDLE, route, null,
       async () => {
@@ -264,6 +267,7 @@ function genericSoftDelete(table: string, route: string) {
 const setDefaultTax = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'taxes.tax.set_default');
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/taxes/:id/set-default', {},
     async () => {
@@ -282,6 +286,7 @@ const setDefaultTax = async (ctx: RouteCtx) => {
 const setDefaultPaymentMethod = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'payment_methods.method.set_default');
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/payment-methods/:id/set-default', {},
     async () => {

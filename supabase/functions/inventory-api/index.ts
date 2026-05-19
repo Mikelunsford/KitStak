@@ -22,7 +22,7 @@ import { z } from 'zod';
 import { route, type Route } from '../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,
-  respondWithIdempotency, created,
+  parseUuidParam, respondWithIdempotency, created,
   requireCaller, requireVioCap,
 } from './shared.ts';
 import {
@@ -98,6 +98,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'warehouses.warehouse.read');
+      parseUuidParam(params.id);
       const { data, error } = await admin()
         .from('warehouses').select('*')
         .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
@@ -112,6 +113,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'warehouses.warehouse.update');
+      parseUuidParam(params.id);
       const body = await parseBody(req, WarehouseUpdate);
       return respondWithIdempotency(req, caller, 'inventory-api', '/warehouses/:id', body, async () => {
         const { data, error } = await admin()
@@ -130,6 +132,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'warehouses.warehouse.delete');
+      parseUuidParam(params.id);
       return respondWithIdempotency(req, caller, 'inventory-api', '/warehouses/:id', null, async () => {
         const { error } = await admin()
           .from('warehouses')
@@ -223,6 +226,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'stock.bom.write');
+      parseUuidParam(params.id);
       const body = await parseBody(req, BomUpdate);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items/:id', body, async () => {
         const { data, error } = await admin()
@@ -241,6 +245,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'stock.bom.write');
+      parseUuidParam(params.id);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items/:id', null, async () => {
         const { error } = await admin()
           .from('bom_items').delete()

@@ -4,7 +4,7 @@
 import { ApiError, ok } from '../_shared/responses.ts';
 import {
   admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
-  respondWithIdempotency, created,
+  parseUuidParam, respondWithIdempotency, created,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import {
@@ -14,7 +14,7 @@ import {
 
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
-  respondWithIdempotency, created, requireCaller,
+  parseUuidParam, respondWithIdempotency, created, requireCaller,
 };
 export type { Caller };
 

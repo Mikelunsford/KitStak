@@ -10,6 +10,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
@@ -117,6 +118,7 @@ export async function listLeads({ req, url }: RouteCtx): Promise<Response> {
 export async function getLead({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.leads.read');
+  parseUuidParam(params.id);
   const row = await fetchLeadRow(caller, params.id);
   return ok(rowToLead(row));
 }
@@ -159,6 +161,7 @@ export async function createLead({ req }: RouteCtx): Promise<Response> {
 export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.leads.write');
+  parseUuidParam(params.id);
   const body = await parseBody(req, LeadPatchSchema);
 
   return respondWithIdempotency(
@@ -225,6 +228,7 @@ export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
 export async function convertLead({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.leads.convert');
+  parseUuidParam(params.id);
   const body = await parseBody(req, LeadConvertSchema);
 
   return respondWithIdempotency(

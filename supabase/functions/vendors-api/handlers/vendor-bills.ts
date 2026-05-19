@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
   requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
@@ -74,6 +74,7 @@ export function handleVendorBills(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendor_bills.vendor_bill.read');
+        parseUuidParam(params.id);
         const row = await getByIdOrgScoped<VendorBill>('vendor_bills', caller, params.id);
         return ok(VendorBillSchema.parse(row));
       },
@@ -83,6 +84,7 @@ export function handleVendorBills(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendor_bills.vendor_bill.update');
+        parseUuidParam(params.id);
         const body = await parseBody(req, BillUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id', body, async () => {
           const { data, error } = await admin()
@@ -101,6 +103,7 @@ export function handleVendorBills(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendor_bills.vendor_bill.transition');
+        parseUuidParam(params.id);
         const body = await parseBody(req, BillTransitionInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id/transition', body, async () => {
           const current = await getByIdOrgScoped<VendorBill>('vendor_bills', caller, params.id);
@@ -120,6 +123,7 @@ export function handleVendorBills(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendor_bills.vendor_bill.read');
+        parseUuidParam(params.id);
         await getByIdOrgScoped<VendorBill>('vendor_bills', caller, params.id);
         const { data, error } = await admin()
           .from('vendor_bill_payments')
@@ -135,6 +139,7 @@ export function handleVendorBills(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendor_bills.payment.write');
+        parseUuidParam(params.id);
         const body = await parseBody(req, PaymentInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id/payments', body, async () => {
           await getByIdOrgScoped<VendorBill>('vendor_bills', caller, params.id);

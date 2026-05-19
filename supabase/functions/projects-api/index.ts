@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, paginate, respondWithIdempotency, created,
+  admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
 } from '../_shared/handler-helpers.ts';
 import { requireSalesCap as requireCap } from './_helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
@@ -56,6 +56,7 @@ const listProjects = async (ctx: RouteCtx) => {
 const getProject = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.project.read');
+  parseUuidParam(ctx.params.id);
   const client = admin();
   const { data: project, error: pErr } = await client
     .from('projects').select('*')
@@ -97,6 +98,7 @@ const createProject = async (ctx: RouteCtx) => {
 const updateProject = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.project.write');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, UpdateProjectRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id', body,
@@ -117,6 +119,7 @@ const updateProject = async (ctx: RouteCtx) => {
 const deleteProject = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.project.delete');
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id-delete', null,
     async () => {
@@ -136,6 +139,7 @@ const deleteProject = async (ctx: RouteCtx) => {
 const transitionProject = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.transition');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, TransitionRequestSchema);
   const to = body.to as ProjectState;
   return respondWithIdempotency(
@@ -167,6 +171,7 @@ const transitionProject = async (ctx: RouteCtx) => {
 const createPhase = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.phase.write');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, CreatePhaseRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/phases', body,
@@ -209,6 +214,8 @@ const createPhase = async (ctx: RouteCtx) => {
 const updatePhase = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.phase.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.phaseId, 'phaseId');
   const body = await parseBody(ctx.req, UpdatePhaseRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/phases/:phaseId', body,
@@ -234,6 +241,8 @@ const updatePhase = async (ctx: RouteCtx) => {
 const deletePhase = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.phase.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.phaseId, 'phaseId');
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/phases/:phaseId-delete', null,
     async () => {
@@ -254,6 +263,8 @@ const deletePhase = async (ctx: RouteCtx) => {
 const transitionPhase = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.phase.transition');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.phaseId, 'phaseId');
   const body = await parseBody(ctx.req, TransitionRequestSchema);
   const to = body.to as ProjectPhaseState;
   return respondWithIdempotency(
@@ -287,6 +298,7 @@ const transitionPhase = async (ctx: RouteCtx) => {
 const reorderPhases = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.phase.reorder');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, ReorderPhasesRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/phases/reorder', body,
@@ -330,6 +342,7 @@ const reorderPhases = async (ctx: RouteCtx) => {
 const listLineItems = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.line_item.read');
+  parseUuidParam(ctx.params.id);
   const client = admin();
   const { data: parent } = await client
     .from('projects').select('id')
@@ -347,6 +360,7 @@ const listLineItems = async (ctx: RouteCtx) => {
 const createLineItem = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.line_item.create');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, CreateProjectLineItemRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/line-items', body,
@@ -392,6 +406,8 @@ const createLineItem = async (ctx: RouteCtx) => {
 const updateLineItem = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.line_item.update');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.lineId, 'lineId');
   const body = await parseBody(ctx.req, UpdateProjectLineItemRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/line-items/:lineId', body,
@@ -418,6 +434,8 @@ const updateLineItem = async (ctx: RouteCtx) => {
 const deleteLineItem = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.line_item.delete');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.lineId, 'lineId');
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/line-items/:lineId-delete', null,
     async () => {
@@ -446,6 +464,7 @@ const deleteLineItem = async (ctx: RouteCtx) => {
 const convertToInvoice = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.convert_to_invoice');
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id/convert-to-invoice', {},
     async () => {

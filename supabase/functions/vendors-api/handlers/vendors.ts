@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
   requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
 } from '../shared.ts';
 import {
@@ -78,6 +78,7 @@ export function handleVendors(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendors.vendor.read');
+        parseUuidParam(params.id);
         const row = await getByIdOrgScoped<Vendor>('vendors', caller, params.id);
         return ok(VendorSchema.parse(row));
       },
@@ -88,6 +89,7 @@ export function handleVendors(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendors.vendor.update');
+        parseUuidParam(params.id);
         const body = await parseBody(req, VendorUpdateInput);
         return respondWithIdempotency(
           req, caller, 'vendors-api', '/vendors/:id', body,
@@ -113,6 +115,7 @@ export function handleVendors(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendors.vendor.delete');
+        parseUuidParam(params.id);
         return respondWithIdempotency(
           req, caller, 'vendors-api', '/vendors/:id', null,
           async () => {

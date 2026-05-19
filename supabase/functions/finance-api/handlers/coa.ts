@@ -12,6 +12,7 @@ import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   parseBody,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
@@ -76,7 +77,8 @@ export async function listCoa({ req }: RouteCtx): Promise<Response> {
 export async function getCoa({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireFinanceCap(caller, 'coa.read');
-  return ok(rowToCoa(await fetchCoa(caller.orgId, params.id!)));
+  const id = parseUuidParam(params.id!);
+  return ok(rowToCoa(await fetchCoa(caller.orgId, id)));
 }
 
 export async function createCoa(ctx: RouteCtx): Promise<Response> {
@@ -119,7 +121,7 @@ export async function createCoa(ctx: RouteCtx): Promise<Response> {
 export async function patchCoa(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'coa.write');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, CoaPatchSchema);
   return respondWithIdempotency(
     ctx.req,
@@ -153,7 +155,7 @@ export async function patchCoa(ctx: RouteCtx): Promise<Response> {
 export async function deleteCoa(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'coa.delete');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
     caller,

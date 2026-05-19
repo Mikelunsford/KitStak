@@ -20,6 +20,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
@@ -124,7 +125,8 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
 export async function getPayment({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireFinanceCap(caller, 'payments.read');
-  return ok(rowToPayment(await fetchPayment(caller.orgId, params.id!)));
+  const id = parseUuidParam(params.id!);
+  return ok(rowToPayment(await fetchPayment(caller.orgId, id)));
 }
 
 export async function createPayment(ctx: RouteCtx): Promise<Response> {
@@ -174,7 +176,7 @@ export async function createPayment(ctx: RouteCtx): Promise<Response> {
 export async function patchPayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'payments.write');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, PaymentPatchSchema);
 
   return respondWithIdempotency(
@@ -209,7 +211,7 @@ export async function patchPayment(ctx: RouteCtx): Promise<Response> {
 export async function deletePayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'payments.delete');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
     caller,
@@ -236,7 +238,7 @@ export async function deletePayment(ctx: RouteCtx): Promise<Response> {
 export async function applyPayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'payments.apply');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, PaymentApplySchema);
 
   return respondWithIdempotency(

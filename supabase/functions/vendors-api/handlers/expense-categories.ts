@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
   requireCaller, requireVioCap,
 } from '../shared.ts';
 import {
@@ -58,6 +58,7 @@ export function handleExpenseCategories(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'expenses.category.write');
+        parseUuidParam(params.id);
         const body = await parseBody(req, UpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expense-categories/:id', body, async () => {
           const { data, error } = await admin()

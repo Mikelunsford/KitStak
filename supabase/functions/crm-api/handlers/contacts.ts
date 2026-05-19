@@ -9,6 +9,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
@@ -100,6 +101,7 @@ export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
 export async function getContact({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.contacts.read');
+  parseUuidParam(params.id);
   const row = await fetchContactRow(caller, params.id);
   return ok(rowToContact(row));
 }
@@ -155,6 +157,7 @@ export async function createContact({ req }: RouteCtx): Promise<Response> {
 export async function patchContact({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.contacts.write');
+  parseUuidParam(params.id);
   const body = await parseBody(req, ContactPatchSchema);
 
   return respondWithIdempotency(
@@ -193,6 +196,7 @@ export async function patchContact({ req, params }: RouteCtx): Promise<Response>
 export async function deleteContact({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.contacts.delete');
+  parseUuidParam(params.id);
 
   return respondWithIdempotency(
     req,
