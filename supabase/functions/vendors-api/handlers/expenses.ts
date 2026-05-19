@@ -48,7 +48,16 @@ export function handleExpenses(): Route[] {
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'expenses.expense.read');
-        const page = await listOrgScoped<Expense>('expenses', caller, url);
+        // F-Wave7-LISTFILTER-01: vendor_id and project_id FK filters lift
+        // VendorDetailPage / project-related client-side .filter(...) into
+        // a SQL where-clause. RLS Pattern A wraps the org gate so a
+        // cross-tenant id still resolves to 200 + [].
+        const vendorId = url.searchParams.get('vendor_id');
+        const projectId = url.searchParams.get('project_id');
+        const filters: Array<[string, string, string]> = [];
+        if (vendorId) filters.push(['vendor_id', 'eq', vendorId]);
+        if (projectId) filters.push(['project_id', 'eq', projectId]);
+        const page = await listOrgScoped<Expense>('expenses', caller, url, { filters });
         return ok(page.items.map((v) => ExpenseSchema.parse(v)), {
           next_cursor: page.next_cursor,
         });

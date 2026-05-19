@@ -5,6 +5,7 @@ import {
   listPurchaseOrders, getPurchaseOrder, createPurchaseOrder,
   updatePurchaseOrder, transitionPurchaseOrder,
   type PurchaseOrder, type PurchaseOrderStatus,
+  type ListPurchaseOrdersFilters,
 } from '@/lib/services/purchaseOrdersService';
 import {
   listPoLineItems, createPoLineItem, updatePoLineItem, deletePoLineItem,
@@ -13,8 +14,12 @@ import {
 
 const COMMON = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
 
-export function usePurchaseOrdersList() {
-  return useQuery({ queryKey: purchaseOrdersKeys.list(), queryFn: listPurchaseOrders, ...COMMON });
+export function usePurchaseOrdersList(filters: ListPurchaseOrdersFilters = {}) {
+  return useQuery({
+    queryKey: purchaseOrdersKeys.list(filters),
+    queryFn: () => listPurchaseOrders(filters),
+    ...COMMON,
+  });
 }
 
 export function usePurchaseOrder(id: string | undefined) {

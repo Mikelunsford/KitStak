@@ -17,9 +17,21 @@ const DetailEnvelope = z.object({
   line_items: z.array(QuoteLineItemSchema),
 });
 
-export async function listQuotes(state?: string): Promise<Quote[]> {
-  const qs = state ? `?state=${encodeURIComponent(state)}` : '';
-  const raw = await apiRequest<unknown>(`/quotes-api/quotes${qs}`, { method: 'GET' });
+export type ListQuotesFilters = {
+  state?: string;
+  customer_id?: string;
+};
+
+function quotesQs(filters: ListQuotesFilters): string {
+  const p = new URLSearchParams();
+  if (filters.state) p.set('state', filters.state);
+  if (filters.customer_id) p.set('customer_id', filters.customer_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listQuotes(filters: ListQuotesFilters = {}): Promise<Quote[]> {
+  const raw = await apiRequest<unknown>(`/quotes-api/quotes${quotesQs(filters)}`, { method: 'GET' });
   return ListEnvelope.parse(raw).items;
 }
 

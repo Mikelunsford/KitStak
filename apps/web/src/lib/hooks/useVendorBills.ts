@@ -5,6 +5,7 @@ import {
   listVendorBills, getVendorBill, createVendorBill, updateVendorBill,
   transitionVendorBill,
   type VendorBill, type VendorBillStatus,
+  type ListVendorBillsFilters,
 } from '@/lib/services/vendorBillsService';
 import {
   listVendorBillPayments, createVendorBillPayment,
@@ -13,8 +14,12 @@ import {
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
 
-export function useVendorBillsList() {
-  return useQuery({ queryKey: vendorBillsKeys.list(), queryFn: listVendorBills, ...C });
+export function useVendorBillsList(filters: ListVendorBillsFilters = {}) {
+  return useQuery({
+    queryKey: vendorBillsKeys.list(filters),
+    queryFn: () => listVendorBills(filters),
+    ...C,
+  });
 }
 
 export function useVendorBill(id: string | undefined) {

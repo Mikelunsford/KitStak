@@ -12,37 +12,34 @@ import { useReceivingOrdersList } from '@/lib/hooks/useOps';
  * pattern: the vendor record is the chain hub, so each related section
  * lists records that reference this vendor plus a "New X" CTA that lands
  * on the matching create form with vendor_id prefilled via the query
- * string. Lists are client-side filtered today (the vendors-api list
- * endpoints do not accept a vendor_id filter parameter); a later wave can
- * lift the filter server-side once the operator is on enough rows for
- * client-side filter cost to matter.
+ * string.
+ *
+ * F-Wave7-LISTFILTER-01: vendor_id FK filter lifted into the SQL layer
+ * for purchase_orders, vendor_bills, expenses, and receiving_orders.
+ * Bandwidth bound to single-vendor rows, paginated lists no longer miss
+ * children beyond the first page, and RLS Pattern A still 200 + []s a
+ * cross-tenant vendor_id at the org gate.
  */
 export function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, isLoading, error } = useVendor(id);
 
-  const purchaseOrders = usePurchaseOrdersList();
-  const vendorBills = useVendorBillsList();
-  const expenses = useExpensesList();
-  const receivingOrders = useReceivingOrdersList();
+  const purchaseOrders = usePurchaseOrdersList(id ? { vendor_id: id } : {});
+  const vendorBills = useVendorBillsList(id ? { vendor_id: id } : {});
+  const expenses = useExpensesList(id ? { vendor_id: id } : {});
+  const receivingOrders = useReceivingOrdersList(id ? { vendor_id: id } : {});
 
   if (isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (error || !data)
     return <p className="px-8 py-12 text-accent">Vendor not found.</p>;
 
   const vendorId = data.id;
-  const relatedPOs = (purchaseOrders.data ?? []).filter(
-    (p) => p.vendor_id === vendorId,
-  );
-  const relatedBills = (vendorBills.data ?? []).filter(
-    (b) => b.vendor_id === vendorId,
-  );
-  const relatedExpenses = (expenses.data ?? []).filter(
-    (e) => e.vendor_id === vendorId,
-  );
-  const relatedReceiving = (receivingOrders.data ?? []).filter(
-    (r) => r.vendor_id === vendorId,
-  );
+  // F-Wave7-LISTFILTER-01: server-side vendor_id filter; no client-side
+  // .filter(...) over the full org list.
+  const relatedPOs = purchaseOrders.data ?? [];
+  const relatedBills = vendorBills.data ?? [];
+  const relatedExpenses = expenses.data ?? [];
+  const relatedReceiving = receivingOrders.data ?? [];
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-8">

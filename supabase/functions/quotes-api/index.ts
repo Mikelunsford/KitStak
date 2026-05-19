@@ -29,6 +29,10 @@ const listQuotes = async (ctx: RouteCtx) => {
   requireCap(caller, 'quotes.quote.read');
   const limit = parseLimit(ctx.url);
   const state = ctx.url.searchParams.get('state');
+  // F-Wave7-LISTFILTER-01: customer_id FK filter lifts the CustomerDetailPage
+  // client-side .filter(...) into a SQL where-clause. RLS Pattern A wraps the
+  // org gate so a cross-tenant customer_id still resolves to 200 + [].
+  const customerId = ctx.url.searchParams.get('customer_id');
   const client = admin();
   let q = client
     .from('quotes').select('*')
@@ -37,6 +41,7 @@ const listQuotes = async (ctx: RouteCtx) => {
     .order('created_at', { ascending: false })
     .limit(limit + 1);
   if (state) q = q.eq('state', state);
+  if (customerId) q = q.eq('customer_id', customerId);
   const { data, error } = await q;
   if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
   const rows = data ?? [];

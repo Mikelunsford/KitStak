@@ -6,6 +6,7 @@ import { projectsKeys } from '@/lib/queryKeys/projects';
 import {
   listProjects, getProject, createProject, transitionProject,
   createPhase, transitionPhase, reorderPhases,
+  type ListProjectsFilters,
 } from '@/lib/services/projectsService';
 import type {
   CreateProjectRequest, TransitionRequest, ReorderPhasesRequest,
@@ -14,10 +15,13 @@ import type {
 
 // === Project queries / mutations ===========================================
 
-export function useProjectsList(state?: string) {
+export function useProjectsList(filters: ListProjectsFilters = {}) {
   return useQuery({
-    queryKey: projectsKeys.list({ state: state ?? null }),
-    queryFn: () => listProjects(state),
+    queryKey: projectsKeys.list({
+      state: filters.state ?? null,
+      customer_id: filters.customer_id ?? null,
+    }),
+    queryFn: () => listProjects(filters),
   });
 }
 

@@ -7,8 +7,24 @@ import {
 
 export type { ReceivingOrder, ReceivingOrderStatus };
 
-export async function listReceivingOrders(): Promise<ReceivingOrder[]> {
-  const data = await apiRequest<unknown>('/ops-api/receiving-orders', { method: 'GET' });
+export type ListReceivingOrdersFilters = {
+  vendor_id?: string;
+};
+
+function receivingOrdersQs(f: ListReceivingOrdersFilters): string {
+  const p = new URLSearchParams();
+  if (f.vendor_id) p.set('vendor_id', f.vendor_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listReceivingOrders(
+  filters: ListReceivingOrdersFilters = {},
+): Promise<ReceivingOrder[]> {
+  const data = await apiRequest<unknown>(
+    `/ops-api/receiving-orders${receivingOrdersQs(filters)}`,
+    { method: 'GET' },
+  );
   return (data as ReceivingOrder[]).map((r) => ReceivingOrderSchema.parse(r));
 }
 

@@ -1,6 +1,9 @@
+import type { ListExpensesFilters } from '@/lib/services/expensesService';
+
 export const expensesKeys = {
   all: ['vendors', 'expenses'] as const,
-  list: () => [...expensesKeys.all, 'list'] as const,
+  list: (filters: ListExpensesFilters = {}) =>
+    [...expensesKeys.all, 'list', filters] as const,
   detail: (id: string) => [...expensesKeys.all, 'detail', id] as const,
 };
 

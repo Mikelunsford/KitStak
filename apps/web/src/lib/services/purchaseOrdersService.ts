@@ -7,8 +7,24 @@ import {
 
 export type { PurchaseOrder, PurchaseOrderStatus };
 
-export async function listPurchaseOrders(): Promise<PurchaseOrder[]> {
-  const data = await apiRequest<unknown>('/vendors-api/purchase-orders', { method: 'GET' });
+export type ListPurchaseOrdersFilters = {
+  vendor_id?: string;
+};
+
+function purchaseOrdersQs(f: ListPurchaseOrdersFilters): string {
+  const p = new URLSearchParams();
+  if (f.vendor_id) p.set('vendor_id', f.vendor_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listPurchaseOrders(
+  filters: ListPurchaseOrdersFilters = {},
+): Promise<PurchaseOrder[]> {
+  const data = await apiRequest<unknown>(
+    `/vendors-api/purchase-orders${purchaseOrdersQs(filters)}`,
+    { method: 'GET' },
+  );
   return (data as PurchaseOrder[]).map((r) => PurchaseOrderSchema.parse(r));
 }
 

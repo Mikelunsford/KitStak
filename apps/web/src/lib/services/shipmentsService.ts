@@ -7,8 +7,24 @@ import {
 
 export type { Shipment, ShipmentStatus };
 
-export async function listShipments(): Promise<Shipment[]> {
-  const data = await apiRequest<unknown>('/ops-api/shipments', { method: 'GET' });
+export type ListShipmentsFilters = {
+  customer_id?: string;
+};
+
+function shipmentsQs(f: ListShipmentsFilters): string {
+  const p = new URLSearchParams();
+  if (f.customer_id) p.set('customer_id', f.customer_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listShipments(
+  filters: ListShipmentsFilters = {},
+): Promise<Shipment[]> {
+  const data = await apiRequest<unknown>(
+    `/ops-api/shipments${shipmentsQs(filters)}`,
+    { method: 'GET' },
+  );
   return (data as Shipment[]).map((r) => ShipmentSchema.parse(r));
 }
 
