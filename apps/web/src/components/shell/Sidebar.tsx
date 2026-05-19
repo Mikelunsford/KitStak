@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  Contact,
   CreditCard,
   DollarSign,
   Download,
@@ -75,8 +76,10 @@ const CORE_SECTIONS: ReadonlyArray<NavSection> = [
     icon: Users,
     children: [
       { to: '/crm/customers', label: 'Customers', icon: Users },
+      { to: '/crm/contacts', label: 'Contacts', icon: Contact },
       { to: '/crm/leads', label: 'Leads', icon: TrendingUp },
       { to: '/crm/opportunities', label: 'Opportunities', icon: Target },
+      { to: '/crm/activities', label: 'Activities', icon: CalendarCheck },
     ],
   },
   {
