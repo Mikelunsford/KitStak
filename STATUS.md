@@ -4,15 +4,17 @@ Last updated: 2026-05-19
 
 ## Current state
 
-**Wave 6.5 hotfix (PR #21) merged at `3322db3`.** Three SPA bugs surfaced by the F-Wave6-FLOW-01 prod re-test after Wave 6.5: ProjectDetailPage rendered the ErrorBoundary fallback because `useProjects.ts` shipped with a `ProjectLineItemPlaceholder` TODO (Canon Steward pass missed replacing it with the real `ProjectLineItem` type from the side-car); `useConvertQuoteToProject` had no `onError` handler so STATE_CONFLICT failures swallowed silently; 8 list pages had no "New X" CTAs to the Wave 6.5 create pages. All fixed. Bundle 28.9 kB / 40 kB. Vercel auto-deployed on merge. **Phase 6.5 fully landed on prod.**
+**Phase 6 F-Wave6-FLOW-01 quote-to-cash gate has been walked end-to-end on prod (baseline `0d190e3`).** The operator confirmed the full chain: customer create · quote create · approve · convert to project · add material · warehouse create · receiving order create · receiving received · shipment create · shipment shipped · project completed · invoice create · invoice send · payment receive. Six hotfix PRs (#24 through #29) landed during the walkthrough itself: each bug surfaced exactly when the operator hit it, the orchestrator dispatched, the fix shipped, the operator advanced. Phase 6 is now substantially closed. The residual list of clunky-UX items (LINEFORM-01, ITEMS-403-01, AUDIT-02, WAREHOUSE-NAME-01, PRODUCTION-CREATE-01) is Phase 7 polish; none are gate-blocking.
 
-**Wave 6.5 workflow integration remediation merged (PR #20 at `bee9654`).** The Phase 6 workflow integration audit at `03-workspace/journal/phase-6-workflow-integration-audit.md` identified 41 cross-domain wiring gaps surfaced by the operator's `F-Wave6-FLOW-01` prod exercise. Phase 6.5 closed 39 of them (2 LARGE line-normalization gaps deferred to Phase 7). Shape B dispatch: 4 specialized agents across 2 stages plus 2 finishers (transient API blips wiped both Stage agent runs partway; finisher pattern proved out as a first-class recovery). Shipped: 5 migrations (0042 to 0046, all verified applied at remote), side-car extensions for sales (`project_line_items` + 4 caps), 5 reusable pickers, 9 new create pages, 14 patched pages, query-string carry-through on 6 create pages, 6 new routes, `projects-api POST /projects/:id/convert-to-invoice` RPC. Byte-mirror parity intact across 22 pairs. Full journal at `03-workspace/journal/wave-6-5-workflow-integration.md`.
+**Pre-walkthrough hardening (PR #23 at `b884f5d`).** Tier-1 fixes shipped before the operator walked the gate: pagination across list endpoints and notifications delivery wiring.
+
+**Wave 6.5 hotfix (PR #21) and remediation (PR #20).** Phase 6.5 closed 39 of 41 cross-domain wiring gaps that the prior F-Wave6-FLOW-01 attempt had surfaced. PR #21 cleaned up the three SPA regressions that surfaced on first re-test (ProjectDetailPage placeholder, convert silent-fail, missing list CTAs). Full history in `03-workspace/journal/wave-6-5-workflow-integration.md` and `wave-6-5-hotfix.md`.
 
 ## Outstanding work and drift register
 
-### Phase 6 verification gate (the only thing blocking Phase 7 declaration)
+### Phase 6 gate
 
-- **`F-Wave6-FLOW-01`**: operator-led quote-to-cash exercise on prod. After PR #21 vercel deploy: hard-refresh `www.kitstak.com`, walk Customer create -> Quote create with CustomerPicker -> Approve quote -> Convert to project (now surfaces errors inline if blocked) -> Project detail (now renders MATERIALS, RECEIVING, SHIPMENTS, INVOICES sections without crashing) -> Add a material -> Create receiving order from the deep-linked CTA -> Create shipment from the deep-linked CTA -> Mark project completed -> Create invoice from project -> Receive payment. Each detail page should render `HISTORY` (AuditTimeline) with rows. Any new gaps surfaced are fixed inline per the §7 hotfix loop.
+- **`F-Wave6-FLOW-01`**: **substantially passed at `0d190e3`**. The operator walked the full quote-to-cash chain through invoice send and payment receive. Residual UX clunkiness flagged for Phase 7 polish below; none block declaring the gate.
 
 ### Operator-gated (waiting on explicit operator authorization beyond a phase go)
 
@@ -22,14 +24,28 @@ Last updated: 2026-05-19
 - **`F-Wave5-CO-01`** / **`F-Wave3-OBS-01`**: Sentry SPA + edge-function capture. Needs operator-approved DSN.
 - **`F-Wave5-CO-02`**: analytics provider selection. Needs operator pick (PostHog / Segment / Mixpanel / etc.).
 
-### Phase 7 stabilization scope (spawned from Phase 6.5)
+### Phase 7 stabilization scope
 
-- **`F-Wave7-LINES-01`**: receiving / shipment line normalization. Today lines are stored as `payload` JSON on `receiving_orders` and `shipments`. The 6.5 audit flagged operational ergonomics; constitution does not mandate normalization. New tables (`receiving_order_line_items`, `shipment_line_items`) plus handler updates plus side-car schemas. Reserves migration slots from 0047.
+- **`F-Wave7-LINES-01`**: receiving / shipment line normalization. Today lines are stored as `payload` JSON on `receiving_orders` and `shipments`. The 6.5 audit flagged operational ergonomics; constitution does not mandate normalization. New tables (`receiving_order_line_items`, `shipment_line_items`) plus handler updates plus side-car schemas.
 - **`F-Wave7-LISTFILTER-01`**: server-side list filters. `CustomerDetailPage` and `VendorDetailPage` filter quotes / projects / invoices / payments / POs / vendor bills / expenses / receiving client-side after pulling the full org list. Lift filters into the list services (`useQuotesList`, `useProjectsList`, etc.). Server endpoints already support the filters.
 - **`F-Wave7-CRM-SCHEMA-01`**: extend `CustomerCreateSchema` side-car to include `default_payment_terms_days` (called out by audit, not in current side-car).
 - **`F-Wave7-EXPENSE-SCHEMA-01`**: extend `ExpenseSchema` side-car to enumerate `project_id` (column shipped in migration 0046 but Zod schema does not enumerate it; `ExpenseCreatePage` uses a typed cast to send it).
 - **`F-Wave7-LITDRIFT-01`**: canonicalize cross-boundary string literals in `_shared/`. The `G-OPS-FLAG-01` and `F-Wave6-CORS-01` bugs were the same class: a literal duplicated at the read site and the write site, drifting in isolation. Canonicalize all flag keys, header names, and other cross-boundary constants as named imports from `_shared/`.
-- **`F-Wave7-CANON-STEWARD-01`**: pre-PR grep guardrail. Add a pre-commit check that fails the diff if it introduces or leaves a `Placeholder` / `TODO 6.5-*` / `TODO Canon Steward` marker. The placeholder pattern (parallel agents stub each other's types so neither blocks) is useful; the resolution step needs a guardrail because the Canon Steward miss in Phase 6.5 was caught only at operator re-test.
+- **`F-Wave7-CANON-STEWARD-01`**: pre-PR grep guardrail. Add a pre-commit check that fails the diff if it introduces or leaves a `Placeholder` / `TODO 6.5-*` / `TODO Canon Steward` marker. The placeholder pattern (parallel agents stub each other's types so neither blocks) is useful; the resolution step needs a guardrail because the Canon Steward miss in Phase 6.5 was caught only at operator re-test. **Scope grew this session**: should also check that every `<Link to="/foo/new">` resolves against a registered route and that every list page in `routes.ts` is reachable from at least one Sidebar entry (PR #27 and PR #29 both shipped silent for months and only surfaced on operator foot-traffic).
+- **`F-Wave7-LISTENVELOPE-01`** (new this session): canonicalize the remaining `ok({items: ...})` handlers (`quotes-api:356`, `sales-config-api:308`, `collaboration-api:244` and `:300`, `customer-portal-api:106`, `:131`, `:156`, `:221`). None on the current hot path, so Phase 7 polish. Same drift class as PR #25 and PR #26.
+- **`F-Wave7-UUID-GUARD-01`** (new this session): server-side handlers should return `400 BAD_REQUEST` on a non-UUID `:id` path segment, not let it fall through to a Postgres cast error and surface as `500`. Defense in depth; the F-Wave6-WAREHOUSE-CREATE-01 root cause would have been a clean 400 instead of a 500 with this guard.
+- **`F-Wave7-LINEFORM-VALIDATE-01`** (new this session): `payload.lines` on receiving / shipment / production_run create should be validated at the API boundary against a strict zod schema, including requiring `item_id` when a line is present. Companion to the existing `F-Wave7-LINES-01` normalisation. PR #28 hardened the database triggers to tolerate missing `item_id`, but the API should reject the malformed payload up front.
+- **`F-Wave7-TRIGGER-AUDIT-01`** (new this session): grep guardrail on trigger function bodies that perform `insert into <table> ... NOT NULL ...`. PR #24 (`audit_log.to_state`) and PR #28 (`stock_movements.item_id`) had the same shape: a trigger inserted with a value that was either `NULL` or the result of a permissive cast from a missing payload field. A pre-commit grep that surfaces `insert into` inside `create or replace function` blocks and cross-checks NOT NULL columns would have caught both.
+
+### Phase 6 polish carryover
+
+These surfaced during the F-Wave6-FLOW-01 walk but are non-blocking; defer to a Phase 6 polish PR or fold into Phase 7.
+
+- **`F-Wave6-AUDIT-02`**: `HISTORY` on the operator's test quote showed only `draft -> submitted`. The `submitted -> approved` audit row either never wrote or `AuditTimeline` filters out a row shape. Investigation candidate.
+- **`F-Wave6-LINEFORM-01`**: "Add material" form on `ProjectDetailPage` has no `onError` handler. Operator typed `2.5` into a field labelled "Unit price (cents)", server returned a `422` schema-validation error, the page silently did nothing. Apply the same inline-error pattern PR #21 introduced for the convert-to-project mutation; probably affects every create form across the SPA (re-check `F-Wave7-MUTATION-ERRORS-01` from the Wave 6.5 hotfix journal).
+- **`F-Wave6-ITEMS-403-01`**: `ItemPicker` on multiple pages `403`s on `sales-config-api/items`. The `org_owner` role should have access; the cap check is misconfigured somewhere in `sales-config-api`'s `requireSalesConfigCap` shim.
+- **`F-Wave6-WAREHOUSE-NAME-01`**: `ReceivingOrderDetailPage.tsx` renders `d.warehouse_id` directly (a raw UUID). Should look up the warehouse and display `code` plus `display_name`. Same pattern likely affects other detail pages with foreign-key references.
+- **`F-Wave6-PRODUCTION-CREATE-01`**: same missing-create-page gap as warehouses had before PR #27. `/3pl-operations/production` has a list and a detail route but no `/new` route and no `ProductionRunCreatePage`. Not on the quote-to-cash hot path but a symmetric chassis miss.
 
 ### Other carried open
 
@@ -44,6 +60,13 @@ Last updated: 2026-05-19
 - 39 of 41 audit gaps: Phase 6.5 PR #20.
 - `F-Wave6-DATA-01`: migrations 0042 + 0043 (seed_org_settings backfill plus provision_organization self-heal).
 - ProjectDetailPage crash, convert silent fail, list page CTAs: PR #21.
+- Pagination + notifications delivery (PR #23).
+- `F-Wave6-AUDIT-01`: PR #24 (project_line_items audit trigger passed `null` to `audit_log.to_state`, migration 0047 redefines trigger to send action verb).
+- `F-Wave6-LINES-API-01`: PR #25 (`projects-api /projects/:id/line-items` returned one-off `ok({items: ...})` envelope; apiClient unwrapped one level, `(lineItems.data ?? []).map(...)` in ProjectDetailPage threw on the new envelope shape; handler canonicalised to `ok(data ?? [])`).
+- `F-Wave6-LISTUNWRAP-01`: PR #26 (PR #23's pagination conversion changed `inventory-api` to return `{items, next_cursor}`; three SPA list services (`warehousesService`, `stockLevelsService`, `bomItemsService`) were typed as flat-array returns, the `.map` inside queryFn threw, lists rendered silently empty; fix unwraps the envelope and returns `.items`).
+- `F-Wave6-WAREHOUSE-CREATE-01`: PR #27 (Sidebar "New Warehouse" link pointed at `/3pl-operations/warehouses/new` but no `/new` route was registered; URL fell through to `/:id` with `id="new"`, Postgres threw on the uuid cast, 500 surfaced; fix adds `WarehouseCreatePage` and registers `/new` before `/:id` in routes.ts).
+- `F-Wave6-EMIT-MOVEMENTS-01`: PR #28 (the three `stock_movements` emit triggers in migration 0032 cast `(v_line ->> 'item_id')::uuid` which threw NOT NULL violations the moment a receiving / shipment / production_run terminal transition fired against a payload line without `item_id`; migration 0048 `create or replace`s the three trigger functions with a guarded `v_item_id` local that skips lines whose item_id is missing or non-castable; production-runs `produced` branch preserved byte-for-byte).
+- `F-Wave6-NAV-CRM-01`: PR #29 (Sidebar WORKSPACE section was missing Contacts and Activities entries; SPA-only three-line edit to `Sidebar.tsx`).
 
 ## Drift register
 
@@ -100,9 +123,9 @@ Last updated: 2026-05-19
 
 **Wave 2 domain ports shipped (PR #4 merged · commit `e1dd9ba`).** Pillar 1 (3PL Operations) is lit at the schema, API, and SPA layers. Pillars 2-3 (Manufacturing, Co-Pack and Ecom) are plumbed (schemas plus edge function bundles, feature-flag-gated off). 41 forward-only migrations now applied at the remote (Postgres 17.6.1.121, GA channel, region `us-west-1`).
 
-### Migrations applied (40 slots used, 0005 and 0006 intentionally empty)
+### Migrations applied (48 slots used, 0005 and 0006 intentionally empty)
 
-`0001_foundation`, `0002_identity_branding_provisioning`, `0003_fix_audit_search_path`, `0004_identity_extensions`, `0007` to `0010` (CRM), `0011` to `0017` (sales chassis, quoting, projects), `0018` to `0024` (invoicing, payments, finance), `0025` to `0033` (vendors, inventory, ops), `0034` to `0040` (cross-cutting, audit trigger coverage, attachments view, org settings seed).
+`0001_foundation`, `0002_identity_branding_provisioning`, `0003_fix_audit_search_path`, `0004_identity_extensions`, `0007` to `0010` (CRM), `0011` to `0017` (sales chassis, quoting, projects), `0018` to `0024` (invoicing, payments, finance), `0025` to `0033` (vendors, inventory, ops), `0034` to `0040` (cross-cutting, audit trigger coverage, attachments view, org settings seed), `0041` (cross-tenant convert_quote_to_project), `0042` to `0046` (Wave 6.5: seed_org_settings backfill, provision_organization self-heal, project_line_items, convert_quote_to_project line-carry, convert_project_to_invoice, FK hardening), `0047` (Phase 6 hotfix: redefine project_line_items audit trigger to pass action verb as `to_state`; closes F-Wave6-AUDIT-01), `0048` (Phase 6 hotfix: guard the three emit_movements triggers against missing or non-castable `item_id`; closes F-Wave6-EMIT-MOVEMENTS-01).
 
 ### Edge function bundles deployed and scheduled
 
@@ -221,12 +244,9 @@ Tracked as `F-Wave6-FLOW-01`. Any small gaps surfaced during the exercise (missi
 - `F-Wave6-CORS-01`: consolidate the two CORS allow-headers lists by having `responses.ts` import from `cors.ts`. Deferred to Phase 7 polish.
 - `F-Wave6-NAV-02`: align other pillar child paths when those pillars light up.
 
-## Phase 7 prep in flight
+## Phase 7 prep
 
-- **F-Wave6-CORS-01 patched** (subject to PR merge). `supabase/functions/_shared/responses.ts` now imports `corsHeaders()` from `./cors.ts` and uses it inside `withCommonHeaders` and `noContent`. The private `CORS_HEADERS` constant has been removed. One source of truth for CORS allow-headers; the drift trap that surfaced in Wave 6 hotfix 2 (missing `apikey`) cannot recur via this route.
-- **`seed_org_settings` backfill proposal authored** at `03-workspace/journal/phase-7-prep-seed-backfill-proposal.md`. Operator decision pending between Option A (data-shaped backfill in slot 0042 plus a follow-up `provision_organization` patch), Option B (DDL-only `provision_organization` patch plus a manual per-org seed by the operator), or A + B together. Migration slot 0042 reserved; no migration ships until the operator picks.
-
-(Carried open follow-ups from prior waves: `F-Wave5-TEST-02`, `F-Wave5-CO-01`, `F-Wave5-CO-02`, `F-Wave2-AGENT-A-05`, `F-Wave2-CO-01`, `F-Wave2-DNDKIT-01`.)
+Both items previously tracked here landed in Wave 6.5. CORS consolidation shipped in PR #18 (closes `F-Wave6-CORS-01`); the `seed_org_settings` backfill shipped in migrations 0042 + 0043 via Option A + B together (closes `F-Wave6-DATA-01`). The active Phase 7 scope now lives under "Phase 7 stabilization scope" near the top of this file.
 
 ## Open risks
 

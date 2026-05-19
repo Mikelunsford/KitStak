@@ -4,6 +4,40 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] · 2026-05-19 Phase 6 quote-to-cash hotfix storm (PRs #24 to #29)
+
+The operator walked F-Wave6-FLOW-01 end-to-end on prod. Six bugs surfaced, one per step of the chain; each shipped as its own hotfix PR in the same afternoon. Phase 6 gate now substantially passed at `0d190e3`. Full closeout at `03-workspace/journal/wave-6-flow-hotfix-storm.md`.
+
+### Fixed (F-Wave6-AUDIT-01, PR #24 at `12eb2c8`)
+
+Migration 0044's `trg_audit_project_line_items` passed `null` as `to_state` to `audit_append_state_change`, but `audit_log.to_state` is `NOT NULL`. Every insert into `project_line_items` rolled the entire convert transaction back and surfaced as "Convert failed: null value in column to_state of relation audit_log". Migration 0047 redefines the trigger so non-state-machine entities pass the action verb (`created` / `updated` / `deleted`) as `to_state`. `audit_log` schema, `audit_append_state_change`, and `convert_quote_to_project` untouched. Hash chain integrity preserved (`verify_audit_chain` treats `to_state` as opaque bytes). Unblocked: quote -> project convert.
+
+### Fixed (F-Wave6-LINES-API-01, PR #25 at `99876af`)
+
+`projects-api /projects/:id/line-items` returned `ok({ items: data ?? [] })` (a one-off shape) while `useProjectLineItems` was typed as a flat array. `apiClient` unwrapped one envelope level so the SPA hook received `{items: [...]}`. `(lineItems.data ?? []).map(...)` in `ProjectDetailPage` threw `TypeError: .map is not a function`; ErrorBoundary caught; the page rendered "Something went wrong" the moment an operator landed on a freshly converted project. Handler canonicalised to `ok(data ?? [])` matching the dominant CRM / invoicing / finance shape. Unblocked: project detail page render after convert.
+
+### Fixed (F-Wave6-LISTUNWRAP-01, PR #26 at `35831db`)
+
+PR #23's pagination conversion changed `inventory-api` to return `{items, next_cursor}`. Three SPA list services (`warehousesService`, `stockLevelsService`, `bomItemsService`) were still typed as flat-array returns; the `.map` inside the queryFn threw, React Query stored undefined data, lists rendered silently empty. Fix: zod-parse the envelope and return `.items`. Three files touched. Unblocked: every Inventory list page (Warehouses, Stock Levels, BOM Items).
+
+### Fixed (F-Wave6-WAREHOUSE-CREATE-01, PR #27 at `1b6cf99`)
+
+"New Warehouse" link in `WarehousesListPage` pointed at `/3pl-operations/warehouses/new` but no `/new` route was registered. The URL fell through to `/:id` with `id="new"`; the server tried `where id = 'new'::uuid`; Postgres threw; response was a 500. Fix: new `WarehouseCreatePage.tsx` plus the `/new` route registered before `/:id` in `routes.ts`. Unblocked: receiving-order create (needs a warehouse).
+
+### Fixed (F-Wave6-EMIT-MOVEMENTS-01, PR #28 at `a564b1f`)
+
+The three `stock_movements` emit triggers in migration 0032 cast `(v_line ->> 'item_id')::uuid` which threw NOT NULL violations the moment a receiving / shipment / production_run terminal transition fired against a payload line without `item_id`. Migration 0048 `create or replace`s all three trigger functions with a guarded `v_item_id` local that skips lines whose `item_id` is missing or non-castable. Production-runs `produced` branch preserved byte-for-byte. Unblocked: receiving received, shipment shipped, project completed.
+
+### Fixed (F-Wave6-NAV-CRM-01, PR #29 at `0d190e3`)
+
+Sidebar WORKSPACE was missing Contacts and Activities entries; the operator had no path from the shell to either list page. SPA-only three-line edit to `apps/web/src/components/shell/Sidebar.tsx`. Unblocked: contact and activity discoverability.
+
+### Lessons codified
+
+- Envelope drift (`ok({items: ...})` vs `ok(data, {next_cursor})`) is the recurring class. Same root in PR #25 and PR #26, and likely more lurking. Canonical shape needs to be enforced at the `ok()` helper or via a lint rule. Tracked as `F-Wave7-LISTENVELOPE-01`.
+- Trigger inserts into NOT NULL columns are the recurring crash class. PR #24 (`audit_log.to_state`) and PR #28 (`stock_movements.item_id`) had the same shape. Tracked as `F-Wave7-TRIGGER-AUDIT-01`.
+- Sidebar / route chassis drift surfaces only when an operator walks a path. PR #27 (no `/new` for warehouses) and PR #29 (no Contacts in WORKSPACE) both shipped silent for months. `F-Wave7-CANON-STEWARD-01` scope grew to cover the `<Link to="/foo/new">` -> route reachability check.
+
 ## [0.7.1] · Wave 6.5 hotfix (PR #21)
 
 Three SPA regressions surfaced by operator F-Wave6-FLOW-01 re-test on post-Wave-6.5 prod. All three fixed in PR #21. SPA-only, Vercel auto-deployed, no migration, no edge function.
