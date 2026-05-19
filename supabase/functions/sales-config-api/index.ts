@@ -12,7 +12,7 @@ import { z } from 'https://esm.sh/zod@3.23.8';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, requireCap, respondWithIdempotency,
+  admin, parseBody, parseLimit, paginate, requireCap, respondWithIdempotency,
   created,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
@@ -131,8 +131,7 @@ function genericList(table: string, orderCol = 'created_at') {
       .limit(limit + 1);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
     const rows = data ?? [];
-    if (rows.length <= limit) return ok({ items: rows, next_cursor: null });
-    return ok({ items: rows.slice(0, limit), next_cursor: null });
+    return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
   };
 }
 
@@ -317,9 +316,10 @@ const listExchangeRates = async (ctx: RouteCtx) => {
   const { data, error } = await client
     .from('exchange_rates').select('*')
     .order('effective_date', { ascending: false })
-    .limit(limit);
+    .limit(limit + 1);
   if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  return ok({ items: data ?? [], next_cursor: null });
+  const rows = data ?? [];
+  return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
 };
 
 const createExchangeRate = async (ctx: RouteCtx) => {
