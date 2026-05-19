@@ -76,9 +76,9 @@ kitstak/
 
 ## Current status
 
-Phase 6 F-Wave6-FLOW-01 quote-to-cash gate has been walked end-to-end on prod (baseline `0d190e3`). The operator walked customer create through invoice send and payment receive; six hotfix PRs (#24 through #29) landed during the walkthrough itself, each closing a chassis-drift bug surfaced by the operator at a specific step. 48 forward-only migrations applied at the remote (latest: 0047 hardens the project_line_items audit trigger, 0048 hardens the emit_movements triggers). Byte-mirror parity intact across 22 pairs (`pnpm test:contract` 25/25).
+Phase 6 F-Wave6-FLOW-01 quote-to-cash gate has been walked end-to-end on prod and the polish carryover is closed (baseline `347062f`). Six hotfix PRs (#24 through #29) landed during the walkthrough itself; five polish PRs (#31 through #35) cleared the carryover bucket the morning after. 48 forward-only migrations applied at the remote (latest: 0047 hardens the project_line_items audit trigger, 0048 hardens the emit_movements triggers). Byte-mirror parity intact across 22 pairs (`pnpm test:contract` 25/25). Bundle 29.4 / 40 kB.
 
-Phase 6 is now substantially closed. Residual UX clunkiness is tracked under "Phase 6 polish carryover" in STATUS.md and folded into Phase 7. Phase 7 (Stabilization) is the active scope.
+Phase 6 is closed. Phase 7 (Stabilization) is the active scope; the close-out journal at `03-workspace/journal/phase-6-polish-closeout.md` covers the five PRs and the two reframes (AUDIT-02 as a TanStack cache-invalidation class, esm.sh URL imports as a systemic deploy risk).
 
 See `STATUS.md` for the full breakdown, the Outstanding Work and Drift Register sections for what is in flight, `CHANGELOG.md` for release history, and `03-workspace/journal/` for per-wave closeouts.
 

@@ -4,6 +4,35 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] · 2026-05-19 Phase 6 polish close-out (PRs #31 to #35)
+
+The day after the F-Wave6-FLOW-01 walk, five polish PRs cleared the carryover bucket. Full closeout at `03-workspace/journal/phase-6-polish-closeout.md`. Phase 6 is now closed; the active scope is Phase 7 stabilization.
+
+### Fixed (F-Wave6-WAREHOUSE-NAME-01, PR #31 at `73e4a96`)
+
+`ReceivingOrderDetailPage` rendered `Warehouse: 8c9f2... (UUID)` instead of a human label. The page now resolves `warehouse_id` via `useWarehousesList` and renders `{code} · {display_name}` with raw-UUID fallback if the lookup misses. SPA-only edit. Spawns `F-Wave7-FK-RENDER-SWEEP-01` for the five other detail pages with the same shape (Shipment, ProductionRun, JournalEntry, Contact, Lead).
+
+### Fixed (F-Wave6-ITEMS-403-01, PR #32 at `c06b545`)
+
+`ItemPicker` returned `403 FORBIDDEN` on `GET /sales-config-api/items` for every role on every page. Root cause: `sales-config-api/index.ts` imported `requireCap` from `_shared/handler-helpers.ts`, which validates against the singular `_shared/capabilities.ts` carrying only the 14 `org.*` caps. Sales caps live in the sales side-car. Every `sales.*` cap lookup against the singular canon fell through to FORBIDDEN. The bundle has been silently 403'ing since it shipped in Wave 2; nothing in the SPA exercised an authenticated `sales-config-api` route until Wave 6.5 mounted `ItemPicker` across the chassis. Fix: new `supabase/functions/sales-config-api/_helpers.ts` shim consulting the sales side-car canon, mirroring the D-011 quotes-api / invoicing-api / projects-api pattern. The singular byte-mirrored `_shared/capabilities.ts` was not touched. Deploy gotcha: first `deploy-functions` run on the merge SHA failed on a transient esm.sh 522 against `https://esm.sh/zod@3.23.8` (run 26123760836); rerun on the same SHA succeeded. The broader pattern is filed as `F-Wave7-ESM-SH-DRIFT-01`.
+
+### Fixed (F-Wave6-LINEFORM-01, PR #33 at `f6b8469`)
+
+Add Material form on `ProjectDetailPage` swallowed `useAddProjectLineItem` failures. Operator typed `2.5` into "Unit price (cents)" expecting dollars; server returned 422; form silently did nothing. Root cause: handler called `await mutateAsync(...)` with no `onError` and no inline error surface. Fix: switched to `mutate(..., { onSuccess })` so React Query's error state is preserved on the mutation object; `addLine.error.message` rendered inline beneath the form mirroring PR #21's convert-to-project pattern; submit disabled while pending; label relabeled to `Unit price (whole cents, e.g. 250 = $2.50)` to defuse the dollars-vs-cents trap. Spawns `F-Wave7-MUTATION-ERRORS-SWEEP-01` (128 `useMutation` sites across 28 files, 7 of them CRM CreatePages on the daily path).
+
+### Fixed (F-Wave6-PRODUCTION-CREATE-01, PR #34 at `9982980`)
+
+Mirror of PR #27. `/3pl-operations/production` had list and detail routes but no `/new` route and no `ProductionRunCreatePage`; the list page's "New Production Run" CTA fell through to `/:id` with `id="new"` and surfaced a 500 on the Postgres uuid cast. Fix: new `ProductionRunCreatePage.tsx` modeled on `WarehouseCreatePage.tsx`, `/new` registered before `/:id` in `routes.ts`, capability-gated CTA added to the list page header. Bundle 29.4 / 40 kB (+0.83 kB).
+
+### Fixed (F-Wave6-AUDIT-02, PR #35 at `347062f`)
+
+Operator's test quote HISTORY tab showed only `draft -> submitted`. Expected `submitted -> approved` row did not appear, even though the quote was at `approved` and the Convert-to-Project button was enabled. Reframe: this turned out to be neither a trigger gap (Hypothesis A) nor an `AuditTimeline` filter (Hypothesis B). Read-only DB inspection confirmed the `submitted -> approved` row exists in `audit_log` with the right shape and hash chain link; `AuditTimeline.tsx` does not filter by row shape. Actual root cause: TanStack cache invalidation. `useQuoteAction` (submit / approve / send) and `useConvertQuoteToProject` invalidate `quotesKeys.*` on success but never the audit timeline's query key. With `staleTime: 30_000` + `refetchOnWindowFocus: false`, an operator who stays on the detail page through Submit then Approve sees the cached pre-approve snapshot of the audit timeline. DB row exists; SPA never re-fetches. Fix: new `apps/web/src/lib/queryKeys/auditLog.ts` factory with `auditLogKeys.byEntity(entityType, entityId)`; `AuditTimeline.tsx` keys off it; `useQuotes.ts` invalidates `auditLogKeys.byEntity('quote', id)` after every state-changing mutation and after convert-to-project. Spawns `F-Wave7-AUDIT-CACHE-SWEEP-01`: the same bug class almost certainly affects thirteen other state-machine detail pages (projects, invoices, credit notes, journal entries, purchase orders, vendor bills, expenses, receiving orders, production runs, shipments, leads, opportunities, project phases).
+
+### Reframes codified
+
+- **AUDIT-02 is a new bug class: stale audit-log cache after a state-machine mutation.** The diagnostic ladder is durable: DB row exists? -> filter at the render layer? -> cache invalidation at the query layer? Every TanStack mutation that writes a state transition must invalidate both the entity query keys and the audit-log query key for that entity. Tracked as `F-Wave7-AUDIT-CACHE-SWEEP-01`.
+- **Deploy esm.sh URL imports are a systemic risk.** 25 files across `supabase/functions/` use `https://esm.sh/...` URL imports, including shared infrastructure (`_shared/handler-helpers.ts`, `_shared/idempotency.ts`). `supabase/functions/deno.json` already maps `zod` to `npm:zod@3.23.8`, so bare imports would bypass the CDN entirely. PR #32's deploy failed exactly once on a transient esm.sh 522. Tracked as `F-Wave7-ESM-SH-DRIFT-01`.
+
 ## [0.7.2] · 2026-05-19 Phase 6 quote-to-cash hotfix storm (PRs #24 to #29)
 
 The operator walked F-Wave6-FLOW-01 end-to-end on prod. Six bugs surfaced, one per step of the chain; each shipped as its own hotfix PR in the same afternoon. Phase 6 gate now substantially passed at `0d190e3`. Full closeout at `03-workspace/journal/wave-6-flow-hotfix-storm.md`.

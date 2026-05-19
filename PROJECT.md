@@ -63,7 +63,7 @@ phasing:
     - "Wave 3 — Integration"
     - "Wave 5 — Probes (cross-tenant RLS)"
     - "Wave 6 — Customer Zero"
-    - "Phase 6: quote-to-cash gate substantially passed at 0d190e3"     # source: STATUS.md current state as of 2026-05-19
+    - "Phase 6: quote-to-cash gate closed at 347062f (polish carryover landed in PRs #31 to #35)" # source: STATUS.md current state as of 2026-05-19
     - "Phase 7: Stabilization (active)"                                  # source: STATUS.md Phase 7 stabilization scope
 
 conventions:
