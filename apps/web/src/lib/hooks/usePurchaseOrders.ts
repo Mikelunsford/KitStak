@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { purchaseOrdersKeys } from '@/lib/queryKeys/purchaseOrders';
 import {
   listPurchaseOrders, getPurchaseOrder, createPurchaseOrder,
@@ -46,7 +47,13 @@ export function useUpdatePurchaseOrder(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<PurchaseOrder>) => updatePurchaseOrder(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: purchaseOrdersKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: purchaseOrdersKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: PO updates write an audit_log row;
+      // invalidate the timeline so the detail page reflects the latest
+      // entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('purchase_order', id) });
+    },
   });
 }
 
@@ -54,7 +61,13 @@ export function useTransitionPurchaseOrder(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (to: PurchaseOrderStatus) => transitionPurchaseOrder(id, to),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: purchaseOrdersKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: purchaseOrdersKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: PO transitions write an audit_log
+      // row via trg_audit_purchase_orders_state; invalidate the timeline
+      // so the operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('purchase_order', id) });
+    },
   });
 }
 

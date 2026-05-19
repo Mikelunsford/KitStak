@@ -36,7 +36,7 @@ export function ProjectCreatePage() {
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const body: CreateProjectRequest = {
       number,
@@ -49,8 +49,14 @@ export function ProjectCreatePage() {
       start_date: startDate || null,
       due_date: dueDate || null,
     };
-    const r = await create.mutateAsync(body);
-    navigate(`/3pl-operations/projects/${r.id}`);
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: switch from await mutateAsync to
+    // mutate(input, { onSuccess }) so a 4xx surfaces in the inline error
+    // renderer below instead of silently failing.
+    create.mutate(body, {
+      onSuccess: (r) => {
+        navigate(`/3pl-operations/projects/${r.id}`);
+      },
+    });
   };
 
   return (
@@ -128,6 +134,11 @@ export function ProjectCreatePage() {
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}
         </Button>
+        {create.error && (
+          <p className="font-sans text-sm text-accent">
+            {create.error instanceof Error ? create.error.message : 'Create project failed.'}
+          </p>
+        )}
       </form>
     </section>
   );

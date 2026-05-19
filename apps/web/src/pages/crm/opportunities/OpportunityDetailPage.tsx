@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { useCustomer } from '@/lib/hooks/useCustomer';
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import {
   getOpportunity,
@@ -35,6 +36,12 @@ export function OpportunityDetailPage() {
       transitionOpportunityStage(id as string, { stage }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: opportunitiesKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: stage transitions write an audit_log
+      // row via trg_audit_opportunities_state; invalidate the timeline so
+      // the operator returning to this page sees the new entry.
+      if (id) {
+        void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('opportunity', id) });
+      }
     },
   });
 
@@ -114,6 +121,13 @@ export function OpportunityDetailPage() {
             ))
           )}
         </div>
+        {mutation.error && (
+          <p className="font-sans text-sm text-accent">
+            {mutation.error instanceof Error
+              ? mutation.error.message
+              : 'Transition failed.'}
+          </p>
+        )}
       </div>
 
       <section className="mt-6">

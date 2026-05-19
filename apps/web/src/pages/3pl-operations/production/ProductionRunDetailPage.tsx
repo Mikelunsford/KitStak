@@ -31,6 +31,13 @@ export function ProductionRunDetailPage() {
             className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2">Complete</button>
         ) : null}
       </div>
+      {(start.error || complete.error) && (
+        <p className="font-sans text-sm text-accent">
+          {(start.error instanceof Error && start.error.message) ||
+            (complete.error instanceof Error && complete.error.message) ||
+            'Action failed.'}
+        </p>
+      )}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink"><EntityLabel kind="warehouse" id={d.warehouse_id} /></dd>
         <dt className="text-ink-dim">Output item</dt><dd className="text-ink"><EntityLabel kind="item" id={d.output_item_id} /></dd>

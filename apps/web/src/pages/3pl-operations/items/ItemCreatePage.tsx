@@ -12,13 +12,22 @@ export function ItemCreatePage() {
   const [name, setName] = useState('');
   const [unitPrice, setUnitPrice] = useState('0');
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const result = await create.mutateAsync({
-      sku, name,
-      unit_price_cents: unitPrice,
-    });
-    navigate(`/3pl-operations/items/${result.id}`);
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: switch from await mutateAsync to
+    // mutate(input, { onSuccess }) so a 4xx surfaces in the inline error
+    // renderer below instead of silently failing.
+    create.mutate(
+      {
+        sku, name,
+        unit_price_cents: unitPrice,
+      },
+      {
+        onSuccess: (result) => {
+          navigate(`/3pl-operations/items/${result.id}`);
+        },
+      },
+    );
   };
 
   return (
@@ -46,6 +55,11 @@ export function ItemCreatePage() {
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}
         </Button>
+        {create.error && (
+          <p className="font-sans text-sm text-accent">
+            {create.error instanceof Error ? create.error.message : 'Create item failed.'}
+          </p>
+        )}
       </form>
     </section>
   );

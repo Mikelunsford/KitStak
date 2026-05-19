@@ -36,7 +36,7 @@ export function QuoteCreatePage() {
   const [notes, setNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const body: CreateQuoteRequest = {
       number,
@@ -50,8 +50,14 @@ export function QuoteCreatePage() {
       notes: notes || null,
       internal_notes: internalNotes || null,
     };
-    const result = await create.mutateAsync(body);
-    navigate(`/3pl-operations/quotes/${result.id}`);
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: switch from await mutateAsync to
+    // mutate(input, { onSuccess }) so the mutation.error state is preserved
+    // and surfaced in the inline error renderer below.
+    create.mutate(body, {
+      onSuccess: (result) => {
+        navigate(`/3pl-operations/quotes/${result.id}`);
+      },
+    });
   };
 
   return (
@@ -139,6 +145,11 @@ export function QuoteCreatePage() {
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}
         </Button>
+        {create.error && (
+          <p className="font-sans text-sm text-accent">
+            {create.error instanceof Error ? create.error.message : 'Create quote failed.'}
+          </p>
+        )}
       </form>
     </section>
   );

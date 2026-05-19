@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiRequest } from '@/lib/apiClient';
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { projectsKeys } from '@/lib/queryKeys/projects';
 import {
   listProjects, getProject, createProject, transitionProject,
@@ -45,6 +46,10 @@ export function useTransitionProject(id: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectsKeys.byId(id) });
       void qc.invalidateQueries({ queryKey: projectsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: state transitions write an audit_log
+      // row via trg_audit_projects_state; invalidate the timeline cache so
+      // an operator returning to the detail page sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('project', id) });
     },
   });
 }
@@ -54,8 +59,15 @@ export function useCreatePhase(projectId: string) {
   return useMutation({
     mutationFn: (payload: { name: string; description?: string | null; position?: number }) =>
       createPhase(projectId, payload),
-    onSuccess: () => {
+    onSuccess: (created) => {
       void qc.invalidateQueries({ queryKey: projectsKeys.byId(projectId) });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: phase create writes an audit_log row
+      // for the new project_phase row; invalidate the phase timeline if the
+      // backend returns its id so detail navigations show the entry.
+      const phaseId = (created as { id?: string } | undefined)?.id;
+      if (phaseId) {
+        void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('project_phase', phaseId) });
+      }
     },
   });
 }
@@ -65,8 +77,12 @@ export function useTransitionPhase(projectId: string) {
   return useMutation({
     mutationFn: (args: { phaseId: string; body: TransitionRequest }) =>
       transitionPhase(projectId, args.phaseId, args.body),
-    onSuccess: () => {
+    onSuccess: (_data, args) => {
       void qc.invalidateQueries({ queryKey: projectsKeys.byId(projectId) });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: phase state transitions write an
+      // audit_log row via trg_audit_phases_state; invalidate the timeline
+      // for this specific phase so the operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('project_phase', args.phaseId) });
     },
   });
 }
@@ -157,6 +173,10 @@ export function useConvertProjectToInvoice(projectId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectsKeys.byId(projectId) });
       void qc.invalidateQueries({ queryKey: ['invoicing', 'invoices'] });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: convert RPC drives a project state
+      // transition that writes an audit row; invalidate the project's
+      // timeline so the operator returning sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('project', projectId) });
     },
   });
 }

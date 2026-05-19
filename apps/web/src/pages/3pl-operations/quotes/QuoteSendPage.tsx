@@ -19,6 +19,11 @@ export function QuoteSendPage() {
       <Button onClick={() => id && send.mutate(id)} disabled={send.isPending || !id}>
         {send.isPending ? 'Sending.' : 'Mark sent'}
       </Button>
+      {send.error && (
+        <p className="font-sans text-sm text-accent">
+          {send.error instanceof Error ? send.error.message : 'Send failed.'}
+        </p>
+      )}
     </section>
   );
 }

@@ -75,23 +75,31 @@ export function InvoiceDetailPage() {
     }
   };
 
-  const onAddLine = async (e: FormEvent) => {
+  const onAddLine = (e: FormEvent) => {
     e.preventDefault();
     const qtyNum = Number(lineQty);
     const priceNum = Number(linePrice);
     const lineTotal = String(Math.round(qtyNum * priceNum));
-    await addLine.mutateAsync({
-      description: lineDesc,
-      quantity: lineQty,
-      unit_price_cents: linePrice,
-      line_total_cents: lineTotal,
-      ...(selectedItemId ? { item_id: selectedItemId } : {}),
-    });
-    setSelectedItemId(null);
-    setLineDesc('');
-    setLineQty('1');
-    setLinePrice('0');
-    setShowAddLine(false);
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: mutate(input, { onSuccess }) so a
+    // 4xx surfaces in the inline error renderer below the form.
+    addLine.mutate(
+      {
+        description: lineDesc,
+        quantity: lineQty,
+        unit_price_cents: linePrice,
+        line_total_cents: lineTotal,
+        ...(selectedItemId ? { item_id: selectedItemId } : {}),
+      },
+      {
+        onSuccess: () => {
+          setSelectedItemId(null);
+          setLineDesc('');
+          setLineQty('1');
+          setLinePrice('0');
+          setShowAddLine(false);
+        },
+      },
+    );
   };
 
   const onReceivePayment = () => {
@@ -177,6 +185,14 @@ export function InvoiceDetailPage() {
           )}
         </div>
       </header>
+
+      {(sendMutation.error || cancelMutation.error) && (
+        <p className="font-sans text-sm text-accent">
+          {(sendMutation.error instanceof Error && sendMutation.error.message) ||
+            (cancelMutation.error instanceof Error && cancelMutation.error.message) ||
+            'Action failed.'}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Stat label="Subtotal" value={formatCents(inv.subtotal_cents, inv.currency_code)} />
@@ -264,7 +280,9 @@ export function InvoiceDetailPage() {
                 onChange={(e) => setLinePrice(e.target.value)}
                 inputMode="numeric"
               />
-              <Button type="submit">Add</Button>
+              <Button type="submit" disabled={addLine.isPending}>
+                {addLine.isPending ? 'Adding.' : 'Add'}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -273,6 +291,13 @@ export function InvoiceDetailPage() {
                 Cancel
               </Button>
             </div>
+            {addLine.error && (
+              <p className="font-sans text-sm text-accent">
+                {addLine.error instanceof Error
+                  ? addLine.error.message
+                  : 'Add line failed.'}
+              </p>
+            )}
           </form>
         )}
       </section>

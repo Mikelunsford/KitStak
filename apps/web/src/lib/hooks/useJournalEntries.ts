@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { journalEntryKeys } from '@/lib/queryKeys/journalEntries';
 import {
   createJournalEntry,
@@ -45,6 +46,10 @@ export function useUpdateJournalEntry(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: journalEntryKeys.detail(id) });
       qc.invalidateQueries({ queryKey: journalEntryKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: JE updates write an audit_log row;
+      // invalidate the timeline so the operator returning to the detail
+      // page sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('journal_entry', id) });
     },
   });
 }
@@ -64,6 +69,10 @@ export function usePostJournalEntry() {
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: journalEntryKeys.detail(id) });
       qc.invalidateQueries({ queryKey: journalEntryKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: JE post drives a draft -> posted
+      // transition that writes an audit row; invalidate the timeline so
+      // the operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('journal_entry', id) });
     },
   });
 }

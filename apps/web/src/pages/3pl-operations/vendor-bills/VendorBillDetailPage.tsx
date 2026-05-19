@@ -43,20 +43,29 @@ export function VendorBillDetailPage() {
     .filter((t) => t.from === d.status)
     .map((t) => t.to);
 
-  async function onRecordPayment(e: FormEvent) {
+  function onRecordPayment(e: FormEvent) {
     e.preventDefault();
-    await createPayment.mutateAsync({
-      payment_date: paymentDate,
-      amount_cents: paymentAmountCents,
-      currency_code: paymentCurrency,
-      method: paymentMethod || null,
-      reference: paymentReference || null,
-      notes: paymentNotes || null,
-    });
-    setPaymentAmountCents('0');
-    setPaymentMethod('');
-    setPaymentReference('');
-    setPaymentNotes('');
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: switch from await mutateAsync to
+    // mutate(input, { onSuccess }) so a 4xx surfaces in the inline error
+    // renderer rendered below instead of an unhandled rejection.
+    createPayment.mutate(
+      {
+        payment_date: paymentDate,
+        amount_cents: paymentAmountCents,
+        currency_code: paymentCurrency,
+        method: paymentMethod || null,
+        reference: paymentReference || null,
+        notes: paymentNotes || null,
+      },
+      {
+        onSuccess: () => {
+          setPaymentAmountCents('0');
+          setPaymentMethod('');
+          setPaymentReference('');
+          setPaymentNotes('');
+        },
+      },
+    );
   }
 
   const vendorLabel = vendor.data
@@ -89,6 +98,13 @@ export function VendorBillDetailPage() {
           ))}
         </div>
       ) : null}
+      {transition.error && (
+        <p className="font-sans text-sm text-accent">
+          {transition.error instanceof Error
+            ? transition.error.message
+            : 'Transition failed.'}
+        </p>
+      )}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Vendor</dt>
         <dd className="text-ink">

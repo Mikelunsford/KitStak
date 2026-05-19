@@ -20,6 +20,13 @@ export function ExpenseDetailPage() {
         <h1 className="text-4xl font-display tracking-wide text-ink">EXPENSE {d.expense_number ?? d.id.slice(0, 8)}</h1>
         <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>
       </header>
+      {transition.error && (
+        <p className="font-sans text-sm text-accent">
+          {transition.error instanceof Error
+            ? transition.error.message
+            : 'Transition failed.'}
+        </p>
+      )}
       {next.length > 0 ? (
         <div className="flex gap-2">
           {next.map((to) => {

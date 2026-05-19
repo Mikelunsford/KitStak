@@ -42,12 +42,21 @@ export function VendorCreatePage() {
       return;
     }
     setErrors({});
-    const created = await create.mutateAsync({
-      ...parsed.data,
-      vendor_number: parsed.data.vendor_number ?? null,
-      email: parsed.data.email ?? null,
-    });
-    navigate(`/3pl-operations/vendors/${created.id}`);
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: mutate(input, { onSuccess }) so a
+    // 4xx surfaces in the inline error renderer below with the actual
+    // server message instead of a generic line.
+    create.mutate(
+      {
+        ...parsed.data,
+        vendor_number: parsed.data.vendor_number ?? null,
+        email: parsed.data.email ?? null,
+      },
+      {
+        onSuccess: (created) => {
+          navigate(`/3pl-operations/vendors/${created.id}`);
+        },
+      },
+    );
   }
 
   return (
@@ -87,7 +96,11 @@ export function VendorCreatePage() {
         </Field>
 
         {create.error ? (
-          <p className="text-accent">Failed to create vendor.</p>
+          <p className="text-accent">
+            {create.error instanceof Error
+              ? create.error.message
+              : 'Failed to create vendor.'}
+          </p>
         ) : null}
 
         <button

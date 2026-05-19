@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { vendorBillsKeys } from '@/lib/queryKeys/vendorBills';
 import {
   listVendorBills, getVendorBill, createVendorBill, updateVendorBill,
@@ -46,7 +47,13 @@ export function useUpdateVendorBill(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<VendorBill>) => updateVendorBill(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: vendorBillsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vendorBillsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: vendor bill updates write an audit
+      // row; invalidate the timeline so the detail page reflects the
+      // latest entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('vendor_bill', id) });
+    },
   });
 }
 
@@ -54,7 +61,13 @@ export function useTransitionVendorBill(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (to: VendorBillStatus) => transitionVendorBill(id, to),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: vendorBillsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vendorBillsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: vendor bill transitions write an
+      // audit_log row via trg_audit_vendor_bills_state; invalidate the
+      // timeline so the operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('vendor_bill', id) });
+    },
   });
 }
 
@@ -65,6 +78,10 @@ export function useCreateVendorBillPayment(billId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: vendorBillsKeys.payments(billId) });
       qc.invalidateQueries({ queryKey: vendorBillsKeys.detail(billId) });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: recording a bill payment can drive a
+      // partial -> paid transition that writes an audit row on the bill;
+      // invalidate the bill timeline so the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('vendor_bill', billId) });
     },
   });
 }
