@@ -96,20 +96,26 @@ export function ProjectDetailPage() {
     setPhaseName('');
   };
 
-  const onAddMaterial = async (e: FormEvent) => {
+  const onAddMaterial = (e: FormEvent) => {
     e.preventDefault();
     if (!projectId) return;
-    await addLine.mutateAsync({
-      name: materialName,
-      item_id: selectedItemId,
-      quantity: materialQty,
-      unit_price_cents: materialPrice,
-      discount_percent: 0,
-    });
-    setSelectedItemId(null);
-    setMaterialName('');
-    setMaterialQty('1');
-    setMaterialPrice('0');
+    addLine.mutate(
+      {
+        name: materialName,
+        item_id: selectedItemId,
+        quantity: materialQty,
+        unit_price_cents: materialPrice,
+        discount_percent: 0,
+      },
+      {
+        onSuccess: () => {
+          setSelectedItemId(null);
+          setMaterialName('');
+          setMaterialQty('1');
+          setMaterialPrice('0');
+        },
+      },
+    );
   };
 
   const movePhase = (index: number, delta: number) => {
@@ -288,13 +294,21 @@ export function ProjectDetailPage() {
                 inputMode="decimal"
               />
               <TextInput
-                label="Unit price (cents)"
+                label="Unit price (whole cents, e.g. 250 = $2.50)"
                 value={materialPrice}
                 onChange={(e) => setMaterialPrice(e.target.value)}
                 inputMode="numeric"
               />
-              <Button type="submit">Add material</Button>
+              <Button type="submit" disabled={addLine.isPending}>
+                {addLine.isPending ? 'Adding.' : 'Add material'}
+              </Button>
             </div>
+            {addLine.isError && (
+              <p className="text-accent font-sans text-sm">
+                Add material failed:{' '}
+                {addLine.error instanceof Error ? addLine.error.message : 'unknown error'}
+              </p>
+            )}
           </form>
         )}
       </section>
