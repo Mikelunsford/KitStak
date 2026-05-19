@@ -22,6 +22,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web typecheck
       - run: pnpm --filter web lint
+      # F-Wave7-CANON-STEWARD-01 + F-Wave7-TRIGGER-AUDIT-01 grep guardrails.
+      # Run before tests so a wave of stale TODO markers or a buggy trigger
+      # migration fails fast (sub-1s each) without paying for the full test
+      # matrix. Allowlists at scripts/canon-steward-allowlist.txt and
+      # scripts/trigger-audit-allowlist.txt suppress known historical
+      # entries (see those files for the require-a-follow-up rule).
+      - run: node scripts/canon-steward-check.mjs
+      - run: node scripts/trigger-audit-check.mjs
       - run: pnpm --filter web test
       - run: pnpm --filter web test:contract
       - run: pnpm --filter web build

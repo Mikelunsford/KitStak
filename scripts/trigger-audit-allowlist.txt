@@ -1,0 +1,48 @@
+# trigger-audit-check allowlist
+# F-Wave7-TRIGGER-AUDIT-01
+#
+# Format: <rule>|<file>|<snippet>
+#   rule    = trigger-insert-null | trigger-insert-unguarded-cast |
+#             trigger-helper-null
+#   file    = repo-relative path (forward slashes, no leading ./)
+#   snippet = the per-violation snippet emitted by trigger-audit-check.mjs
+#
+# Line numbers are intentionally NOT load-bearing.
+#
+# DO NOT add new entries without a follow-up ID and a one-line reason. New
+# entries here represent UNFIXED bugs in tree, not historical bugs that were
+# closed by a forward migration. For historical bugs that have been
+# overwritten via `create or replace function` in a later migration, the
+# entry below cites the fix migration.
+#
+# Forward-only migrations mean the bytes of the original buggy migration
+# remain in tree forever. Allowlisting these by the snippet (not the line)
+# means the entry stays stable across line drift.
+
+# ---------------------------------------------------------------------------
+# Historical: 0032_ops_receiving_production_shipments.sql original bodies
+# of tg_receiving_orders_emit_movements, tg_production_runs_emit_movements,
+# tg_shipments_emit_movements inserted (v_line ->> 'item_id')::uuid into
+# stock_movements.item_id (NOT NULL). Fixed by
+# supabase/migrations/0048_emit_movements_skip_lines_without_item_id.sql
+# which redefines all three function bodies via `create or replace function`
+# to skip lines whose item_id is missing or not a valid UUID. The live
+# function body in the DB is whatever 0048 produced; the bytes in 0032
+# remain in tree under the forward-only migration rule (CLAUDE.md).
+# Closed: F-Wave6-EMIT-MOVEMENTS-01 (PR #28)
+# ---------------------------------------------------------------------------
+trigger-insert-unguarded-cast|supabase/migrations/0032_ops_receiving_production_shipments.sql|stock_movements.item_id <- (v_line ->> 'item_id')::uuid
+
+# ---------------------------------------------------------------------------
+# Historical: 0044_project_line_items.sql original body of
+# trg_audit_project_line_items() called audit_append_state_change(..., null,
+# null, ...). The 5th positional argument maps to audit_log.to_state (NOT
+# NULL); every insert into project_line_items raised a not-null violation.
+# Fixed by supabase/migrations/0047_fix_project_line_item_audit.sql which
+# redefines the function via `create or replace function` to pass the
+# action verb (created / updated / deleted) as to_state. The live function
+# body in the DB is whatever 0047 produced; the bytes in 0044 remain in
+# tree under the forward-only migration rule.
+# Closed: F-Wave6-AUDIT-01 (PR #24)
+# ---------------------------------------------------------------------------
+trigger-helper-null|supabase/migrations/0044_project_line_items.sql|audit_append_state_change(... null ...)
