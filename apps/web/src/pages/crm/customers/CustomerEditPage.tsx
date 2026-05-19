@@ -19,6 +19,7 @@ export function CustomerEditPage() {
   const [displayName, setDisplayName] = useState('');
   const [primaryEmail, setPrimaryEmail] = useState('');
   const [primaryPhone, setPrimaryPhone] = useState('');
+  const [defaultPaymentTermsDays, setDefaultPaymentTermsDays] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,6 +27,11 @@ export function CustomerEditPage() {
       setDisplayName(query.data.display_name);
       setPrimaryEmail(query.data.primary_email ?? '');
       setPrimaryPhone(query.data.primary_phone ?? '');
+      setDefaultPaymentTermsDays(
+        query.data.default_payment_terms_days === null
+          ? ''
+          : String(query.data.default_payment_terms_days),
+      );
     }
   }, [query.data]);
 
@@ -41,10 +47,23 @@ export function CustomerEditPage() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const termsTrimmed = defaultPaymentTermsDays.trim();
+    let termsValue: number | null;
+    if (termsTrimmed === '') {
+      termsValue = null;
+    } else {
+      const parsedTerms = Number(termsTrimmed);
+      if (!Number.isInteger(parsedTerms) || parsedTerms < 0) {
+        setError('Default payment terms must be a non-negative whole number of days.');
+        return;
+      }
+      termsValue = parsedTerms;
+    }
     const draft = {
       display_name: displayName,
       primary_email: primaryEmail || null,
       primary_phone: primaryPhone || null,
+      default_payment_terms_days: termsValue,
     };
     const parsed = CustomerPatchSchema.safeParse(draft);
     if (!parsed.success) {
@@ -90,6 +109,19 @@ export function CustomerEditPage() {
             type="tel"
             value={primaryPhone}
             onChange={(e) => setPrimaryPhone(e.target.value)}
+            className="bg-bg-2 border border-line px-3 py-2"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-ink-dim">Default payment terms (days)</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={defaultPaymentTermsDays}
+            onChange={(e) => setDefaultPaymentTermsDays(e.target.value)}
+            placeholder="Optional"
             className="bg-bg-2 border border-line px-3 py-2"
           />
         </label>
