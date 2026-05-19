@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { getContact } from '@/lib/services/contactsService';
 
@@ -27,7 +28,7 @@ export function ContactDetailPage() {
       </h1>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Customer</dt>
-        <dd>{c.customer_id}</dd>
+        <dd><EntityLabel kind="customer" id={c.customer_id} /></dd>
         <dt className="text-ink-dim">Email</dt>
         <dd>{c.email ?? ''}</dd>
         <dt className="text-ink-dim">Phone</dt>
