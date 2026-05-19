@@ -4,7 +4,7 @@
 //
 // Idempotent: re-running on the same window is a no-op (rows already gone).
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from '@supabase/supabase-js';
 import { fromApiError, ApiError, ok, noContent } from '../_shared/responses.ts';
 
 const RETENTION_DAYS = 7;

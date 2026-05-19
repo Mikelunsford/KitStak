@@ -9,7 +9,7 @@
 //   POST   /invoices/:id/transition
 //   GET    /invoices/:id/pdf  (501 stub when pdf-worker is wired downstream)
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';

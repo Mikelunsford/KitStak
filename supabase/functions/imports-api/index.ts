@@ -21,7 +21,7 @@ import {
   ImportEntityTypeSchema,
   type ImportRowError,
 } from '../_shared/types/cross_cutting.ts';
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 const BUNDLE = 'imports-api';
 

@@ -3,7 +3,7 @@
 //   POST   /period-close/close    body { period_year, period_month }
 //   POST   /period-close/reopen   body { period_year, period_month }
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok } from '../../_shared/responses.ts';

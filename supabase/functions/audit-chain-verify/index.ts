@@ -3,7 +3,7 @@
 // Returns the first broken row (if any) per org. A non-empty array is a P0:
 // the nightly workflow fails and pages the operator.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from '@supabase/supabase-js';
 import { fromApiError, ApiError, ok, noContent } from '../_shared/responses.ts';
 
 type BrokenRow = {

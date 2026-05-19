@@ -12,7 +12,7 @@
 // check_journal_balance before letting the trigger fire on transition to
 // posted.
 
-import { z } from 'https://esm.sh/zod@3.23.8';
+import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';

@@ -2,17 +2,23 @@ import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
 // Regression test config. Loads edge-function `index.ts` modules (Deno-targeted)
-// under Vitest by aliasing the Deno-style URL specifiers to local Node-friendly
-// modules.
+// under Vitest by aliasing the Deno import-map specifiers to local
+// Node-friendly modules.
 //
-// Why this exists: the Kitstak edge handlers run under Deno and import from
-// esm.sh by URL (`https://esm.sh/zod@3.23.8`, `https://esm.sh/@supabase/supabase-js@2.45.0`).
-// To exercise their HTTP-level behaviour under Vitest without standing up a
-// Supabase project or running Deno, we:
-//   1. Rewrite `https://esm.sh/zod@...` to the bundled `zod` on disk (same
-//      trick the contract config uses).
-//   2. Rewrite `https://esm.sh/@supabase/supabase-js@...` to a local stub that
-//      returns an in-memory query builder. Each test seeds the stub state.
+// Why this exists: the Kitstak edge handlers run under Deno and import their
+// deps through `supabase/functions/deno.json` (`zod`,
+// `@supabase/supabase-js`). Pre-F-Wave7-ESM-SH-DRIFT-01 these were
+// `https://esm.sh/...` URL imports; the conversion to bare specifiers means
+// the Node test harness resolves `zod` from node_modules naturally, but we
+// still need to redirect `@supabase/supabase-js` to a local in-memory stub
+// so tests can seed query state. To exercise the handlers' HTTP-level
+// behaviour under Vitest without standing up a Supabase project or running
+// Deno, we:
+//   1. Let `zod` resolve from node_modules (same version pinned in
+//      apps/web/package.json and supabase/functions/deno.json).
+//   2. Rewrite `@supabase/supabase-js` (and the legacy esm.sh URL form, for
+//      defence in depth) to a local stub that returns an in-memory query
+//      builder. Each test seeds the stub state.
 //   3. Install a `globalThis.Deno` shim that captures `Deno.serve(handler)`
 //      so tests can invoke the handler with a forged `Request`.
 //
@@ -23,6 +29,8 @@ import path from 'node:path';
 // behaviour of `deliverChannel` in `notifications-worker`), all of which are
 // faithfully reproducible with the mock surface.
 
+// Legacy CDN forms retained for defence in depth; the production source no
+// longer uses these after F-Wave7-ESM-SH-DRIFT-01.
 const denoZodPattern =
   /^https:\/\/(?:deno\.land\/x\/zod(?:@v?[\d.]+)?\/mod\.ts|esm\.sh\/zod(?:@\d[\w.-]*)?)$/;
 
@@ -43,7 +51,7 @@ export default defineConfig({
         if (denoZodPattern.test(source)) {
           return { id: 'zod', external: false };
         }
-        if (denoSupabasePattern.test(source)) {
+        if (source === '@supabase/supabase-js' || denoSupabasePattern.test(source)) {
           return { id: supabaseStubPath, external: false };
         }
         return null;

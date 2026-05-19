@@ -7,8 +7,8 @@
 // combine with explicit `.eq('org_id', caller.orgId)` (Pattern A) per the
 // constitution. The capability check (requireCap) is the per-route authority.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { z, type ZodTypeAny } from 'https://esm.sh/zod@3.23.8';
+import { createClient } from '@supabase/supabase-js';
+import { z, type ZodTypeAny } from 'zod';
 
 import { ApiError, ok, fromApiError } from './responses.ts';
 import { respondWithIdempotency as runWithIdempotency } from './idempotency.ts';
