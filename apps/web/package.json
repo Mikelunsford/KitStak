@@ -9,8 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
-    "test": "vitest run src",
+    "test": "vitest run src && vitest run --config vitest.regression.config.ts",
     "test:contract": "vitest run --config vitest.contract.config.ts",
+    "test:regression": "vitest run --config vitest.regression.config.ts",
     "test:rls": "playwright test --config playwright.config.ts --grep @rls",
     "test:e2e": "playwright test --config playwright.config.ts",
     "bundle-budget": "size-limit"
