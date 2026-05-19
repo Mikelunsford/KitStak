@@ -323,6 +323,9 @@ const ProductionRunsListPage = lazy(() =>
 const ProductionRunDetailPage = lazy(() =>
   import('./pages/3pl-operations/production/ProductionRunDetailPage').then((m) => ({ default: m.ProductionRunDetailPage })),
 );
+const ProductionRunCreatePage = lazy(() =>
+  import('./pages/3pl-operations/production/ProductionRunCreatePage').then((m) => ({ default: m.ProductionRunCreatePage })),
+);
 const ShipmentsListPage = lazy(() =>
   import('./pages/3pl-operations/shipments/ShipmentsListPage').then((m) => ({ default: m.ShipmentsListPage })),
 );
@@ -764,6 +767,7 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/receiving',              element: ReceivingOrdersListPage,   guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving/:id',          element: ReceivingOrderDetailPage,  guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/production',             element: ProductionRunsListPage,    guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/production/new',         element: ProductionRunCreatePage,   guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/production/:id',         element: ProductionRunDetailPage,   guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments',              element: ShipmentsListPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments/:id',          element: ShipmentDetailPage,        guard: 'protected', layout: 'shell' },
