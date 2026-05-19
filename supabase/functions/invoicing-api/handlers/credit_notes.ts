@@ -93,6 +93,10 @@ export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response>
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
+  // F-Wave7-LISTFILTER-01: customer_id FK filter mirrors invoices/payments
+  // parity. RLS Pattern A wraps the org gate so a cross-tenant customer_id
+  // still resolves to 200 + [].
+  const customerId = url.searchParams.get('customer_id');
 
   let query = admin()
     .from('credit_notes')
@@ -104,6 +108,7 @@ export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response>
     .limit(limit + 1);
 
   if (status) query = query.eq('status', status);
+  if (customerId) query = query.eq('customer_id', customerId);
   if (cursor) {
     query = query.or(
       `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,

@@ -5,8 +5,24 @@ import { VendorBillSchema, type VendorBill, type VendorBillStatus } from '@/lib/
 
 export type { VendorBill, VendorBillStatus };
 
-export async function listVendorBills(): Promise<VendorBill[]> {
-  const data = await apiRequest<unknown>('/vendors-api/vendor-bills', { method: 'GET' });
+export type ListVendorBillsFilters = {
+  vendor_id?: string;
+};
+
+function vendorBillsQs(f: ListVendorBillsFilters): string {
+  const p = new URLSearchParams();
+  if (f.vendor_id) p.set('vendor_id', f.vendor_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listVendorBills(
+  filters: ListVendorBillsFilters = {},
+): Promise<VendorBill[]> {
+  const data = await apiRequest<unknown>(
+    `/vendors-api/vendor-bills${vendorBillsQs(filters)}`,
+    { method: 'GET' },
+  );
   return (data as VendorBill[]).map((r) => VendorBillSchema.parse(r));
 }
 

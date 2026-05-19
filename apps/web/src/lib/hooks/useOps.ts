@@ -7,6 +7,7 @@ import {
   listReceivingOrders, getReceivingOrder, createReceivingOrder, updateReceivingOrder,
   transitionReceivingOrder, receiveReceivingOrder,
   type ReceivingOrder, type ReceivingOrderStatus,
+  type ListReceivingOrdersFilters,
 } from '@/lib/services/receivingOrdersService';
 import {
   listProductionRuns, getProductionRun, createProductionRun, updateProductionRun,
@@ -17,6 +18,7 @@ import {
   listShipments, getShipment, createShipment, updateShipment, transitionShipment,
   shipShipment,
   type Shipment, type ShipmentStatus, type ShipShipmentInput,
+  type ListShipmentsFilters,
 } from '@/lib/services/shipmentsService';
 import {
   listReceivingOrderLineItems, createReceivingOrderLineItem,
@@ -34,8 +36,12 @@ import {
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
 
 // receiving
-export function useReceivingOrdersList() {
-  return useQuery({ queryKey: receivingOrdersKeys.list(), queryFn: listReceivingOrders, ...C });
+export function useReceivingOrdersList(filters: ListReceivingOrdersFilters = {}) {
+  return useQuery({
+    queryKey: receivingOrdersKeys.list(filters),
+    queryFn: () => listReceivingOrders(filters),
+    ...C,
+  });
 }
 export function useReceivingOrder(id: string | undefined) {
   return useQuery({
@@ -151,8 +157,12 @@ export function useCompleteProductionRun(id: string) {
 }
 
 // shipments
-export function useShipmentsList() {
-  return useQuery({ queryKey: shipmentsKeys.list(), queryFn: listShipments, ...C });
+export function useShipmentsList(filters: ListShipmentsFilters = {}) {
+  return useQuery({
+    queryKey: shipmentsKeys.list(filters),
+    queryFn: () => listShipments(filters),
+    ...C,
+  });
 }
 export function useShipment(id: string | undefined) {
   return useQuery({

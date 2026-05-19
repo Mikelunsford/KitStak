@@ -116,6 +116,10 @@ export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
   const cursor = decodeCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
   const customerId = url.searchParams.get('customer_id');
+  // F-Wave7-LISTFILTER-01: project_id FK filter lifted from client-side
+  // .filter(...) on detail pages. RLS Pattern A wraps the org gate so a
+  // cross-tenant project_id still resolves to 200 + [].
+  const projectId = url.searchParams.get('project_id');
 
   let query = admin()
     .from('invoices')
@@ -128,6 +132,7 @@ export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
 
   if (status) query = query.eq('status', status);
   if (customerId) query = query.eq('customer_id', customerId);
+  if (projectId) query = query.eq('project_id', projectId);
   if (cursor) {
     query = query.or(
       `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,

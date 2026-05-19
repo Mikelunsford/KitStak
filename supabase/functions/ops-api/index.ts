@@ -269,13 +269,19 @@ const TABLE: Route[] = [
   // receiving_orders
   {
     method: 'GET', path: '/receiving-orders',
-    handler: async ({ req }) => {
+    handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'receiving.order.read');
-      const { data, error } = await admin()
+      // F-Wave7-LISTFILTER-01: vendor_id FK filter lifts VendorDetailPage
+      // client-side .filter(...) into a SQL where-clause. RLS Pattern A
+      // wraps the org gate so a cross-tenant vendor_id still 200 + [].
+      const vendorId = url.searchParams.get('vendor_id');
+      let q = admin()
         .from('receiving_orders').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(200);
+      if (vendorId) q = q.eq('vendor_id', vendorId);
+      const { data, error } = await q;
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
       return ok((data ?? []).map((r) => ReceivingOrderSchema.parse(r)));
     },
@@ -595,12 +601,18 @@ const TABLE: Route[] = [
   // shipments
   {
     method: 'GET', path: '/shipments',
-    handler: async ({ req }) => {
+    handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'shipments.shipment.read');
-      const { data, error } = await admin().from('shipments').select('*')
+      // F-Wave7-LISTFILTER-01: customer_id FK filter mirrors the customer-hub
+      // pattern. RLS Pattern A wraps the org gate so a cross-tenant
+      // customer_id still resolves to 200 + [].
+      const customerId = url.searchParams.get('customer_id');
+      let q = admin().from('shipments').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(200);
+      if (customerId) q = q.eq('customer_id', customerId);
+      const { data, error } = await q;
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
       return ok((data ?? []).map((r) => ShipmentSchema.parse(r)));
     },

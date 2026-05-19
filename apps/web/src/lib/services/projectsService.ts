@@ -17,9 +17,21 @@ const DetailEnvelope = z.object({
   phases: z.array(ProjectPhaseSchema),
 });
 
-export async function listProjects(state?: string): Promise<Project[]> {
-  const qs = state ? `?state=${encodeURIComponent(state)}` : '';
-  const raw = await apiRequest<unknown>(`/projects-api/projects${qs}`, { method: 'GET' });
+export type ListProjectsFilters = {
+  state?: string;
+  customer_id?: string;
+};
+
+function projectsQs(filters: ListProjectsFilters): string {
+  const p = new URLSearchParams();
+  if (filters.state) p.set('state', filters.state);
+  if (filters.customer_id) p.set('customer_id', filters.customer_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listProjects(filters: ListProjectsFilters = {}): Promise<Project[]> {
+  const raw = await apiRequest<unknown>(`/projects-api/projects${projectsQs(filters)}`, { method: 'GET' });
   return ListEnvelope.parse(raw).items;
 }
 

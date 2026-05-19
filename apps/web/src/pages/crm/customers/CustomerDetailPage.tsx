@@ -18,19 +18,18 @@ import { listActivities } from '@/lib/services/activitiesService';
  * that lands on the matching create form with customer_id pre-filled via the
  * query string.
  *
- * TODO 6.5-D: the quotes and projects list services do not currently accept a
- * customer_id filter (see listQuotes / listProjects). The audit notes the
- * server endpoints already support the filter; the SPA service wrappers do
- * not. This page filters client-side for now and the orchestrator can lift the
- * filter into the service in a follow-up to avoid pulling the full list on
- * detail-page loads.
+ * F-Wave7-LISTFILTER-01: the quotes and projects list services now accept a
+ * customer_id filter that lifts the previous client-side .filter(...) into
+ * the SQL where-clause. Bandwidth bound to single-customer rows, paginated
+ * lists no longer miss children beyond the first page, and RLS Pattern A
+ * still 200 + []s a cross-tenant customer_id at the org gate.
  */
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useCustomer(id);
 
-  const quotesQuery = useQuotesList();
-  const projectsQuery = useProjectsList();
+  const quotesQuery = useQuotesList(id ? { customer_id: id } : {});
+  const projectsQuery = useProjectsList(id ? { customer_id: id } : {});
   const invoicesQuery = useInvoices(id ? { customer_id: id } : {});
   const paymentsQuery = usePayments(id ? { customer_id: id } : {});
 
@@ -65,12 +64,10 @@ export function CustomerDetailPage() {
   }
   const c = query.data;
 
-  const relatedQuotes = (quotesQuery.data ?? []).filter(
-    (q) => q.customer_id === c.id,
-  );
-  const relatedProjects = (projectsQuery.data ?? []).filter(
-    (p) => p.customer_id === c.id,
-  );
+  // F-Wave7-LISTFILTER-01: server-side customer_id filter; no client-side
+  // .filter(...) over the full org list.
+  const relatedQuotes = quotesQuery.data ?? [];
+  const relatedProjects = projectsQuery.data ?? [];
   const invoices = invoicesQuery.data ?? [];
   const payments = paymentsQuery.data ?? [];
   const contacts = contactsQuery.data ?? [];

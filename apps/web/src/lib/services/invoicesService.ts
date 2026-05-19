@@ -18,6 +18,7 @@ const InvoiceListSchema = z.array(InvoiceSchema);
 export type ListInvoicesFilters = {
   status?: string;
   customer_id?: string;
+  project_id?: string;
   cursor?: string;
   limit?: number;
 };
@@ -39,6 +40,7 @@ function qs(f: ListInvoicesFilters): string {
   const p = new URLSearchParams();
   if (f.status) p.set('status', f.status);
   if (f.customer_id) p.set('customer_id', f.customer_id);
+  if (f.project_id) p.set('project_id', f.project_id);
   if (f.cursor) p.set('cursor', f.cursor);
   if (f.limit !== undefined) p.set('limit', String(f.limit));
   const s = p.toString();

@@ -4,6 +4,7 @@ import { expensesKeys, expenseCategoriesKeys } from '@/lib/queryKeys/expenses';
 import {
   listExpenses, getExpense, createExpense, updateExpense, transitionExpense,
   type Expense, type ExpenseStatus,
+  type ListExpensesFilters,
 } from '@/lib/services/expensesService';
 import {
   listExpenseCategories, createExpenseCategory, updateExpenseCategory,
@@ -12,8 +13,12 @@ import {
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
 
-export function useExpensesList() {
-  return useQuery({ queryKey: expensesKeys.list(), queryFn: listExpenses, ...C });
+export function useExpensesList(filters: ListExpensesFilters = {}) {
+  return useQuery({
+    queryKey: expensesKeys.list(filters),
+    queryFn: () => listExpenses(filters),
+    ...C,
+  });
 }
 
 export function useExpense(id: string | undefined) {

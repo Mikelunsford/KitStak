@@ -878,6 +878,117 @@ test.describe('@rls cross-tenant probe matrix', () => {
     expect([200, 201]).toContain(res.status);
   });
 
+  // --- Category 9b: F-Wave7-LISTFILTER-01 server-side FK filters ---------
+  //
+  // Every list endpoint that accepts a *_id filter MUST still resolve a
+  // cross-tenant id to 200 + []. Pattern A (org_id eq current_org_id())
+  // wraps the where-clause so the org gate fires before the filter; the
+  // probes lock that in.
+
+  test('@rls quotes-api ?customer_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/quotes-api/quotes?customer_id=${orgA!.customerId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { items?: unknown[] } };
+    expect(Array.isArray(body.data?.items)).toBe(true);
+    expect(body.data?.items).toEqual([]);
+  });
+
+  test('@rls projects-api ?customer_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/projects-api/projects?customer_id=${orgA!.customerId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { items?: unknown[] } };
+    expect(Array.isArray(body.data?.items)).toBe(true);
+    expect(body.data?.items).toEqual([]);
+  });
+
+  test('@rls invoicing-api ?project_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/invoicing-api/invoices?project_id=${orgA!.projectId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toEqual([]);
+  });
+
+  test('@rls vendors-api purchase-orders ?vendor_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/vendors-api/purchase-orders?vendor_id=${orgA!.vendorId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toEqual([]);
+  });
+
+  test('@rls vendors-api vendor-bills ?vendor_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/vendors-api/vendor-bills?vendor_id=${orgA!.vendorId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toEqual([]);
+  });
+
+  test('@rls vendors-api expenses ?vendor_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/vendors-api/expenses?vendor_id=${orgA!.vendorId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toEqual([]);
+  });
+
+  test('@rls ops-api receiving-orders ?vendor_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/ops-api/receiving-orders?vendor_id=${orgA!.vendorId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toEqual([]);
+  });
+
+  test('@rls ops-api shipments ?customer_id= of orgA from orgB returns 200 + []', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'GET',
+      `/ops-api/shipments?customer_id=${orgA!.customerId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toEqual([]);
+  });
+
   // --- Category 10: audit_log read RLS -----------------------------------
 
   test('@rls audit_log cross-tenant read returns empty array', async () => {

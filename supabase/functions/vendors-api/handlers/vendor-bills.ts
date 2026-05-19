@@ -44,7 +44,13 @@ export function handleVendorBills(): Route[] {
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'vendor_bills.vendor_bill.read');
-        const page = await listOrgScoped<VendorBill>('vendor_bills', caller, url);
+        // F-Wave7-LISTFILTER-01: vendor_id FK filter lifts VendorDetailPage
+        // client-side .filter(...) into a SQL where-clause. RLS Pattern A
+        // wraps the org gate so a cross-tenant vendor_id still 200 + [].
+        const vendorId = url.searchParams.get('vendor_id');
+        const filters: Array<[string, string, string]> = [];
+        if (vendorId) filters.push(['vendor_id', 'eq', vendorId]);
+        const page = await listOrgScoped<VendorBill>('vendor_bills', caller, url, { filters });
         return ok(page.items.map((v) => VendorBillSchema.parse(v)), {
           next_cursor: page.next_cursor,
         });

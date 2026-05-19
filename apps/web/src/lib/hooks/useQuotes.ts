@@ -7,13 +7,17 @@ import {
   listQuotes, getQuote, createQuote, submitQuote, approveQuote,
   reviseQuote, cancelQuote, sendQuote, convertQuoteToProject,
   addLineItem, removeLineItem,
+  type ListQuotesFilters,
 } from '@/lib/services/quotesService';
 import type { CreateQuoteRequest, CreateQuoteLineRequest } from '@/lib/types/sales';
 
-export function useQuotesList(state?: string) {
+export function useQuotesList(filters: ListQuotesFilters = {}) {
   return useQuery({
-    queryKey: quotesKeys.list({ state: state ?? null }),
-    queryFn: () => listQuotes(state),
+    queryKey: quotesKeys.list({
+      state: filters.state ?? null,
+      customer_id: filters.customer_id ?? null,
+    }),
+    queryFn: () => listQuotes(filters),
   });
 }
 
