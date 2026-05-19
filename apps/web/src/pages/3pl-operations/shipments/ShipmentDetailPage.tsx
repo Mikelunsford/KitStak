@@ -1,21 +1,70 @@
+import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
+
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { EntityLabel } from '@/components/data/EntityLabel';
-import { useShipment, useTransitionShipment, useShipShipment } from '@/lib/hooks/useOps';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/TextInput';
+import { ItemPicker } from '@/components/ui/pickers';
+import {
+  useShipment, useTransitionShipment, useShipShipment,
+  useShipmentLineItems, useCreateShipmentLineItem, useDeleteShipmentLineItem,
+} from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { SHIPMENT_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ShipmentStatus } from '@/lib/types/vendors_inventory_ops';
+import { formatCents } from '@/lib/money';
 
 export function ShipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const shipmentId = id ?? '';
   const s = useShipment(id);
-  const transition = useTransitionShipment(id ?? '');
-  const ship = useShipShipment(id ?? '');
+  const transition = useTransitionShipment(shipmentId);
+  const ship = useShipShipment(shipmentId);
+  const lineItems = useShipmentLineItems(id);
+  const addLine = useCreateShipmentLineItem(shipmentId);
+  const removeLine = useDeleteShipmentLineItem(shipmentId);
   const caps = useVioCapabilities();
+
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [qty, setQty] = useState('1');
+  const [unitCost, setUnitCost] = useState('');
+  const [uom, setUom] = useState('');
+  const [reference, setReference] = useState('');
+
   if (s.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (s.error || !s.data) return <p className="px-8 py-12 text-accent">Shipment not found.</p>;
   const d = s.data;
   const next = SHIPMENT_FSM.transitions.filter((t) => t.from === d.status).map((t) => t.to);
+
+  // Lines are editable until the shipment ships. After shipped, the
+  // emit_movements trigger has already fired against payload.lines and the
+  // record is immutable.
+  const linesEditable = d.status === 'created' || d.status === 'picking';
+
+  const onAddLine = (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedItemId) return;
+    addLine.mutate(
+      {
+        item_id: selectedItemId,
+        quantity: qty,
+        unit_cost_cents: unitCost === '' ? null : Number(unitCost),
+        uom: uom === '' ? null : uom,
+        reference: reference === '' ? null : reference,
+      },
+      {
+        onSuccess: () => {
+          setSelectedItemId(null);
+          setQty('1');
+          setUnitCost('');
+          setUom('');
+          setReference('');
+        },
+      },
+    );
+  };
+
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
       <header className="flex items-center justify-between">
@@ -47,6 +96,126 @@ export function ShipmentDetailPage() {
         <dt className="text-ink-dim">Carrier</dt><dd className="text-ink">{d.carrier ?? ''}</dd>
         <dt className="text-ink-dim">Tracking</dt><dd className="text-ink">{d.tracking_number ?? ''}</dd>
       </dl>
+
+      <section>
+        <h2 className="text-2xl font-display tracking-wider text-ink mb-3">LINES</h2>
+        {lineItems.isLoading ? (
+          <p className="text-ink-dim text-sm">Loading lines.</p>
+        ) : lineItems.error ? (
+          <p className="text-accent text-sm">
+            {lineItems.error instanceof Error ? lineItems.error.message : 'Failed to load lines.'}
+          </p>
+        ) : (
+          <table className="w-full border border-line">
+            <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
+              <tr>
+                <th className="px-4 py-2">Item</th>
+                <th className="px-4 py-2">Qty</th>
+                <th className="px-4 py-2">Unit cost</th>
+                <th className="px-4 py-2">UOM</th>
+                <th className="px-4 py-2">Reference</th>
+                <th className="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(lineItems.data ?? []).length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-3 text-ink-dim text-sm">
+                    No lines yet.
+                  </td>
+                </tr>
+              ) : (
+                (lineItems.data ?? []).map((l) => (
+                  <tr key={l.id} className="border-t border-line">
+                    <td className="px-4 py-2">
+                      <EntityLabel kind="item" id={l.item_id} />
+                    </td>
+                    <td className="px-4 py-2 font-mono text-sm">
+                      {Number(l.quantity).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-sm">
+                      {l.unit_cost_cents == null
+                        ? ''
+                        : formatCents(l.unit_cost_cents, 'USD')}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-sm">{l.uom ?? ''}</td>
+                    <td className="px-4 py-2 font-mono text-sm">{l.reference ?? ''}</td>
+                    <td className="px-4 py-2">
+                      {linesEditable && caps.can('shipment.line_item.delete') && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => removeLine.mutate(l.id)}
+                          disabled={removeLine.isPending}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+        {removeLine.isError && (
+          <p className="mt-2 text-accent font-sans text-sm">
+            Remove line failed:{' '}
+            {removeLine.error instanceof Error ? removeLine.error.message : 'unknown error'}
+          </p>
+        )}
+
+        {linesEditable && caps.can('shipment.line_item.create') && (
+          <form
+            onSubmit={onAddLine}
+            className="flex flex-col gap-3 border border-line p-4 mt-4"
+          >
+            <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
+            <ItemPicker
+              value={selectedItemId}
+              onChange={(itemId) => setSelectedItemId(itemId)}
+              label="Item"
+              filter={{ active: true }}
+            />
+            <div className="flex gap-3 flex-wrap items-end">
+              <TextInput
+                label="Quantity"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                inputMode="decimal"
+                required
+              />
+              <TextInput
+                label="Unit cost (whole cents, e.g. 250 = $2.50)"
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+                inputMode="numeric"
+              />
+              <TextInput
+                label="UOM"
+                value={uom}
+                onChange={(e) => setUom(e.target.value)}
+              />
+              <TextInput
+                label="Reference"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+              />
+              <Button
+                type="submit"
+                disabled={!selectedItemId || addLine.isPending}
+              >
+                {addLine.isPending ? 'Adding.' : 'Add line'}
+              </Button>
+            </div>
+            {addLine.isError && (
+              <p className="text-accent font-sans text-sm">
+                Add line failed:{' '}
+                {addLine.error instanceof Error ? addLine.error.message : 'unknown error'}
+              </p>
+            )}
+          </form>
+        )}
+      </section>
 
       <section className="mt-6">
         <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
