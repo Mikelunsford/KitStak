@@ -2,12 +2,18 @@
 
 import { apiRequest } from '@/lib/apiClient';
 import { WarehouseSchema, type Warehouse } from '@/lib/types/vendors_inventory_ops';
+import { z } from 'zod';
 
 export type { Warehouse };
 
+const WarehouseListEnvelope = z.object({
+  items: z.array(WarehouseSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+
 export async function listWarehouses(): Promise<Warehouse[]> {
   const data = await apiRequest<unknown>('/inventory-api/warehouses', { method: 'GET' });
-  return (data as Warehouse[]).map((r) => WarehouseSchema.parse(r));
+  return WarehouseListEnvelope.parse(data).items;
 }
 
 export async function getWarehouse(id: string): Promise<Warehouse> {
