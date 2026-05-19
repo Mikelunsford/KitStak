@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
   requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
@@ -97,6 +97,7 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.purchase_order.read');
+        parseUuidParam(params.id);
         const row = await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
         return ok(PurchaseOrderSchema.parse(row));
       },
@@ -106,6 +107,7 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.purchase_order.update');
+        parseUuidParam(params.id);
         const body = await parseBody(req, PoUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id', body, async () => {
           const { data, error } = await admin()
@@ -124,6 +126,7 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.purchase_order.transition');
+        parseUuidParam(params.id);
         const body = await parseBody(req, PoTransitionInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id/transition', body, async () => {
           const current = await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
@@ -143,6 +146,7 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.purchase_order.read');
+        parseUuidParam(params.id);
         await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
         const { data, error } = await admin()
           .from('po_line_items')
@@ -158,6 +162,7 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.line_item.write');
+        parseUuidParam(params.id);
         const body = await parseBody(req, PoLineInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id/line-items', body, async () => {
           await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
@@ -180,6 +185,8 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.line_item.write');
+        parseUuidParam(params.id);
+        parseUuidParam(params.lid, 'lid');
         const body = await parseBody(req, PoLineUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id/line-items/:lid', body, async () => {
           await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
@@ -209,6 +216,8 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'purchase_orders.line_item.write');
+        parseUuidParam(params.id);
+        parseUuidParam(params.lid, 'lid');
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id/line-items/:lid', null, async () => {
           await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
           const { error } = await admin()

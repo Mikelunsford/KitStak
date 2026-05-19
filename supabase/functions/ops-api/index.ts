@@ -36,7 +36,7 @@ import { z } from 'zod';
 import { route, type Route } from '../_shared/route.ts';
 import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
 import {
-  admin, parseBody, respondWithIdempotency, created,
+  admin, parseBody, parseUuidParam, respondWithIdempotency, created,
 } from '../_shared/handler-helpers.ts';
 import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
@@ -184,6 +184,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'receiving.order.read');
+      parseUuidParam(params.id);
       const row = await loadOrgScoped<ReceivingOrder>('receiving_orders', caller, params.id);
       return ok(ReceivingOrderSchema.parse(row));
     },
@@ -193,6 +194,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'receiving.order.update');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id', body, async () => {
         const { data, error } = await admin().from('receiving_orders')
@@ -210,6 +212,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'receiving.order.update');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingTransition);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id/transition', body, async () => {
         const cur = await loadOrgScoped<ReceivingOrder>('receiving_orders', caller, params.id);
@@ -227,6 +230,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'receiving.receive');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingReceive);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id/receive', body, async () => {
         const cur = await loadOrgScoped<ReceivingOrder>('receiving_orders', caller, params.id);
@@ -281,6 +285,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'production.run.read');
+      parseUuidParam(params.id);
       const row = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
       return ok(ProductionRunSchema.parse(row));
     },
@@ -290,6 +295,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'production.run.update');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ProductionUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id', body, async () => {
         const { data, error } = await admin().from('production_runs')
@@ -307,6 +313,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'production.start');
+      parseUuidParam(params.id);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id/start', null, async () => {
         const cur = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
         assertTransition(PRODUCTION_RUN_FSM, cur.status, 'in_progress');
@@ -328,6 +335,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'production.complete');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ProductionComplete);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id/complete', body, async () => {
         const cur = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
@@ -387,6 +395,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'shipments.shipment.read');
+      parseUuidParam(params.id);
       const row = await loadOrgScoped<Shipment>('shipments', caller, params.id);
       return ok(ShipmentSchema.parse(row));
     },
@@ -396,6 +405,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'shipments.shipment.update');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id', body, async () => {
         const { data, error } = await admin().from('shipments')
@@ -413,6 +423,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'shipments.shipment.update');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentTransition);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id/transition', body, async () => {
         const cur = await loadOrgScoped<Shipment>('shipments', caller, params.id);
@@ -430,6 +441,7 @@ const TABLE: Route[] = [
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
       requireVioCap(caller, 'shipments.ship');
+      parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentShip);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id/ship', body, async () => {
         const cur = await loadOrgScoped<Shipment>('shipments', caller, params.id);

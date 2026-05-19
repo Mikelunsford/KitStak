@@ -9,6 +9,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
@@ -105,6 +106,7 @@ export async function listActivities({ req, url }: RouteCtx): Promise<Response> 
 export async function getActivity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.activities.read');
+  parseUuidParam(params.id);
   const row = await fetchActivityRow(caller, params.id);
   return ok(rowToActivity(row));
 }
@@ -145,6 +147,7 @@ export async function createActivity({ req }: RouteCtx): Promise<Response> {
 export async function patchActivity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.activities.write');
+  parseUuidParam(params.id);
   const body = await parseBody(req, ActivityPatchSchema);
 
   return respondWithIdempotency(

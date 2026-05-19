@@ -73,6 +73,50 @@ export async function parseBody<S extends ZodTypeAny>(
 }
 
 /**
+ * RFC 4122 UUID regex. Case-insensitive. Matches v1-v5 plus the nil UUID. The
+ * variant nibble (`[89ab]`) is intentionally tolerant: probe-matrix fixtures
+ * use `0000-4000-8000-...` shapes, and we accept any spec-compliant UUID
+ * string. Used by `parseUuidParam` for defense-in-depth path-segment
+ * validation at the handler boundary.
+ *
+ * F-Wave7-UUID-GUARD-01: before this guard, a SPA bug that routed
+ * `GET /warehouses/new` (non-UUID id) into a `:id` handler reached the
+ * Postgres layer, which threw `22P02 invalid input syntax for type uuid`.
+ * That bubbled up as `INTERNAL_ERROR 500`. The guard converts those cases
+ * to `BAD_REQUEST 400` before any DB call.
+ */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Validate a URL path parameter looks like a UUID. Throws
+ * `ApiError('BAD_REQUEST', 400)` with structured `details` if not. Returns
+ * the value unchanged on success so callers can keep the inline pattern:
+ *
+ *   const id = parseUuidParam(params.id);
+ *
+ * Or in-place, for handlers that already destructure `params`:
+ *
+ *   parseUuidParam(params.id);
+ *   // ... .eq('id', params.id) ...
+ *
+ * The thrown error matches the canonical wire shape produced by
+ * `fromApiError`: `{ error: { code: 'BAD_REQUEST', message, details } }`
+ * with `details.param` and `details.got`. The `got` value is truncated to
+ * 64 chars to avoid echoing arbitrarily long client input in error bodies.
+ */
+export function parseUuidParam(value: string, paramName: string = 'id'): string {
+  if (typeof value === 'string' && UUID_RE.test(value)) return value;
+  const got = typeof value === 'string' ? value.slice(0, 64) : String(value);
+  throw new ApiError(
+    'BAD_REQUEST',
+    400,
+    `Invalid UUID parameter: ${paramName}`,
+    { param: paramName, got },
+  );
+}
+
+/**
  * Read `?limit=` from the URL. Defaults to 50, clamped to [1, 200].
  * Per the constitution and the API contract pagination section.
  */

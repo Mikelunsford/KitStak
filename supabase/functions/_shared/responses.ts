@@ -10,6 +10,7 @@ export type ApiErrorCode =
   | 'METHOD_NOT_ALLOWED'
   | 'STATE_CONFLICT'
   | 'IDEMPOTENCY_CONFLICT'
+  | 'BAD_REQUEST'
   | 'VALIDATION_ERROR'
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
@@ -24,6 +25,11 @@ const STATUS_FOR_CODE: Record<string, number> = {
   METHOD_NOT_ALLOWED: 405,
   STATE_CONFLICT: 409,
   IDEMPOTENCY_CONFLICT: 409,
+  // BAD_REQUEST (400) is the path-param / shape-of-request validation rail.
+  // VALIDATION_ERROR (422) is reserved for body-schema validation per the
+  // existing handler-helpers convention. The constitution lists both as
+  // distinct constitutional 4xx codes.
+  BAD_REQUEST: 400,
   VALIDATION_ERROR: 422,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,

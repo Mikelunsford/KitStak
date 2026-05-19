@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, paginate, respondWithIdempotency, created,
+  admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
 } from '../_shared/handler-helpers.ts';
 import { requireSalesCap as requireCap } from './_helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
@@ -46,6 +46,7 @@ const listQuotes = async (ctx: RouteCtx) => {
 const getQuote = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.quote.read');
+  parseUuidParam(ctx.params.id);
   const client = admin();
   const { data: quote, error: qErr } = await client
     .from('quotes').select('*')
@@ -90,6 +91,7 @@ const createQuote = async (ctx: RouteCtx) => {
 const updateQuote = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, UpdateQuoteRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id', body,
@@ -110,6 +112,7 @@ const updateQuote = async (ctx: RouteCtx) => {
 const deleteQuote = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.quote.delete');
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id-delete', null,
     async () => {
@@ -156,6 +159,7 @@ const computeLineMath = (line: {
 const addLineItem = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, CreateQuoteLineRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id/line-items', body,
@@ -221,6 +225,8 @@ const addLineItem = async (ctx: RouteCtx) => {
 const removeLineItem = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.lineId, 'lineId');
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id/line-items/:lineId', null,
     async () => {
@@ -249,6 +255,7 @@ async function transitionTo(
 ) {
   const caller = requireCaller(ctx.req);
   requireCap(caller, cap);
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, routeKey, { to },
     async () => {
@@ -286,6 +293,7 @@ const SendBodySchema = z.object({ recipient_email: z.string().email().optional()
 const sendQuote = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.send');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, SendBodySchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id/send', body,
@@ -309,6 +317,7 @@ const sendQuote = async (ctx: RouteCtx) => {
 const convertToProject = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.convert_to_project');
+  parseUuidParam(ctx.params.id);
   const body = await parseBody(ctx.req, ConvertQuoteToProjectRequestSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id/convert-to-project', body,
@@ -342,6 +351,7 @@ const convertToProject = async (ctx: RouteCtx) => {
 const listVersions = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.version.read');
+  parseUuidParam(ctx.params.id);
   const client = admin();
   // Confirm quote belongs to caller's org.
   const { data: q } = await client
@@ -361,6 +371,7 @@ const listVersions = async (ctx: RouteCtx) => {
 const getPdf = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.pdf.read');
+  parseUuidParam(ctx.params.id);
   // Confirm quote exists in this org so an unauthorized peeker still 404s.
   const client = admin();
   const { data: q } = await client
@@ -381,6 +392,7 @@ const ApprovalDecisionSchema = z.object({
 const requestApproval = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.approval.write');
+  parseUuidParam(ctx.params.id);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id/approvals', {},
     async () => {
@@ -402,6 +414,8 @@ const requestApproval = async (ctx: RouteCtx) => {
 const decideApproval = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.approval.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.approvalId, 'approvalId');
   const body = await parseBody(ctx.req, ApprovalDecisionSchema);
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id/approvals/:approvalId', body,

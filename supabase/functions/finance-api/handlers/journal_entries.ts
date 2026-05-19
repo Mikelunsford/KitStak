@@ -22,6 +22,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
@@ -129,7 +130,7 @@ export async function getJournalEntry({ req, params }: RouteCtx): Promise<Respon
   const caller = requireCaller(req);
   await requireFinanceJeFlag(caller);
   requireFinanceCap(caller, 'journal_entries.read');
-  const id = params.id!;
+  const id = parseUuidParam(params.id!);
   const entry = await fetchJe(caller.orgId, id);
   const { data: lines, error } = await admin()
     .from('journal_entry_lines')
@@ -213,7 +214,7 @@ export async function patchJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
   requireFinanceCap(caller, 'journal_entries.write');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, JePatchSchema);
   return respondWithIdempotency(
     ctx.req,
@@ -255,7 +256,7 @@ export async function deleteJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
   requireFinanceCap(caller, 'journal_entries.delete');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
     caller,
@@ -290,7 +291,7 @@ export async function postJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
   requireFinanceCap(caller, 'journal_entries.post');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
     caller,

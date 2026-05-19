@@ -17,6 +17,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
@@ -131,6 +132,7 @@ export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
 export async function getCustomer({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.customers.read');
+  parseUuidParam(params.id);
   const row = await fetchCustomerRow(caller, params.id);
   return ok(rowToCustomer(row));
 }
@@ -173,6 +175,7 @@ export async function createCustomer({ req }: RouteCtx): Promise<Response> {
 export async function patchCustomer({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.customers.write');
+  parseUuidParam(params.id);
   const body = await parseBody(req, CustomerPatchSchema);
 
   return respondWithIdempotency(
@@ -217,6 +220,7 @@ export async function patchCustomer({ req, params }: RouteCtx): Promise<Response
 export async function deleteCustomer({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.customers.delete');
+  parseUuidParam(params.id);
 
   return respondWithIdempotency(
     req,

@@ -10,6 +10,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
@@ -117,6 +118,7 @@ export async function listOpportunities({ req, url }: RouteCtx): Promise<Respons
 export async function getOpportunity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.opportunities.read');
+  parseUuidParam(params.id);
   const row = await fetchOpportunityRow(caller, params.id);
   return ok(rowToOpportunity(row));
 }
@@ -175,6 +177,7 @@ export async function createOpportunity({ req }: RouteCtx): Promise<Response> {
 export async function patchOpportunity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.opportunities.write');
+  parseUuidParam(params.id);
   const body = await parseBody(req, OpportunityPatchSchema);
 
   return respondWithIdempotency(
@@ -232,6 +235,7 @@ export async function transitionOpportunityStage(
 ): Promise<Response> {
   const caller = requireCaller(req);
   requireCrmCap(caller, 'crm.opportunities.stage.transition');
+  parseUuidParam(params.id);
   const body = await parseBody(req, OpportunityStageTransitionSchema);
 
   return respondWithIdempotency(

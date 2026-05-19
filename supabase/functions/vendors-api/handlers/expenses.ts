@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
   requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
@@ -79,6 +79,7 @@ export function handleExpenses(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'expenses.expense.read');
+        parseUuidParam(params.id);
         const row = await getByIdOrgScoped<Expense>('expenses', caller, params.id);
         return ok(ExpenseSchema.parse(row));
       },
@@ -88,6 +89,7 @@ export function handleExpenses(): Route[] {
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
         requireVioCap(caller, 'expenses.expense.update');
+        parseUuidParam(params.id);
         const body = await parseBody(req, ExpUpdate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses/:id', body, async () => {
           const { data, error } = await admin()
@@ -105,6 +107,7 @@ export function handleExpenses(): Route[] {
       method: 'POST', path: '/expenses/:id/transition',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
+        parseUuidParam(params.id);
         const body = await parseBody(req, ExpTransition);
         const cap = TRANSITION_CAPS[body.to];
         if (cap) requireVioCap(caller, cap);

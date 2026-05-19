@@ -19,6 +19,7 @@ import {
   paginate,
   parseBody,
   parseLimit,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
@@ -146,7 +147,7 @@ export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
 export async function getInvoice({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireFinanceCap(caller, 'invoices.read');
-  const id = params.id!;
+  const id = parseUuidParam(params.id!);
   const row = await fetchInvoiceRow(caller, id);
   return ok(rowToInvoice(row));
 }
@@ -195,7 +196,7 @@ export async function createInvoice(ctx: RouteCtx): Promise<Response> {
 export async function patchInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.write');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, InvoicePatchSchema);
 
   return respondWithIdempotency(
@@ -230,7 +231,7 @@ export async function patchInvoice(ctx: RouteCtx): Promise<Response> {
 export async function deleteInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.delete');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
 
   return respondWithIdempotency(
     ctx.req,
@@ -299,7 +300,7 @@ async function transitionInvoiceTo(
 export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.send');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
     caller,
@@ -313,7 +314,7 @@ export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
 export async function cancelInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.cancel');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
     caller,
@@ -327,7 +328,7 @@ export async function cancelInvoice(ctx: RouteCtx): Promise<Response> {
 export async function transitionInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.transition');
-  const id = ctx.params.id!;
+  const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, InvoiceTransitionSchema);
   return respondWithIdempotency(
     ctx.req,
@@ -344,7 +345,7 @@ export async function getInvoicePdf({ req, params }: RouteCtx): Promise<Response
   requireFinanceCap(caller, 'invoices.read');
   // pdf-worker integration arrives in Wave 3+. Until then this endpoint
   // returns a 501-shaped error so the SPA can branch on the code.
-  const _id = params.id!;
+  const _id = parseUuidParam(params.id!);
   throw new ApiError(
     'INTERNAL_ERROR',
     501,

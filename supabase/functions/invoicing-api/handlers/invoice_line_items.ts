@@ -14,6 +14,7 @@ import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   parseBody,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
@@ -81,7 +82,7 @@ async function ensureInvoiceForLine(orgId: string, lineId: string): Promise<stri
 export async function listLineItems(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.read');
-  const invoiceId = ctx.params.id!;
+  const invoiceId = parseUuidParam(ctx.params.id!);
   await ensureInvoiceForCaller(caller.orgId, invoiceId);
 
   const { data, error } = await admin()
@@ -100,7 +101,7 @@ export async function listLineItems(ctx: RouteCtx): Promise<Response> {
 export async function createLineItem(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.write');
-  const invoiceId = ctx.params.id!;
+  const invoiceId = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, LineCreateSchema);
 
   return respondWithIdempotency(
@@ -144,7 +145,7 @@ export async function createLineItem(ctx: RouteCtx): Promise<Response> {
 export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.write');
-  const lineId = ctx.params.line_id!;
+  const lineId = parseUuidParam(ctx.params.line_id!, 'line_id');
   const body = await parseBody(ctx.req, LinePatchSchema);
 
   return respondWithIdempotency(
@@ -179,7 +180,7 @@ export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
 export async function deleteLineItem(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireFinanceCap(caller, 'invoices.write');
-  const lineId = ctx.params.line_id!;
+  const lineId = parseUuidParam(ctx.params.line_id!, 'line_id');
   return respondWithIdempotency(
     ctx.req,
     caller,

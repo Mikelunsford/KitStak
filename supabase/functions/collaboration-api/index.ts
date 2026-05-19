@@ -10,6 +10,7 @@ import {
   parseBody,
   parseLimit,
   paginate,
+  parseUuidParam,
   respondWithIdempotency,
 } from '../_shared/handler-helpers.ts';
 import { ApiError, ok, created, noContent } from '../_shared/responses.ts';
@@ -105,6 +106,7 @@ const deleteAttachment: Route = {
   async handler({ req, params }) {
     const caller = requireCaller(req);
     requireCrossCap(caller, 'attachments.attachment.delete');
+    parseUuidParam(params.id);
 
     return respondWithIdempotency(
       req,
@@ -199,6 +201,7 @@ const deleteComment: Route = {
   async handler({ req, params }) {
     const caller = requireCaller(req);
     requireCrossCap(caller, 'comments.comment.delete');
+    parseUuidParam(params.id);
 
     return respondWithIdempotency(
       req,
@@ -251,6 +254,7 @@ const markRead: Route = {
   async handler({ req, params }) {
     const caller = requireCaller(req);
     requireCrossCap(caller, 'notifications.notification.update');
+    parseUuidParam(params.id);
 
     return respondWithIdempotency(
       req,
@@ -334,6 +338,7 @@ const deleteSavedView: Route = {
   path: '/saved-views/:id',
   async handler({ req, params }) {
     const caller = requireCaller(req);
+    parseUuidParam(params.id);
 
     return respondWithIdempotency(
       req,
