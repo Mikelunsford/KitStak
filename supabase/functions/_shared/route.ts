@@ -14,6 +14,7 @@
 
 import { ApiError, fromApiError } from './responses.ts';
 import { handlePreflight } from './cors.ts';
+import { ERROR_CODES, HTTP_HEADERS } from './constants.ts';
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
@@ -95,9 +96,9 @@ function bundlePath(url: URL, bundle: string, stripPrefix?: string): string {
  * correlate logs.
  */
 function withRequestId(response: Response, requestId: string): Response {
-  if (response.headers.has('x-request-id')) return response;
+  if (response.headers.has(HTTP_HEADERS.X_REQUEST_ID)) return response;
   const headers = new Headers(response.headers);
-  headers.set('x-request-id', requestId);
+  headers.set(HTTP_HEADERS.X_REQUEST_ID, requestId);
   return new Response(response.body, {
     status: response.status,
     headers,
@@ -118,7 +119,7 @@ export async function route(
   if (preflight) return preflight;
 
   const requestId =
-    req.headers.get('x-request-id') ?? crypto.randomUUID();
+    req.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? crypto.randomUUID();
   const url = new URL(req.url);
   const path = bundlePath(url, opts.bundle, opts.stripPrefix);
 
@@ -144,12 +145,12 @@ export async function route(
 
     if (methodMatched) {
       return withRequestId(
-        fromApiError(new ApiError('METHOD_NOT_ALLOWED', 405)),
+        fromApiError(new ApiError(ERROR_CODES.METHOD_NOT_ALLOWED, 405)),
         requestId,
       );
     }
     return withRequestId(
-      fromApiError(new ApiError('NOT_FOUND', 404)),
+      fromApiError(new ApiError(ERROR_CODES.NOT_FOUND, 404)),
       requestId,
     );
   } catch (err) {
@@ -164,7 +165,7 @@ export async function route(
       message,
     });
     return withRequestId(
-      fromApiError(new ApiError('INTERNAL_ERROR', 500, message)),
+      fromApiError(new ApiError(ERROR_CODES.INTERNAL_ERROR, 500, message)),
       requestId,
     );
   }

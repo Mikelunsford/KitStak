@@ -34,6 +34,8 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { FEATURE_FLAGS, HTTP_HEADERS } from '../src/lib/constants';
+
 // ---------------------------------------------------------------------------
 // Env
 // ---------------------------------------------------------------------------
@@ -216,8 +218,8 @@ async function bootstrapOrg(
   // admin-console, and finance journal entries. plugins.three_pl on org A
   // and (by default) on org B; we will flip these mid-test for the gate
   // probes.
-  await setFlag(orgId, 'plugins.three_pl', true);
-  await setFlag(orgId, 'finance.journal_entries.enabled', true);
+  await setFlag(orgId, FEATURE_FLAGS.PLUGINS_THREE_PL, true);
+  await setFlag(orgId, FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED, true);
   // platform_admin.enabled stays off everywhere; the probe verifies that
   // a non-platform-admin caller hitting admin-console-api gets 404.
 
@@ -447,11 +449,11 @@ async function callFn(
 ): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: SUPABASE_ANON_KEY,
+    [HTTP_HEADERS.API_KEY]: SUPABASE_ANON_KEY,
   };
-  if (jwt) headers.Authorization = `Bearer ${jwt}`;
+  if (jwt) headers[HTTP_HEADERS.AUTHORIZATION] = `Bearer ${jwt}`;
   if (method !== 'GET' && method !== 'OPTIONS') {
-    headers['Idempotency-Key'] = crypto.randomUUID();
+    headers[HTTP_HEADERS.IDEMPOTENCY_KEY] = crypto.randomUUID();
   }
   const init: RequestInit = { method, headers };
   if (body !== undefined && method !== 'GET' && method !== 'OPTIONS') {
@@ -698,7 +700,7 @@ test.describe('@rls cross-tenant probe matrix', () => {
 
   test('@rls ops-api with plugins.three_pl off returns 404 (bundle gate)', async () => {
     if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
-    await setFlag(orgB!.id, 'plugins.three_pl', false);
+    await setFlag(orgB!.id, FEATURE_FLAGS.PLUGINS_THREE_PL, false);
     try {
       // The bundle cache is 5 min. The CI run is fresh, so this read sees
       // the just-written flag. For a long-lived worker we'd need a
@@ -710,18 +712,18 @@ test.describe('@rls cross-tenant probe matrix', () => {
       );
       expect(res.status, GATE_404_MESSAGE).toBe(404);
     } finally {
-      await setFlag(orgB!.id, 'plugins.three_pl', true);
+      await setFlag(orgB!.id, FEATURE_FLAGS.PLUGINS_THREE_PL, true);
     }
   });
 
   test('@rls ops-api with plugins.three_pl off returns 404 on shipments too', async () => {
     if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
-    await setFlag(orgB!.id, 'plugins.three_pl', false);
+    await setFlag(orgB!.id, FEATURE_FLAGS.PLUGINS_THREE_PL, false);
     try {
       const res = await callFn(orgB!.ownerJwt, 'GET', `/ops-api/shipments`);
       expect(res.status, GATE_404_MESSAGE).toBe(404);
     } finally {
-      await setFlag(orgB!.id, 'plugins.three_pl', true);
+      await setFlag(orgB!.id, FEATURE_FLAGS.PLUGINS_THREE_PL, true);
     }
   });
 
@@ -743,7 +745,7 @@ test.describe('@rls cross-tenant probe matrix', () => {
 
   test('@rls finance.journal_entries flag off returns 403 FEATURE_DISABLED', async () => {
     if (!orgB) test.skip(true, 'fixtures not ready');
-    await setFlag(orgB!.id, 'finance.journal_entries.enabled', false);
+    await setFlag(orgB!.id, FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED, false);
     try {
       const res = await callFn(
         orgB!.ownerJwt,
@@ -756,15 +758,15 @@ test.describe('@rls cross-tenant probe matrix', () => {
         error?: { code?: string; details?: { flag?: string } };
       };
       expect(body.error?.code).toBe('FEATURE_DISABLED');
-      expect(body.error?.details?.flag).toBe('finance.journal_entries.enabled');
+      expect(body.error?.details?.flag).toBe(FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED);
     } finally {
-      await setFlag(orgB!.id, 'finance.journal_entries.enabled', true);
+      await setFlag(orgB!.id, FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED, true);
     }
   });
 
   test('@rls finance.journal_entries flag off also blocks list endpoint with 403', async () => {
     if (!orgB) test.skip(true, 'fixtures not ready');
-    await setFlag(orgB!.id, 'finance.journal_entries.enabled', false);
+    await setFlag(orgB!.id, FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED, false);
     try {
       const res = await callFn(orgB!.ownerJwt, 'GET', `/finance-api/journal-entries`);
       expect(res.status).toBe(403);
@@ -772,9 +774,9 @@ test.describe('@rls cross-tenant probe matrix', () => {
         error?: { code?: string; details?: { flag?: string } };
       };
       expect(body.error?.code).toBe('FEATURE_DISABLED');
-      expect(body.error?.details?.flag).toBe('finance.journal_entries.enabled');
+      expect(body.error?.details?.flag).toBe(FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED);
     } finally {
-      await setFlag(orgB!.id, 'finance.journal_entries.enabled', true);
+      await setFlag(orgB!.id, FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED, true);
     }
   });
 

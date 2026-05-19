@@ -32,6 +32,11 @@ const SINGULAR_PAIRS: ReadonlyArray<Pair> = [
     spa: 'src/lib/money.ts',
     shared: '../../supabase/functions/_shared/money.ts',
   },
+  {
+    name: 'constants',
+    spa: 'src/lib/constants.ts',
+    shared: '../../supabase/functions/_shared/constants.ts',
+  },
 ];
 
 // Domain side-cars: each agent ships its types/workflow/capabilities as a

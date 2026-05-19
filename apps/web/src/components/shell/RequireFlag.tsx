@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { ApiError } from '@/lib/apiClient';
+import { ERROR_CODES } from '@/lib/constants';
 
 /**
  * RequireFlag. react-router v6 outlet guard for per-route feature flag
@@ -24,7 +25,7 @@ export interface RequireFlagProps {
 
 export function isFeatureDisabledError(err: unknown, flag?: string): boolean {
   if (!(err instanceof ApiError)) return false;
-  if (err.code !== 'FEATURE_DISABLED') return false;
+  if (err.code !== ERROR_CODES.FEATURE_DISABLED) return false;
   if (!flag) return true;
   return err.details?.['flag'] === flag;
 }

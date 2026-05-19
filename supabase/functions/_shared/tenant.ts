@@ -15,6 +15,7 @@
 // without an org claim throws NO_ACTIVE_ORG so the SPA can route to org-pick.
 
 import { ApiError } from './responses.ts';
+import { ERROR_CODES, HTTP_HEADERS } from './constants.ts';
 import type { RoleCode } from './capabilities.ts';
 
 export interface Caller {
@@ -45,8 +46,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 function extractToken(req: Request): string | null {
-  const h =
-    req.headers.get('authorization') ?? req.headers.get('Authorization');
+  const h = req.headers.get(HTTP_HEADERS.AUTHORIZATION);
   if (!h) return null;
   const m = /^Bearer\s+(.+)$/i.exec(h);
   return m ? m[1] : null;
@@ -113,13 +113,13 @@ export function readCallerContext(req: Request): CallerContext {
 export function requireCaller(req: Request): Caller {
   const ctx = readCallerContext(req);
   if (!ctx.userId) {
-    throw new ApiError('UNAUTHORIZED', 401, 'Authentication required.');
+    throw new ApiError(ERROR_CODES.UNAUTHORIZED, 401, 'Authentication required.');
   }
   if (!ctx.orgId) {
-    throw new ApiError('NO_ACTIVE_ORG', 401, 'No active organization claim.');
+    throw new ApiError(ERROR_CODES.NO_ACTIVE_ORG, 401, 'No active organization claim.');
   }
   if (!ctx.role) {
-    throw new ApiError('FORBIDDEN', 403, 'Role missing from caller claims.');
+    throw new ApiError(ERROR_CODES.FORBIDDEN, 403, 'Role missing from caller claims.');
   }
   const out: Caller = {
     userId: ctx.userId,

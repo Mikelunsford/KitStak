@@ -19,6 +19,7 @@ import { getFlag } from '../_shared/feature-flags.ts';
 import { readCallerContext } from '../_shared/tenant.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireMfaVerified } from '../_shared/mfa.ts';
+import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   hasIdentityCap,
   type IdentityCapability,
@@ -26,11 +27,11 @@ import {
 import type { Caller } from '../_shared/tenant.ts';
 
 const BUNDLE = 'admin-console-api';
-const PLATFORM_ADMIN_FLAG = 'platform_admin.enabled';
+const PLATFORM_ADMIN_FLAG = FEATURE_FLAGS.PLATFORM_ADMIN_ENABLED;
 
 function requireIdentityCap(caller: Caller, cap: IdentityCapability): void {
   if (hasIdentityCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
+  throw new ApiError(ERROR_CODES.FORBIDDEN, 403, `caller lacks capability: ${cap}`);
 }
 
 /**
@@ -43,11 +44,11 @@ async function assertBundleEnabled(req: Request): Promise<Caller> {
   const ctx = readCallerContext(req);
   if (!ctx.userId || !ctx.orgId || !ctx.role) {
     // Hide the bundle entirely from anonymous callers. 404 is intentional.
-    throw new ApiError('NOT_FOUND', 404, 'Not found.');
+    throw new ApiError(ERROR_CODES.NOT_FOUND, 404, 'Not found.');
   }
   const { enabled } = await getFlag(ctx.orgId, PLATFORM_ADMIN_FLAG);
   if (!enabled) {
-    throw new ApiError('NOT_FOUND', 404, 'Not found.');
+    throw new ApiError(ERROR_CODES.NOT_FOUND, 404, 'Not found.');
   }
   return { userId: ctx.userId, orgId: ctx.orgId, role: ctx.role };
 }

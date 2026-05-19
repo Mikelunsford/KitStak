@@ -18,6 +18,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { ApiError, ok, fromApiError, noContent } from '../_shared/responses.ts';
 import { senderFor, type NotificationRow } from '../_shared/notifications/senders.ts';
+import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
 const MAX_BATCH = 200;
 
@@ -25,23 +26,23 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return noContent();
   const url = new URL(req.url);
   if (!url.pathname.endsWith('/drain')) {
-    return fromApiError(new ApiError('NOT_FOUND', 404));
+    return fromApiError(new ApiError(ERROR_CODES.NOT_FOUND, 404));
   }
   if (req.method !== 'POST') {
-    return fromApiError(new ApiError('METHOD_NOT_ALLOWED', 405));
+    return fromApiError(new ApiError(ERROR_CODES.METHOD_NOT_ALLOWED, 405));
   }
 
   const expectedSecret = Deno.env.get('WORKER_SECRET');
-  const presentedSecret = req.headers.get('x-worker-secret');
+  const presentedSecret = req.headers.get(HTTP_HEADERS.X_WORKER_SECRET);
   if (!expectedSecret || presentedSecret !== expectedSecret) {
-    return fromApiError(new ApiError('UNAUTHORIZED', 401));
+    return fromApiError(new ApiError(ERROR_CODES.UNAUTHORIZED, 401));
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceKey) {
     return fromApiError(
-      new ApiError('INTERNAL_ERROR', 500, 'Missing service-role credentials'),
+      new ApiError(ERROR_CODES.INTERNAL_ERROR, 500, 'Missing service-role credentials'),
     );
   }
 

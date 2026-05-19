@@ -6,22 +6,23 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { fromApiError, ApiError, ok, noContent } from '../_shared/responses.ts';
+import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
 const RETENTION_DAYS = 7;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return noContent();
 
-  const authHeader = req.headers.get('authorization') ?? '';
+  const authHeader = req.headers.get(HTTP_HEADERS.AUTHORIZATION) ?? '';
   const expected = Deno.env.get('GC_TRIGGER_SECRET');
   if (!expected || authHeader !== `Bearer ${expected}`) {
-    return fromApiError(new ApiError('UNAUTHORIZED'));
+    return fromApiError(new ApiError(ERROR_CODES.UNAUTHORIZED));
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceKey) {
-    return fromApiError(new ApiError('INTERNAL_ERROR', 'Missing service-role credentials'));
+    return fromApiError(new ApiError(ERROR_CODES.INTERNAL_ERROR, 'Missing service-role credentials'));
   }
 
   const client = createClient(supabaseUrl, serviceKey, {

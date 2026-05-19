@@ -10,6 +10,7 @@ import { ApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { HTTP_HEADERS } from '../_shared/constants.ts';
 
 const BUNDLE = 'exports-api';
 
@@ -139,7 +140,7 @@ const exportEntity: Route = {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${entity}-export.csv"`,
-        'x-request-id': crypto.randomUUID(),
+        [HTTP_HEADERS.X_REQUEST_ID]: crypto.randomUUID(),
         ...corsHeaders(),
       },
     });
