@@ -8,46 +8,8 @@ import {
 } from '@/lib/services/projectsService';
 import type {
   CreateProjectRequest, TransitionRequest, ReorderPhasesRequest,
+  ProjectLineItem, CreateProjectLineItemRequest,
 } from '@/lib/types/sales';
-
-// TODO 6.5-A: this placeholder shape covers project_line_items rows until
-// Agent 6.5-B ships `ProjectLineItem` in `_shared/types/sales.ts` (and its
-// SPA mirror `apps/web/src/lib/types/sales.ts`) plus the
-// `convert_project_to_invoice` RPC contract. The Canon Steward pass replaces
-// `ProjectLineItemPlaceholder` with the real schema's `z.infer<typeof
-// ProjectLineItemSchema>` import.
-export interface ProjectLineItemPlaceholder {
-  id: string;
-  project_id: string;
-  position: number;
-  item_id: string | null;
-  sku: string | null;
-  name: string;
-  description: string | null;
-  quantity_e3: number | string;
-  unit_price_cents: number | string;
-  discount_bps: number;
-  tax_id: string | null;
-  tax_rate_snapshot: number;
-  is_taxable: boolean;
-  line_subtotal_cents: number | string;
-  line_discount_cents: number | string;
-  line_tax_cents: number | string;
-  line_total_cents: number | string;
-}
-
-export interface CreateProjectLineItemBody {
-  position?: number;
-  item_id?: string | null;
-  sku?: string | null;
-  name: string;
-  description?: string | null;
-  quantity_e3?: number | string;
-  unit_price_cents?: number | string;
-  discount_bps?: number;
-  tax_id?: string | null;
-  is_taxable?: boolean;
-}
 
 // === Project queries / mutations ===========================================
 
@@ -135,7 +97,7 @@ export function useProjectLineItems(projectId: string | undefined) {
       ? projectLineItemsKey(projectId)
       : ['sales', 'projects', 'byId', '__none__', 'line-items'],
     queryFn: async () =>
-      apiRequest<ProjectLineItemPlaceholder[]>(
+      apiRequest<ProjectLineItem[]>(
         `/projects-api/projects/${projectId}/line-items`,
         { method: 'GET' },
       ),
@@ -149,8 +111,8 @@ export function useProjectLineItems(projectId: string | undefined) {
 export function useAddProjectLineItem(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateProjectLineItemBody) =>
-      apiRequest<ProjectLineItemPlaceholder>(
+    mutationFn: (body: CreateProjectLineItemRequest) =>
+      apiRequest<ProjectLineItem>(
         `/projects-api/projects/${projectId}/line-items`,
         { method: 'POST', body },
       ),
@@ -177,11 +139,11 @@ export function useRemoveProjectLineItem(projectId: string) {
 }
 
 // === Project completion -> invoice (G-COMPLETE-AUTO-01) ====================
-// TODO 6.5-A: the convert_project_to_invoice RPC is shipped by Agent 6.5-B.
-// Returns the new invoice id; the caller navigates to its detail page.
+// The convert_project_to_invoice RPC returns the new invoice id under the
+// `invoice_id` key (shaped by projects-api handler at line 465).
 
 export interface ConvertProjectToInvoiceResult {
-  id: string;
+  invoice_id: string;
 }
 
 export function useConvertProjectToInvoice(projectId: string) {

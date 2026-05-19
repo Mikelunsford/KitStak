@@ -13,6 +13,7 @@ export function CreditNotesListPage() {
     <section className="px-8 py-8 flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">CREDIT NOTES</h1>
+        <Link to="/3pl-operations/credit-notes/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New credit note</Link>
       </header>
 
       {isLoading ? (

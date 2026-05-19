@@ -16,6 +16,7 @@ export function LeadsKanbanPage() {
     <section className="px-8 py-10 max-w-7xl mx-auto flex flex-col gap-6">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">LEADS</h1>
+        <Link to="/crm/leads/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New lead</Link>
       </header>
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>

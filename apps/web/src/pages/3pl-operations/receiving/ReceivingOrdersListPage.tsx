@@ -10,7 +10,7 @@ export function ReceivingOrdersListPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">RECEIVING</h1>
         {caps.can('receiving.order.create') ? (
-          <Link to="/3pl-operations/receiving" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">Refresh</Link>
+          <Link to="/3pl-operations/receiving/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New receiving order</Link>
         ) : null}
       </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}

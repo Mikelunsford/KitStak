@@ -21,7 +21,10 @@ export function ContactsListPage() {
 
   return (
     <section className="px-8 py-10 max-w-6xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">CONTACTS</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-4xl font-display tracking-wide text-ink">CONTACTS</h1>
+        <Link to={customerId ? `/crm/contacts/new?customer_id=${customerId}` : '/crm/contacts/new'} className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New contact</Link>
+      </header>
       <input
         type="text"
         placeholder="Search by first name"

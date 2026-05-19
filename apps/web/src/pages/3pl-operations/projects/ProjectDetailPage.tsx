@@ -70,7 +70,7 @@ export function ProjectDetailPage() {
   const [phaseName, setPhaseName] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [materialName, setMaterialName] = useState('');
-  const [materialQty, setMaterialQty] = useState('1000');
+  const [materialQty, setMaterialQty] = useState('1');
   const [materialPrice, setMaterialPrice] = useState('0');
 
   const selectedItem = useItem(selectedItemId ?? undefined);
@@ -102,12 +102,13 @@ export function ProjectDetailPage() {
     await addLine.mutateAsync({
       name: materialName,
       item_id: selectedItemId,
-      quantity_e3: materialQty,
+      quantity: materialQty,
       unit_price_cents: materialPrice,
+      discount_percent: 0,
     });
     setSelectedItemId(null);
     setMaterialName('');
-    setMaterialQty('1000');
+    setMaterialQty('1');
     setMaterialPrice('0');
   };
 
@@ -125,8 +126,8 @@ export function ProjectDetailPage() {
 
   const onConvertToInvoice = async () => {
     const result = await convertToInvoice.mutateAsync();
-    if (result?.id) {
-      navigate(`/invoicing/invoices/${result.id}`);
+    if (result?.invoice_id) {
+      navigate(`/invoicing/invoices/${result.invoice_id}`);
     }
   };
 
@@ -226,17 +227,22 @@ export function ProjectDetailPage() {
                   </td>
                 </tr>
               ) : (
-                (lineItems.data ?? []).map((l) => (
+                (lineItems.data ?? []).map((l) => {
+                  const qty = Number(l.quantity);
+                  const unit = Number(l.unit_price_cents);
+                  const discount = Number(l.discount_percent);
+                  const subtotal = Math.round(qty * unit * (1 - discount / 100));
+                  return (
                   <tr key={l.id} className="border-t border-line">
                     <td className="px-4 py-2">{l.name}</td>
                     <td className="px-4 py-2 font-mono text-sm">
-                      {(Number(l.quantity_e3) / 1000).toFixed(3)}
+                      {qty.toFixed(2)}
                     </td>
                     <td className="px-4 py-2 font-mono text-sm">
                       {formatCents(l.unit_price_cents, project.currency_code)}
                     </td>
                     <td className="px-4 py-2 font-mono text-sm">
-                      {formatCents(l.line_total_cents, project.currency_code)}
+                      {formatCents(subtotal, project.currency_code)}
                     </td>
                     <td className="px-4 py-2">
                       {['pending', 'ready_to_build'].includes(state) && (
@@ -249,7 +255,8 @@ export function ProjectDetailPage() {
                       )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -275,10 +282,10 @@ export function ProjectDetailPage() {
                 required
               />
               <TextInput
-                label="Qty (e3)"
+                label="Quantity"
                 value={materialQty}
                 onChange={(e) => setMaterialQty(e.target.value)}
-                inputMode="numeric"
+                inputMode="decimal"
               />
               <TextInput
                 label="Unit price (cents)"

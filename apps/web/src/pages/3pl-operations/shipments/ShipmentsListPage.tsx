@@ -5,7 +5,10 @@ export function ShipmentsListPage() {
   const { data, isLoading } = useShipmentsList();
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">SHIPMENTS</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-4xl font-display tracking-wide text-ink">SHIPMENTS</h1>
+        <Link to="/3pl-operations/shipments/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New shipment</Link>
+      </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
