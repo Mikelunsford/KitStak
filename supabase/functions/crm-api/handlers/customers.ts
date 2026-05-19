@@ -31,8 +31,8 @@ import { requireCrmCap, BUNDLE } from '../_helpers.ts';
 
 const CUSTOMER_COLS =
   'id, org_id, display_name, kind, status, primary_email, primary_phone, ' +
-  'tax_id, billing_address, shipping_address, default_currency_code, tags, ' +
-  'created_at, updated_at';
+  'tax_id, billing_address, shipping_address, default_currency_code, ' +
+  'default_payment_terms_days, tags, created_at, updated_at';
 
 interface CustomerRow {
   id: string;
@@ -46,6 +46,7 @@ interface CustomerRow {
   billing_address: Record<string, unknown> | null;
   shipping_address: Record<string, unknown> | null;
   default_currency_code: string | null;
+  default_payment_terms_days: number | null;
   tags: string[] | null;
   created_at: string;
   updated_at: string;
@@ -64,6 +65,7 @@ function rowToCustomer(row: CustomerRow): Customer {
     billing_address: row.billing_address,
     shipping_address: row.shipping_address,
     default_currency_code: row.default_currency_code,
+    default_payment_terms_days: row.default_payment_terms_days,
     tags: row.tags ?? [],
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -154,6 +156,7 @@ export async function createCustomer({ req }: RouteCtx): Promise<Response> {
       billing_address: body.billing_address ?? null,
       shipping_address: body.shipping_address ?? null,
       default_currency_code: body.default_currency_code ?? null,
+      default_payment_terms_days: body.default_payment_terms_days ?? null,
       tags: body.tags ?? [],
       created_by: caller.userId,
       updated_by: caller.userId,
@@ -197,6 +200,9 @@ export async function patchCustomer({ req, params }: RouteCtx): Promise<Response
       if (body.shipping_address !== undefined) patch.shipping_address = body.shipping_address ?? null;
       if (body.default_currency_code !== undefined) {
         patch.default_currency_code = body.default_currency_code;
+      }
+      if (body.default_payment_terms_days !== undefined) {
+        patch.default_payment_terms_days = body.default_payment_terms_days ?? null;
       }
       if (body.tags !== undefined) patch.tags = body.tags ?? [];
 

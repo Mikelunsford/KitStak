@@ -12,12 +12,10 @@ import {
 
 /**
  * Form for new customer. useState + Zod safeParse per the constitution; no
- * react-hook-form. Closes G-CUST-FORM-01 by surfacing the rich-field shape
- * CustomerCreateSchema already accepts (tax_id, default_currency_code,
- * billing_address, shipping_address) which the wave-2 form only partially
- * captured. (payment_terms is not modelled in the current canon; if the
- * operator wants payment-terms tracking that requires a side-car canon
- * extension and is out of 6.5-D's write scope.)
+ * react-hook-form. Surfaces the rich-field shape CustomerCreateSchema accepts
+ * (tax_id, default_currency_code, default_payment_terms_days, billing_address,
+ * shipping_address). `default_payment_terms_days` landed in migration 0049
+ * and closes F-Wave7-CRM-SCHEMA-01.
  */
 export function CustomerCreatePage() {
   const navigate = useNavigate();
@@ -28,6 +26,7 @@ export function CustomerCreatePage() {
   const [primaryPhone, setPrimaryPhone] = useState('');
   const [taxId, setTaxId] = useState('');
   const [defaultCurrencyCode, setDefaultCurrencyCode] = useState('USD');
+  const [defaultPaymentTermsDays, setDefaultPaymentTermsDays] = useState('');
 
   // Billing address grouped inputs.
   const [billLine1, setBillLine1] = useState('');
@@ -98,6 +97,18 @@ export function CustomerCreatePage() {
       shipPostal,
       shipCountry,
     );
+    const termsTrimmed = defaultPaymentTermsDays.trim();
+    let termsValue: number | null | undefined;
+    if (termsTrimmed === '') {
+      termsValue = null;
+    } else {
+      const parsedTerms = Number(termsTrimmed);
+      if (!Number.isInteger(parsedTerms) || parsedTerms < 0) {
+        setError('Default payment terms must be a non-negative whole number of days.');
+        return;
+      }
+      termsValue = parsedTerms;
+    }
     const draft = {
       display_name: displayName,
       kind,
@@ -105,6 +116,7 @@ export function CustomerCreatePage() {
       primary_phone: primaryPhone || undefined,
       tax_id: taxId || undefined,
       default_currency_code: defaultCurrencyCode || undefined,
+      default_payment_terms_days: termsValue,
       billing_address: billing,
       shipping_address: shipping,
       tags: [],
@@ -179,6 +191,19 @@ export function CustomerCreatePage() {
             onChange={(e) => setDefaultCurrencyCode(e.target.value.toUpperCase())}
             maxLength={3}
             placeholder="USD"
+            className="bg-bg-2 border border-line px-3 py-2"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-ink-dim">Default payment terms (days)</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={defaultPaymentTermsDays}
+            onChange={(e) => setDefaultPaymentTermsDays(e.target.value)}
+            placeholder="Optional"
             className="bg-bg-2 border border-line px-3 py-2"
           />
         </label>

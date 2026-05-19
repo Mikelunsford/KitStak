@@ -93,6 +93,7 @@ export const CustomerCreateSchema = z.object({
   billing_address: AddressSchema.nullable().optional(),
   shipping_address: AddressSchema.nullable().optional(),
   default_currency_code: z.string().length(3).optional(),
+  default_payment_terms_days: z.number().int().nonnegative().nullable().optional(),
   tags: z.array(z.string()).default([]),
 });
 export type CustomerCreate = z.infer<typeof CustomerCreateSchema>;
@@ -112,6 +113,7 @@ export const CustomerSchema = z.object({
   billing_address: AddressSchema.nullable(),
   shipping_address: AddressSchema.nullable(),
   default_currency_code: z.string().nullable(),
+  default_payment_terms_days: z.number().int().nonnegative().nullable(),
   tags: z.array(z.string()).default([]),
   created_at: CrmTimestampSchema,
   updated_at: CrmTimestampSchema,
