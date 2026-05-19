@@ -2,8 +2,14 @@
 
 import { apiRequest } from '@/lib/apiClient';
 import { StockLevelSchema, type StockLevel } from '@/lib/types/vendors_inventory_ops';
+import { z } from 'zod';
 
 export type { StockLevel };
+
+const StockLevelListEnvelope = z.object({
+  items: z.array(StockLevelSchema),
+  next_cursor: z.string().nullable().optional(),
+});
 
 export async function listStockLevels(params: { warehouseId?: string; itemId?: string } = {}): Promise<StockLevel[]> {
   const sp = new URLSearchParams();
@@ -13,5 +19,5 @@ export async function listStockLevels(params: { warehouseId?: string; itemId?: s
   const data = await apiRequest<unknown>(
     `/inventory-api/stock-levels${qs ? `?${qs}` : ''}`, { method: 'GET' },
   );
-  return (data as StockLevel[]).map((r) => StockLevelSchema.parse(r));
+  return StockLevelListEnvelope.parse(data).items;
 }
