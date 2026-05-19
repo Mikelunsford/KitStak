@@ -40,6 +40,7 @@ import {
 } from '../_shared/handler-helpers.ts';
 import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
+import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   hasVendorsInventoryOpsCap,
   type VendorsInventoryOpsCapability,
@@ -477,10 +478,10 @@ Deno.serve(async (req: Request) => {
   // route() error envelope (UNAUTHORIZED / NO_ACTIVE_ORG via requireCaller).
   const ctx = readCallerContext(req);
   if (ctx.orgId) {
-    const flag = await getFlag(ctx.orgId, 'plugins.three_pl');
+    const flag = await getFlag(ctx.orgId, FEATURE_FLAGS.PLUGINS_THREE_PL);
     if (!flag.enabled) {
       // Hide the entire bundle: every method, every path -> 404.
-      return fromApiError(new ApiError('NOT_FOUND', 404));
+      return fromApiError(new ApiError(ERROR_CODES.NOT_FOUND, 404));
     }
   }
   return route(req, TABLE, { bundle: 'ops-api' });

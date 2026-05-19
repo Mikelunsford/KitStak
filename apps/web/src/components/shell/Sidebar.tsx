@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { FEATURE_FLAGS } from '@/lib/constants';
 
 /**
  * Sidebar. Navigation IA grouped into collapsible sections. Core sections
@@ -120,7 +121,7 @@ const CORE_SECTIONS: ReadonlyArray<NavSection> = [
     key: 'finance',
     label: 'FINANCE',
     icon: Wallet,
-    flag: 'finance.journal_entries.enabled',
+    flag: FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
     children: [
       { to: '/finance/coa', label: 'Chart of accounts', icon: BookOpen },
       { to: '/finance/journal-entries', label: 'Journal entries', icon: Wallet },
@@ -155,7 +156,7 @@ const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
     key: 'three_pl',
     label: '3PL OPERATIONS',
     icon: PackageOpen,
-    flag: 'plugins.three_pl',
+    flag: FEATURE_FLAGS.PLUGINS_THREE_PL,
     children: [
       { to: '/3pl-operations/receiving', label: 'Receiving', icon: PackageOpen },
       { to: '/3pl-operations/production', label: 'Production runs', icon: Factory },
@@ -166,7 +167,7 @@ const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
     key: 'manufacturing',
     label: 'MANUFACTURING',
     icon: Factory,
-    flag: 'plugins.manufacturing',
+    flag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
     children: [
       { to: '/manufacturing/runs', label: 'Production runs', icon: Factory },
     ],
@@ -175,7 +176,7 @@ const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
     key: 'copack_ecom',
     label: 'CO-PACK AND ECOM',
     icon: Boxes,
-    flag: 'plugins.copack_ecom',
+    flag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
     children: [
       { to: '/copack/orders', label: 'Channel orders', icon: Boxes },
     ],
@@ -184,7 +185,7 @@ const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
     key: 'kitforce',
     label: 'KITFORCE',
     icon: Users,
-    flag: 'plugins.kitforce',
+    flag: FEATURE_FLAGS.PLUGINS_KITFORCE,
     children: [
       { to: '/kitforce/labor', label: 'Labor', icon: Users },
     ],
@@ -193,7 +194,7 @@ const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
     key: 'kitcost',
     label: 'KITCOST',
     icon: Wallet,
-    flag: 'plugins.kitcost',
+    flag: FEATURE_FLAGS.PLUGINS_KITCOST,
     children: [
       { to: '/kitcost/dashboard', label: 'Cost dashboard', icon: BarChart3 },
     ],

@@ -15,6 +15,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { ApiError, ok, fromApiError } from './responses.ts';
 import type { Caller } from './tenant.ts';
+import { ERROR_CODES, HTTP_HEADERS } from './constants.ts';
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -51,7 +52,7 @@ type IdempotencyRow = {
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const REPLAY_HEADER = 'Idempotent-Replay';
+const REPLAY_HEADER = HTTP_HEADERS.IDEMPOTENT_REPLAY;
 const REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -113,18 +114,17 @@ function canonicalize(value: unknown): string {
  * bug worth logging).
  */
 export function readIdempotencyKey(req: Request): string {
-  const raw =
-    req.headers.get('idempotency-key') ?? req.headers.get('Idempotency-Key');
+  const raw = req.headers.get(HTTP_HEADERS.IDEMPOTENCY_KEY);
   if (!raw) {
     throw new ApiError(
-      'IDEMPOTENCY_KEY_REQUIRED',
+      ERROR_CODES.IDEMPOTENCY_KEY_REQUIRED,
       400,
       'Idempotency-Key header required on state-changing requests.',
     );
   }
   if (!UUID_V4_RE.test(raw)) {
     throw new ApiError(
-      'IDEMPOTENCY_INVALID_KEY',
+      ERROR_CODES.IDEMPOTENCY_INVALID_KEY,
       400,
       'Idempotency-Key must be a UUID v4.',
     );
@@ -185,7 +185,7 @@ function replayResponse(
   // 200; the cached call may have been a 201).
   const headers = new Headers(base.headers);
   headers.set(REPLAY_HEADER, 'true');
-  if (requestId) headers.set('x-request-id', requestId);
+  if (requestId) headers.set(HTTP_HEADERS.X_REQUEST_ID, requestId);
   return new Response(base.body, { status, headers });
 }
 
@@ -212,7 +212,7 @@ export async function respondWithIdempotency(
 
   const client = ctx.client ?? makeAdminClient();
   const requestId =
-    ctx.req.headers.get('x-request-id') ?? crypto.randomUUID();
+    ctx.req.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? crypto.randomUUID();
 
   const lookup = await client
     .from('idempotency_keys')
@@ -241,7 +241,7 @@ export async function respondWithIdempotency(
     if (!expired) {
       if (existing.body_hash !== bodyHash) {
         throw new ApiError(
-          'IDEMPOTENCY_CONFLICT',
+          ERROR_CODES.IDEMPOTENCY_CONFLICT,
           409,
           'Idempotency-Key already used with a different request body.',
         );

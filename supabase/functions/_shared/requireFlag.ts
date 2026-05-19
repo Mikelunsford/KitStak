@@ -21,6 +21,7 @@
 import { ApiError } from './responses.ts';
 import type { Caller } from './tenant.ts';
 import { getFlag } from './feature-flags.ts';
+import { ERROR_CODES } from './constants.ts';
 
 /**
  * Throws FEATURE_DISABLED (403) if the flag is off for the caller's org.
@@ -36,7 +37,7 @@ export async function requireFlag(
   const { enabled } = await getFlag(caller.orgId, flagKey);
   if (!enabled) {
     throw new ApiError(
-      'FEATURE_DISABLED',
+      ERROR_CODES.FEATURE_DISABLED,
       403,
       `Feature '${flagKey}' is not enabled for this workspace.`,
       { flag: flagKey },

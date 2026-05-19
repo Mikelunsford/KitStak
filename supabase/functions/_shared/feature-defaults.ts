@@ -14,8 +14,11 @@
 //                  entries on, expenses on.
 //   enterprise     everything above plus KitForce, KitCost, and SSO.
 //
-// Adding a new flag in a future wave: append to this map under each tier.
-// The provisioning handler picks up new keys automatically.
+// Adding a new flag in a future wave: append to this map under each tier and
+// add the named constant to `_shared/constants.ts FEATURE_FLAGS`. The
+// provisioning handler picks up new keys automatically.
+
+import { FEATURE_FLAGS } from './constants.ts';
 
 export type PricingTier = 'starter' | 'professional' | 'enterprise';
 
@@ -25,57 +28,57 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
 > = {
   starter: {
     // Plugins
-    'plugins.three_pl': true,
-    'plugins.manufacturing': false,
-    'plugins.copack_ecom': false,
-    'plugins.kitforce': false,
-    'plugins.kitcost': false,
+    [FEATURE_FLAGS.PLUGINS_THREE_PL]: true,
+    [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: false,
+    [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: false,
+    [FEATURE_FLAGS.PLUGINS_KITFORCE]: false,
+    [FEATURE_FLAGS.PLUGINS_KITCOST]: false,
     // Add-ons
-    'addons.whitelabel': false,
-    'addons.kitforce': false,
-    'addons.kitcost': false,
+    [FEATURE_FLAGS.ADDONS_WHITELABEL]: false,
+    [FEATURE_FLAGS.ADDONS_KITFORCE]: false,
+    [FEATURE_FLAGS.ADDONS_KITCOST]: false,
     // Finance (manual invoicing per decision D-004)
-    'finance.journal_entries.enabled': false,
-    'finance.expenses': false,
-    'finance.chart_of_accounts': false,
+    [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: false,
+    [FEATURE_FLAGS.FINANCE_EXPENSES]: false,
+    [FEATURE_FLAGS.FINANCE_CHART_OF_ACCOUNTS]: false,
     // Auth
-    'auth.sso_saml': false,
+    [FEATURE_FLAGS.AUTH_SSO_SAML]: false,
   },
   professional: {
     // Plugins
-    'plugins.three_pl': true,
-    'plugins.manufacturing': true,
-    'plugins.copack_ecom': true,
-    'plugins.kitforce': false,
-    'plugins.kitcost': false,
+    [FEATURE_FLAGS.PLUGINS_THREE_PL]: true,
+    [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: true,
+    [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: true,
+    [FEATURE_FLAGS.PLUGINS_KITFORCE]: false,
+    [FEATURE_FLAGS.PLUGINS_KITCOST]: false,
     // Add-ons (whitelabel included in tier)
-    'addons.whitelabel': true,
-    'addons.kitforce': false,
-    'addons.kitcost': false,
+    [FEATURE_FLAGS.ADDONS_WHITELABEL]: true,
+    [FEATURE_FLAGS.ADDONS_KITFORCE]: false,
+    [FEATURE_FLAGS.ADDONS_KITCOST]: false,
     // Finance
-    'finance.journal_entries.enabled': true,
-    'finance.expenses': true,
-    'finance.chart_of_accounts': true,
+    [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: true,
+    [FEATURE_FLAGS.FINANCE_EXPENSES]: true,
+    [FEATURE_FLAGS.FINANCE_CHART_OF_ACCOUNTS]: true,
     // Auth
-    'auth.sso_saml': false,
+    [FEATURE_FLAGS.AUTH_SSO_SAML]: false,
   },
   enterprise: {
     // Plugins (all on)
-    'plugins.three_pl': true,
-    'plugins.manufacturing': true,
-    'plugins.copack_ecom': true,
-    'plugins.kitforce': true,
-    'plugins.kitcost': true,
+    [FEATURE_FLAGS.PLUGINS_THREE_PL]: true,
+    [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: true,
+    [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: true,
+    [FEATURE_FLAGS.PLUGINS_KITFORCE]: true,
+    [FEATURE_FLAGS.PLUGINS_KITCOST]: true,
     // Add-ons (configurable; default on)
-    'addons.whitelabel': true,
-    'addons.kitforce': true,
-    'addons.kitcost': true,
+    [FEATURE_FLAGS.ADDONS_WHITELABEL]: true,
+    [FEATURE_FLAGS.ADDONS_KITFORCE]: true,
+    [FEATURE_FLAGS.ADDONS_KITCOST]: true,
     // Finance
-    'finance.journal_entries.enabled': true,
-    'finance.expenses': true,
-    'finance.chart_of_accounts': true,
+    [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: true,
+    [FEATURE_FLAGS.FINANCE_EXPENSES]: true,
+    [FEATURE_FLAGS.FINANCE_CHART_OF_ACCOUNTS]: true,
     // Auth
-    'auth.sso_saml': true,
+    [FEATURE_FLAGS.AUTH_SSO_SAML]: true,
   },
 };
 

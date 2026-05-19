@@ -9,15 +9,34 @@
 // Allowed headers include the worker secret used by the scheduled functions
 // (audit-chain-verify, idempotency-gc) so OPTIONS preflights from a SPA proxy
 // do not strip it.
+//
+// Header names sourced from `_shared/constants.ts HTTP_HEADERS` so the
+// allow-list cannot drift from the names the SPA apiClient writes or the
+// handlers read (F-Wave6-CORS-01, F-Wave7-LITDRIFT-01).
+
+import { HTTP_HEADERS } from './constants.ts';
+
+const ALLOWED_REQUEST_HEADERS = [
+  HTTP_HEADERS.API_KEY,
+  HTTP_HEADERS.AUTHORIZATION,
+  HTTP_HEADERS.CONTENT_TYPE,
+  HTTP_HEADERS.X_REQUEST_ID,
+  HTTP_HEADERS.IDEMPOTENCY_KEY,
+  HTTP_HEADERS.X_WORKER_SECRET,
+].join(', ');
+
+const EXPOSED_RESPONSE_HEADERS = [
+  HTTP_HEADERS.X_REQUEST_ID,
+  HTTP_HEADERS.IDEMPOTENT_REPLAY,
+  HTTP_HEADERS.RETRY_AFTER,
+].join(', ');
 
 export function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers':
-      'apikey, authorization, content-type, x-request-id, idempotency-key, x-worker-secret',
+    'Access-Control-Allow-Headers': ALLOWED_REQUEST_HEADERS,
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-    'Access-Control-Expose-Headers':
-      'x-request-id, idempotent-replay, retry-after',
+    'Access-Control-Expose-Headers': EXPOSED_RESPONSE_HEADERS,
     'Access-Control-Max-Age': '86400',
     Vary: 'origin',
   };

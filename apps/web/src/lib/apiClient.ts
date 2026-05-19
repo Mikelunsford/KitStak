@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { supabase } from '@/lib/supabase';
+import { ERROR_CODES, HTTP_HEADERS } from '@/lib/constants';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -63,12 +64,12 @@ export async function apiRequest<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${bearer}`,
+    [HTTP_HEADERS.API_KEY]: SUPABASE_ANON_KEY,
+    [HTTP_HEADERS.AUTHORIZATION]: `Bearer ${bearer}`,
     ...options.headers,
   };
   if (method !== 'GET') {
-    headers['Idempotency-Key'] = crypto.randomUUID();
+    headers[HTTP_HEADERS.IDEMPOTENCY_KEY] = crypto.randomUUID();
   }
 
   const url = path.startsWith('http')
@@ -79,7 +80,7 @@ export async function apiRequest<T>(
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
   const response = await fetch(url, init);
 
-  const requestId = response.headers.get('x-request-id') ?? undefined;
+  const requestId = response.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? undefined;
   const json = (await response.json()) as unknown;
 
   if (!response.ok) {
@@ -97,7 +98,7 @@ export async function apiRequest<T>(
       );
     }
     throw new ApiError(
-      'INTERNAL_ERROR',
+      ERROR_CODES.INTERNAL_ERROR,
       response.status,
       'Unexpected error',
       undefined,

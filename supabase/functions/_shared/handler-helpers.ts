@@ -13,6 +13,7 @@ import { z, type ZodTypeAny } from 'zod';
 import { ApiError, ok, fromApiError } from './responses.ts';
 import { respondWithIdempotency as runWithIdempotency } from './idempotency.ts';
 import { corsHeaders } from './cors.ts';
+import { ERROR_CODES, HTTP_HEADERS } from './constants.ts';
 import type { Caller } from './tenant.ts';
 import { hasCap, type Capability } from './capabilities.ts';
 
@@ -158,7 +159,7 @@ export function created<T>(data: T, meta?: Record<string, unknown>): Response {
     status: 201,
     headers: {
       'Content-Type': 'application/json',
-      'x-request-id': crypto.randomUUID(),
+      [HTTP_HEADERS.X_REQUEST_ID]: crypto.randomUUID(),
       ...corsHeaders(),
     },
   });
@@ -212,7 +213,7 @@ export async function respondWithIdempotency(
 export function requireCap(caller: Caller, cap: Capability): void {
   if (hasCap(caller.role, cap)) return;
   throw new ApiError(
-    'FORBIDDEN',
+    ERROR_CODES.FORBIDDEN,
     403,
     `caller lacks capability: ${cap}`,
   );

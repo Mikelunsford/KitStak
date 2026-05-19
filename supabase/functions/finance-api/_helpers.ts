@@ -10,6 +10,7 @@ import {
   type FinanceRoleCode,
 } from '../_shared/capabilities/finance.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
+import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
 
 export function requireFinanceCap(
   caller: Caller,
@@ -17,7 +18,7 @@ export function requireFinanceCap(
 ): void {
   const role = caller.role as unknown as FinanceRoleCode;
   if (FINANCE_CAPABILITY_POLICY[role]?.includes(cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
+  throw new ApiError(ERROR_CODES.FORBIDDEN, 403, `caller lacks capability: ${cap}`);
 }
 
 /**
@@ -26,13 +27,16 @@ export function requireFinanceCap(
  * /feature-unavailable. AUDIT-aligned per-route gate, not a bundle gate.
  */
 export async function requireFinanceJeFlag(caller: Caller): Promise<void> {
-  const flag = await getFlag(caller.orgId, 'finance.journal_entries.enabled');
+  const flag = await getFlag(
+    caller.orgId,
+    FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
+  );
   if (!flag.enabled) {
     throw new ApiError(
-      'FEATURE_DISABLED',
+      ERROR_CODES.FEATURE_DISABLED,
       403,
       'finance journal entries feature is disabled for this org',
-      { flag: 'finance.journal_entries.enabled' },
+      { flag: FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED },
     );
   }
 }

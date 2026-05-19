@@ -18,6 +18,7 @@
 
 import { admin } from './handler-helpers.ts';
 import { ApiError } from './responses.ts';
+import { HTTP_HEADERS } from './constants.ts';
 
 export interface AuditEntry {
   orgId: string;
@@ -70,7 +71,7 @@ export async function withRequestContext(
   route: string,
 ): Promise<RequestContext> {
   const requestId =
-    req.headers.get('x-request-id') ?? crypto.randomUUID();
+    req.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? crypto.randomUUID();
   const data = new TextEncoder().encode(`${req.method} ${route}`);
   const digest = await crypto.subtle.digest('SHA-256', data);
   const route_hash = Array.from(new Uint8Array(digest))

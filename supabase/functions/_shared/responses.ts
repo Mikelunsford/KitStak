@@ -1,4 +1,5 @@
 import { corsHeaders } from './cors.ts';
+import { HTTP_HEADERS } from './constants.ts';
 
 export type ApiErrorCode =
   | 'UNAUTHORIZED'
@@ -64,7 +65,7 @@ function withCommonHeaders(
     status,
     headers: {
       'Content-Type': 'application/json',
-      'x-request-id': requestId,
+      [HTTP_HEADERS.X_REQUEST_ID]: requestId,
       ...corsHeaders(),
       ...extra,
     },
