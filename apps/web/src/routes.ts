@@ -302,6 +302,9 @@ const WarehousesListPage = lazy(() =>
 const WarehouseDetailPage = lazy(() =>
   import('./pages/3pl-operations/warehouses/WarehouseDetailPage').then((m) => ({ default: m.WarehouseDetailPage })),
 );
+const WarehouseCreatePage = lazy(() =>
+  import('./pages/3pl-operations/warehouses/WarehouseCreatePage').then((m) => ({ default: m.WarehouseCreatePage })),
+);
 const StockLevelsPage = lazy(() =>
   import('./pages/3pl-operations/stock/StockLevelsPage').then((m) => ({ default: m.StockLevelsPage })),
 );
@@ -754,6 +757,7 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/expenses/new',           element: ExpenseCreatePage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/expenses/:id',           element: ExpenseDetailPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses',             element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/warehouses/new',         element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses/:id',         element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/stock/levels',           element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/stock/movements',        element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
