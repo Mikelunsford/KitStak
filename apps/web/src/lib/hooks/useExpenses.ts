@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { expensesKeys, expenseCategoriesKeys } from '@/lib/queryKeys/expenses';
 import {
   listExpenses, getExpense, createExpense, updateExpense, transitionExpense,
@@ -36,7 +37,12 @@ export function useUpdateExpense(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<Expense>) => updateExpense(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: expensesKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: expensesKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: expense updates write an audit row;
+      // invalidate the timeline so the detail page reflects new entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('expense', id) });
+    },
   });
 }
 
@@ -44,7 +50,13 @@ export function useTransitionExpense(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (to: ExpenseStatus) => transitionExpense(id, to),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: expensesKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: expensesKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: expense transitions write an audit
+      // row via trg_audit_expenses_state; invalidate the timeline so the
+      // operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('expense', id) });
+    },
   });
 }
 

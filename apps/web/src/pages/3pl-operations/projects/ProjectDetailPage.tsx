@@ -89,11 +89,21 @@ export function ProjectDetailPage() {
     }
   };
 
-  const onAddPhase = async (e: FormEvent) => {
+  const onAddPhase = (e: FormEvent) => {
     e.preventDefault();
     if (!projectId) return;
-    await createPhase.mutateAsync({ name: phaseName });
-    setPhaseName('');
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: switch from await mutateAsync
+    // (which leaves the form silently broken on 4xx) to the onSuccess
+    // callback so the mutation.error state is preserved and rendered
+    // inline below.
+    createPhase.mutate(
+      { name: phaseName },
+      {
+        onSuccess: () => {
+          setPhaseName('');
+        },
+      },
+    );
   };
 
   const onAddMaterial = (e: FormEvent) => {
@@ -130,11 +140,17 @@ export function ProjectDetailPage() {
     reorder.mutate({ phase_ids: next });
   };
 
-  const onConvertToInvoice = async () => {
-    const result = await convertToInvoice.mutateAsync();
-    if (result?.invoice_id) {
-      navigate(`/invoicing/invoices/${result.invoice_id}`);
-    }
+  const onConvertToInvoice = () => {
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: switch from await mutateAsync to
+    // the onSuccess callback so a 4xx surfaces in the inline error renderer
+    // below instead of swallowing the result.
+    convertToInvoice.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result?.invoice_id) {
+          navigate(`/invoicing/invoices/${result.invoice_id}`);
+        }
+      },
+    });
   };
 
   const projectInvoices = (invoices.data ?? []).filter(
@@ -361,14 +377,25 @@ export function ProjectDetailPage() {
           })}
         </ol>
 
-        <form onSubmit={onAddPhase} className="flex gap-3 items-end mt-4">
-          <TextInput
-            label="New phase name"
-            value={phaseName}
-            onChange={(e) => setPhaseName(e.target.value)}
-            required
-          />
-          <Button type="submit">Add phase</Button>
+        <form onSubmit={onAddPhase} className="flex flex-col gap-2 mt-4">
+          <div className="flex gap-3 items-end">
+            <TextInput
+              label="New phase name"
+              value={phaseName}
+              onChange={(e) => setPhaseName(e.target.value)}
+              required
+            />
+            <Button type="submit" disabled={createPhase.isPending}>
+              {createPhase.isPending ? 'Adding.' : 'Add phase'}
+            </Button>
+          </div>
+          {createPhase.error && (
+            <p className="font-sans text-sm text-accent">
+              {createPhase.error instanceof Error
+                ? createPhase.error.message
+                : 'Add phase failed.'}
+            </p>
+          )}
         </form>
       </section>
 
@@ -439,6 +466,13 @@ export function ProjectDetailPage() {
             </Button>
           )}
         </div>
+        {convertToInvoice.error && (
+          <p className="font-sans text-sm text-accent mb-3">
+            {convertToInvoice.error instanceof Error
+              ? convertToInvoice.error.message
+              : 'Create invoice failed.'}
+          </p>
+        )}
         {projectInvoices.length === 0 ? (
           <p className="text-ink-dim text-sm">No invoices against this project.</p>
         ) : (

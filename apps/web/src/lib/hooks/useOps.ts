@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import {
   receivingOrdersKeys, productionRunsKeys, shipmentsKeys,
 } from '@/lib/queryKeys/ops';
@@ -42,14 +43,26 @@ export function useUpdateReceivingOrder(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<ReceivingOrder>) => updateReceivingOrder(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: receivingOrdersKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: receiving order updates write an
+      // audit_log row; invalidate the timeline so the detail page reflects
+      // the latest entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+    },
   });
 }
 export function useTransitionReceivingOrder(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (to: ReceivingOrderStatus) => transitionReceivingOrder(id, to),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: receivingOrdersKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: receiving order transitions write an
+      // audit_log row via trg_audit_receiving_orders_state; invalidate the
+      // timeline so the operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+    },
   });
 }
 export function useReceiveReceivingOrder(id: string) {
@@ -57,7 +70,13 @@ export function useReceiveReceivingOrder(id: string) {
   return useMutation({
     mutationFn: (input: { received_date?: string; lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }> }) =>
       receiveReceivingOrder(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: receivingOrdersKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: receive RPC drives a draft -> received
+      // transition that writes an audit row; invalidate the timeline so
+      // the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+    },
   });
 }
 
@@ -83,21 +102,39 @@ export function useUpdateProductionRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<ProductionRun>) => updateProductionRun(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: productionRunsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: productionRunsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: production run updates write an
+      // audit_log row; invalidate the timeline so the detail page
+      // reflects the latest entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('production_run', id) });
+    },
   });
 }
 export function useStartProductionRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => startProductionRun(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: productionRunsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: productionRunsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: start drives a planned -> in_progress
+      // transition that writes an audit row; invalidate the timeline so
+      // the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('production_run', id) });
+    },
   });
 }
 export function useCompleteProductionRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CompleteRunInput) => completeProductionRun(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: productionRunsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: productionRunsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: complete drives an in_progress ->
+      // completed transition that writes an audit row; invalidate the
+      // timeline so the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('production_run', id) });
+    },
   });
 }
 
@@ -123,20 +160,38 @@ export function useUpdateShipment(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<Shipment>) => updateShipment(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: shipmentsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: shipmentsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: shipment updates write an audit_log
+      // row; invalidate the timeline so the detail page reflects the
+      // latest entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', id) });
+    },
   });
 }
 export function useTransitionShipment(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (to: ShipmentStatus) => transitionShipment(id, to),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: shipmentsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: shipmentsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: shipment transitions write an
+      // audit_log row via trg_audit_shipments_state; invalidate the
+      // timeline so the operator sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', id) });
+    },
   });
 }
 export function useShipShipment(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: ShipShipmentInput) => shipShipment(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: shipmentsKeys.all }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: shipmentsKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: ship RPC drives a packed -> shipped
+      // transition that writes an audit row; invalidate the timeline so
+      // the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', id) });
+    },
   });
 }

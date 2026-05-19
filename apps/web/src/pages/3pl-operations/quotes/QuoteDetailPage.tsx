@@ -62,28 +62,37 @@ export function QuoteDetailPage() {
     }
   };
 
-  const onAddLine = async (e: FormEvent) => {
+  const onAddLine = (e: FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    await addLine.mutateAsync({
-      name: lineName,
-      sku: lineSku || null,
-      item_id: selectedItemId,
-      kind: 'item',
-      quantity_e3: lineQty,
-      unit_price_cents: linePrice,
-      discount_bps: Number(lineDiscountBps) || 0,
-      tax_id: lineTaxId || null,
-      is_taxable: lineIsTaxable,
-    });
-    setSelectedItemId(null);
-    setLineName('');
-    setLineSku('');
-    setLineQty('1000');
-    setLinePrice('0');
-    setLineDiscountBps('0');
-    setLineTaxId('');
-    setLineIsTaxable(true);
+    // F-Wave7-MUTATION-ERRORS-SWEEP-01: mutate(input, { onSuccess }) so a
+    // 4xx surfaces in the inline error renderer under the form instead of
+    // silently leaving the operator with a stuck form.
+    addLine.mutate(
+      {
+        name: lineName,
+        sku: lineSku || null,
+        item_id: selectedItemId,
+        kind: 'item',
+        quantity_e3: lineQty,
+        unit_price_cents: linePrice,
+        discount_bps: Number(lineDiscountBps) || 0,
+        tax_id: lineTaxId || null,
+        is_taxable: lineIsTaxable,
+      },
+      {
+        onSuccess: () => {
+          setSelectedItemId(null);
+          setLineName('');
+          setLineSku('');
+          setLineQty('1000');
+          setLinePrice('0');
+          setLineDiscountBps('0');
+          setLineTaxId('');
+          setLineIsTaxable(true);
+        },
+      },
+    );
   };
 
   return (
@@ -245,8 +254,17 @@ export function QuoteDetailPage() {
                 Taxable
               </span>
             </label>
-            <Button type="submit">Add line</Button>
+            <Button type="submit" disabled={addLine.isPending}>
+              {addLine.isPending ? 'Adding.' : 'Add line'}
+            </Button>
           </div>
+          {addLine.error && (
+            <p className="font-sans text-sm text-accent">
+              {addLine.error instanceof Error
+                ? addLine.error.message
+                : 'Add line failed.'}
+            </p>
+          )}
         </form>
       )}
 

@@ -33,6 +33,13 @@ export function ShipmentDetailPage() {
             className="px-3 py-1 border border-accent text-accent font-sans text-xs uppercase hover:bg-bg-2">Ship</button>
         ) : null}
       </div>
+      {(transition.error || ship.error) && (
+        <p className="font-sans text-sm text-accent">
+          {(transition.error instanceof Error && transition.error.message) ||
+            (ship.error instanceof Error && ship.error.message) ||
+            'Action failed.'}
+        </p>
+      )}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink">{d.warehouse_id}</dd>
         <dt className="text-ink-dim">Ship date</dt><dd className="text-ink">{d.ship_date ?? ''}</dd>

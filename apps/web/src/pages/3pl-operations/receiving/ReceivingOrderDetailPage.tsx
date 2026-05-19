@@ -32,6 +32,13 @@ export function ReceivingOrderDetailPage() {
           ))}
         </div>
       ) : null}
+      {transition.error && (
+        <p className="font-sans text-sm text-accent">
+          {transition.error instanceof Error
+            ? transition.error.message
+            : 'Transition failed.'}
+        </p>
+      )}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink">{warehouseLabel}</dd>
         <dt className="text-ink-dim">Expected</dt><dd className="text-ink">{d.expected_date ?? ''}</dd>

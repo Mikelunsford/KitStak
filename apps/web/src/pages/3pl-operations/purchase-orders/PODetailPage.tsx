@@ -52,6 +52,14 @@ export function PODetailPage() {
         </div>
       ) : null}
 
+      {transition.error && (
+        <p className="font-sans text-sm text-accent">
+          {transition.error instanceof Error
+            ? transition.error.message
+            : 'Transition failed.'}
+        </p>
+      )}
+
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Vendor</dt><dd className="text-ink">{data.vendor_id}</dd>
         <dt className="text-ink-dim">Order date</dt><dd className="text-ink">{data.order_date}</dd>

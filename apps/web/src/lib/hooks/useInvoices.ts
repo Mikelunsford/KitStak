@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { invoiceKeys } from '@/lib/queryKeys/invoices';
 import {
   cancelInvoice,
@@ -66,6 +67,10 @@ export function useUpdateInvoice(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: invoice updates write an audit_log
+      // row via the audit trigger; invalidate the timeline so the detail
+      // page reflects the latest entries.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('invoice', id) });
     },
   });
 }
@@ -85,6 +90,9 @@ export function useSendInvoice() {
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: invoice send writes an audit row;
+      // invalidate the timeline so the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('invoice', id) });
     },
   });
 }
@@ -96,6 +104,9 @@ export function useCancelInvoice() {
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: invoice cancel writes an audit row;
+      // invalidate the timeline so the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('invoice', id) });
     },
   });
 }
@@ -108,6 +119,9 @@ export function useTransitionInvoice() {
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: invoice state transitions write an
+      // audit row; invalidate the timeline so the operator sees the entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('invoice', id) });
     },
   });
 }
