@@ -103,7 +103,7 @@ const invoices: Route = {
       .order('issued_at', { ascending: false })
       .limit(200);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-    return ok({ items: data ?? [] });
+    return ok(data ?? []);
   },
 };
 
@@ -128,7 +128,7 @@ const quotes: Route = {
       .order('issued_at', { ascending: false })
       .limit(200);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-    return ok({ items: data ?? [] });
+    return ok(data ?? []);
   },
 };
 
@@ -153,7 +153,7 @@ const projects: Route = {
       .order('started_at', { ascending: false })
       .limit(200);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-    return ok({ items: data ?? [] });
+    return ok(data ?? []);
   },
 };
 
@@ -218,7 +218,7 @@ const attachments: Route = {
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-    return ok({ items: data ?? [] });
+    return ok(data ?? []);
   },
 };
 

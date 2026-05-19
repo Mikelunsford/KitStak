@@ -353,7 +353,7 @@ const listVersions = async (ctx: RouteCtx) => {
     .eq('quote_id', ctx.params.id)
     .order('version_number', { ascending: false });
   if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  return ok({ items: data ?? [] });
+  return ok(data ?? []);
 };
 
 // --- PDF (stub; Agent F's pdf-worker not yet online) ---
