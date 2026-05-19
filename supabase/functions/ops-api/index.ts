@@ -16,6 +16,10 @@
 //   PATCH  /receiving-orders/:id             update
 //   POST   /receiving-orders/:id/transition  state transition
 //   POST   /receiving-orders/:id/receive     complete (->received) + payload
+//   GET    /receiving-orders/:id/line-items                 list lines
+//   POST   /receiving-orders/:id/line-items                 add line
+//   PATCH  /receiving-orders/:id/line-items/:lineId         update line
+//   DELETE /receiving-orders/:id/line-items/:lineId         delete line
 //
 //   GET    /production-runs                  list
 //   POST   /production-runs                  create
@@ -30,6 +34,10 @@
 //   PATCH  /shipments/:id                    update
 //   POST   /shipments/:id/transition         state transition
 //   POST   /shipments/:id/ship               -> shipped
+//   GET    /shipments/:id/line-items                 list lines
+//   POST   /shipments/:id/line-items                 add line
+//   PATCH  /shipments/:id/line-items/:lineId         update line
+//   DELETE /shipments/:id/line-items/:lineId         delete line
 
 import { z } from 'zod';
 
@@ -53,6 +61,10 @@ import {
   ShipmentLineSchema, ShipmentPayloadSchema,
   ProductionRunConsumedLineSchema, ProductionRunProducedSchema,
   ProductionRunPayloadSchema,
+  ReceivingOrderLineItemSchema, ReceivingOrderLineItemCreateSchema,
+  ReceivingOrderLineItemUpdateSchema,
+  ShipmentLineItemSchema, ShipmentLineItemCreateSchema,
+  ShipmentLineItemUpdateSchema,
   type ReceivingOrder, type ProductionRun, type Shipment,
 } from '../_shared/types/vendors_inventory_ops.ts';
 import {
@@ -143,6 +155,111 @@ const ShipmentShip = z.object({
   tracking_number: z.string().optional().nullable(),
   lines: z.array(ShipmentLineSchema).default([]),
 });
+
+// ---------------------------------------------------------------------------
+// F-Wave7-LINES-01: receiving + shipment line item normalised tables.
+//
+// Lines now live in their own tables. The parent's payload.lines JSON mirror
+// is kept in sync by dual-write here because the emit_movements triggers
+// (migrations 0032 + 0048) still read from payload.lines on the parent's
+// terminal status transition. A future release migrates those triggers to
+// read from the new tables, after which a multi-stage-drop migration removes
+// the JSON field per the constitution.
+//
+// Why dual-write at the handler layer (not a database trigger): a DB trigger
+// that rewrote payload.lines on every line-item INSERT / UPDATE / DELETE
+// would run inside the same transaction as the parent UPDATE that fires
+// emit_movements, which could surface as inconsistent intermediate state if
+// the order of trigger firings shifted. Dual-writing at the handler keeps
+// the contract explicit and the failure mode loud.
+// ---------------------------------------------------------------------------
+
+interface LineRow {
+  item_id: string;
+  quantity: number | string;
+  unit_cost_cents?: number | string | null;
+  uom?: string | null;
+  reference?: string | null;
+  position: number;
+}
+
+async function syncReceivingPayloadLines(
+  caller: Caller, receivingOrderId: string,
+): Promise<void> {
+  const { data: rows, error } = await admin()
+    .from('receiving_order_line_items')
+    .select('item_id, quantity, unit_cost_cents, uom, reference, position')
+    .eq('org_id', caller.orgId)
+    .eq('receiving_order_id', receivingOrderId)
+    .order('position', { ascending: true });
+  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  const { data: parent, error: parentErr } = await admin()
+    .from('receiving_orders').select('payload')
+    .eq('org_id', caller.orgId).eq('id', receivingOrderId).maybeSingle();
+  if (parentErr) throw new ApiError('INTERNAL_ERROR', 500, parentErr.message);
+  if (!parent) return;
+  const merged = {
+    ...(parent.payload as Record<string, unknown>),
+    lines: (rows ?? []) as LineRow[],
+  };
+  const { error: updateErr } = await admin().from('receiving_orders')
+    .update({ payload: merged, updated_by: caller.userId, updated_at: new Date().toISOString() })
+    .eq('org_id', caller.orgId).eq('id', receivingOrderId);
+  if (updateErr) throw new ApiError('INTERNAL_ERROR', 500, updateErr.message);
+}
+
+async function syncShipmentPayloadLines(
+  caller: Caller, shipmentId: string,
+): Promise<void> {
+  const { data: rows, error } = await admin()
+    .from('shipment_line_items')
+    .select('item_id, quantity, unit_cost_cents, uom, reference, position')
+    .eq('org_id', caller.orgId)
+    .eq('shipment_id', shipmentId)
+    .order('position', { ascending: true });
+  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  const { data: parent, error: parentErr } = await admin()
+    .from('shipments').select('payload')
+    .eq('org_id', caller.orgId).eq('id', shipmentId).maybeSingle();
+  if (parentErr) throw new ApiError('INTERNAL_ERROR', 500, parentErr.message);
+  if (!parent) return;
+  const merged = {
+    ...(parent.payload as Record<string, unknown>),
+    lines: (rows ?? []) as LineRow[],
+  };
+  const { error: updateErr } = await admin().from('shipments')
+    .update({ payload: merged, updated_by: caller.userId, updated_at: new Date().toISOString() })
+    .eq('org_id', caller.orgId).eq('id', shipmentId);
+  if (updateErr) throw new ApiError('INTERNAL_ERROR', 500, updateErr.message);
+}
+
+async function assertReceivingParent(caller: Caller, id: string): Promise<void> {
+  const { data, error } = await admin().from('receiving_orders').select('id')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
+  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+async function assertShipmentParent(caller: Caller, id: string): Promise<void> {
+  const { data, error } = await admin().from('shipments').select('id')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
+  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+async function nextPositionFor(
+  table: 'receiving_order_line_items' | 'shipment_line_items',
+  parentColumn: 'receiving_order_id' | 'shipment_id',
+  caller: Caller, parentId: string,
+): Promise<number> {
+  const { data, error } = await admin().from(table)
+    .select('position')
+    .eq('org_id', caller.orgId)
+    .eq(parentColumn, parentId)
+    .order('position', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  return ((data?.position as number | undefined) ?? -1) + 1;
+}
 
 // ---------------------------------------------------------------------------
 // Route table
@@ -248,6 +365,120 @@ const TABLE: Route[] = [
         if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
         return ok(ReceivingOrderSchema.parse(data));
       });
+    },
+  },
+
+  // receiving_orders line items (F-Wave7-LINES-01)
+  {
+    method: 'GET', path: '/receiving-orders/:id/line-items',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'receiving.line_item.read');
+      parseUuidParam(params.id);
+      await assertReceivingParent(caller, params.id);
+      const { data, error } = await admin()
+        .from('receiving_order_line_items').select('*')
+        .eq('org_id', caller.orgId)
+        .eq('receiving_order_id', params.id)
+        .order('position', { ascending: true });
+      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      return ok((data ?? []).map((r) => ReceivingOrderLineItemSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/receiving-orders/:id/line-items',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'receiving.line_item.create');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, ReceivingOrderLineItemCreateSchema);
+      return respondWithIdempotency(
+        req, caller, 'ops-api', '/receiving-orders/:id/line-items', body,
+        async () => {
+          await assertReceivingParent(caller, params.id);
+          const position = body.position ?? await nextPositionFor(
+            'receiving_order_line_items', 'receiving_order_id', caller, params.id,
+          );
+          const insert = {
+            org_id: caller.orgId,
+            receiving_order_id: params.id,
+            item_id: body.item_id,
+            quantity: body.quantity,
+            unit_cost_cents: body.unit_cost_cents ?? null,
+            uom: body.uom ?? null,
+            reference: body.reference ?? null,
+            position,
+            created_by: caller.userId,
+            updated_by: caller.userId,
+          };
+          const { data, error } = await admin()
+            .from('receiving_order_line_items').insert(insert)
+            .select('*').single();
+          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          await syncReceivingPayloadLines(caller, params.id);
+          return created(ReceivingOrderLineItemSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'PATCH', path: '/receiving-orders/:id/line-items/:lineId',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'receiving.line_item.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lineId, 'lineId');
+      const body = await parseBody(req, ReceivingOrderLineItemUpdateSchema);
+      return respondWithIdempotency(
+        req, caller, 'ops-api', '/receiving-orders/:id/line-items/:lineId', body,
+        async () => {
+          await assertReceivingParent(caller, params.id);
+          const patch: Record<string, unknown> = {
+            updated_by: caller.userId,
+          };
+          if (body.item_id !== undefined) patch.item_id = body.item_id;
+          if (body.quantity !== undefined) patch.quantity = body.quantity;
+          if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
+          if (body.uom !== undefined) patch.uom = body.uom;
+          if (body.reference !== undefined) patch.reference = body.reference;
+          if (body.position !== undefined) patch.position = body.position;
+          const { data, error } = await admin().from('receiving_order_line_items')
+            .update(patch)
+            .eq('org_id', caller.orgId)
+            .eq('receiving_order_id', params.id)
+            .eq('id', params.lineId)
+            .select('*').maybeSingle();
+          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          await syncReceivingPayloadLines(caller, params.id);
+          return ok(ReceivingOrderLineItemSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'DELETE', path: '/receiving-orders/:id/line-items/:lineId',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'receiving.line_item.delete');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lineId, 'lineId');
+      return respondWithIdempotency(
+        req, caller, 'ops-api', '/receiving-orders/:id/line-items/:lineId-delete', null,
+        async () => {
+          await assertReceivingParent(caller, params.id);
+          const { data, error } = await admin().from('receiving_order_line_items')
+            .delete()
+            .eq('org_id', caller.orgId)
+            .eq('receiving_order_id', params.id)
+            .eq('id', params.lineId)
+            .select('id').maybeSingle();
+          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          await syncReceivingPayloadLines(caller, params.id);
+          return ok({ id: params.lineId, deleted: true });
+        },
+      );
     },
   },
 
@@ -468,6 +699,120 @@ const TABLE: Route[] = [
         if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
         return ok(ShipmentSchema.parse(data));
       });
+    },
+  },
+
+  // shipment line items (F-Wave7-LINES-01)
+  {
+    method: 'GET', path: '/shipments/:id/line-items',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'shipment.line_item.read');
+      parseUuidParam(params.id);
+      await assertShipmentParent(caller, params.id);
+      const { data, error } = await admin()
+        .from('shipment_line_items').select('*')
+        .eq('org_id', caller.orgId)
+        .eq('shipment_id', params.id)
+        .order('position', { ascending: true });
+      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      return ok((data ?? []).map((r) => ShipmentLineItemSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/shipments/:id/line-items',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'shipment.line_item.create');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, ShipmentLineItemCreateSchema);
+      return respondWithIdempotency(
+        req, caller, 'ops-api', '/shipments/:id/line-items', body,
+        async () => {
+          await assertShipmentParent(caller, params.id);
+          const position = body.position ?? await nextPositionFor(
+            'shipment_line_items', 'shipment_id', caller, params.id,
+          );
+          const insert = {
+            org_id: caller.orgId,
+            shipment_id: params.id,
+            item_id: body.item_id,
+            quantity: body.quantity,
+            unit_cost_cents: body.unit_cost_cents ?? null,
+            uom: body.uom ?? null,
+            reference: body.reference ?? null,
+            position,
+            created_by: caller.userId,
+            updated_by: caller.userId,
+          };
+          const { data, error } = await admin()
+            .from('shipment_line_items').insert(insert)
+            .select('*').single();
+          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          await syncShipmentPayloadLines(caller, params.id);
+          return created(ShipmentLineItemSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'PATCH', path: '/shipments/:id/line-items/:lineId',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'shipment.line_item.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lineId, 'lineId');
+      const body = await parseBody(req, ShipmentLineItemUpdateSchema);
+      return respondWithIdempotency(
+        req, caller, 'ops-api', '/shipments/:id/line-items/:lineId', body,
+        async () => {
+          await assertShipmentParent(caller, params.id);
+          const patch: Record<string, unknown> = {
+            updated_by: caller.userId,
+          };
+          if (body.item_id !== undefined) patch.item_id = body.item_id;
+          if (body.quantity !== undefined) patch.quantity = body.quantity;
+          if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
+          if (body.uom !== undefined) patch.uom = body.uom;
+          if (body.reference !== undefined) patch.reference = body.reference;
+          if (body.position !== undefined) patch.position = body.position;
+          const { data, error } = await admin().from('shipment_line_items')
+            .update(patch)
+            .eq('org_id', caller.orgId)
+            .eq('shipment_id', params.id)
+            .eq('id', params.lineId)
+            .select('*').maybeSingle();
+          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          await syncShipmentPayloadLines(caller, params.id);
+          return ok(ShipmentLineItemSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'DELETE', path: '/shipments/:id/line-items/:lineId',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireVioCap(caller, 'shipment.line_item.delete');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lineId, 'lineId');
+      return respondWithIdempotency(
+        req, caller, 'ops-api', '/shipments/:id/line-items/:lineId-delete', null,
+        async () => {
+          await assertShipmentParent(caller, params.id);
+          const { data, error } = await admin().from('shipment_line_items')
+            .delete()
+            .eq('org_id', caller.orgId)
+            .eq('shipment_id', params.id)
+            .eq('id', params.lineId)
+            .select('id').maybeSingle();
+          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          await syncShipmentPayloadLines(caller, params.id);
+          return ok({ id: params.lineId, deleted: true });
+        },
+      );
     },
   },
 ];

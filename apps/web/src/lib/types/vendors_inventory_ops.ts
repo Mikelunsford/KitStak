@@ -429,3 +429,72 @@ export const ProductionRunPayloadSchema = z.object({
   produced: ProductionRunProducedSchema.optional(),
 }).passthrough();
 export type ProductionRunPayload = z.infer<typeof ProductionRunPayloadSchema>;
+
+// ---------------------------------------------------------------------------
+// 3PL Ops - normalised line item tables (F-Wave7-LINES-01, migration 0050)
+//
+// Receiving + shipment line items now live in their own tables. The handler
+// layer dual-writes both the new tables and the parent's payload.lines JSON
+// mirror until a future migration moves the emit_movements triggers off the
+// JSON read and a follow-up multi-stage-drop migration removes the JSON
+// field. Production runs intentionally stay JSON for this round; the
+// `consumed` / `produced` schemas above remain authoritative there.
+// ---------------------------------------------------------------------------
+
+export const ReceivingOrderLineItemSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  receiving_order_id: Uuid,
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.nullable(),
+  uom: z.string().nullable(),
+  reference: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type ReceivingOrderLineItem = z.infer<typeof ReceivingOrderLineItemSchema>;
+
+export const ReceivingOrderLineItemCreateSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.optional().nullable(),
+  uom: z.string().min(1).max(16).optional().nullable(),
+  reference: z.string().optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type ReceivingOrderLineItemCreate = z.infer<typeof ReceivingOrderLineItemCreateSchema>;
+
+export const ReceivingOrderLineItemUpdateSchema =
+  ReceivingOrderLineItemCreateSchema.partial();
+export type ReceivingOrderLineItemUpdate = z.infer<typeof ReceivingOrderLineItemUpdateSchema>;
+
+export const ShipmentLineItemSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  shipment_id: Uuid,
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.nullable(),
+  uom: z.string().nullable(),
+  reference: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type ShipmentLineItem = z.infer<typeof ShipmentLineItemSchema>;
+
+export const ShipmentLineItemCreateSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.optional().nullable(),
+  uom: z.string().min(1).max(16).optional().nullable(),
+  reference: z.string().optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type ShipmentLineItemCreate = z.infer<typeof ShipmentLineItemCreateSchema>;
+
+export const ShipmentLineItemUpdateSchema =
+  ShipmentLineItemCreateSchema.partial();
+export type ShipmentLineItemUpdate = z.infer<typeof ShipmentLineItemUpdateSchema>;

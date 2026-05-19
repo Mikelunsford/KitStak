@@ -57,6 +57,10 @@ export type VendorsInventoryOpsCapability =
   | 'receiving.order.create'
   | 'receiving.order.update'
   | 'receiving.receive'
+  | 'receiving.line_item.read'
+  | 'receiving.line_item.create'
+  | 'receiving.line_item.update'
+  | 'receiving.line_item.delete'
   | 'production.run.read'
   | 'production.run.create'
   | 'production.run.update'
@@ -65,7 +69,11 @@ export type VendorsInventoryOpsCapability =
   | 'shipments.shipment.read'
   | 'shipments.shipment.create'
   | 'shipments.shipment.update'
-  | 'shipments.ship';
+  | 'shipments.ship'
+  | 'shipment.line_item.read'
+  | 'shipment.line_item.create'
+  | 'shipment.line_item.update'
+  | 'shipment.line_item.delete';
 
 const OWNER_ADMIN_FULL: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'vendors.vendor.read',
@@ -102,6 +110,10 @@ const OWNER_ADMIN_FULL: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'receiving.order.create',
   'receiving.order.update',
   'receiving.receive',
+  'receiving.line_item.read',
+  'receiving.line_item.create',
+  'receiving.line_item.update',
+  'receiving.line_item.delete',
   'production.run.read',
   'production.run.create',
   'production.run.update',
@@ -111,6 +123,10 @@ const OWNER_ADMIN_FULL: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'shipments.shipment.create',
   'shipments.shipment.update',
   'shipments.ship',
+  'shipment.line_item.read',
+  'shipment.line_item.create',
+  'shipment.line_item.update',
+  'shipment.line_item.delete',
 ];
 
 const OPS_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [
@@ -137,6 +153,10 @@ const OPS_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'receiving.order.create',
   'receiving.order.update',
   'receiving.receive',
+  'receiving.line_item.read',
+  'receiving.line_item.create',
+  'receiving.line_item.update',
+  'receiving.line_item.delete',
   'production.run.read',
   'production.run.create',
   'production.run.update',
@@ -146,6 +166,10 @@ const OPS_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'shipments.shipment.create',
   'shipments.shipment.update',
   'shipments.ship',
+  'shipment.line_item.read',
+  'shipment.line_item.create',
+  'shipment.line_item.update',
+  'shipment.line_item.delete',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [
@@ -169,8 +193,10 @@ const ACCOUNTING_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'stock.level.read',
   'stock.movement.read',
   'receiving.order.read',
+  'receiving.line_item.read',
   'production.run.read',
   'shipments.shipment.read',
+  'shipment.line_item.read',
 ];
 
 const SALES_READ: ReadonlyArray<VendorsInventoryOpsCapability> = [
@@ -191,8 +217,10 @@ const VIEWER_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [
   'stock.movement.read',
   'stock.bom.read',
   'receiving.order.read',
+  'receiving.line_item.read',
   'production.run.read',
   'shipments.shipment.read',
+  'shipment.line_item.read',
 ];
 
 const VENDOR_PORTAL_CAPS: ReadonlyArray<VendorsInventoryOpsCapability> = [

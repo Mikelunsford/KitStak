@@ -18,6 +18,18 @@ import {
   shipShipment,
   type Shipment, type ShipmentStatus, type ShipShipmentInput,
 } from '@/lib/services/shipmentsService';
+import {
+  listReceivingOrderLineItems, createReceivingOrderLineItem,
+  updateReceivingOrderLineItem, deleteReceivingOrderLineItem,
+  type ReceivingOrderLineItem,
+  type ReceivingOrderLineItemCreate, type ReceivingOrderLineItemUpdate,
+} from '@/lib/services/receivingOrderLineItemsService';
+import {
+  listShipmentLineItems, createShipmentLineItem,
+  updateShipmentLineItem, deleteShipmentLineItem,
+  type ShipmentLineItem,
+  type ShipmentLineItemCreate, type ShipmentLineItemUpdate,
+} from '@/lib/services/shipmentLineItemsService';
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
 
@@ -195,3 +207,121 @@ export function useShipShipment(id: string) {
     },
   });
 }
+
+// receiving order line items (F-Wave7-LINES-01)
+const receivingLineItemsKey = (receivingOrderId: string) =>
+  [...receivingOrdersKeys.detail(receivingOrderId), 'line-items'] as const;
+
+export function useReceivingOrderLineItems(receivingOrderId: string | undefined) {
+  return useQuery({
+    queryKey: receivingOrderId
+      ? receivingLineItemsKey(receivingOrderId)
+      : ['ops', 'receiving_orders', 'detail', '__none__', 'line-items'],
+    queryFn: () => listReceivingOrderLineItems(receivingOrderId as string),
+    enabled: !!receivingOrderId,
+    ...C,
+  });
+}
+
+export function useCreateReceivingOrderLineItem(receivingOrderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ReceivingOrderLineItemCreate) =>
+      createReceivingOrderLineItem(receivingOrderId, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: receivingLineItemsKey(receivingOrderId) });
+      void qc.invalidateQueries({ queryKey: receivingOrdersKeys.detail(receivingOrderId) });
+      // F-Wave7-AUDIT-CACHE-SWEEP-01: line-item create updates the parent's
+      // payload.lines mirror via dual-write, which counts as a parent update;
+      // invalidate the timeline so the operator returning to the detail
+      // page sees the new entry.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', receivingOrderId) });
+    },
+  });
+}
+
+export function useUpdateReceivingOrderLineItem(receivingOrderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { lineId: string; body: ReceivingOrderLineItemUpdate }) =>
+      updateReceivingOrderLineItem(receivingOrderId, args.lineId, args.body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: receivingLineItemsKey(receivingOrderId) });
+      void qc.invalidateQueries({ queryKey: receivingOrdersKeys.detail(receivingOrderId) });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', receivingOrderId) });
+    },
+  });
+}
+
+export function useDeleteReceivingOrderLineItem(receivingOrderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (lineId: string) =>
+      deleteReceivingOrderLineItem(receivingOrderId, lineId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: receivingLineItemsKey(receivingOrderId) });
+      void qc.invalidateQueries({ queryKey: receivingOrdersKeys.detail(receivingOrderId) });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', receivingOrderId) });
+    },
+  });
+}
+
+// shipment line items (F-Wave7-LINES-01)
+const shipmentLineItemsKey = (shipmentId: string) =>
+  [...shipmentsKeys.detail(shipmentId), 'line-items'] as const;
+
+export function useShipmentLineItems(shipmentId: string | undefined) {
+  return useQuery({
+    queryKey: shipmentId
+      ? shipmentLineItemsKey(shipmentId)
+      : ['ops', 'shipments', 'detail', '__none__', 'line-items'],
+    queryFn: () => listShipmentLineItems(shipmentId as string),
+    enabled: !!shipmentId,
+    ...C,
+  });
+}
+
+export function useCreateShipmentLineItem(shipmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ShipmentLineItemCreate) =>
+      createShipmentLineItem(shipmentId, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: shipmentLineItemsKey(shipmentId) });
+      void qc.invalidateQueries({ queryKey: shipmentsKeys.detail(shipmentId) });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', shipmentId) });
+    },
+  });
+}
+
+export function useUpdateShipmentLineItem(shipmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { lineId: string; body: ShipmentLineItemUpdate }) =>
+      updateShipmentLineItem(shipmentId, args.lineId, args.body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: shipmentLineItemsKey(shipmentId) });
+      void qc.invalidateQueries({ queryKey: shipmentsKeys.detail(shipmentId) });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', shipmentId) });
+    },
+  });
+}
+
+export function useDeleteShipmentLineItem(shipmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (lineId: string) =>
+      deleteShipmentLineItem(shipmentId, lineId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: shipmentLineItemsKey(shipmentId) });
+      void qc.invalidateQueries({ queryKey: shipmentsKeys.detail(shipmentId) });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', shipmentId) });
+    },
+  });
+}
+
+// Re-export types so consumer pages can import everything from useOps.
+export type {
+  ReceivingOrderLineItem, ReceivingOrderLineItemCreate, ReceivingOrderLineItemUpdate,
+  ShipmentLineItem, ShipmentLineItemCreate, ShipmentLineItemUpdate,
+};
