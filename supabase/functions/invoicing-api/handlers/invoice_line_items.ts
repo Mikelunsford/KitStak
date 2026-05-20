@@ -22,7 +22,8 @@ import {
   InvoiceLineItemSchema,
   type InvoiceLineItem,
 } from '../../_shared/types/finance.ts';
-import { requireFinanceCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const LINE_COLS =
   'id, invoice_id, item_id, description, quantity, unit_price_cents, ' +
@@ -81,7 +82,7 @@ async function ensureInvoiceForLine(orgId: string, lineId: string): Promise<stri
 
 export async function listLineItems(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.read');
+  requireCap(caller, 'invoices.read');
   const invoiceId = parseUuidParam(ctx.params.id!);
   await ensureInvoiceForCaller(caller.orgId, invoiceId);
 
@@ -100,7 +101,7 @@ export async function listLineItems(ctx: RouteCtx): Promise<Response> {
 
 export async function createLineItem(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.write');
+  requireCap(caller, 'invoices.write');
   const invoiceId = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, LineCreateSchema);
 
@@ -144,7 +145,7 @@ export async function createLineItem(ctx: RouteCtx): Promise<Response> {
 
 export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.write');
+  requireCap(caller, 'invoices.write');
   const lineId = parseUuidParam(ctx.params.line_id!, 'line_id');
   const body = await parseBody(ctx.req, LinePatchSchema);
 
@@ -179,7 +180,7 @@ export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
 
 export async function deleteLineItem(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.write');
+  requireCap(caller, 'invoices.write');
   const lineId = parseUuidParam(ctx.params.line_id!, 'line_id');
   return respondWithIdempotency(
     ctx.req,

@@ -22,26 +22,16 @@
 // docs/api/identity.md).
 
 import { route, type RouteCtx } from '../_shared/route.ts';
-import { admin } from '../_shared/handler-helpers.ts';
-import { readCallerContext, requireCaller } from '../_shared/tenant.ts';
+import { admin, requireCap } from '../_shared/handler-helpers.ts';
+import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
 import {
   BrandingResponseSchema,
   OrganizationSchema,
   ResolveHostResponseSchema,
 } from '../_shared/types/identity.ts';
-import {
-  hasIdentityCap,
-  type IdentityCapability,
-} from '../_shared/capabilities/identity.ts';
-import type { Caller } from '../_shared/tenant.ts';
 
 const BUNDLE = 'tenants-api';
-
-function requireIdentityCap(caller: Caller, cap: IdentityCapability): void {
-  if (hasIdentityCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}
 
 async function resolveHost(ctx: RouteCtx): Promise<Response> {
   const host = ctx.url.searchParams.get('host');
@@ -84,7 +74,7 @@ async function getBranding(ctx: RouteCtx): Promise<Response> {
     orgId: ctxRead.orgId,
     role: ctxRead.role,
   };
-  requireIdentityCap(caller, 'branding.read');
+  requireCap(caller, 'branding.read');
 
   const sb = admin();
   const { data, error } = await sb
@@ -110,7 +100,7 @@ async function getBranding(ctx: RouteCtx): Promise<Response> {
 
 async function getTenant(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'tenancy.org.read');
+  requireCap(caller, 'tenancy.org.read');
 
   const sb = admin();
   const { data, error } = await sb

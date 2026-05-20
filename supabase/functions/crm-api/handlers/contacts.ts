@@ -19,7 +19,8 @@ import {
   ContactSchema,
   type Contact,
 } from '../../_shared/types/crm.ts';
-import { requireCrmCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const CONTACT_COLS =
   'id, org_id, customer_id, first_name, last_name, email, phone, title, ' +
@@ -63,7 +64,7 @@ async function fetchContactRow(caller: Caller, id: string): Promise<ContactRow> 
 
 export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.contacts.read');
+  requireCap(caller, 'crm.contacts.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -100,7 +101,7 @@ export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
 
 export async function getContact({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.contacts.read');
+  requireCap(caller, 'crm.contacts.read');
   parseUuidParam(params.id);
   const row = await fetchContactRow(caller, params.id);
   return ok(rowToContact(row));
@@ -108,7 +109,7 @@ export async function getContact({ req, params }: RouteCtx): Promise<Response> {
 
 export async function createContact({ req }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.contacts.write');
+  requireCap(caller, 'crm.contacts.write');
   const body = await parseBody(req, ContactCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /contacts', body, async () => {
@@ -156,7 +157,7 @@ export async function createContact({ req }: RouteCtx): Promise<Response> {
 
 export async function patchContact({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.contacts.write');
+  requireCap(caller, 'crm.contacts.write');
   parseUuidParam(params.id);
   const body = await parseBody(req, ContactPatchSchema);
 
@@ -195,7 +196,7 @@ export async function patchContact({ req, params }: RouteCtx): Promise<Response>
 
 export async function deleteContact({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.contacts.delete');
+  requireCap(caller, 'crm.contacts.delete');
   parseUuidParam(params.id);
 
   return respondWithIdempotency(

@@ -26,7 +26,8 @@ import {
   opportunityStageMachine,
   type OpportunityStageState,
 } from '../../_shared/workflow/crm.ts';
-import { requireCrmCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const OPP_COLS =
   'id, org_id, customer_id, lead_id, display_name, stage, amount_cents, ' +
@@ -78,7 +79,7 @@ async function fetchOpportunityRow(
 
 export async function listOpportunities({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.opportunities.read');
+  requireCap(caller, 'crm.opportunities.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -117,7 +118,7 @@ export async function listOpportunities({ req, url }: RouteCtx): Promise<Respons
 
 export async function getOpportunity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.opportunities.read');
+  requireCap(caller, 'crm.opportunities.read');
   parseUuidParam(params.id);
   const row = await fetchOpportunityRow(caller, params.id);
   return ok(rowToOpportunity(row));
@@ -125,7 +126,7 @@ export async function getOpportunity({ req, params }: RouteCtx): Promise<Respons
 
 export async function createOpportunity({ req }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.opportunities.write');
+  requireCap(caller, 'crm.opportunities.write');
   const body = await parseBody(req, OpportunityCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /opportunities', body, async () => {
@@ -176,7 +177,7 @@ export async function createOpportunity({ req }: RouteCtx): Promise<Response> {
 
 export async function patchOpportunity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.opportunities.write');
+  requireCap(caller, 'crm.opportunities.write');
   parseUuidParam(params.id);
   const body = await parseBody(req, OpportunityPatchSchema);
 
@@ -234,7 +235,7 @@ export async function transitionOpportunityStage(
   { req, params }: RouteCtx,
 ): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.opportunities.stage.transition');
+  requireCap(caller, 'crm.opportunities.stage.transition');
   parseUuidParam(params.id);
   const body = await parseBody(req, OpportunityStageTransitionSchema);
 

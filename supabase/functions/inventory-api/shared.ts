@@ -1,20 +1,17 @@
-// Shared helpers for the inventory-api bundle. Re-exports from
-// _shared and the side-car cap canon.
+// Shared helpers for the inventory-api bundle. Re-exports from _shared.
+// The per-bundle requireVioCap shim was retired at F-Wave2-AGENT-A-05;
+// handlers now use requireCap from the singular handler-helpers module.
 
-import { ApiError, ok } from '../_shared/responses.ts';
 import {
   admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
-  parseUuidParam, respondWithIdempotency, created,
+  parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
+import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
-import {
-  hasVendorsInventoryOpsCap,
-  type VendorsInventoryOpsCapability,
-} from '../_shared/capabilities/vendors_inventory_ops.ts';
 
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
-  parseUuidParam, respondWithIdempotency, created, requireCaller,
+  parseUuidParam, respondWithIdempotency, created, requireCaller, requireCap,
 };
 export type { Caller };
 
@@ -47,10 +44,3 @@ export function paginateByUpdatedAt<
   };
 }
 
-export function requireVioCap(
-  caller: Caller,
-  cap: VendorsInventoryOpsCapability,
-): void {
-  if (hasVendorsInventoryOpsCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}

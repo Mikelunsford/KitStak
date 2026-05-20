@@ -5,10 +5,9 @@
 // _shared/types/cross_cutting.ts.
 
 import { route, type Route } from '../_shared/route.ts';
-import { admin } from '../_shared/handler-helpers.ts';
+import { admin, requireCap } from '../_shared/handler-helpers.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 import type { DashboardSummary } from '../_shared/types/cross_cutting.ts';
 
 const BUNDLE = 'dashboard-api';
@@ -55,9 +54,7 @@ const summary: Route = {
   path: '/dashboard/summary',
   async handler({ req }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'dashboard.summary.read')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: dashboard.summary.read');
-    }
+    requireCap(caller, 'dashboard.summary.read');
     const client = admin();
     const orgId = caller.orgId;
 

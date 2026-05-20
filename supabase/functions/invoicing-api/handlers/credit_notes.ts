@@ -30,7 +30,8 @@ import {
   type CreditNote,
   type CreditNoteAllocation,
 } from '../../_shared/types/finance.ts';
-import { requireFinanceCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const CN_COLS =
   'id, org_id, credit_note_number, customer_id, source_invoice_id, status, ' +
@@ -88,7 +89,7 @@ async function fetchCN(orgId: string, id: string) {
 
 export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'credit_notes.read');
+  requireCap(caller, 'credit_notes.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -127,14 +128,14 @@ export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response>
 
 export async function getCreditNote({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'credit_notes.read');
+  requireCap(caller, 'credit_notes.read');
   const id = parseUuidParam(params.id!);
   return ok(rowToCN(await fetchCN(caller.orgId, id)));
 }
 
 export async function createCreditNote(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'credit_notes.write');
+  requireCap(caller, 'credit_notes.write');
   const body = await parseBody(ctx.req, CreditNoteCreateSchema);
   return respondWithIdempotency(
     ctx.req,
@@ -172,7 +173,7 @@ export async function createCreditNote(ctx: RouteCtx): Promise<Response> {
 
 export async function patchCreditNote(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'credit_notes.write');
+  requireCap(caller, 'credit_notes.write');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, CreditNotePatchSchema);
   return respondWithIdempotency(
@@ -206,7 +207,7 @@ export async function patchCreditNote(ctx: RouteCtx): Promise<Response> {
 
 export async function deleteCreditNote(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'credit_notes.delete');
+  requireCap(caller, 'credit_notes.delete');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
@@ -233,7 +234,7 @@ export async function deleteCreditNote(ctx: RouteCtx): Promise<Response> {
 
 export async function applyCreditNote(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'credit_notes.apply');
+  requireCap(caller, 'credit_notes.apply');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, CreditNoteApplySchema);
 

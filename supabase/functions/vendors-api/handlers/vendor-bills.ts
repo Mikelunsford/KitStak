@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
+  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
 import {
@@ -43,7 +43,7 @@ export function handleVendorBills(): Route[] {
       method: 'GET', path: '/vendor-bills',
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.vendor_bill.read');
+        requireCap(caller, 'vendor_bills.vendor_bill.read');
         // F-Wave7-LISTFILTER-01: vendor_id FK filter lifts VendorDetailPage
         // client-side .filter(...) into a SQL where-clause. RLS Pattern A
         // wraps the org gate so a cross-tenant vendor_id still 200 + [].
@@ -60,7 +60,7 @@ export function handleVendorBills(): Route[] {
       method: 'POST', path: '/vendor-bills',
       handler: async ({ req }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.vendor_bill.create');
+        requireCap(caller, 'vendor_bills.vendor_bill.create');
         const body = await parseBody(req, BillCreateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills', body, async () => {
           const { data, error } = await admin()
@@ -79,7 +79,7 @@ export function handleVendorBills(): Route[] {
       method: 'GET', path: '/vendor-bills/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.vendor_bill.read');
+        requireCap(caller, 'vendor_bills.vendor_bill.read');
         parseUuidParam(params.id);
         const row = await getByIdOrgScoped<VendorBill>('vendor_bills', caller, params.id);
         return ok(VendorBillSchema.parse(row));
@@ -89,7 +89,7 @@ export function handleVendorBills(): Route[] {
       method: 'PATCH', path: '/vendor-bills/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.vendor_bill.update');
+        requireCap(caller, 'vendor_bills.vendor_bill.update');
         parseUuidParam(params.id);
         const body = await parseBody(req, BillUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id', body, async () => {
@@ -108,7 +108,7 @@ export function handleVendorBills(): Route[] {
       method: 'POST', path: '/vendor-bills/:id/transition',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.vendor_bill.transition');
+        requireCap(caller, 'vendor_bills.vendor_bill.transition');
         parseUuidParam(params.id);
         const body = await parseBody(req, BillTransitionInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id/transition', body, async () => {
@@ -128,7 +128,7 @@ export function handleVendorBills(): Route[] {
       method: 'GET', path: '/vendor-bills/:id/payments',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.vendor_bill.read');
+        requireCap(caller, 'vendor_bills.vendor_bill.read');
         parseUuidParam(params.id);
         await getByIdOrgScoped<VendorBill>('vendor_bills', caller, params.id);
         const { data, error } = await admin()
@@ -144,7 +144,7 @@ export function handleVendorBills(): Route[] {
       method: 'POST', path: '/vendor-bills/:id/payments',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendor_bills.payment.write');
+        requireCap(caller, 'vendor_bills.payment.write');
         parseUuidParam(params.id);
         const body = await parseBody(req, PaymentInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id/payments', body, async () => {

@@ -9,10 +9,9 @@
 // follow-up Wave will land pdfkit (BSD, no Chrome) and replace the stub.
 
 import { route, type Route } from '../_shared/route.ts';
-import { parseBody } from '../_shared/handler-helpers.ts';
+import { parseBody, requireCap } from '../_shared/handler-helpers.ts';
 import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 import { z } from 'zod';
 
 const BUNDLE = 'pdf-worker';
@@ -33,9 +32,7 @@ const listTemplates: Route = {
   path: '/pdf/templates',
   async handler({ req }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'pdf.document.render')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: pdf.document.render');
-    }
+    requireCap(caller, 'pdf.document.render');
     return ok({ items: TEMPLATES });
   },
 };
@@ -45,9 +42,7 @@ const render: Route = {
   path: '/pdf/render',
   async handler({ req }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'pdf.document.render')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: pdf.document.render');
-    }
+    requireCap(caller, 'pdf.document.render');
     const _body = await parseBody(req, RenderRequestSchema);
     // v1 stub. The dependency ban list excludes a Chrome-based renderer and
     // the operator has not yet approved a JS PDF library; rather than ship

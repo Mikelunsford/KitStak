@@ -1,6 +1,6 @@
 # Kitstak Status
 
-Last updated: 2026-05-20 (Phase 8 follow-up batch: emit_movements triggers read from line-item tables + SPA polish bundle + CI Vercel dedupe; baseline was `8dd0a42`)
+Last updated: 2026-05-20 (Phase 8 follow-up batch: emit_movements triggers read from line-item tables + SPA polish bundle + CI Vercel dedupe + cap consolidation; baseline was `a00177b`)
 
 ## Current state
 
@@ -20,7 +20,6 @@ Last updated: 2026-05-20 (Phase 8 follow-up batch: emit_movements triggers read 
 
 ### Operator-gated (waiting on explicit operator authorization beyond a phase go)
 
-- **`F-Wave2-AGENT-A-05`**: master capability table consolidation. Fold all domain caps from the 6 side-cars into the singular `_shared/capabilities.ts`. Removes the per-bundle `requireXxxCap` shim pattern (D-011) in favor of a single `requireCap`.
 - **`F-Wave2-CO-01`**: pdf-worker real render. Needs operator-approved JS PDF dependency (`pdfkit` or `jsPDF`, both BSD). Today `pdf-worker` returns a 501 stub.
 - **`F-Wave2-DNDKIT-01`**: project-phase reorder UI. Needs operator-approved `dnd-kit` dependency. Today reorder uses Up / Down buttons.
 - **`F-Wave5-CO-01`** / **`F-Wave3-OBS-01`**: Sentry SPA + edge-function capture. Needs operator-approved DSN.
@@ -50,6 +49,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 - `F-Wave7-RECEIVING-DETAIL-ENTITY-LABEL-01`: already migrated in tree at baseline `8dd0a42`. `ReceivingOrderDetailPage` already imports `EntityLabel` and renders `<EntityLabel kind="warehouse" id={d.warehouse_id} />` plus `<EntityLabel kind="item" id={l.item_id} />` on line rows. PR #31's inline `useWarehousesList` pattern was already excised; the soak window passed without intervention. No code change required.
 - `F-Wave7-STALE-6_5-TODOS-01`: four stale narrative TODO comments removed from `OpportunityDetailPage.tsx`, `ProjectDetailPage.tsx`, `useProjects.ts` (the CustomerDetailPage marker had already been rewritten in PR #48 / LISTFILTER-01 close, only the allowlist entry remained). The marker block in `scripts/canon-steward-allowlist.txt` (lines 19-31 of the pre-edit file) dropped; `canon-steward-check.mjs` exits 0 against the cleaned tree.
 - `F-Wave8-CI-VERCEL-DEDUPE-01`: Deleted `.github/workflows/deploy-preview.yml`; Vercel's native Git integration already deploys PR previews. `deploy-prod.yml` retained for explicit CLI prod deploys on main push.
+- `F-Wave2-AGENT-A-05`: master capability table consolidation. The six side-car cap files (`_shared/capabilities/{crm,cross_cutting,finance,identity,sales,vendors_inventory_ops}.ts` plus the SPA mirrors) folded into the singular `_shared/capabilities.ts` plus `apps/web/src/lib/capabilities.ts` byte-mirror pair. Audited zero cross-domain cap-name collisions; 203 caps total across 8 roles in one union. Per-bundle `requireXxxCap` shim pattern (D-011) retired: handlers now import `requireCap` from `_shared/handler-helpers.ts` directly. `_helpers.ts` files for invoicing-api, finance-api, crm-api retained (BUNDLE constant plus finance-api `requireFinanceJeFlag` per-route flag guard); quotes-api / projects-api / sales-config-api `_helpers.ts` deleted (cap-shim-only). vendors-api and inventory-api `shared.ts` re-export `requireCap`; ops-api inline `requireVioCap` deleted; 4 inline `requireIdentityCap` definitions in tenants-api / settings-api / auth-api / admin-console-api deleted. The 6 cross-cutting bundles where 403-on-deny was the existing posture (collaboration-api / dashboard-api / exports-api / imports-api / pdf-worker / search-api) converted from `hasCrossCuttingCap` boolean check to `requireCap`. `customer-portal-api` carve-out preserved: still uses the boolean `hasCap` check plus explicit `throw new ApiError('NOT_FOUND', 404)` per the Pattern B RLS rule that hides existence from non-tenants. SPA `useVioCapabilities` hook retargeted as a thin re-export keyed to the unified `Capability` union so the 14 page-level callers do not change. `parity.test.ts` drops `capabilities` from `SIDE_CAR_KINDS`; new declared pair count is 17 (5 singular + 6 domains × 2 kinds: types + workflow). Journal at `03-workspace/journal/phase-8-cap-consolidation.md`.
 
 ### Closed in this session
 
@@ -95,11 +95,11 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 | Migration rules (forward-only, idempotent, no edits post-apply) | Held. 5 new migrations 0042 to 0046 all forward-only with constitutional headers. |
 | Idempotency (`Idempotency-Key` on every non-GET, hashed, stored) | Held. All new `projects-api` POST/PATCH/DELETE endpoints require it. |
 | Audit log (append-only, hash chain, auto-state-transition triggers) | Held. `project_line_items` ships with auto-trigger from migration 0044; `audit_log` entity_type enum extended. |
-| Capabilities (D-011 per-bundle `requireXxxCap` shim) | Held. `projects-api` extended with `project.line_item.*` caps via `requireProjectCap` shim. |
+| Capabilities (singular `_shared/capabilities.ts`, server-authoritative `requireCap`) | Held. D-011 per-bundle shim pattern retired this session (F-Wave2-AGENT-A-05); all 203 caps live in the one byte-mirrored union; handlers call `requireCap` from `_shared/handler-helpers.ts`. |
 | Banned deps | Held. No new top-level deps. |
 | Brand discipline | Held. All copy clean; lucide-react icons only; no em dashes, no double hyphens, no emojis. |
 | TS1 read-only zone | Held. No writes. |
-| Byte-mirror parity (26 pairs) | Held. `test:contract` 26/26 across every PR. `constants` pair landed in PR #44 (Phase 7 LITDRIFT-01); 25 pairs to 26. |
+| Byte-mirror parity (17 pairs) | Held. `test:contract` 17/17 after F-Wave2-AGENT-A-05 (was 23 pre-cap-fold: 5 singular + 6 domains × 3 kinds; now 5 singular + 6 domains × 2 kinds since `capabilities` is no longer a side-car). |
 
 ### Code-level: MINOR DRIFTS (workarounds in code with durable follow-ups filed)
 
@@ -138,7 +138,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 - Multi-agent dispatch protocol still works (Wave 6.5 proved it at 4 agents + 2 finishers).
 - Cowork orchestrator role intact (canon updates, gate enforcement, PR opening, Canon Steward consolidation).
 - Phase boundaries plus operator-gated decisions intact.
-- All 26 byte-mirror canon pairs intact (`constants` pair seeded in PR #44 this session).
+- All 17 byte-mirror canon pairs intact (pair count dropped from 23 to 17 this session when F-Wave2-AGENT-A-05 folded the 6 capability side-cars into the singular canon; 5 singular + 6 domains × 2 kinds remain).
 - 50 migrations applied at remote; no migration-rule violations.
 
 **Wave 6 Customer Zero chassis fixes shipped (PRs #13, #14, #15, #16, #17, #18, #19 merged · main at `a90eded`).** Phase 6 opened with the operator signing in to `www.kitstak.com` and the Topbar rendering "No workspace" despite a fully provisioned `kitstak` org and stamped JWT claims. Four rapid-fire hotfixes landed all the foundational SPA -> edge-function wiring gaps that Wave 5's probe matrix could not have caught: apiClient relative URLs + missing auth headers (PR #13), CORS allow-headers missing `apikey` (PR #14), Sidebar pillar paths drifted from the routes table (PR #15), Sidebar surfaced only pillars while the Phase 6 quote-to-cash flow needs Workspace / Sales / Procurement / Inventory / Finance / Tools / Admin (PR #16). Plus an operator-data fixup seeding `org_feature_flags` for the `kitstak` org (which had been provisioned before migration 0040's `seed_org_settings` shipped). Phase 6 chassis closed; the operator-led quote-to-cash workflow exercise is the remaining Phase 6 gate.
@@ -160,7 +160,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 
 ### Side-car canon
 
-`_shared/{types,workflow,capabilities}/<domain>.ts` paired with `apps/web/src/lib/{types,workflow,capabilities}/<domain>.ts` for six domains: identity, crm, sales, finance, vendors_inventory_ops, cross_cutting. `parity.test.ts` asserts 22 byte-identical pairs (4 singular plus 18 side-cars). `_shared/workflow/cross_cutting.ts` aggregates all 14 state machines into `ALL_STATE_MACHINES`. The singular byte-mirrored files (`types.ts`, `workflow.ts`, `capabilities.ts`, `money.ts`) carry the foundation only and are unchanged since Wave 1.
+`_shared/{types,workflow}/<domain>.ts` paired with `apps/web/src/lib/{types,workflow}/<domain>.ts` for six domains: identity, crm, sales, finance, vendors_inventory_ops, cross_cutting. `parity.test.ts` asserts 17 byte-identical pairs (5 singular plus 12 side-cars: 6 domains × 2 kinds). `_shared/workflow/cross_cutting.ts` aggregates all 14 state machines into `ALL_STATE_MACHINES`. The singular byte-mirrored files (`types.ts`, `workflow.ts`, `capabilities.ts`, `money.ts`, `constants.ts`) carry the foundation; `capabilities.ts` is now the singular authority for all 203 caps after F-Wave2-AGENT-A-05 folded the per-domain side-cars in.
 
 ### SPA surface
 
@@ -229,7 +229,7 @@ The probe matrix's first real run surfaced six constitutional violations the mat
 - **F-Wave5-TEST-02**: dry-run smoke selectors against live staging once Phase 6 starts exercising the full SPA workflow.
 - **F-Wave5-INFRA-01**: `migrate.yml` failed against the production-db pooler with "Tenant or user not found" while applying 0041. The Supabase GH integration's auto-apply unblocked this specific deploy (0041 is in the prod migration table). The pooler connection string in `migrate.yml` and / or the `SUPABASE_DB_PASSWORD` / `SUPABASE_PROJECT_REF` secrets need a check-in before the workflow can be relied on for future schema changes. The orchestrator updated `SUPABASE_DB_PASSWORD` from the keys file's rotated value during the phase; the failure may be a pooler-username format issue (`postgres.<ref>` user encoding).
 - **F-Wave3-OBS-01**: Sentry SPA + edge-function capture, blocked on `VITE_SENTRY_DSN`.
-- **F-Wave2-AGENT-A-05** (carried): operator-gated merge of domain side-car capabilities into the master byte-mirrored `_shared/capabilities.ts`. The per-bundle shim pattern now lives in invoicing-api, quotes-api, and projects-api as the supported interim.
+- **F-Wave2-AGENT-A-05** (closed in Phase 8 follow-up batch): the six domain capability side-cars folded into the singular byte-mirrored `_shared/capabilities.ts`. The per-bundle shim pattern (D-011) is retired across the tree; handlers call `requireCap` from `_shared/handler-helpers.ts` directly. See the Phase 8 closeout entry above for the file-by-file shape.
 
 ## Wave 6 deliverables (shipped this phase, chassis portion)
 

@@ -19,7 +19,8 @@ import {
   ActivitySchema,
   type Activity,
 } from '../../_shared/types/crm.ts';
-import { requireCrmCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const ACTIVITY_COLS =
   'id, org_id, entity_type, entity_id, kind, subject, body, status, ' +
@@ -66,7 +67,7 @@ async function fetchActivityRow(
 
 export async function listActivities({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.activities.read');
+  requireCap(caller, 'crm.activities.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -105,7 +106,7 @@ export async function listActivities({ req, url }: RouteCtx): Promise<Response> 
 
 export async function getActivity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.activities.read');
+  requireCap(caller, 'crm.activities.read');
   parseUuidParam(params.id);
   const row = await fetchActivityRow(caller, params.id);
   return ok(rowToActivity(row));
@@ -113,7 +114,7 @@ export async function getActivity({ req, params }: RouteCtx): Promise<Response> 
 
 export async function createActivity({ req }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.activities.write');
+  requireCap(caller, 'crm.activities.write');
   const body = await parseBody(req, ActivityCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /activities', body, async () => {
@@ -146,7 +147,7 @@ export async function createActivity({ req }: RouteCtx): Promise<Response> {
 
 export async function patchActivity({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.activities.write');
+  requireCap(caller, 'crm.activities.write');
   parseUuidParam(params.id);
   const body = await parseBody(req, ActivityPatchSchema);
 

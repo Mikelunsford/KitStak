@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
+  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
 import {
@@ -47,7 +47,7 @@ export function handleExpenses(): Route[] {
       method: 'GET', path: '/expenses',
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.expense.read');
+        requireCap(caller, 'expenses.expense.read');
         // F-Wave7-LISTFILTER-01: vendor_id and project_id FK filters lift
         // VendorDetailPage / project-related client-side .filter(...) into
         // a SQL where-clause. RLS Pattern A wraps the org gate so a
@@ -67,7 +67,7 @@ export function handleExpenses(): Route[] {
       method: 'POST', path: '/expenses',
       handler: async ({ req }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.expense.create');
+        requireCap(caller, 'expenses.expense.create');
         const body = await parseBody(req, ExpCreate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses', body, async () => {
           const { data, error } = await admin()
@@ -87,7 +87,7 @@ export function handleExpenses(): Route[] {
       method: 'GET', path: '/expenses/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.expense.read');
+        requireCap(caller, 'expenses.expense.read');
         parseUuidParam(params.id);
         const row = await getByIdOrgScoped<Expense>('expenses', caller, params.id);
         return ok(ExpenseSchema.parse(row));
@@ -97,7 +97,7 @@ export function handleExpenses(): Route[] {
       method: 'PATCH', path: '/expenses/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.expense.update');
+        requireCap(caller, 'expenses.expense.update');
         parseUuidParam(params.id);
         const body = await parseBody(req, ExpUpdate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses/:id', body, async () => {
@@ -119,7 +119,7 @@ export function handleExpenses(): Route[] {
         parseUuidParam(params.id);
         const body = await parseBody(req, ExpTransition);
         const cap = TRANSITION_CAPS[body.to];
-        if (cap) requireVioCap(caller, cap);
+        if (cap) requireCap(caller, cap);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses/:id/transition', body, async () => {
           const current = await getByIdOrgScoped<Expense>('expenses', caller, params.id);
           assertTransition(EXPENSE_FSM, current.status, body.to);

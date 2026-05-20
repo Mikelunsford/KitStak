@@ -17,7 +17,8 @@ import {
   PeriodCloseSchema,
   type PeriodClose,
 } from '../../_shared/types/finance.ts';
-import { requireFinanceCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const PC_COLS =
   'id, org_id, period_year, period_month, status, state_changed_at, ' +
@@ -34,7 +35,7 @@ function rowToPc(row: unknown): PeriodClose {
 
 export async function listPeriodClose({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'period_close.read');
+  requireCap(caller, 'period_close.read');
   const year = url.searchParams.get('year');
   let query = admin()
     .from('period_close')
@@ -54,7 +55,7 @@ export async function listPeriodClose({ req, url }: RouteCtx): Promise<Response>
 
 export async function closePeriod(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'period_close.close');
+  requireCap(caller, 'period_close.close');
   const body = await parseBody(ctx.req, PeriodInputSchema);
   return respondWithIdempotency(
     ctx.req,
@@ -93,7 +94,7 @@ export async function closePeriod(ctx: RouteCtx): Promise<Response> {
 
 export async function reopenPeriod(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'period_close.reopen');
+  requireCap(caller, 'period_close.reopen');
   const body = await parseBody(ctx.req, PeriodInputSchema);
   return respondWithIdempotency(
     ctx.req,
