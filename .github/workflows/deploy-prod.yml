@@ -19,5 +19,26 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      # `vercel pull` deliberately does NOT pull env vars marked "Sensitive"
+      # in the Vercel project to the local .env.local that `vercel build`
+      # reads (this is a documented Vercel security behaviour: Sensitive vars
+      # are only injected when the build runs on Vercel's own infrastructure,
+      # not on a third-party CI runner). Since this workflow runs `vercel
+      # build` on GitHub Actions, any Sensitive VITE_* var would otherwise
+      # land in the SPA bundle as `undefined` and Rollup would tree-shake the
+      # dependent code paths. The fix: mirror the lighthouse.yml pattern and
+      # inject the Sensitive VITE_* values from GitHub repository secrets at
+      # the `env:` block of the build step. The build process reads them from
+      # process.env and Vite's `define` step substitutes them into the bundle
+      # at compile time. Background: F-Wave8-POSTHOG-PROJECT-SETUP-01 close
+      # silently regressed when VITE_POSTHOG_KEY was later flagged Sensitive
+      # in Vercel; F-Wave5-CO-01 (SPA portion) activation failed for the
+      # same reason on VITE_SENTRY_DSN. Both env vars are designed to be
+      # frontend-public (PostHog Project Token is rate-limited per project;
+      # Sentry DSN is rate-limited per project) so storing them as GitHub
+      # repo secrets carries no incremental risk vs the SPA bundle itself.
       - run: npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       - run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
