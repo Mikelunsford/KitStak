@@ -19,8 +19,8 @@ stack:
   testing: "Vitest + Playwright + @axe-core/playwright"                # source: apps/web/package.json; confidence: high
   ci: "GitHub Actions"                                                 # source: .github/workflows/; confidence: high
   mobile: "n/a"                                                        # source: no mobile signals
-  analytics_provider: "n/a"                                            # source: no signals
-  observability_sink: "n/a"                                            # source: no @sentry/* etc.
+  analytics_provider: "PostHog (US Cloud project 433097)"              # source: apps/web/src/lib/analytics.ts + F-Wave8-POSTHOG-PROJECT-SETUP-01 (activated 2026-05-20)
+  observability_sink: "Sentry SaaS (US region project 4511423235751936)" # source: apps/web/src/lib/sentry.ts + F-Wave5-CO-01 SPA close (activated 2026-05-20); Deno-side edge-function capture filed as F-Wave5-CO-01-EDGE-01
   load_tool: "n/a"                                                     # source: no signals
   bundle_tool: "size-limit (40 kB gzip on index chunk)"                # source: apps/web/.size-limit.cjs + 00-canon/01-architecture.md; confidence: high
   design_system_stack: "Tailwind + hand-rolled primitives + CSS-variable tokens" # source: 00-canon/01-architecture.md; confidence: high
@@ -65,7 +65,8 @@ phasing:
     - "Wave 6 — Customer Zero"
     - "Phase 6: quote-to-cash gate closed at 347062f (polish carryover landed in PRs #31 to #35)" # source: STATUS.md current state as of 2026-05-19
     - "Phase 7: Stabilization closed at 9846f1e (PRs #37 to #48; 14 follow-ups closed in 3 parallel cycles)" # source: STATUS.md current state as of 2026-05-19; phase-7-stabilization-closeout.md journal
-    - "Phase 8: open (carryover follow-ups filed; scope TBD)"            # source: STATUS.md Phase 8 carryover section
+    - "Phase 8: Polish closed at 9303408 (PRs #56 through #65; 10 code follow-ups closed + 3 deferrals with explicit revisit triggers; PostHog chassis + activation, PDF worker jspdf real-render + font embedding, dnd-kit phase reorder, CI nightly skip-guards, canon-steward + trigger-audit guardrails)" # source: STATUS.md current state as of 2026-05-20
+    - "Phase 9: Observability closed at 4a9a69a (PRs #65, #66, #67; Sentry SPA chassis + activation + Relay IP suppression hardening; Vercel Sensitive env-var workflow fix unblocks both PostHog regression and Sentry; three-layer PII gate)" # source: STATUS.md + phase-9-sentry-spa.md journal as of 2026-05-20
 
 conventions:
   branch_pattern: "claude/<slug>"                                      # source: user-confirmed 2026-05-18. Matches 100% of git history; wave/domain provenance lives in commit messages and PR titles rather than branch names. Revisit if non-Claude-Code authors start dispatching.
@@ -78,7 +79,7 @@ conventions:
 quality_targets:
   a11y_target: "WCAG 2.1 AA"                                           # source: @axe-core/playwright + .github/workflows/lighthouse.yml; confidence: high
   coverage_floor: "80%"                                                # source: user-supplied (no vitest coverage threshold configured today — enforce when added)
-  perf_budgets: "Bundle: 40 kB gzip on index chunk (size-limit). TTI/LCP: TBD — agree before Phase 6 close." # source: 00-canon/01-architecture.md (bundle); TTI/LCP not yet set
+  perf_budgets: "Bundle: 40 kB gzip on index chunk (size-limit; currently 29.95 kB). Lighthouse: LCP under 2.5s, CLS under 0.1, TBT under 200ms (declared in 00-canon/01-architecture.md, but the lighthouse.yml workflow is currently skipped via the LIGHTHOUSE_ENABLED repo variable until Vercel preview Deployment Protection is dropped or a Protection Bypass secret is configured). Lazy chunks have NO budgets today: sentry-*.js sits at 120.74 kB gz, posthog-*.js at 64.72 kB gz, supabase-*.js at 53.50 kB gz; expanding size-limit coverage is a future tightening." # source: 00-canon/01-architecture.md (declared) + .size-limit.cjs (enforced) + Phase 9 performance analysis 2026-05-20
   themes: "light, dark"                                                # source: user-supplied
   compliance_regimes: "n/a"                                            # source: user deferred
 
@@ -105,6 +106,11 @@ policy:
     - "lucide-react"
     - "sonner"
     - "tailwindcss"
+  operator_approved_dependencies:                                      # source: post-CLAUDE.md additions to "What we use", each carries an operator approval at the closing follow-up
+    - "jspdf (worker-side only; operator approved at F-Wave2-CO-01 close)"
+    - "@dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities (lazy-loaded inside ProjectDetailPage; operator approved at F-Wave2-DNDKIT-01)"
+    - "posthog-js (lazy-loaded inside src/lib/analytics.ts; operator approved at F-Wave5-CO-02; activated 2026-05-20 against PostHog US Cloud)"
+    - "@sentry/react (lazy-loaded inside src/lib/sentry.ts; operator approved at F-Wave5-CO-01 SPA close; activated 2026-05-20 against Sentry SaaS US region)"
   custom_rules:                                                        # source: CLAUDE.md non-negotiables
     - "Money: BIGINT cents + _cents suffix + roundHalfEven; _shared/money.ts byte-identical to apps/web/src/lib/money.ts (money.parity.test.ts contract)."
     - "RLS: every tenant-scoped table from migration 0001; filters never throws; cross-tenant reads → 200 []; cross-tenant workflow POSTs → 404; plugin bundle gates → 404; per-route feature-flag misses → 403 FEATURE_DISABLED { flag }."
