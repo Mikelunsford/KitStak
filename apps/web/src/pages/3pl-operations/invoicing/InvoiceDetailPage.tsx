@@ -19,7 +19,7 @@ import { useQuote } from '@/lib/hooks/useQuotes';
 import { useItem } from '@/lib/hooks/useItems';
 import { usePayments } from '@/lib/hooks/usePayments';
 import { useMe } from '@/lib/hooks/useMe';
-import { hasCrossCuttingCap } from '@/lib/capabilities/cross_cutting';
+import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
 
@@ -62,7 +62,7 @@ export function InvoiceDetailPage() {
   const selectedItem = useItem(selectedItemId ?? undefined);
   const me = useMe({ enabled: true });
   const canRenderPdf = me.data?.active_role
-    ? hasCrossCuttingCap(me.data.active_role, 'pdf.document.render')
+    ? hasCap(me.data.active_role, 'pdf.document.render')
     : false;
 
   if (!invoiceId) return <p>Missing invoice id.</p>;

@@ -17,7 +17,7 @@ import { route, type Route } from '../_shared/route.ts';
 import { admin } from '../_shared/handler-helpers.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
+import { hasCap } from '../_shared/capabilities.ts';
 
 const BUNDLE = 'customer-portal-api';
 
@@ -58,7 +58,7 @@ const me: Route = {
   async handler({ req }) {
     const caller = requireCaller(req);
     gatePortal(caller);
-    if (!hasCrossCuttingCap(caller.role, 'portal.customer.read')) {
+    if (!hasCap(caller.role, 'portal.customer.read')) {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
@@ -89,7 +89,7 @@ const invoices: Route = {
   async handler({ req }) {
     const caller = requireCaller(req);
     gatePortal(caller);
-    if (!hasCrossCuttingCap(caller.role, 'portal.invoice.read')) {
+    if (!hasCap(caller.role, 'portal.invoice.read')) {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
@@ -116,7 +116,7 @@ const quotes: Route = {
   async handler({ req }) {
     const caller = requireCaller(req);
     gatePortal(caller);
-    if (!hasCrossCuttingCap(caller.role, 'portal.quote.read')) {
+    if (!hasCap(caller.role, 'portal.quote.read')) {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
@@ -141,7 +141,7 @@ const projects: Route = {
   async handler({ req }) {
     const caller = requireCaller(req);
     gatePortal(caller);
-    if (!hasCrossCuttingCap(caller.role, 'portal.project.read')) {
+    if (!hasCap(caller.role, 'portal.project.read')) {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
@@ -166,7 +166,7 @@ const attachments: Route = {
   async handler({ req, url }) {
     const caller = requireCaller(req);
     gatePortal(caller);
-    if (!hasCrossCuttingCap(caller.role, 'portal.attachment.read')) {
+    if (!hasCap(caller.role, 'portal.attachment.read')) {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);

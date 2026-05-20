@@ -27,7 +27,8 @@ import {
   leadStateMachine,
   type LeadState,
 } from '../../_shared/workflow/crm.ts';
-import { requireCrmCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const LEAD_COLS =
   'id, org_id, display_name, company_name, source, status, primary_email, ' +
@@ -78,7 +79,7 @@ async function fetchLeadRow(caller: Caller, id: string): Promise<LeadRow> {
 
 export async function listLeads({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.leads.read');
+  requireCap(caller, 'crm.leads.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -117,7 +118,7 @@ export async function listLeads({ req, url }: RouteCtx): Promise<Response> {
 
 export async function getLead({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.leads.read');
+  requireCap(caller, 'crm.leads.read');
   parseUuidParam(params.id);
   const row = await fetchLeadRow(caller, params.id);
   return ok(rowToLead(row));
@@ -125,7 +126,7 @@ export async function getLead({ req, params }: RouteCtx): Promise<Response> {
 
 export async function createLead({ req }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.leads.write');
+  requireCap(caller, 'crm.leads.write');
   const body = await parseBody(req, LeadCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /leads', body, async () => {
@@ -160,7 +161,7 @@ export async function createLead({ req }: RouteCtx): Promise<Response> {
 
 export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.leads.write');
+  requireCap(caller, 'crm.leads.write');
   parseUuidParam(params.id);
   const body = await parseBody(req, LeadPatchSchema);
 
@@ -227,7 +228,7 @@ export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
 
 export async function convertLead({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.leads.convert');
+  requireCap(caller, 'crm.leads.convert');
   parseUuidParam(params.id);
   const body = await parseBody(req, LeadConvertSchema);
 

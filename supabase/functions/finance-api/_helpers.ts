@@ -1,25 +1,12 @@
-// finance-api local helpers. Re-exports the substrate the handlers reuse plus
-// the finance-cap requireCap. Per-route gating on the
-// `finance.journal_entries.enabled` flag uses the shared getFlag helper.
+// finance-api local helpers. The per-bundle requireFinanceCap shim was
+// retired at F-Wave2-AGENT-A-05; handlers now import requireCap directly
+// from _shared/handler-helpers.ts. The per-route flag guard for
+// `finance.journal_entries.enabled` stays here (still bundle-specific).
 
 import { ApiError } from '../_shared/responses.ts';
 import type { Caller } from '../_shared/tenant.ts';
-import {
-  FINANCE_CAPABILITY_POLICY,
-  type FinanceCapability,
-  type FinanceRoleCode,
-} from '../_shared/capabilities/finance.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
 import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
-
-export function requireFinanceCap(
-  caller: Caller,
-  cap: FinanceCapability,
-): void {
-  const role = caller.role as unknown as FinanceRoleCode;
-  if (FINANCE_CAPABILITY_POLICY[role]?.includes(cap)) return;
-  throw new ApiError(ERROR_CODES.FORBIDDEN, 403, `caller lacks capability: ${cap}`);
-}
 
 /**
  * Require `finance.journal_entries.enabled` per-route gate. Returns 403

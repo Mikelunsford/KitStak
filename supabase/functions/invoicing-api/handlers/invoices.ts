@@ -33,7 +33,8 @@ import {
   canFinanceTransition,
   type InvoiceState,
 } from '../../_shared/workflow/finance.ts';
-import { requireFinanceCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const INVOICE_COLS =
   'id, org_id, invoice_number, customer_id, project_id, quote_id, status, ' +
@@ -110,7 +111,7 @@ async function fetchInvoiceRow(caller: Caller, id: string): Promise<InvoiceRow> 
 
 export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'invoices.read');
+  requireCap(caller, 'invoices.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -151,7 +152,7 @@ export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
 
 export async function getInvoice({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'invoices.read');
+  requireCap(caller, 'invoices.read');
   const id = parseUuidParam(params.id!);
   const row = await fetchInvoiceRow(caller, id);
   return ok(rowToInvoice(row));
@@ -159,7 +160,7 @@ export async function getInvoice({ req, params }: RouteCtx): Promise<Response> {
 
 export async function createInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.write');
+  requireCap(caller, 'invoices.write');
   const body = await parseBody(ctx.req, InvoiceCreateSchema);
 
   return respondWithIdempotency(
@@ -200,7 +201,7 @@ export async function createInvoice(ctx: RouteCtx): Promise<Response> {
 
 export async function patchInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.write');
+  requireCap(caller, 'invoices.write');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, InvoicePatchSchema);
 
@@ -235,7 +236,7 @@ export async function patchInvoice(ctx: RouteCtx): Promise<Response> {
 
 export async function deleteInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.delete');
+  requireCap(caller, 'invoices.delete');
   const id = parseUuidParam(ctx.params.id!);
 
   return respondWithIdempotency(
@@ -304,7 +305,7 @@ async function transitionInvoiceTo(
 
 export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.send');
+  requireCap(caller, 'invoices.send');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
@@ -318,7 +319,7 @@ export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
 
 export async function cancelInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.cancel');
+  requireCap(caller, 'invoices.cancel');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
@@ -332,7 +333,7 @@ export async function cancelInvoice(ctx: RouteCtx): Promise<Response> {
 
 export async function transitionInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'invoices.transition');
+  requireCap(caller, 'invoices.transition');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, InvoiceTransitionSchema);
   return respondWithIdempotency(
@@ -347,7 +348,7 @@ export async function transitionInvoice(ctx: RouteCtx): Promise<Response> {
 
 export async function getInvoicePdf({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'invoices.read');
+  requireCap(caller, 'invoices.read');
   // pdf-worker integration arrives in Wave 3+. Until then this endpoint
   // returns a 501-shaped error so the SPA can branch on the code.
   const _id = parseUuidParam(params.id!);

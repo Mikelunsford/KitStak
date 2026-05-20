@@ -23,7 +23,7 @@ import { route, type Route } from '../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,
   parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireVioCap,
+  requireCaller, requireCap,
 } from './shared.ts';
 import {
   WarehouseSchema, StockLevelSchema, StockMovementSchema, BomItemSchema,
@@ -61,7 +61,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/warehouses',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'warehouses.warehouse.read');
+      requireCap(caller, 'warehouses.warehouse.read');
       const limit = parseLimit(url);
       const { data, error } = await admin()
         .from('warehouses').select('*')
@@ -78,7 +78,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/warehouses',
     handler: async ({ req }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'warehouses.warehouse.create');
+      requireCap(caller, 'warehouses.warehouse.create');
       const body = await parseBody(req, WarehouseInput);
       return respondWithIdempotency(req, caller, 'inventory-api', '/warehouses', body, async () => {
         const { data, error } = await admin()
@@ -97,7 +97,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/warehouses/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'warehouses.warehouse.read');
+      requireCap(caller, 'warehouses.warehouse.read');
       parseUuidParam(params.id);
       const { data, error } = await admin()
         .from('warehouses').select('*')
@@ -112,7 +112,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/warehouses/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'warehouses.warehouse.update');
+      requireCap(caller, 'warehouses.warehouse.update');
       parseUuidParam(params.id);
       const body = await parseBody(req, WarehouseUpdate);
       return respondWithIdempotency(req, caller, 'inventory-api', '/warehouses/:id', body, async () => {
@@ -131,7 +131,7 @@ const TABLE: Route[] = [
     method: 'DELETE', path: '/warehouses/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'warehouses.warehouse.delete');
+      requireCap(caller, 'warehouses.warehouse.delete');
       parseUuidParam(params.id);
       return respondWithIdempotency(req, caller, 'inventory-api', '/warehouses/:id', null, async () => {
         const { error } = await admin()
@@ -148,7 +148,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/stock-levels',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'stock.level.read');
+      requireCap(caller, 'stock.level.read');
       const limit = parseLimit(url);
       let q = admin()
         .from('stock_levels').select('*')
@@ -170,7 +170,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/stock-movements',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'stock.movement.read');
+      requireCap(caller, 'stock.movement.read');
       let q = admin()
         .from('stock_movements').select('*')
         .eq('org_id', caller.orgId)
@@ -190,7 +190,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/bom-items',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'stock.bom.read');
+      requireCap(caller, 'stock.bom.read');
       const limit = parseLimit(url);
       let q = admin()
         .from('bom_items').select('*')
@@ -209,7 +209,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/bom-items',
     handler: async ({ req }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'stock.bom.write');
+      requireCap(caller, 'stock.bom.write');
       const body = await parseBody(req, BomInput);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items', body, async () => {
         const { data, error } = await admin()
@@ -225,7 +225,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/bom-items/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'stock.bom.write');
+      requireCap(caller, 'stock.bom.write');
       parseUuidParam(params.id);
       const body = await parseBody(req, BomUpdate);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items/:id', body, async () => {
@@ -244,7 +244,7 @@ const TABLE: Route[] = [
     method: 'DELETE', path: '/bom-items/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'stock.bom.write');
+      requireCap(caller, 'stock.bom.write');
       parseUuidParam(params.id);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items/:id', null, async () => {
         const { error } = await admin()

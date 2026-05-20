@@ -11,10 +11,10 @@ import {
   admin,
   parseBody,
   respondWithIdempotency,
+  requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 import {
   ImportValidateRequestSchema,
   ImportCommitRequestSchema,
@@ -101,9 +101,7 @@ const validate: Route = {
   path: '/imports/:entity/validate',
   async handler({ req, params }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'imports.job.validate')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: imports.job.validate');
-    }
+    requireCap(caller, 'imports.job.validate');
     const entity = ImportEntityTypeSchema.safeParse(params.entity);
     if (!entity.success) throw new ApiError('NOT_FOUND', 404);
 
@@ -139,9 +137,7 @@ const commit: Route = {
   path: '/imports/:entity/commit',
   async handler({ req, params }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'imports.job.commit')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: imports.job.commit');
-    }
+    requireCap(caller, 'imports.job.commit');
     const entity = ImportEntityTypeSchema.safeParse(params.entity);
     if (!entity.success) throw new ApiError('NOT_FOUND', 404);
     const body = await parseBody(req, ImportCommitRequestSchema);

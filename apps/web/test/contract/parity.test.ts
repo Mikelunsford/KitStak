@@ -50,7 +50,10 @@ const DOMAINS = [
   'cross_cutting',
 ] as const;
 
-const SIDE_CAR_KINDS = ['types', 'workflow', 'capabilities'] as const;
+// Capabilities are no longer a side-car — folded into the singular canon
+// (apps/web/src/lib/capabilities.ts and _shared/capabilities.ts) at
+// F-Wave2-AGENT-A-05. Domain types and workflow remain per-domain.
+const SIDE_CAR_KINDS = ['types', 'workflow'] as const;
 
 const SIDE_CAR_PAIRS: ReadonlyArray<Pair> = DOMAINS.flatMap((domain) =>
   SIDE_CAR_KINDS.map((kind) => ({

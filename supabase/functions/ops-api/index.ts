@@ -44,15 +44,11 @@ import { z } from 'zod';
 import { route, type Route } from '../_shared/route.ts';
 import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
 import {
-  admin, parseBody, parseUuidParam, respondWithIdempotency, created,
+  admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
 import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
-import {
-  hasVendorsInventoryOpsCap,
-  type VendorsInventoryOpsCapability,
-} from '../_shared/capabilities/vendors_inventory_ops.ts';
 import {
   ReceivingOrderSchema, ReceivingOrderStatusSchema,
   ProductionRunSchema, ProductionRunStatusSchema,
@@ -71,11 +67,6 @@ import {
   RECEIVING_ORDER_FSM, PRODUCTION_RUN_FSM, SHIPMENT_FSM,
   canTransitionVio, type Fsm,
 } from '../_shared/workflow/vendors_inventory_ops.ts';
-
-function requireVioCap(caller: Caller, cap: VendorsInventoryOpsCapability): void {
-  if (hasVendorsInventoryOpsCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}
 
 function assertTransition<S extends string>(fsm: Fsm<S>, from: S, to: S): void {
   if (!canTransitionVio(fsm, from, to)) {
@@ -271,7 +262,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/receiving-orders',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.order.read');
+      requireCap(caller, 'receiving.order.read');
       // F-Wave7-LISTFILTER-01: vendor_id FK filter lifts VendorDetailPage
       // client-side .filter(...) into a SQL where-clause. RLS Pattern A
       // wraps the org gate so a cross-tenant vendor_id still 200 + [].
@@ -290,7 +281,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/receiving-orders',
     handler: async ({ req }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.order.create');
+      requireCap(caller, 'receiving.order.create');
       const body = await parseBody(req, ReceivingCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders', body, async () => {
         const { data, error } = await admin().from('receiving_orders').insert({
@@ -306,7 +297,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/receiving-orders/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.order.read');
+      requireCap(caller, 'receiving.order.read');
       parseUuidParam(params.id);
       const row = await loadOrgScoped<ReceivingOrder>('receiving_orders', caller, params.id);
       return ok(ReceivingOrderSchema.parse(row));
@@ -316,7 +307,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/receiving-orders/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.order.update');
+      requireCap(caller, 'receiving.order.update');
       parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id', body, async () => {
@@ -334,7 +325,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/receiving-orders/:id/transition',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.order.update');
+      requireCap(caller, 'receiving.order.update');
       parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingTransition);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id/transition', body, async () => {
@@ -352,7 +343,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/receiving-orders/:id/receive',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.receive');
+      requireCap(caller, 'receiving.receive');
       parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingReceive);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id/receive', body, async () => {
@@ -379,7 +370,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/receiving-orders/:id/line-items',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.line_item.read');
+      requireCap(caller, 'receiving.line_item.read');
       parseUuidParam(params.id);
       await assertReceivingParent(caller, params.id);
       const { data, error } = await admin()
@@ -395,7 +386,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/receiving-orders/:id/line-items',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.line_item.create');
+      requireCap(caller, 'receiving.line_item.create');
       parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingOrderLineItemCreateSchema);
       return respondWithIdempotency(
@@ -431,7 +422,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/receiving-orders/:id/line-items/:lineId',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.line_item.update');
+      requireCap(caller, 'receiving.line_item.update');
       parseUuidParam(params.id);
       parseUuidParam(params.lineId, 'lineId');
       const body = await parseBody(req, ReceivingOrderLineItemUpdateSchema);
@@ -466,7 +457,7 @@ const TABLE: Route[] = [
     method: 'DELETE', path: '/receiving-orders/:id/line-items/:lineId',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'receiving.line_item.delete');
+      requireCap(caller, 'receiving.line_item.delete');
       parseUuidParam(params.id);
       parseUuidParam(params.lineId, 'lineId');
       return respondWithIdempotency(
@@ -493,7 +484,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/production-runs',
     handler: async ({ req }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'production.run.read');
+      requireCap(caller, 'production.run.read');
       const { data, error } = await admin().from('production_runs').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(200);
@@ -505,7 +496,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/production-runs',
     handler: async ({ req }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'production.run.create');
+      requireCap(caller, 'production.run.create');
       const body = await parseBody(req, ProductionCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs', body, async () => {
         const { data, error } = await admin().from('production_runs').insert({
@@ -521,7 +512,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/production-runs/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'production.run.read');
+      requireCap(caller, 'production.run.read');
       parseUuidParam(params.id);
       const row = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
       return ok(ProductionRunSchema.parse(row));
@@ -531,7 +522,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/production-runs/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'production.run.update');
+      requireCap(caller, 'production.run.update');
       parseUuidParam(params.id);
       const body = await parseBody(req, ProductionUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id', body, async () => {
@@ -549,7 +540,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/production-runs/:id/start',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'production.start');
+      requireCap(caller, 'production.start');
       parseUuidParam(params.id);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id/start', null, async () => {
         const cur = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
@@ -571,7 +562,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/production-runs/:id/complete',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'production.complete');
+      requireCap(caller, 'production.complete');
       parseUuidParam(params.id);
       const body = await parseBody(req, ProductionComplete);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id/complete', body, async () => {
@@ -603,7 +594,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/shipments',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipments.shipment.read');
+      requireCap(caller, 'shipments.shipment.read');
       // F-Wave7-LISTFILTER-01: customer_id FK filter mirrors the customer-hub
       // pattern. RLS Pattern A wraps the org gate so a cross-tenant
       // customer_id still resolves to 200 + [].
@@ -621,7 +612,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/shipments',
     handler: async ({ req }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipments.shipment.create');
+      requireCap(caller, 'shipments.shipment.create');
       const body = await parseBody(req, ShipmentCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments', body, async () => {
         const { data, error } = await admin().from('shipments').insert({
@@ -637,7 +628,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/shipments/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipments.shipment.read');
+      requireCap(caller, 'shipments.shipment.read');
       parseUuidParam(params.id);
       const row = await loadOrgScoped<Shipment>('shipments', caller, params.id);
       return ok(ShipmentSchema.parse(row));
@@ -647,7 +638,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/shipments/:id',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipments.shipment.update');
+      requireCap(caller, 'shipments.shipment.update');
       parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id', body, async () => {
@@ -665,7 +656,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/shipments/:id/transition',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipments.shipment.update');
+      requireCap(caller, 'shipments.shipment.update');
       parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentTransition);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id/transition', body, async () => {
@@ -683,7 +674,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/shipments/:id/ship',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipments.ship');
+      requireCap(caller, 'shipments.ship');
       parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentShip);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id/ship', body, async () => {
@@ -719,7 +710,7 @@ const TABLE: Route[] = [
     method: 'GET', path: '/shipments/:id/line-items',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipment.line_item.read');
+      requireCap(caller, 'shipment.line_item.read');
       parseUuidParam(params.id);
       await assertShipmentParent(caller, params.id);
       const { data, error } = await admin()
@@ -735,7 +726,7 @@ const TABLE: Route[] = [
     method: 'POST', path: '/shipments/:id/line-items',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipment.line_item.create');
+      requireCap(caller, 'shipment.line_item.create');
       parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentLineItemCreateSchema);
       return respondWithIdempotency(
@@ -771,7 +762,7 @@ const TABLE: Route[] = [
     method: 'PATCH', path: '/shipments/:id/line-items/:lineId',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipment.line_item.update');
+      requireCap(caller, 'shipment.line_item.update');
       parseUuidParam(params.id);
       parseUuidParam(params.lineId, 'lineId');
       const body = await parseBody(req, ShipmentLineItemUpdateSchema);
@@ -806,7 +797,7 @@ const TABLE: Route[] = [
     method: 'DELETE', path: '/shipments/:id/line-items/:lineId',
     handler: async ({ req, params }) => {
       const caller = requireCaller(req);
-      requireVioCap(caller, 'shipment.line_item.delete');
+      requireCap(caller, 'shipment.line_item.delete');
       parseUuidParam(params.id);
       parseUuidParam(params.lineId, 'lineId');
       return respondWithIdempotency(

@@ -19,20 +19,12 @@ import { getFlag } from '../_shared/feature-flags.ts';
 import { readCallerContext } from '../_shared/tenant.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireMfaVerified } from '../_shared/mfa.ts';
+import { requireCap } from '../_shared/handler-helpers.ts';
 import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
-import {
-  hasIdentityCap,
-  type IdentityCapability,
-} from '../_shared/capabilities/identity.ts';
 import type { Caller } from '../_shared/tenant.ts';
 
 const BUNDLE = 'admin-console-api';
 const PLATFORM_ADMIN_FLAG = FEATURE_FLAGS.PLATFORM_ADMIN_ENABLED;
-
-function requireIdentityCap(caller: Caller, cap: IdentityCapability): void {
-  if (hasIdentityCap(caller.role, cap)) return;
-  throw new ApiError(ERROR_CODES.FORBIDDEN, 403, `caller lacks capability: ${cap}`);
-}
 
 /**
  * Bundle-level gate. Resolves the caller's org (if any), checks the
@@ -55,7 +47,7 @@ async function assertBundleEnabled(req: Request): Promise<Caller> {
 
 async function listOrgs(ctx: RouteCtx): Promise<Response> {
   const caller = await assertBundleEnabled(ctx.req);
-  requireIdentityCap(caller, 'admin.orgs.read');
+  requireCap(caller, 'admin.orgs.read');
   // Wave 2 stub: schema lands in a later wave alongside platform-admin
   // tooling. Empty page so the SPA can render an empty-state.
   return ok({ items: [], next_cursor: null });
@@ -63,7 +55,7 @@ async function listOrgs(ctx: RouteCtx): Promise<Response> {
 
 async function impersonateOrg(ctx: RouteCtx): Promise<Response> {
   const caller = await assertBundleEnabled(ctx.req);
-  requireIdentityCap(caller, 'admin.orgs.impersonate');
+  requireCap(caller, 'admin.orgs.impersonate');
   await requireMfaVerified(caller, ctx.req);
   // Wave 2 stub: schema lands later. Echoing back NOT_IMPLEMENTED is the
   // honest signal; the SPA never reaches here unless an operator manually
@@ -77,7 +69,7 @@ async function impersonateOrg(ctx: RouteCtx): Promise<Response> {
 
 async function readAuditAcrossOrgs(ctx: RouteCtx): Promise<Response> {
   const caller = await assertBundleEnabled(ctx.req);
-  requireIdentityCap(caller, 'admin.audit.read');
+  requireCap(caller, 'admin.audit.read');
   await requireMfaVerified(caller, ctx.req);
   return ok({ items: [], next_cursor: null });
 }

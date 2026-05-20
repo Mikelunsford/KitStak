@@ -21,7 +21,8 @@ import {
   ChartOfAccountSchema,
   type ChartOfAccount,
 } from '../../_shared/types/finance.ts';
-import { requireFinanceCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const COA_COLS =
   'id, org_id, code, name, account_type, parent_account_id, is_active, ' +
@@ -60,7 +61,7 @@ async function fetchCoa(orgId: string, id: string) {
 
 export async function listCoa({ req }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'coa.read');
+  requireCap(caller, 'coa.read');
   const { data, error } = await admin()
     .from('chart_of_accounts')
     .select(COA_COLS)
@@ -76,14 +77,14 @@ export async function listCoa({ req }: RouteCtx): Promise<Response> {
 
 export async function getCoa({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'coa.read');
+  requireCap(caller, 'coa.read');
   const id = parseUuidParam(params.id!);
   return ok(rowToCoa(await fetchCoa(caller.orgId, id)));
 }
 
 export async function createCoa(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'coa.write');
+  requireCap(caller, 'coa.write');
   const body = await parseBody(ctx.req, CoaCreateSchema);
   return respondWithIdempotency(
     ctx.req,
@@ -120,7 +121,7 @@ export async function createCoa(ctx: RouteCtx): Promise<Response> {
 
 export async function patchCoa(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'coa.write');
+  requireCap(caller, 'coa.write');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, CoaPatchSchema);
   return respondWithIdempotency(
@@ -154,7 +155,7 @@ export async function patchCoa(ctx: RouteCtx): Promise<Response> {
 
 export async function deleteCoa(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'coa.delete');
+  requireCap(caller, 'coa.delete');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,

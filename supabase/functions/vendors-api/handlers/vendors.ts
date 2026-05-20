@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireVioCap, listOrgScoped, getByIdOrgScoped,
+  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
 } from '../shared.ts';
 import {
   VendorSchema,
@@ -39,7 +39,7 @@ export function handleVendors(): Route[] {
       path: '/vendors',
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendors.vendor.read');
+        requireCap(caller, 'vendors.vendor.read');
         const page = await listOrgScoped<Vendor>('vendors', caller, url);
         return ok(page.items.map((v) => VendorSchema.parse(v)), {
           next_cursor: page.next_cursor,
@@ -51,7 +51,7 @@ export function handleVendors(): Route[] {
       path: '/vendors',
       handler: async ({ req }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendors.vendor.create');
+        requireCap(caller, 'vendors.vendor.create');
         const body = await parseBody(req, VendorCreateInput);
         return respondWithIdempotency(
           req, caller, 'vendors-api', '/vendors', body,
@@ -77,7 +77,7 @@ export function handleVendors(): Route[] {
       path: '/vendors/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendors.vendor.read');
+        requireCap(caller, 'vendors.vendor.read');
         parseUuidParam(params.id);
         const row = await getByIdOrgScoped<Vendor>('vendors', caller, params.id);
         return ok(VendorSchema.parse(row));
@@ -88,7 +88,7 @@ export function handleVendors(): Route[] {
       path: '/vendors/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendors.vendor.update');
+        requireCap(caller, 'vendors.vendor.update');
         parseUuidParam(params.id);
         const body = await parseBody(req, VendorUpdateInput);
         return respondWithIdempotency(
@@ -114,7 +114,7 @@ export function handleVendors(): Route[] {
       path: '/vendors/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'vendors.vendor.delete');
+        requireCap(caller, 'vendors.vendor.delete');
         parseUuidParam(params.id);
         return respondWithIdempotency(
           req, caller, 'vendors-api', '/vendors/:id', null,

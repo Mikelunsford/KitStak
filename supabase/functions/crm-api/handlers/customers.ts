@@ -27,7 +27,8 @@ import {
   CustomerSchema,
   type Customer,
 } from '../../_shared/types/crm.ts';
-import { requireCrmCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const CUSTOMER_COLS =
   'id, org_id, display_name, kind, status, primary_email, primary_phone, ' +
@@ -94,7 +95,7 @@ async function fetchCustomerRow(
 
 export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.customers.read');
+  requireCap(caller, 'crm.customers.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -133,7 +134,7 @@ export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
 
 export async function getCustomer({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.customers.read');
+  requireCap(caller, 'crm.customers.read');
   parseUuidParam(params.id);
   const row = await fetchCustomerRow(caller, params.id);
   return ok(rowToCustomer(row));
@@ -141,7 +142,7 @@ export async function getCustomer({ req, params }: RouteCtx): Promise<Response> 
 
 export async function createCustomer({ req }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.customers.write');
+  requireCap(caller, 'crm.customers.write');
   const body = await parseBody(req, CustomerCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /customers', body, async () => {
@@ -177,7 +178,7 @@ export async function createCustomer({ req }: RouteCtx): Promise<Response> {
 
 export async function patchCustomer({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.customers.write');
+  requireCap(caller, 'crm.customers.write');
   parseUuidParam(params.id);
   const body = await parseBody(req, CustomerPatchSchema);
 
@@ -225,7 +226,7 @@ export async function patchCustomer({ req, params }: RouteCtx): Promise<Response
 
 export async function deleteCustomer({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireCrmCap(caller, 'crm.customers.delete');
+  requireCap(caller, 'crm.customers.delete');
   parseUuidParam(params.id);
 
   return respondWithIdempotency(
