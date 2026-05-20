@@ -3,50 +3,18 @@
 @tailwind utilities;
 
 /*
- * Self-hosted brand fonts.
+ * Brand fonts.
  *
- * Wave 1 ships @font-face declarations only. Actual woff2 files live at
- * /fonts/<family>.woff2 and are added in a follow-up. Theme-Pack lists
- * Bebas Neue (display), Inter Tight (body), and JetBrains Mono (code).
- * font-display: swap so the SPA paints in a system fallback while the
- * font request resolves. Kitstak ships no production Google Fonts CDN
- * usage. See apps/web/public/fonts/README.txt.
- *
- * TODO(Wave 1 follow-up F-Wave1-FONTS-01): drop the woff2 files into
- * apps/web/public/fonts/ to activate these declarations. The site stays
- * legible in the system fallback until then.
+ * Bebas Neue (display), Inter Tight (body), and JetBrains Mono (code)
+ * are loaded via the Google Fonts <link> in apps/web/index.html. The
+ * @font-face declarations that previously pointed at unresolved
+ * /fonts/*.woff2 paths were removed because Chrome's font sanitizer
+ * (OTS) rejected the SPA-fallback HTML response with
+ * "OTS parsing error: invalid sfntVersion" on every page load
+ * (F-Wave9-FONT-DECODE-ERROR-01). The self-hosted swap remains tracked
+ * as F-Wave1-FONTS-01; until that lands, families resolve from the
+ * Google Fonts CDN already preconnected in index.html.
  */
-@font-face {
-  font-family: 'Bebas Neue';
-  src: url('/fonts/BebasNeue-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Inter Tight';
-  src: url('/fonts/InterTight-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Inter Tight';
-  src: url('/fonts/InterTight-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 
 @layer base {
   :root {
