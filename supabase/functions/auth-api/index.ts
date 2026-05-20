@@ -16,6 +16,7 @@ import {
   admin,
   respondWithIdempotency,
   parseBody,
+  requireCap,
 } from '../_shared/handler-helpers.ts';
 import {
   readCallerContext,
@@ -27,23 +28,7 @@ import {
   SwitchOrgRequestSchema,
   type MembershipSummary,
 } from '../_shared/types/identity.ts';
-import {
-  IDENTITY_CAPABILITY_POLICY,
-  hasIdentityCap,
-  type IdentityCapability,
-} from '../_shared/capabilities/identity.ts';
-import type { Caller } from '../_shared/tenant.ts';
-
-/**
- * Local capability gate for identity-side-car capabilities. The master
- * `_shared/capabilities.ts` canon does not yet carry the identity tuples
- * (the Canon Steward composes them at wave close). Until then handlers in
- * this bundle gate via the side-car directly.
- */
-function requireIdentityCap(caller: Caller, cap: IdentityCapability): void {
-  if (hasIdentityCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}
+import { CAPABILITIES_BY_ROLE } from '../_shared/capabilities.ts';
 
 const BUNDLE = 'auth-api';
 
@@ -181,16 +166,16 @@ function getMyCapabilities(ctx: RouteCtx): Response {
       'Authentication and active role required.',
     );
   }
-  const role = caller.role as keyof typeof IDENTITY_CAPABILITY_POLICY;
+  const role = caller.role as keyof typeof CAPABILITIES_BY_ROLE;
   return ok({
     role,
-    capabilities: [...IDENTITY_CAPABILITY_POLICY[role]],
+    capabilities: [...CAPABILITIES_BY_ROLE[role]],
   });
 }
 
 async function postSwitchOrg(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'identity.session.switch');
+  requireCap(caller, 'identity.session.switch');
   const body = await parseBody(ctx.req, SwitchOrgRequestSchema);
 
   return respondWithIdempotency(

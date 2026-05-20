@@ -1,13 +1,13 @@
 // Shared helpers for the vendors-api bundle.
-// All handlers route through requireCaller -> requireVioCap -> admin().
+// All handlers route through requireCaller -> requireCap -> admin().
+//
+// The per-bundle requireVioCap shim was retired at F-Wave2-AGENT-A-05.
+// Handlers now import requireCap from _shared/handler-helpers.ts directly
+// via the re-export below.
 
 import { ApiError, ok } from '../_shared/responses.ts';
-import { admin, parseLimit, decodeCursor, paginate, parseBody, parseUuidParam, respondWithIdempotency, created } from '../_shared/handler-helpers.ts';
+import { admin, parseLimit, decodeCursor, paginate, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
-import {
-  hasVendorsInventoryOpsCap,
-  type VendorsInventoryOpsCapability,
-} from '../_shared/capabilities/vendors_inventory_ops.ts';
 import {
   canTransitionVio,
   type Fsm,
@@ -15,21 +15,9 @@ import {
 
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, paginate, parseBody,
-  parseUuidParam, respondWithIdempotency, created, requireCaller,
+  parseUuidParam, respondWithIdempotency, created, requireCaller, requireCap,
 };
 export type { Caller };
-
-/**
- * Capability check at handler entry for vendors/inventory/ops side-car caps.
- * Throws FORBIDDEN 403 when the caller lacks the cap.
- */
-export function requireVioCap(
-  caller: Caller,
-  cap: VendorsInventoryOpsCapability,
-): void {
-  if (hasVendorsInventoryOpsCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}
 
 /**
  * Guarded state transition. Throws STATE_CONFLICT 409 when the FSM does not

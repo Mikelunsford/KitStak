@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { route, type Route, type RouteCtx } from '../_shared/route.ts';
 import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
+  requireCap,
 } from '../_shared/handler-helpers.ts';
-import { requireSalesCap as requireCap } from './_helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import {

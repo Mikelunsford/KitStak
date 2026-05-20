@@ -30,7 +30,8 @@ import {
   type Payment,
   type PaymentAllocation,
 } from '../../_shared/types/finance.ts';
-import { requireFinanceCap, BUNDLE } from '../_helpers.ts';
+import { BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const PAYMENT_COLS =
   'id, org_id, payment_number, customer_id, amount_cents, currency_code, ' +
@@ -90,7 +91,7 @@ async function fetchPayment(orgId: string, id: string) {
 
 export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'payments.read');
+  requireCap(caller, 'payments.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -124,14 +125,14 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
 
 export async function getPayment({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
-  requireFinanceCap(caller, 'payments.read');
+  requireCap(caller, 'payments.read');
   const id = parseUuidParam(params.id!);
   return ok(rowToPayment(await fetchPayment(caller.orgId, id)));
 }
 
 export async function createPayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'payments.write');
+  requireCap(caller, 'payments.write');
   const body = await parseBody(ctx.req, PaymentCreateSchema);
 
   return respondWithIdempotency(
@@ -175,7 +176,7 @@ export async function createPayment(ctx: RouteCtx): Promise<Response> {
 
 export async function patchPayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'payments.write');
+  requireCap(caller, 'payments.write');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, PaymentPatchSchema);
 
@@ -210,7 +211,7 @@ export async function patchPayment(ctx: RouteCtx): Promise<Response> {
 
 export async function deletePayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'payments.delete');
+  requireCap(caller, 'payments.delete');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
@@ -237,7 +238,7 @@ export async function deletePayment(ctx: RouteCtx): Promise<Response> {
 
 export async function applyPayment(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireFinanceCap(caller, 'payments.apply');
+  requireCap(caller, 'payments.apply');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, PaymentApplySchema);
 

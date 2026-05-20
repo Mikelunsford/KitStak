@@ -6,10 +6,9 @@
 // trimmed to TOP_PER_GROUP per entity to keep payloads bounded.
 
 import { route, type Route } from '../_shared/route.ts';
-import { admin } from '../_shared/handler-helpers.ts';
+import { admin, requireCap } from '../_shared/handler-helpers.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 import type {
   SearchResult,
   SearchResultItem,
@@ -27,9 +26,7 @@ const globalSearch: Route = {
   path: '/search',
   async handler({ req, url }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'search.global.read')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: search.global.read');
-    }
+    requireCap(caller, 'search.global.read');
 
     const q = url.searchParams.get('q')?.trim() ?? '';
     if (q.length === 0) {

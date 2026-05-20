@@ -27,6 +27,7 @@ import {
   admin,
   parseBody,
   respondWithIdempotency,
+  requireCap,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { ok, ApiError, noContent } from '../_shared/responses.ts';
@@ -39,18 +40,8 @@ import {
   OrgSettingSchema,
   SettingUpsertRequestSchema,
 } from '../_shared/types/identity.ts';
-import {
-  hasIdentityCap,
-  type IdentityCapability,
-} from '../_shared/capabilities/identity.ts';
-import type { Caller } from '../_shared/tenant.ts';
 
 const BUNDLE = 'settings-api';
-
-function requireIdentityCap(caller: Caller, cap: IdentityCapability): void {
-  if (hasIdentityCap(caller.role, cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -58,7 +49,7 @@ function requireIdentityCap(caller: Caller, cap: IdentityCapability): void {
 
 async function listSettings(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.read');
+  requireCap(caller, 'settings.read');
   const sb = admin();
   const { data, error } = await sb
     .from('org_settings')
@@ -79,7 +70,7 @@ async function listSettings(ctx: RouteCtx): Promise<Response> {
 
 async function listSettingGroup(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.read');
+  requireCap(caller, 'settings.read');
   const group = ctx.params.group;
   if (!group) {
     throw new ApiError('VALIDATION_ERROR', 422, 'group required');
@@ -103,7 +94,7 @@ async function listSettingGroup(ctx: RouteCtx): Promise<Response> {
 
 async function upsertSetting(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.write');
+  requireCap(caller, 'settings.write');
   const body = await parseBody(ctx.req, SettingUpsertRequestSchema);
 
   return respondWithIdempotency(
@@ -141,7 +132,7 @@ async function upsertSetting(ctx: RouteCtx): Promise<Response> {
 
 async function deleteSetting(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.write');
+  requireCap(caller, 'settings.write');
   const group = ctx.params.group;
   const key = ctx.params.key;
   if (!group || !key) {
@@ -175,7 +166,7 @@ const FlagUpsertSchema = z.object({
 
 async function listFlags(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'flags.read');
+  requireCap(caller, 'flags.read');
   const sb = admin();
   const { data, error } = await sb
     .from('org_feature_flags')
@@ -195,7 +186,7 @@ async function listFlags(ctx: RouteCtx): Promise<Response> {
 
 async function upsertFlag(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'flags.write');
+  requireCap(caller, 'flags.write');
   const flagKey = ctx.params.flag_key;
   if (!flagKey) {
     throw new ApiError('VALIDATION_ERROR', 422, 'flag_key required');
@@ -258,7 +249,7 @@ const BrandingPatchSchema = z.object({
 
 async function getBrandingRow(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'branding.read');
+  requireCap(caller, 'branding.read');
   const sb = admin();
   const { data, error } = await sb
     .from('org_branding')
@@ -282,7 +273,7 @@ async function getBrandingRow(ctx: RouteCtx): Promise<Response> {
 
 async function patchBranding(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'branding.update');
+  requireCap(caller, 'branding.update');
   const body = await parseBody(ctx.req, BrandingPatchSchema);
 
   return respondWithIdempotency(
@@ -324,7 +315,7 @@ async function patchBranding(ctx: RouteCtx): Promise<Response> {
 
 async function listNumbering(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.numbering.read');
+  requireCap(caller, 'settings.numbering.read');
   const sb = admin();
   const { data, error } = await sb
     .from('numbering_sequences')
@@ -346,7 +337,7 @@ async function listNumbering(ctx: RouteCtx): Promise<Response> {
 
 async function getNumbering(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.numbering.read');
+  requireCap(caller, 'settings.numbering.read');
   const docType = ctx.params.doc_type;
   if (!docType) {
     throw new ApiError('VALIDATION_ERROR', 422, 'doc_type required');
@@ -375,7 +366,7 @@ async function getNumbering(ctx: RouteCtx): Promise<Response> {
 
 async function resetNumbering(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
-  requireIdentityCap(caller, 'settings.numbering.reset');
+  requireCap(caller, 'settings.numbering.reset');
   const body = await parseBody(ctx.req, NumberingResetRequestSchema);
 
   return respondWithIdempotency(

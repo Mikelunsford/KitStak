@@ -12,6 +12,7 @@ import {
   paginate,
   parseUuidParam,
   respondWithIdempotency,
+  requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ApiError, ok, created, noContent } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
@@ -20,17 +21,8 @@ import {
   CommentCreateSchema,
   SavedViewCreateSchema,
 } from '../_shared/types/cross_cutting.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 
 const BUNDLE = 'collaboration-api';
-
-function requireCrossCap(
-  caller: { role: string },
-  cap: Parameters<typeof hasCrossCuttingCap>[1],
-): void {
-  if (hasCrossCuttingCap(caller.role as Parameters<typeof hasCrossCuttingCap>[0], cap)) return;
-  throw new ApiError('FORBIDDEN', 403, `caller lacks capability: ${cap}`);
-}
 
 // ---------------------------------------------------------------------------
 // Attachments
@@ -40,7 +32,7 @@ const listAttachments: Route = {
   path: '/attachments',
   async handler({ req, url }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'attachments.attachment.read');
+    requireCap(caller, 'attachments.attachment.read');
 
     const entityType = url.searchParams.get('entity_type');
     const entityId = url.searchParams.get('entity_id');
@@ -74,7 +66,7 @@ const createAttachment: Route = {
   path: '/attachments',
   async handler({ req }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'attachments.attachment.create');
+    requireCap(caller, 'attachments.attachment.create');
     const body = await parseBody(req, AttachmentCreateSchema);
 
     return respondWithIdempotency(req, caller, BUNDLE, '/attachments', body, async () => {
@@ -105,7 +97,7 @@ const deleteAttachment: Route = {
   path: '/attachments/:id',
   async handler({ req, params }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'attachments.attachment.delete');
+    requireCap(caller, 'attachments.attachment.delete');
     parseUuidParam(params.id);
 
     return respondWithIdempotency(
@@ -138,7 +130,7 @@ const listComments: Route = {
   path: '/comments',
   async handler({ req, url }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'comments.comment.read');
+    requireCap(caller, 'comments.comment.read');
 
     const entityType = url.searchParams.get('entity_type');
     const entityId = url.searchParams.get('entity_id');
@@ -170,7 +162,7 @@ const createComment: Route = {
   path: '/comments',
   async handler({ req }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'comments.comment.create');
+    requireCap(caller, 'comments.comment.create');
     const body = await parseBody(req, CommentCreateSchema);
 
     return respondWithIdempotency(req, caller, BUNDLE, '/comments', body, async () => {
@@ -200,7 +192,7 @@ const deleteComment: Route = {
   path: '/comments/:id',
   async handler({ req, params }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'comments.comment.delete');
+    requireCap(caller, 'comments.comment.delete');
     parseUuidParam(params.id);
 
     return respondWithIdempotency(
@@ -233,7 +225,7 @@ const listNotifications: Route = {
   path: '/notifications',
   async handler({ req, url }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'notifications.notification.read');
+    requireCap(caller, 'notifications.notification.read');
     const limit = parseLimit(url);
 
     const { data, error } = await admin()
@@ -253,7 +245,7 @@ const markRead: Route = {
   path: '/notifications/:id/read',
   async handler({ req, params }) {
     const caller = requireCaller(req);
-    requireCrossCap(caller, 'notifications.notification.update');
+    requireCap(caller, 'notifications.notification.update');
     parseUuidParam(params.id);
 
     return respondWithIdempotency(

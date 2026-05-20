@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireVioCap,
+  requireCaller, requireCap,
 } from '../shared.ts';
 import {
   ExpenseCategorySchema,
@@ -24,7 +24,7 @@ export function handleExpenseCategories(): Route[] {
       method: 'GET', path: '/expense-categories',
       handler: async ({ req }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.expense.read');
+        requireCap(caller, 'expenses.expense.read');
         const { data, error } = await admin()
           .from('expense_categories')
           .select('*')
@@ -38,7 +38,7 @@ export function handleExpenseCategories(): Route[] {
       method: 'POST', path: '/expense-categories',
       handler: async ({ req }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.category.write');
+        requireCap(caller, 'expenses.category.write');
         const body = await parseBody(req, Input);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expense-categories', body, async () => {
           const { data, error } = await admin()
@@ -57,7 +57,7 @@ export function handleExpenseCategories(): Route[] {
       method: 'PATCH', path: '/expense-categories/:id',
       handler: async ({ req, params }) => {
         const caller = requireCaller(req);
-        requireVioCap(caller, 'expenses.category.write');
+        requireCap(caller, 'expenses.category.write');
         parseUuidParam(params.id);
         const body = await parseBody(req, UpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expense-categories/:id', body, async () => {

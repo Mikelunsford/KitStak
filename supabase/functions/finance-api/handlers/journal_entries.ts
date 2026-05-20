@@ -33,7 +33,8 @@ import {
   type JournalEntry,
   type JournalEntryLine,
 } from '../../_shared/types/finance.ts';
-import { requireFinanceCap, requireFinanceJeFlag, BUNDLE } from '../_helpers.ts';
+import { requireFinanceJeFlag, BUNDLE } from '../_helpers.ts';
+import { requireCap } from '../../_shared/handler-helpers.ts';
 
 const JE_COLS =
   'id, org_id, entry_number, entry_date, period_year, period_month, status, ' +
@@ -95,7 +96,7 @@ async function fetchJe(orgId: string, id: string) {
 export async function listJournalEntries({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   await requireFinanceJeFlag(caller);
-  requireFinanceCap(caller, 'journal_entries.read');
+  requireCap(caller, 'journal_entries.read');
 
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
@@ -129,7 +130,7 @@ export async function listJournalEntries({ req, url }: RouteCtx): Promise<Respon
 export async function getJournalEntry({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   await requireFinanceJeFlag(caller);
-  requireFinanceCap(caller, 'journal_entries.read');
+  requireCap(caller, 'journal_entries.read');
   const id = parseUuidParam(params.id!);
   const entry = await fetchJe(caller.orgId, id);
   const { data: lines, error } = await admin()
@@ -151,7 +152,7 @@ export async function getJournalEntry({ req, params }: RouteCtx): Promise<Respon
 export async function createJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
-  requireFinanceCap(caller, 'journal_entries.write');
+  requireCap(caller, 'journal_entries.write');
   const body = await parseBody(ctx.req, JeCreateSchema);
 
   return respondWithIdempotency(
@@ -213,7 +214,7 @@ export async function createJournalEntry(ctx: RouteCtx): Promise<Response> {
 export async function patchJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
-  requireFinanceCap(caller, 'journal_entries.write');
+  requireCap(caller, 'journal_entries.write');
   const id = parseUuidParam(ctx.params.id!);
   const body = await parseBody(ctx.req, JePatchSchema);
   return respondWithIdempotency(
@@ -255,7 +256,7 @@ export async function patchJournalEntry(ctx: RouteCtx): Promise<Response> {
 export async function deleteJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
-  requireFinanceCap(caller, 'journal_entries.delete');
+  requireCap(caller, 'journal_entries.delete');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,
@@ -290,7 +291,7 @@ export async function deleteJournalEntry(ctx: RouteCtx): Promise<Response> {
 export async function postJournalEntry(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   await requireFinanceJeFlag(caller);
-  requireFinanceCap(caller, 'journal_entries.post');
+  requireCap(caller, 'journal_entries.post');
   const id = parseUuidParam(ctx.params.id!);
   return respondWithIdempotency(
     ctx.req,

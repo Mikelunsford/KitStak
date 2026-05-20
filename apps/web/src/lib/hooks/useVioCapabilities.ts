@@ -1,24 +1,29 @@
+// useVioCapabilities was a Wave 2 side-car hook keyed to
+// VendorsInventoryOpsCapability. At F-Wave2-AGENT-A-05 the side-car cap
+// canon was folded into the singular `@/lib/capabilities` union. This file
+// is now a thin re-export so the 14 page-level callers do not need to
+// change; they continue to pass cap strings and get a memoised `can`.
+
 import { useMemo } from 'react';
 
 import { useAuthOptional } from '@/auth/AuthContext';
 import {
-  hasVendorsInventoryOpsCap,
-  type VendorsInventoryOpsCapability,
+  hasCap,
+  type Capability,
   type RoleCode,
-} from '@/lib/capabilities/vendors_inventory_ops';
+} from '@/lib/capabilities';
 import { useMe } from './useMe';
 
 /**
- * Vendors / inventory / ops side-car capability hook. Returns a memoised
- * `can(cap)` predicate against the active role from useMe.
- *
- * Parallels useCapabilities for the base org caps. Two hooks because the
- * Capability unions are distinct: the base capabilities.ts canon is the
- * org-level constitutional one; this side-car carries Wave 2 caps.
+ * Backwards-compatible alias for the vendors / inventory / ops side-car
+ * cap union. Now points at the unified Capability type so any cap the
+ * unified canon carries works.
  */
+export type VendorsInventoryOpsCapability = Capability;
+
 export interface VioCapabilitiesApi {
   role: RoleCode | null;
-  can: (cap: VendorsInventoryOpsCapability) => boolean;
+  can: (cap: Capability) => boolean;
 }
 
 export function useVioCapabilities(): VioCapabilitiesApi {
@@ -30,8 +35,7 @@ export function useVioCapabilities(): VioCapabilitiesApi {
   return useMemo(
     () => ({
       role,
-      can: (cap: VendorsInventoryOpsCapability) =>
-        role ? hasVendorsInventoryOpsCap(role, cap) : false,
+      can: (cap: Capability) => (role ? hasCap(role, cap) : false),
     }),
     [role],
   );

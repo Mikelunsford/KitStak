@@ -5,10 +5,9 @@
 // constitution's wire rule.
 
 import { route, type Route } from '../_shared/route.ts';
-import { admin } from '../_shared/handler-helpers.ts';
+import { admin, requireCap } from '../_shared/handler-helpers.ts';
 import { ApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
-import { hasCrossCuttingCap } from '../_shared/capabilities/cross_cutting.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { HTTP_HEADERS } from '../_shared/constants.ts';
 
@@ -104,9 +103,7 @@ const exportEntity: Route = {
   path: '/exports/:entity',
   async handler({ req, url, params }) {
     const caller = requireCaller(req);
-    if (!hasCrossCuttingCap(caller.role, 'exports.job.create')) {
-      throw new ApiError('FORBIDDEN', 403, 'caller lacks capability: exports.job.create');
-    }
+    requireCap(caller, 'exports.job.create');
     const format = url.searchParams.get('format') ?? 'csv';
     if (format !== 'csv') {
       throw new ApiError('VALIDATION_ERROR', 422, 'only format=csv is supported');
