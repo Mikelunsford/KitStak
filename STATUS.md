@@ -1,6 +1,6 @@
 # Kitstak Status
 
-Last updated: 2026-05-20 (Phase 8 follow-up batch: emit_movements triggers read from line-item tables + SPA polish bundle + CI Vercel dedupe + cap consolidation; baseline was `a00177b`)
+Last updated: 2026-05-20 (Phase 8 follow-up batch: emit_movements triggers + SPA polish + CI Vercel dedupe + cap consolidation + pdf-worker jsPDF real-render)
 
 ## Current state
 
@@ -20,7 +20,6 @@ Last updated: 2026-05-20 (Phase 8 follow-up batch: emit_movements triggers read 
 
 ### Operator-gated (waiting on explicit operator authorization beyond a phase go)
 
-- **`F-Wave2-CO-01`**: pdf-worker real render. Needs operator-approved JS PDF dependency (`pdfkit` or `jsPDF`, both BSD). Today `pdf-worker` returns a 501 stub.
 - **`F-Wave2-DNDKIT-01`**: project-phase reorder UI. Needs operator-approved `dnd-kit` dependency. Today reorder uses Up / Down buttons.
 - **`F-Wave5-CO-01`** / **`F-Wave3-OBS-01`**: Sentry SPA + edge-function capture. Needs operator-approved DSN.
 - **`F-Wave5-CO-02`**: analytics provider selection. Needs operator pick (PostHog / Segment / Mixpanel / etc.).
@@ -36,6 +35,10 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 - **`F-Wave7-LINES-PAYLOAD-DROP-01`** (filed in PR #47): release after the above. Forward migration drops the `lines` body param from the receive / ship RPCs. Step three of the LINES-01 multi-stage drop.
 - **`F-Wave7-PRODUCTION-LINES-NORMALIZE-01`** (filed in PR #47): mirror of LINES-01 for `production_runs`. Not constitutionally required (production runs are not on the operator's daily path the way receiving / shipment are) but worth doing if operator ergonomics warrant. The Produced-vs-Consumed split surfaced in PR #42 makes this a larger piece of work than the receiving / shipment normalisation.
 - **`F-Wave8-ENTITYLABEL-CATEGORY-UNIT-HOOKS-01`** (filed during the Phase 8 polish bundle): the FK-RENDER-SWEEP-02 prompt called for `category` / `unit` / `tax` kinds on `<EntityLabel>`, but no `useCategoriesList` / `useUnitsList` list hooks exist in the tree today and the audited tree has no display sites for `tax_id` / `default_tax_id` / `category_id` / `unit_id` UUIDs (those FK columns surface only on form input pickers or are string registration numbers, not UUIDs). When a display site for one of these UUIDs lands, the matching list hook plus EntityLabel branch land alongside it.
+- **`F-Wave8-PDF-QUOTE-DOWNLOAD-01`** (filed this session alongside F-Wave2-CO-01 close): wire the Download PDF button on `QuoteDetailPage`. The pdf-worker quote renderer is built and exercised by schema validation; this is a mechanical SPA paste from `InvoiceDetailPage`'s `onDownloadPdf` + cap gate pattern, swapping `template: 'invoice'` for `template: 'quote'` and the payload field names per `QuoteDataSchema`. Held until the invoice flow soaks for one operator pass.
+- **`F-Wave8-PDF-PO-DOWNLOAD-01`** (filed this session alongside F-Wave2-CO-01 close): wire the Download PDF button on `PurchaseOrderDetailPage`. The pdf-worker purchase_order renderer is built; same mechanical paste as the quote follow-up, swapping `template: 'purchase_order'` and `vendor_display_name` / `po_number`. Held until the invoice flow soaks.
+- **`F-Wave8-PDF-FONT-EMBED-01`** (filed this session alongside F-Wave2-CO-01 close): embed Bebas Neue and Inter Tight in the PDF so the rendered document matches the brand. v1 uses jsPDF's built-in helvetica family. jsPDF supports custom-font embedding via `doc.addFileToVFS('foo.ttf', base64)` + `doc.addFont(...)`. The font files plus an integration test (snapshot of font metric tables, not the PDF body) are the deliverable. Not constitutionally required; quote-to-cash works without it.
+- **`F-Wave8-PDF-STORAGE-BUCKET-01`** (filed this session alongside F-Wave2-CO-01 close): optional, operator-gated. For a "send shareable PDF link" flow (vs the current operator-downloads-locally flow), the worker would write the PDF bytes to a Supabase Storage bucket and return a signed URL. Open questions: bucket strategy (one bucket per org? one bucket project-wide with org-prefixed keys?), retention (24h? 30d? operator setting?), CDN posture, signed-URL TTL. The data-URL approach shipped in F-Wave2-CO-01 covers the operator-download case completely; this follow-up is only for the share-link case.
 
 ### Other carried open
 
@@ -50,6 +53,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 - `F-Wave7-STALE-6_5-TODOS-01`: four stale narrative TODO comments removed from `OpportunityDetailPage.tsx`, `ProjectDetailPage.tsx`, `useProjects.ts` (the CustomerDetailPage marker had already been rewritten in PR #48 / LISTFILTER-01 close, only the allowlist entry remained). The marker block in `scripts/canon-steward-allowlist.txt` (lines 19-31 of the pre-edit file) dropped; `canon-steward-check.mjs` exits 0 against the cleaned tree.
 - `F-Wave8-CI-VERCEL-DEDUPE-01`: Deleted `.github/workflows/deploy-preview.yml`; Vercel's native Git integration already deploys PR previews. `deploy-prod.yml` retained for explicit CLI prod deploys on main push.
 - `F-Wave2-AGENT-A-05`: master capability table consolidation. The six side-car cap files (`_shared/capabilities/{crm,cross_cutting,finance,identity,sales,vendors_inventory_ops}.ts` plus the SPA mirrors) folded into the singular `_shared/capabilities.ts` plus `apps/web/src/lib/capabilities.ts` byte-mirror pair. Audited zero cross-domain cap-name collisions; 203 caps total across 8 roles in one union. Per-bundle `requireXxxCap` shim pattern (D-011) retired: handlers now import `requireCap` from `_shared/handler-helpers.ts` directly. `_helpers.ts` files for invoicing-api, finance-api, crm-api retained (BUNDLE constant plus finance-api `requireFinanceJeFlag` per-route flag guard); quotes-api / projects-api / sales-config-api `_helpers.ts` deleted (cap-shim-only). vendors-api and inventory-api `shared.ts` re-export `requireCap`; ops-api inline `requireVioCap` deleted; 4 inline `requireIdentityCap` definitions in tenants-api / settings-api / auth-api / admin-console-api deleted. The 6 cross-cutting bundles where 403-on-deny was the existing posture (collaboration-api / dashboard-api / exports-api / imports-api / pdf-worker / search-api) converted from `hasCrossCuttingCap` boolean check to `requireCap`. `customer-portal-api` carve-out preserved: still uses the boolean `hasCap` check plus explicit `throw new ApiError('NOT_FOUND', 404)` per the Pattern B RLS rule that hides existence from non-tenants. SPA `useVioCapabilities` hook retargeted as a thin re-export keyed to the unified `Capability` union so the 14 page-level callers do not change. `parity.test.ts` drops `capabilities` from `SIDE_CAR_KINDS`; new declared pair count is 17 (5 singular + 6 domains × 2 kinds: types + workflow). Journal at `03-workspace/journal/phase-8-cap-consolidation.md`.
+- `F-Wave2-CO-01`: pdf-worker real-render via jsPDF (Apache-2.0 / MIT-permissive). Operator approved the dependency. The v1 stub at `supabase/functions/pdf-worker/index.ts` (POST /pdf/render returning 501 PDF_NOT_YET_AVAILABLE) is replaced by a working renderer for the three templates (invoice, quote, purchase_order). Each template carries its own discriminated-union zod schema in the worker so the body shape is asserted at the API boundary. Returns the rendered PDF as a `data:application/pdf;base64,...` data URL; no Supabase Storage bucket is involved (the SPA service `apps/web/src/lib/services/pdfService.ts` already expects `{ url: string }` and a data URL works directly as the href of a download anchor). Brand palette applied: navy `#0a1628` header band with ink `#f5f1e8` display text, helvetica for v1 (custom-font embedding tracked as `F-Wave8-PDF-FONT-EMBED-01`). Page paginates cleanly with a 10-page hard cap; totals block on the last page; "Built to Ship." footer on every page. SPA: Download PDF button added to `InvoiceDetailPage`, cap-gated via the post-consolidation `requireCap` pattern (worker side) and the equivalent SPA gate (consumer side). Quote and PO downloads are filed as `F-Wave8-PDF-QUOTE-DOWNLOAD-01` and `F-Wave8-PDF-PO-DOWNLOAD-01`; the renderers already work, only the consumer wiring is pending the soak window on invoice. Critically: jsPDF is imported by the worker only; the SPA bundle does not grow (29.75 kB / 40 kB, +0.02 kB from baseline). New regression test at `apps/web/test/regression/pdf-worker-render.test.ts` asserts 200 status, data-URL prefix, and `%PDF-` magic bytes for the invoice render plus 422 for a malformed payload. Closes the long-standing carryover; the constitution's "What we use" list grows by one (jsPDF). Journal at `03-workspace/journal/phase-8-pdf-worker-jspdf.md`.
 
 ### Closed in this session
 
@@ -96,7 +100,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 | Idempotency (`Idempotency-Key` on every non-GET, hashed, stored) | Held. All new `projects-api` POST/PATCH/DELETE endpoints require it. |
 | Audit log (append-only, hash chain, auto-state-transition triggers) | Held. `project_line_items` ships with auto-trigger from migration 0044; `audit_log` entity_type enum extended. |
 | Capabilities (singular `_shared/capabilities.ts`, server-authoritative `requireCap`) | Held. D-011 per-bundle shim pattern retired this session (F-Wave2-AGENT-A-05); all 203 caps live in the one byte-mirrored union; handlers call `requireCap` from `_shared/handler-helpers.ts`. |
-| Banned deps | Held. No new top-level deps. |
+| Banned deps | Held. One operator-approved new top-level dep (`jspdf` for the pdf-worker real render; Apache-2.0 / MIT permissive; closes F-Wave2-CO-01). Banned-list refuses unchanged. |
 | Brand discipline | Held. All copy clean; lucide-react icons only; no em dashes, no double hyphens, no emojis. |
 | TS1 read-only zone | Held. No writes. |
 | Byte-mirror parity (17 pairs) | Held. `test:contract` 17/17 after F-Wave2-AGENT-A-05 (was 23 pre-cap-fold: 5 singular + 6 domains × 3 kinds; now 5 singular + 6 domains × 2 kinds since `capabilities` is no longer a side-car). |
@@ -156,7 +160,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 ### Edge function bundles deployed and scheduled
 
 - **Wave 1 (scheduled)**: `audit-chain-verify`, `idempotency-gc`.
-- **Wave 2 (HTTP API)**: `auth-api`, `tenants-api` (`verify_jwt=false` for the public `resolve-host` route), `settings-api`, `admin-console-api` (bundle-gated on `platform_admin.enabled`), `crm-api`, `sales-config-api`, `quotes-api`, `projects-api`, `invoicing-api`, `finance-api`, `vendors-api`, `inventory-api`, `ops-api` (bundle-gated on `plugins.3pl`), `collaboration-api`, `search-api`, `customer-portal-api`, `dashboard-api`, `exports-api`, `imports-api`, `notifications-worker` (`verify_jwt=false`, X-Worker-Secret), `pdf-worker` (501 stub pending operator-approved JS PDF dep).
+- **Wave 2 (HTTP API)**: `auth-api`, `tenants-api` (`verify_jwt=false` for the public `resolve-host` route), `settings-api`, `admin-console-api` (bundle-gated on `platform_admin.enabled`), `crm-api`, `sales-config-api`, `quotes-api`, `projects-api`, `invoicing-api`, `finance-api`, `vendors-api`, `inventory-api`, `ops-api` (bundle-gated on `plugins.3pl`), `collaboration-api`, `search-api`, `customer-portal-api`, `dashboard-api`, `exports-api`, `imports-api`, `notifications-worker` (`verify_jwt=false`, X-Worker-Secret), `pdf-worker` (real jsPDF renderer for invoice / quote / purchase_order as of F-Wave2-CO-01).
 
 ### Side-car canon
 
@@ -276,7 +280,8 @@ Both items previously tracked here landed in Wave 6.5. CORS consolidation shippe
 
 ## Open risks
 
-None open at Wave 2 close. The 10 Wave 2 follow-ups (`F-Wave2-*`) are tracked in `03-workspace/journal/wave-2-domain-ports.md`. The two operator-gated decisions are:
+None open at Wave 2 close. The 10 Wave 2 follow-ups (`F-Wave2-*`) are tracked in `03-workspace/journal/wave-2-domain-ports.md`. The remaining operator-gated decision is:
 
-- `F-Wave2-CO-01`: pdf-worker render endpoint needs an operator-approved JS PDF dep (`pdfkit` or `jsPDF`, both BSD).
 - `F-Wave2-DNDKIT-01`: `dnd-kit` is referenced by `00-canon/01-architecture.md` but is not in `apps/web/package.json`. Phase reorder shipped as up / down buttons.
+
+(F-Wave2-CO-01 closed in this Phase 8 follow-up batch via jsPDF; see the "Closed in this session" bucket above.)

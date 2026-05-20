@@ -18,6 +18,9 @@ import { useProject } from '@/lib/hooks/useProjects';
 import { useQuote } from '@/lib/hooks/useQuotes';
 import { useItem } from '@/lib/hooks/useItems';
 import { usePayments } from '@/lib/hooks/usePayments';
+import { useMe } from '@/lib/hooks/useMe';
+import { hasCap } from '@/lib/capabilities';
+import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
 
 /**
@@ -53,8 +56,14 @@ export function InvoiceDetailPage() {
   const [lineQty, setLineQty] = useState('1');
   const [linePrice, setLinePrice] = useState('0');
   const [showAddLine, setShowAddLine] = useState(false);
+  const [pdfPending, setPdfPending] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const selectedItem = useItem(selectedItemId ?? undefined);
+  const me = useMe({ enabled: true });
+  const canRenderPdf = me.data?.active_role
+    ? hasCap(me.data.active_role, 'pdf.document.render')
+    : false;
 
   if (!invoiceId) return <p>Missing invoice id.</p>;
   if (invoice.isLoading) return <p className="px-8 py-8">Loading.</p>;
@@ -107,6 +116,47 @@ export function InvoiceDetailPage() {
     if (customerId) params.set('customer_id', customerId);
     params.set('invoice_id', invoiceId);
     navigate(`/3pl-operations/payments/new?${params.toString()}`);
+  };
+
+  // F-Wave2-CO-01. Build the invoice render payload from the loaded invoice
+  // and its line items, call the pdf-worker, and trigger a download via a
+  // hidden anchor. The worker returns a data URL so no Storage round-trip
+  // is involved.
+  const onDownloadPdf = async () => {
+    setPdfError(null);
+    setPdfPending(true);
+    try {
+      const result = await renderPdf('invoice', {
+        customer_display_name: customer.data?.display_name ?? '',
+        invoice_number: inv.invoice_number,
+        issue_date: inv.issue_date ?? '',
+        due_date: inv.due_date ?? '',
+        lines: (lines.data ?? []).map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity),
+          unit_price_cents: String(l.unit_price_cents),
+          line_total_cents: String(l.line_total_cents),
+        })),
+        subtotal_cents: String(inv.subtotal_cents),
+        tax_cents: String(inv.tax_total_cents),
+        total_cents: String(inv.total_cents),
+        currency: inv.currency_code,
+      });
+      if ('not_available' in result) {
+        setPdfError(result.message);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = result.url;
+      a.download = `invoice-${inv.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Download failed.');
+    } finally {
+      setPdfPending(false);
+    }
   };
 
   const invoicePayments = (payments.data ?? []).filter((p) =>
@@ -174,6 +224,15 @@ export function InvoiceDetailPage() {
               Receive payment
             </Button>
           )}
+          {canRenderPdf && (
+            <Button
+              variant="secondary"
+              onClick={onDownloadPdf}
+              disabled={pdfPending}
+            >
+              {pdfPending ? 'Building.' : 'Download PDF'}
+            </Button>
+          )}
           {canCancel && (
             <Button
               variant="ghost"
@@ -186,10 +245,11 @@ export function InvoiceDetailPage() {
         </div>
       </header>
 
-      {(sendMutation.error || cancelMutation.error) && (
+      {(sendMutation.error || cancelMutation.error || pdfError) && (
         <p className="font-sans text-sm text-accent">
           {(sendMutation.error instanceof Error && sendMutation.error.message) ||
             (cancelMutation.error instanceof Error && cancelMutation.error.message) ||
+            pdfError ||
             'Action failed.'}
         </p>
       )}

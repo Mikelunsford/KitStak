@@ -1,17 +1,25 @@
 // pdf-worker: PDF rendering for invoice, quote, purchase_order documents.
 //
-//   POST /pdf/render    body { template, data } -> 501 (v1 stub)
+//   POST /pdf/render    body { template, data } -> 200 { url: 'data:application/pdf;base64,...' }
 //   GET  /pdf/templates                          -> list of available templates
 //
-// v1 ships a stub that returns 501 PDF_NOT_YET_AVAILABLE. The constitution's
-// no-banned-dependency rule prevents us from pulling a headless-Chrome
-// renderer or a heavyweight PDF library without operator approval. A
-// follow-up Wave will land pdfkit (BSD, no Chrome) and replace the stub.
+// F-Wave2-CO-01 closed the v1 stub. The operator approved jsPDF as the
+// rendering dependency (Apache-2.0 / MIT permissive, browser plus Node plus
+// Deno compatible). The handler returns the rendered PDF as a data URL so
+// the SPA can use it directly as the href on a download anchor; no Supabase
+// Storage bucket is involved.
+//
+// Brand discipline applied: navy header band, ink-on-navy display text,
+// helvetica for v1 (custom-font embedding tracked as
+// F-Wave8-PDF-FONT-EMBED-01). No em dashes, no double hyphens, no emojis
+// inside the rendered body text either.
 
 import { route, type Route } from '../_shared/route.ts';
 import { parseBody, requireCap } from '../_shared/handler-helpers.ts';
-import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
+import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { formatCents } from '../_shared/money.ts';
+import { jsPDF } from 'jspdf';
 import { z } from 'zod';
 
 const BUNDLE = 'pdf-worker';
@@ -22,10 +30,354 @@ const TEMPLATES = [
   { id: 'purchase_order', label: 'Purchase order', entity_type: 'purchase_order' },
 ] as const;
 
-const RenderRequestSchema = z.object({
-  template: z.enum(['invoice', 'quote', 'purchase_order']),
-  data: z.record(z.unknown()),
+// ---------------------------------------------------------------------------
+// Body schemas. Each template names exactly the fields the renderer reads;
+// extra fields are stripped by zod's default strip mode. Cents-as-string is
+// the wire shape (BIGINT columns serialise to string from PostgREST).
+// ---------------------------------------------------------------------------
+
+const LineItemSchema = z.object({
+  description: z.string(),
+  quantity: z.union([z.number(), z.string()]),
+  unit_price_cents: z.union([z.number(), z.string()]),
+  line_total_cents: z.union([z.number(), z.string()]),
 });
+
+const InvoiceDataSchema = z.object({
+  customer_display_name: z.string(),
+  invoice_number: z.string(),
+  issue_date: z.string(),
+  due_date: z.string(),
+  lines: z.array(LineItemSchema),
+  subtotal_cents: z.union([z.number(), z.string()]),
+  tax_cents: z.union([z.number(), z.string()]),
+  total_cents: z.union([z.number(), z.string()]),
+  currency: z.string().default('USD'),
+});
+
+const QuoteDataSchema = z.object({
+  customer_display_name: z.string(),
+  quote_number: z.string(),
+  issue_date: z.string(),
+  lines: z.array(LineItemSchema),
+  subtotal_cents: z.union([z.number(), z.string()]),
+  tax_cents: z.union([z.number(), z.string()]),
+  total_cents: z.union([z.number(), z.string()]),
+  currency: z.string().default('USD'),
+});
+
+const PurchaseOrderDataSchema = z.object({
+  vendor_display_name: z.string(),
+  po_number: z.string(),
+  issue_date: z.string(),
+  lines: z.array(LineItemSchema),
+  subtotal_cents: z.union([z.number(), z.string()]),
+  total_cents: z.union([z.number(), z.string()]),
+  currency: z.string().default('USD'),
+});
+
+const RenderRequestSchema = z.discriminatedUnion('template', [
+  z.object({ template: z.literal('invoice'), data: InvoiceDataSchema }),
+  z.object({ template: z.literal('quote'), data: QuoteDataSchema }),
+  z.object({ template: z.literal('purchase_order'), data: PurchaseOrderDataSchema }),
+]);
+
+// ---------------------------------------------------------------------------
+// Brand palette and page constants.
+// ---------------------------------------------------------------------------
+
+// Tailwind tokens: navy `#0a1628`, ink `#f5f1e8`, accent `#c8102e`.
+const NAVY = { r: 10, g: 22, b: 40 };
+const INK = { r: 245, g: 241, b: 232 };
+const INK_DIM = { r: 140, g: 140, b: 140 };
+const TEXT = { r: 30, g: 30, b: 30 };
+
+const PAGE_W = 612; // US Letter pt
+const PAGE_H = 792;
+const MARGIN_X = 48;
+const HEADER_H = 60;
+const FOOTER_Y = PAGE_H - 36;
+const LINE_ROW_H = 18;
+const PAGE_BOTTOM_LIMIT = PAGE_H - 120; // leave room for totals plus footer
+
+interface NormalisedLine {
+  description: string;
+  quantity: string;
+  unit_price_cents: number;
+  line_total_cents: number;
+}
+
+function asCents(v: number | string): number {
+  const n = typeof v === 'string' ? Number(v) : v;
+  if (!Number.isFinite(n)) throw new Error('Invalid cents value');
+  return n;
+}
+
+function normaliseLine(line: z.infer<typeof LineItemSchema>): NormalisedLine {
+  return {
+    description: line.description,
+    quantity: String(line.quantity),
+    unit_price_cents: asCents(line.unit_price_cents),
+    line_total_cents: asCents(line.line_total_cents),
+  };
+}
+
+function setFill(doc: jsPDF, c: { r: number; g: number; b: number }): void {
+  doc.setFillColor(c.r, c.g, c.b);
+}
+
+function setText(doc: jsPDF, c: { r: number; g: number; b: number }): void {
+  doc.setTextColor(c.r, c.g, c.b);
+}
+
+function drawHeaderBand(doc: jsPDF, docTypeLabel: string): void {
+  setFill(doc, NAVY);
+  doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
+  setText(doc, INK);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.text('KITSTAK', MARGIN_X, 38);
+  doc.setFontSize(18);
+  doc.text(docTypeLabel, PAGE_W - MARGIN_X, 38, { align: 'right' });
+}
+
+function drawFooter(doc: jsPDF, pageNum: number, pageCount: number): void {
+  setText(doc, INK_DIM);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('Built to Ship.', MARGIN_X, FOOTER_Y);
+  doc.text(
+    `Page ${pageNum} of ${pageCount}`,
+    PAGE_W - MARGIN_X,
+    FOOTER_Y,
+    { align: 'right' },
+  );
+}
+
+function drawLineHeader(doc: jsPDF, y: number): void {
+  setText(doc, INK_DIM);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('DESCRIPTION', MARGIN_X, y);
+  doc.text('QTY', 360, y, { align: 'right' });
+  doc.text('UNIT', 450, y, { align: 'right' });
+  doc.text('LINE TOTAL', PAGE_W - MARGIN_X, y, { align: 'right' });
+  setFill(doc, INK_DIM);
+  doc.rect(MARGIN_X, y + 4, PAGE_W - MARGIN_X * 2, 0.5, 'F');
+}
+
+function drawLineRow(
+  doc: jsPDF,
+  y: number,
+  line: NormalisedLine,
+  currency: string,
+): void {
+  setText(doc, TEXT);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  // Truncate very long descriptions to fit the column. 60 chars is the rough
+  // limit for the helvetica 10pt column at 300pt wide.
+  const desc =
+    line.description.length > 60
+      ? `${line.description.slice(0, 57)}...`
+      : line.description;
+  doc.text(desc, MARGIN_X, y);
+  doc.text(line.quantity, 360, y, { align: 'right' });
+  doc.text(formatCents(line.unit_price_cents, currency), 450, y, {
+    align: 'right',
+  });
+  doc.text(formatCents(line.line_total_cents, currency), PAGE_W - MARGIN_X, y, {
+    align: 'right',
+  });
+}
+
+function drawRecipientBlock(
+  doc: jsPDF,
+  y: number,
+  labelPairs: Array<[string, string]>,
+): number {
+  setText(doc, INK_DIM);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  let cursor = y;
+  for (const [label, value] of labelPairs) {
+    doc.text(label.toUpperCase(), MARGIN_X, cursor);
+    setText(doc, TEXT);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text(value, MARGIN_X + 120, cursor);
+    setText(doc, INK_DIM);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    cursor += 16;
+  }
+  return cursor;
+}
+
+function drawTotalsBlock(
+  doc: jsPDF,
+  y: number,
+  pairs: Array<[string, number]>,
+  currency: string,
+): void {
+  setText(doc, TEXT);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  let cursor = y;
+  for (const [label, cents] of pairs) {
+    const isTotal = label === 'Total';
+    doc.setFont('helvetica', isTotal ? 'bold' : 'normal');
+    doc.setFontSize(isTotal ? 13 : 11);
+    doc.text(label, PAGE_W - MARGIN_X - 140, cursor, { align: 'right' });
+    doc.text(formatCents(cents, currency), PAGE_W - MARGIN_X, cursor, {
+      align: 'right',
+    });
+    cursor += isTotal ? 20 : 16;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Renderers.
+// ---------------------------------------------------------------------------
+
+function renderInvoice(data: z.infer<typeof InvoiceDataSchema>): jsPDF {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const lines = data.lines.map(normaliseLine);
+  const currency = data.currency;
+  drawAllPages(doc, 'INVOICE', lines, currency, (cursorY) => {
+    let y = cursorY;
+    y = drawRecipientBlock(doc, y, [
+      ['Bill to', data.customer_display_name],
+      ['Invoice', data.invoice_number],
+      ['Issue date', data.issue_date],
+      ['Due date', data.due_date],
+    ]);
+    return y + 12;
+  }, () =>
+    drawTotalsBlock(
+      doc,
+      PAGE_BOTTOM_LIMIT + 4,
+      [
+        ['Subtotal', asCents(data.subtotal_cents)],
+        ['Tax', asCents(data.tax_cents)],
+        ['Total', asCents(data.total_cents)],
+      ],
+      currency,
+    ),
+  );
+  return doc;
+}
+
+function renderQuote(data: z.infer<typeof QuoteDataSchema>): jsPDF {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const lines = data.lines.map(normaliseLine);
+  const currency = data.currency;
+  drawAllPages(doc, 'QUOTE', lines, currency, (cursorY) => {
+    let y = cursorY;
+    y = drawRecipientBlock(doc, y, [
+      ['Prepared for', data.customer_display_name],
+      ['Quote', data.quote_number],
+      ['Issue date', data.issue_date],
+    ]);
+    return y + 12;
+  }, () =>
+    drawTotalsBlock(
+      doc,
+      PAGE_BOTTOM_LIMIT + 4,
+      [
+        ['Subtotal', asCents(data.subtotal_cents)],
+        ['Tax', asCents(data.tax_cents)],
+        ['Total', asCents(data.total_cents)],
+      ],
+      currency,
+    ),
+  );
+  return doc;
+}
+
+function renderPurchaseOrder(
+  data: z.infer<typeof PurchaseOrderDataSchema>,
+): jsPDF {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const lines = data.lines.map(normaliseLine);
+  const currency = data.currency;
+  drawAllPages(doc, 'PURCHASE ORDER', lines, currency, (cursorY) => {
+    let y = cursorY;
+    y = drawRecipientBlock(doc, y, [
+      ['Vendor', data.vendor_display_name],
+      ['PO number', data.po_number],
+      ['Issue date', data.issue_date],
+    ]);
+    return y + 12;
+  }, () =>
+    drawTotalsBlock(
+      doc,
+      PAGE_BOTTOM_LIMIT + 4,
+      [
+        ['Subtotal', asCents(data.subtotal_cents)],
+        ['Total', asCents(data.total_cents)],
+      ],
+      currency,
+    ),
+  );
+  return doc;
+}
+
+/**
+ * Paginate the line items across as many pages as needed. The first page
+ * renders the doc-specific recipient block (returned y becomes the table
+ * start), subsequent pages skip straight to the line header. The totals
+ * block is drawn once on the last page.
+ */
+function drawAllPages(
+  doc: jsPDF,
+  docTypeLabel: string,
+  lines: NormalisedLine[],
+  currency: string,
+  drawFirstPageHead: (cursorY: number) => number,
+  drawTotals: () => void,
+): void {
+  const MAX_PAGES = 10;
+
+  // First-page head computes the table start; pre-compute pagination from
+  // there.
+  drawHeaderBand(doc, docTypeLabel);
+  let tableStartY = drawFirstPageHead(HEADER_H + 28);
+  let pageNum = 1;
+  drawLineHeader(doc, tableStartY);
+  let cursor = tableStartY + 18;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (cursor + LINE_ROW_H > PAGE_BOTTOM_LIMIT) {
+      if (pageNum >= MAX_PAGES) {
+        // Drop overflow lines silently; v1 caps at 10 pages per the spec.
+        break;
+      }
+      doc.addPage();
+      pageNum += 1;
+      drawHeaderBand(doc, `${docTypeLabel} (cont.)`);
+      tableStartY = HEADER_H + 28;
+      drawLineHeader(doc, tableStartY);
+      cursor = tableStartY + 18;
+    }
+    drawLineRow(doc, cursor, lines[i], currency);
+    cursor += LINE_ROW_H;
+  }
+
+  // Totals block on the last (current) page.
+  drawTotals();
+
+  // Footer on every page. jsPDF tracks pages internally.
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    drawFooter(doc, p, pageCount);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Routes.
+// ---------------------------------------------------------------------------
 
 const listTemplates: Route = {
   method: 'GET',
@@ -43,17 +395,40 @@ const render: Route = {
   async handler({ req }) {
     const caller = requireCaller(req);
     requireCap(caller, 'pdf.document.render');
-    const _body = await parseBody(req, RenderRequestSchema);
-    // v1 stub. The dependency ban list excludes a Chrome-based renderer and
-    // the operator has not yet approved a JS PDF library; rather than ship
-    // unapproved code we return 501 so the SPA can surface a clear "PDF not
-    // yet available" message.
-    return fromApiError(
-      new ApiError('PDF_NOT_YET_AVAILABLE', 501, 'PDF rendering is not yet available in this build.'),
-    );
+    const body = await parseBody(req, RenderRequestSchema);
+
+    let doc: jsPDF;
+    if (body.template === 'invoice') {
+      doc = renderInvoice(body.data);
+    } else if (body.template === 'quote') {
+      doc = renderQuote(body.data);
+    } else {
+      doc = renderPurchaseOrder(body.data);
+    }
+
+    const buf = doc.output('arraybuffer');
+    const base64 = toBase64(new Uint8Array(buf));
+    return ok({ url: `data:application/pdf;base64,${base64}` });
   },
 };
 
+/**
+ * Chunked base64 encoder. `btoa(String.fromCharCode(...arr))` blows the call
+ * stack for buffers larger than ~100kB; this version walks the buffer in
+ * 8kB slices so it stays correct for arbitrary PDFs. Pure browser-platform
+ * code, no Node Buffer involved, so it runs identically under Deno and the
+ * Vitest harness.
+ */
+function toBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const slice = bytes.subarray(i, i + CHUNK);
+    binary += String.fromCharCode.apply(null, Array.from(slice));
+  }
+  return btoa(binary);
+}
+
 Deno.serve((req) => route(req, [listTemplates, render], { bundle: BUNDLE }));
 
-export { listTemplates, render, TEMPLATES };
+export { listTemplates, render, TEMPLATES, RenderRequestSchema };
