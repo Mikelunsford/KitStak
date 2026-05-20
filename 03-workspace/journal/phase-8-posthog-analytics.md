@@ -213,3 +213,69 @@ a session resume.
 - `STATUS.md`: F-Wave5-CO-02 moved from operator-gated to closed;
   two follow-ups filed; bundle size line updated; last-updated stamp
   bumped.
+
+## Activation (2026-05-20)
+
+Operator activated PostHog. Closes `F-Wave8-POSTHOG-PROJECT-SETUP-01`.
+
+### What was done
+
+1. PostHog project created on US Cloud. Project ID `433097`. Dashboard
+   at `https://us.posthog.com/project/433097`. Renamed from
+   "Default project" to `KitStak v.01` inside PostHog.
+2. Project Token (`phc_...`) copied from PostHog Project Settings
+   (the public, frontend-safe token; not the Personal API key or
+   Feature Flags secure key).
+3. `VITE_POSTHOG_KEY` set in the Vercel project's Environment
+   Variables for **Production + Preview** scopes. Development scope
+   intentionally left unset so local `pnpm dev` stays in the
+   build-time-tree-shaken no-op posture documented in
+   `apps/web/.env.example`.
+4. `VITE_POSTHOG_HOST` not set. Project is on US Cloud and
+   `analytics.ts` already defaults to `https://us.i.posthog.com`.
+5. Vercel triggered a fresh production build (env vars are Vite
+   build-time, so a redeploy was required for the key to land in
+   the bundle). New build includes the named `posthog-<hash>.js`
+   chunk per the `manualChunks.posthog` config; SPA index chunk
+   unchanged at 29.94 kB / 40 kB.
+
+### Verification
+
+First events landed in PostHog's Activity view within ~30 seconds
+of the deploy completing:
+
+- `signed_in` event from `https://www.kitstak.com/signin`. This is
+  the explicit funnel event fired from `AuthContext.signIn` on a
+  successful auth; its presence confirms both the SDK is loaded
+  and the named-event wiring works end-to-end.
+- Autocapture event `clicked button with text "Sign out"` from
+  `https://www.kitstak.com/dashboard`. Confirms autocapture is on
+  (which it is by default in `initAnalytics`).
+- Library reported as `web` on both events: confirms the source
+  is `posthog-js` (SPA SDK), not a server-side library.
+- Two distinct distinct_ids visible across the anonymous →
+  identified flow, confirming that `identifyUser` re-keys the
+  session on the explicit sign-in path as designed.
+
+PII posture verified in-band: no email, name, phone, or address
+visible on any event property; identifier is the opaque Supabase
+user UUID; session recording masks all inputs per
+`session_recording.maskAllInputs: true`.
+
+### Follow-ups unblocked
+
+- `F-Wave8-POSTHOG-FEATURE-FLAGS-01`: the project now exists to
+  host flags. The feature-flag SDK can be lazy-loaded via the same
+  dynamic-import pattern as the analytics module.
+- `F-Wave8-POSTHOG-FUNNEL-EXPANSION-01`: actionable once enough
+  data accumulates across the 5 named events to be readable.
+  Bounded by operator priorities, not preemptive guesswork.
+
+### Wizard not used
+
+The PostHog AI install wizard (`npx @posthog/wizard@latest`) was
+not used. The wizard auto-detected the parent directory as a
+Node.js project (it does not understand the Vite + React SPA in
+`apps/web/`), and the SDK is already wired by PR #58. Running the
+wizard would have created a duplicate / conflicting init and
+written outside the worktree. Activation was env-var-only.
