@@ -169,3 +169,79 @@ effect on count.
 * `apps/web/src/pages/3pl-operations/shipments/ShipmentDetailPage.tsx` (Add / Remove Line UI)
 * `STATUS.md` (closed-this-session entry)
 * `03-workspace/journal/phase-7-lines-normalization.md` (this file)
+
+## Step 2 (this release, migration 0051)
+
+Date: 2026-05-20
+Branch: phase-8/inventory/emit-movements-read-line-tables
+Migration: 0051_emit_movements_read_line_item_tables.sql
+Closes: F-Wave7-EMIT-MOVEMENTS-MIGRATION-01
+
+Step 2 of the LINES-01 multi-stage drop. The two emit_movements trigger
+function bodies are redefined via `create or replace function` so they
+read from the normalised line-item tables added in 0050 instead of from
+the parent's `payload.lines` JSON:
+
+* `tg_receiving_orders_emit_movements` now selects from
+  `public.receiving_order_line_items` filtered on `org_id` and
+  `receiving_order_id`, ordered by `position`.
+* `tg_shipments_emit_movements` now selects from
+  `public.shipment_line_items` filtered on `org_id` and `shipment_id`,
+  ordered by `position`.
+
+The 0048 exception-wrapped skip guard (`exception when others then
+v_item_id := null; ... if v_item_id is null then continue`) is no
+longer required because the new tables declare
+`item_id NOT NULL references items(id)`. Every row in the table
+qualifies for emission by construction. Historical `payload.lines`
+entries that the 0050 backfill skipped (missing or non-UUID `item_id`)
+remain in the parent's JSON but are now silently ignored by the
+trigger, which is the intended forward-safe shape of the multi-stage
+drop.
+
+`unit_cost_cents` stays BIGINT cents on the way into `stock_movements`,
+wrapped in `coalesce(li.unit_cost_cents, 0)` because the column is
+nullable on the new tables. `quantity numeric(18,4)` flows through
+without truncation. No floating-point math anywhere.
+
+The third emit_movements trigger
+(`tg_production_runs_emit_movements`) is OUT OF SCOPE for this step
+because production_runs line normalisation has not happened yet. That
+work is tracked under `F-Wave7-PRODUCTION-LINES-NORMALIZE-01`. The
+0048 body for production_runs remains the live definition.
+
+Trigger ordering verified via
+`supabase/functions/ops-api/index.ts:352..374` (the receive RPC) and
+the equivalent ship RPC: lines are inserted into the new line-item
+tables by the line-item POST handlers BEFORE the receive / ship RPC
+fires the AFTER UPDATE OF status trigger. The receive / ship RPC
+itself does not touch the line-item tables; it overwrites the parent's
+`payload.lines` with the body's `lines` array, but the trigger no
+longer reads that field, so the body's value is now vestigial. The
+canonical source for emission is the line-item table.
+
+## What remains
+
+* **Step 3 (next release)**: drop the handler dual-write from
+  `ops-api`. Filed as `F-Wave7-LINES-DUAL-WRITE-DROP-01`. After step 3
+  ships, `payload.lines` on receiving / shipment parents stops being
+  maintained at the application layer.
+* **Step 4 (release after that)**: forward migration drops the `lines`
+  body param from the receive / ship RPCs and the `payload.lines` JSON
+  field from the parent. Filed as `F-Wave7-LINES-PAYLOAD-DROP-01`.
+
+## Gates verified at step 2 close
+
+* `pnpm typecheck`: clean.
+* `pnpm lint`: clean.
+* `pnpm test`: green.
+* `pnpm test:contract`: 26 / 26 (no canon files touched).
+* `pnpm build`: clean.
+* `pnpm bundle-budget`: 29.73 / 40 kB gzipped (unchanged; no SPA touch).
+* `node scripts/canon-steward-check.mjs`: exit 0.
+* `node scripts/trigger-audit-check.mjs`: exit 0. The new function
+  bodies use `create or replace function` and insert a `select` whose
+  values come from real table columns (not jsonb `->>` casts); the
+  trigger-audit-check unguarded-cast rule does not fire. No new
+  allowlist entries required.
+
