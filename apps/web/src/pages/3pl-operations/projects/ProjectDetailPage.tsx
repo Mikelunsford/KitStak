@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -21,6 +21,16 @@ import {
   type ProjectState, type ProjectPhaseState,
 } from '@/lib/workflow/sales';
 import { formatCents } from '@/lib/money';
+import type { ProjectPhase } from '@/lib/types/sales';
+
+// F-Wave2-DNDKIT-01: drag-and-drop phase reorder lives in its own lazy
+// chunk so that `@dnd-kit/*` (roughly 13 kB gzipped) does not push the
+// main SPA index chunk over the 40 kB bundle cap. The Suspense fallback
+// renders a static Up / Down version of the same list so the section is
+// never blank while the chunk loads.
+const PhasesSection = lazy(() =>
+  import('./PhasesSection').then((m) => ({ default: m.PhasesSection })),
+);
 
 const PROJECT_TARGETS: ProjectState[] = [
   'pending', 'ready_to_build', 'in_production',
@@ -128,6 +138,9 @@ export function ProjectDetailPage() {
     );
   };
 
+  // Static fallback for the Suspense boundary on the PHASES section.
+  // Runs Up / Down only (no dnd-kit) so the section stays interactive
+  // while the lazy chunk for PhasesSection loads.
   const movePhase = (index: number, delta: number) => {
     const next = phases.map((p) => p.id);
     const newIndex = index + delta;
@@ -329,51 +342,21 @@ export function ProjectDetailPage() {
 
       <section>
         <h2 className="text-2xl font-display tracking-wider text-ink mb-3">PHASES</h2>
-        <ol className="flex flex-col gap-3">
-          {phases.map((phase, index) => {
-            const ps = phase.state as ProjectPhaseState;
-            return (
-              <li
-                key={phase.id}
-                className="bg-bg-2 border border-line p-4 flex items-center justify-between gap-4"
-              >
-                <div className="flex flex-col">
-                  <span className="text-ink font-display tracking-wider">{phase.name}</span>
-                  <span className="text-ink-dim text-sm font-mono">{ps}</span>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    variant="ghost"
-                    onClick={() => movePhase(index, -1)}
-                    disabled={index === 0}
-                  >
-                    Up
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => movePhase(index, 1)}
-                    disabled={index === phases.length - 1}
-                  >
-                    Down
-                  </Button>
-                  {PHASE_TARGETS
-                    .filter((to) => to !== ps && canTransition(PROJECT_PHASE_FSM, ps, to))
-                    .map((to) => (
-                      <Button
-                        key={to}
-                        variant="secondary"
-                        onClick={() =>
-                          transitionPhase.mutate({ phaseId: phase.id, body: { to } })
-                        }
-                      >
-                        {to}
-                      </Button>
-                    ))}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        <Suspense
+          fallback={
+            <PhasesFallback
+              phases={phases}
+              movePhase={movePhase}
+              transitionPhase={transitionPhase}
+            />
+          }
+        >
+          <PhasesSection
+            phases={phases}
+            reorder={reorder}
+            transitionPhase={transitionPhase}
+          />
+        </Suspense>
 
         <form onSubmit={onAddPhase} className="flex flex-col gap-2 mt-4">
           <div className="flex gap-3 items-end">
@@ -497,5 +480,69 @@ export function ProjectDetailPage() {
         <AuditTimeline entityType="project" entityId={id ?? null} />
       </section>
     </section>
+  );
+}
+
+/**
+ * Static Up / Down version of the phases list, used as the Suspense
+ * fallback for the lazy PhasesSection (F-Wave2-DNDKIT-01). Renders the
+ * exact same card layout without dnd-kit so the section is never blank
+ * while the lazy chunk loads. Also serves as the accessibility baseline
+ * if dnd-kit's keyboard sensor ever fails: Up / Down buttons stay in
+ * the live tree even after PhasesSection mounts.
+ */
+function PhasesFallback({
+  phases, movePhase, transitionPhase,
+}: {
+  phases: ProjectPhase[];
+  movePhase: (index: number, delta: number) => void;
+  transitionPhase: ReturnType<typeof useTransitionPhase>;
+}) {
+  return (
+    <ol className="flex flex-col gap-3">
+      {phases.map((phase, index) => {
+        const ps = phase.state as ProjectPhaseState;
+        return (
+          <li
+            key={phase.id}
+            className="bg-bg-2 border border-line p-4 flex items-center justify-between gap-4"
+          >
+            <div className="flex flex-col">
+              <span className="text-ink font-display tracking-wider">{phase.name}</span>
+              <span className="text-ink-dim text-sm font-mono">{ps}</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="ghost"
+                onClick={() => movePhase(index, -1)}
+                disabled={index === 0}
+              >
+                Up
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => movePhase(index, 1)}
+                disabled={index === phases.length - 1}
+              >
+                Down
+              </Button>
+              {PHASE_TARGETS
+                .filter((to) => to !== ps && canTransition(PROJECT_PHASE_FSM, ps, to))
+                .map((to) => (
+                  <Button
+                    key={to}
+                    variant="secondary"
+                    onClick={() =>
+                      transitionPhase.mutate({ phaseId: phase.id, body: { to } })
+                    }
+                  >
+                    {to}
+                  </Button>
+                ))}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
