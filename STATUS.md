@@ -1,6 +1,6 @@
 # Kitstak Status
 
-Last updated: 2026-05-19 (Phase 7 stabilization close at `9846f1e`)
+Last updated: 2026-05-20 (Phase 8 polish bundle at `8dd0a42`)
 
 ## Current state
 
@@ -32,15 +32,13 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 
 ### Phase 8 carryover (filed this session)
 
-- **`F-Wave7-STALE-6_5-TODOS-01`**: four stale narrative TODO comments in `OpportunityDetailPage.tsx`, `CustomerDetailPage.tsx`, `ProjectDetailPage.tsx`, `useProjects.ts`. No behaviour impact. Allowlisted in `scripts/canon-steward-allowlist.txt` with closure reason "Phase 6.5 narrative; cleanup is mechanical". Cleanup deferred to a Phase 8 cosmetic sweep.
 - **`F-Wave7-SIDEBAR-IA-01`**: seven intentional orphan routes (five sales-config sub-pages plus `/3pl-operations/vas` plus `/imports/history`). Allowlisted in `scripts/canon-steward-allowlist.txt` with closure reason "intentional orphan, deep-link only". Deferred to a Phase 8 IA decision on whether to surface these in Sidebar or formalise them as deep-link-only utility routes.
-- **`F-Wave7-FK-RENDER-SWEEP-02`** (filed in PR #40): round-2 candidates for the new `<EntityLabel>` helper. Five additional FK columns rendered as raw UUIDs across list pages and summary cells: `category_id`, `unit_id`, `default_tax_id`, `tax_id`, `vendor_id`. Plus the list-page UUID-slice truncations (`id.slice(0, 8)` shorthand on roughly fifteen list pages) which could be replaced with `<EntityLabel kind="..." />` for parity with the detail-page treatment.
 - **`F-Wave7-EMIT-MOVEMENTS-MIGRATION-01`** (filed in PR #47): next-release migration to migrate `tg_receiving_orders_emit_movements` and `tg_shipments_emit_movements` to read from the new line-item tables instead of the parent's `payload.lines` JSON. Step one of the LINES-01 multi-stage drop.
 - **`F-Wave7-LINES-DUAL-WRITE-DROP-01`** (filed in PR #47): release after the above. Drop the dual-write from `ops-api` line-item handlers; `payload.lines` stops being maintained at the application layer. Step two of the LINES-01 multi-stage drop.
 - **`F-Wave7-LINES-PAYLOAD-DROP-01`** (filed in PR #47): release after the above. Forward migration drops the `lines` body param from the receive / ship RPCs. Step three of the LINES-01 multi-stage drop.
 - **`F-Wave7-PRODUCTION-LINES-NORMALIZE-01`** (filed in PR #47): mirror of LINES-01 for `production_runs`. Not constitutionally required (production runs are not on the operator's daily path the way receiving / shipment are) but worth doing if operator ergonomics warrant. The Produced-vs-Consumed split surfaced in PR #42 makes this a larger piece of work than the receiving / shipment normalisation.
-- **`F-Wave7-RECEIVING-DETAIL-ENTITY-LABEL-01`** (filed in PR #40): migrate `ReceivingOrderDetailPage`'s PR #31 inline `useWarehousesList` resolve pattern to the new `<EntityLabel kind="warehouse" id={...} />` helper post-soak. Mechanical refactor; PR #31's inline pattern was left intact pending a soak window.
 - **`F-Wave8-CI-VERCEL-DEDUPE-01`** (filed during PR #50 audit sweep): the `vercel-preview` job in `.github/workflows/deploy-preview.yml` runs `npx vercel deploy --prebuilt` on every PR, in addition to Vercel's native Git integration which already deploys the same preview. The duplicative job is what burns through the 100/day free-tier deploy quota and turns PRs red with no code-correctness signal (the `build` job stays green; see PR #50 history). Decide whether to delete the workflow, scope it down (e.g. only run on `main` so production keeps an explicit CLI deploy), or upgrade the Vercel plan. `deploy-prod.yml` may want the same treatment.
+- **`F-Wave8-ENTITYLABEL-CATEGORY-UNIT-HOOKS-01`** (filed during the Phase 8 polish bundle): the FK-RENDER-SWEEP-02 prompt called for `category` / `unit` / `tax` kinds on `<EntityLabel>`, but no `useCategoriesList` / `useUnitsList` list hooks exist in the tree today and the audited tree has no display sites for `tax_id` / `default_tax_id` / `category_id` / `unit_id` UUIDs (those FK columns surface only on form input pickers or are string registration numbers, not UUIDs). When a display site for one of these UUIDs lands, the matching list hook plus EntityLabel branch land alongside it.
 
 ### Other carried open
 
@@ -49,6 +47,9 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 
 ### Closed in this session
 
+- `F-Wave7-FK-RENDER-SWEEP-02`: Phase 8 polish bundle. The named FK columns flagged in the original filing (`category_id`, `unit_id`, `default_tax_id`, `tax_id`, `vendor_id`) audit out as either form-input picker sites (out of scope for a read-only display sweep) or string registration numbers (Customer / Vendor `tax_id` is `z.string().max(64)`, not a UUID FK). The meaningful round-2 polish was the list-page UUID-slice substitution: 7 sites on 7 list pages migrated from `<row>.<fk>_id.slice(0, 8)` to `<EntityLabel kind="..." id={...} />` (ProductionRunsListPage output_item_id, POsListPage vendor_id, ReceivingOrdersListPage warehouse_id, StockLevelsPage item_id, StockMovementsPage item_id, ShipmentsListPage warehouse_id, VendorBillsListPage vendor_id). The 14 `<row>.number ?? <row>.id.slice(0, 8)` fallback patterns left as-is (number fallback for unnumbered rows is the right shape). Round-3 candidates filed as `F-Wave8-ENTITYLABEL-CATEGORY-UNIT-HOOKS-01`.
+- `F-Wave7-RECEIVING-DETAIL-ENTITY-LABEL-01`: already migrated in tree at baseline `8dd0a42`. `ReceivingOrderDetailPage` already imports `EntityLabel` and renders `<EntityLabel kind="warehouse" id={d.warehouse_id} />` plus `<EntityLabel kind="item" id={l.item_id} />` on line rows. PR #31's inline `useWarehousesList` pattern was already excised; the soak window passed without intervention. No code change required.
+- `F-Wave7-STALE-6_5-TODOS-01`: four stale narrative TODO comments removed from `OpportunityDetailPage.tsx`, `ProjectDetailPage.tsx`, `useProjects.ts` (the CustomerDetailPage marker had already been rewritten in PR #48 / LISTFILTER-01 close, only the allowlist entry remained). The marker block in `scripts/canon-steward-allowlist.txt` (lines 19-31 of the pre-edit file) dropped; `canon-steward-check.mjs` exits 0 against the cleaned tree.
 - `F-Wave6-API-01` / `02`, `F-Wave6-NAV-01` / `03`: Wave 6 chassis PRs #13 to #16.
 - `F-Wave6-CORS-01`: PR #18 (CORS consolidation).
 - `G-OPS-FLAG-01`: PR #19 hotfix (string-literal drift).

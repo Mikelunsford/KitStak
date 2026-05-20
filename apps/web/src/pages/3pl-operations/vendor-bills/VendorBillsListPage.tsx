@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useVendorBillsList } from '@/lib/hooks/useVendorBills';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -30,7 +31,7 @@ export function VendorBillsListPage() {
           {(data ?? []).map((b) => (
             <tr key={b.id} className="border-t border-line">
               <td className="px-4 py-2"><Link to={`/3pl-operations/vendor-bills/${b.id}`} className="text-ink underline">{b.bill_number ?? b.id.slice(0, 8)}</Link></td>
-              <td className="px-4 py-2 text-ink-dim">{b.vendor_id.slice(0, 8)}</td>
+              <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="vendor" id={b.vendor_id} /></td>
               <td className="px-4 py-2"><span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{b.status}</span></td>
               <td className="px-4 py-2 text-ink-dim">{String(b.total_cents)}</td>
               <td className="px-4 py-2 text-ink-dim">{String(b.balance_cents)}</td>

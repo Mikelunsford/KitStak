@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useReceivingOrdersList } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -23,7 +24,7 @@ export function ReceivingOrdersListPage() {
             <tr key={r.id} className="border-t border-line">
               <td className="px-4 py-2"><Link to={`/3pl-operations/receiving/${r.id}`} className="text-ink underline">{r.receiving_number ?? r.id.slice(0, 8)}</Link></td>
               <td className="px-4 py-2"><span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{r.status}</span></td>
-              <td className="px-4 py-2 text-ink-dim">{r.warehouse_id.slice(0, 8)}</td>
+              <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="warehouse" id={r.warehouse_id} /></td>
               <td className="px-4 py-2 text-ink-dim">{r.expected_date ?? ''}</td>
             </tr>
           ))}

@@ -101,12 +101,9 @@ export function useReorderPhases(projectId: string) {
   });
 }
 
-// === Project line items (Phase 6.5 carryover from quotes) ==================
-// TODO 6.5-A: these wrap the projects-api endpoints Agent 6.5-B ships in
-// migration slot 0044 / 0045. The endpoint paths follow the existing
-// /projects-api/projects/:id/<sub> Pattern-B convention. If 6.5-B chooses
-// different paths, the orchestrator's Canon Steward pass realigns these
-// strings.
+// === Project line items =====================================================
+// Wraps the projects-api endpoints landed in migrations 0044 and 0045 under
+// the /projects-api/projects/:id/<sub> Pattern-B convention.
 
 const projectLineItemsKey = (projectId: string) =>
   ['sales', 'projects', 'byId', projectId, 'line-items'] as const;

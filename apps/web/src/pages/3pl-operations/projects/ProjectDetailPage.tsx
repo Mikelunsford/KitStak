@@ -157,11 +157,9 @@ export function ProjectDetailPage() {
     (inv) => inv.project_id === projectId,
   );
 
-  // TODO 6.5-A: receiving / shipment project_id filtering is best-effort
-  // until 6.5-B adds the column + list-filter support. The Receiving and
-  // Shipment side-car schemas today have no project_id field; we read it via
-  // a duck-typed cast so the section is harmlessly empty pre-migration and
-  // populates once the column lands.
+  // Receiving and Shipment side-car schemas do not carry a project_id field
+  // today, so the filter reads it via a duck-typed cast. The section stays
+  // harmlessly empty until the column lands and the schemas extend.
   const projectReceiving = (receiving.data ?? []).filter(
     (r) => (r as unknown as { project_id?: string | null }).project_id === projectId,
   );
