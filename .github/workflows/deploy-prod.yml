@@ -41,4 +41,13 @@ jobs:
         env:
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # F-Wave9-SENTRY-SOURCEMAPS-01: build-time secrets for
+          # @sentry/vite-plugin. No VITE_ prefix so the values stay out
+          # of the SPA bundle (enforced by the contract test at
+          # apps/web/test/regression/sentry-auth-leak.test.ts). When
+          # SENTRY_AUTH_TOKEN is absent the plugin no-ops and the build
+          # still ships; maps just stay un-uploaded.
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       - run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
