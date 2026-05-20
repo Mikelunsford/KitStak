@@ -67,6 +67,7 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 
 ### Closed in this session
 
+- `F-Wave9-NODE20-DEPRECATION-01`: bumped `actions/checkout`, `actions/setup-node`, and `pnpm/action-setup` from `@v4` to `@v6` across the four affected workflows (`ci.yml`, `deploy-prod.yml`, `lighthouse.yml`, `nightly-rls-probe.yml`); both new majors run on Node 24. No workflow inputs needed adjustment (explicit `cache: pnpm` and `node-version:` inputs remain supported in v6). Cleared the GitHub Actions Node 20 deprecation warnings ahead of the 2026-06-02 default flip.
 - `F-Wave6-API-01` / `02`, `F-Wave6-NAV-01` / `03`: Wave 6 chassis PRs #13 to #16.
 - `F-Wave6-CORS-01`: PR #18 (CORS consolidation).
 - `G-OPS-FLAG-01`: PR #19 hotfix (string-literal drift).
