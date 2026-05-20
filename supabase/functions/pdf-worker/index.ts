@@ -10,9 +10,12 @@
 // Storage bucket is involved.
 //
 // Brand discipline applied: navy header band, ink-on-navy display text,
-// helvetica for v1 (custom-font embedding tracked as
-// F-Wave8-PDF-FONT-EMBED-01). No em dashes, no double hyphens, no emojis
+// Bebas Neue for display text and Inter Tight for body text (embedded via
+// jsPDF addFileToVFS + addFont; both fonts ship under SIL Open Font License
+// 1.1, see fonts/LICENSE.txt). No em dashes, no double hyphens, no emojis
 // inside the rendered body text either.
+//
+// Closes: F-Wave8-PDF-FONT-EMBED-01.
 
 import { route, type Route } from '../_shared/route.ts';
 import { parseBody, requireCap } from '../_shared/handler-helpers.ts';
@@ -21,6 +24,12 @@ import { requireCaller } from '../_shared/tenant.ts';
 import { formatCents } from '../_shared/money.ts';
 import { jsPDF } from 'jspdf';
 import { z } from 'zod';
+import { BEBAS_NEUE_BASE64, INTER_TIGHT_BASE64 } from './fonts.ts';
+
+// Brand font identifiers used in doc.setFont calls. The .ttf files live under
+// fonts/ and are bundled as base64 strings via scripts/encode-fonts.mjs.
+const BRAND_DISPLAY_FONT = 'BebasNeue';
+const BRAND_BODY_FONT = 'InterTight';
 
 const BUNDLE = 'pdf-worker';
 
@@ -130,20 +139,34 @@ function setText(doc: jsPDF, c: { r: number; g: number; b: number }): void {
   doc.setTextColor(c.r, c.g, c.b);
 }
 
+/**
+ * Register the brand fonts on a fresh jsPDF document. Bebas Neue is display
+ * only (no bold weight in the free version), so callers use it via
+ * setFont(BRAND_DISPLAY_FONT, 'normal'). Inter Tight covers the body type
+ * and is also registered as 'normal' only; if a future template needs bold
+ * or italic body text, embed the matching .ttf and file a follow-up.
+ */
+function applyBrandFonts(doc: jsPDF): void {
+  doc.addFileToVFS('BebasNeue.ttf', BEBAS_NEUE_BASE64);
+  doc.addFont('BebasNeue.ttf', BRAND_DISPLAY_FONT, 'normal');
+  doc.addFileToVFS('InterTight.ttf', INTER_TIGHT_BASE64);
+  doc.addFont('InterTight.ttf', BRAND_BODY_FONT, 'normal');
+}
+
 function drawHeaderBand(doc: jsPDF, docTypeLabel: string): void {
   setFill(doc, NAVY);
   doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
   setText(doc, INK);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
+  doc.setFont(BRAND_DISPLAY_FONT, 'normal');
+  doc.setFontSize(28);
   doc.text('KITSTAK', MARGIN_X, 38);
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.text(docTypeLabel, PAGE_W - MARGIN_X, 38, { align: 'right' });
 }
 
 function drawFooter(doc: jsPDF, pageNum: number, pageCount: number): void {
   setText(doc, INK_DIM);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(BRAND_BODY_FONT, 'normal');
   doc.setFontSize(9);
   doc.text('Built to Ship.', MARGIN_X, FOOTER_Y);
   doc.text(
@@ -156,8 +179,11 @@ function drawFooter(doc: jsPDF, pageNum: number, pageCount: number): void {
 
 function drawLineHeader(doc: jsPDF, y: number): void {
   setText(doc, INK_DIM);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  // Section labels use the display font at small size for the constitutional
+  // uppercase tracking look. Bebas Neue has no bold weight; the larger
+  // x-height already reads as emphasis.
+  doc.setFont(BRAND_DISPLAY_FONT, 'normal');
+  doc.setFontSize(10);
   doc.text('DESCRIPTION', MARGIN_X, y);
   doc.text('QTY', 360, y, { align: 'right' });
   doc.text('UNIT', 450, y, { align: 'right' });
@@ -173,10 +199,10 @@ function drawLineRow(
   currency: string,
 ): void {
   setText(doc, TEXT);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(BRAND_BODY_FONT, 'normal');
   doc.setFontSize(10);
   // Truncate very long descriptions to fit the column. 60 chars is the rough
-  // limit for the helvetica 10pt column at 300pt wide.
+  // limit for the body 10pt column at 300pt wide.
   const desc =
     line.description.length > 60
       ? `${line.description.slice(0, 57)}...`
@@ -197,18 +223,18 @@ function drawRecipientBlock(
   labelPairs: Array<[string, string]>,
 ): number {
   setText(doc, INK_DIM);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFont(BRAND_DISPLAY_FONT, 'normal');
+  doc.setFontSize(10);
   let cursor = y;
   for (const [label, value] of labelPairs) {
     doc.text(label.toUpperCase(), MARGIN_X, cursor);
     setText(doc, TEXT);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(BRAND_BODY_FONT, 'normal');
     doc.setFontSize(11);
     doc.text(value, MARGIN_X + 120, cursor);
     setText(doc, INK_DIM);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFont(BRAND_DISPLAY_FONT, 'normal');
+    doc.setFontSize(10);
     cursor += 16;
   }
   return cursor;
@@ -221,13 +247,13 @@ function drawTotalsBlock(
   currency: string,
 ): void {
   setText(doc, TEXT);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
   let cursor = y;
   for (const [label, cents] of pairs) {
     const isTotal = label === 'Total';
-    doc.setFont('helvetica', isTotal ? 'bold' : 'normal');
-    doc.setFontSize(isTotal ? 13 : 11);
+    // Total uses the display font for emphasis; subtotal and tax rows stay on
+    // the body font.
+    doc.setFont(isTotal ? BRAND_DISPLAY_FONT : BRAND_BODY_FONT, 'normal');
+    doc.setFontSize(isTotal ? 14 : 11);
     doc.text(label, PAGE_W - MARGIN_X - 140, cursor, { align: 'right' });
     doc.text(formatCents(cents, currency), PAGE_W - MARGIN_X, cursor, {
       align: 'right',
@@ -242,6 +268,7 @@ function drawTotalsBlock(
 
 function renderInvoice(data: z.infer<typeof InvoiceDataSchema>): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  applyBrandFonts(doc);
   const lines = data.lines.map(normaliseLine);
   const currency = data.currency;
   drawAllPages(doc, 'INVOICE', lines, currency, (cursorY) => {
@@ -270,6 +297,7 @@ function renderInvoice(data: z.infer<typeof InvoiceDataSchema>): jsPDF {
 
 function renderQuote(data: z.infer<typeof QuoteDataSchema>): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  applyBrandFonts(doc);
   const lines = data.lines.map(normaliseLine);
   const currency = data.currency;
   drawAllPages(doc, 'QUOTE', lines, currency, (cursorY) => {
@@ -299,6 +327,7 @@ function renderPurchaseOrder(
   data: z.infer<typeof PurchaseOrderDataSchema>,
 ): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  applyBrandFonts(doc);
   const lines = data.lines.map(normaliseLine);
   const currency = data.currency;
   drawAllPages(doc, 'PURCHASE ORDER', lines, currency, (cursorY) => {

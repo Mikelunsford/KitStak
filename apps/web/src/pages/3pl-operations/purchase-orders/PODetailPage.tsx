@@ -1,10 +1,16 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Button } from '@/components/ui/Button';
 import {
   usePurchaseOrder, usePurchaseOrderLines, useTransitionPurchaseOrder,
 } from '@/lib/hooks/usePurchaseOrders';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { useVendor } from '@/lib/hooks/useVendors';
+import { useMe } from '@/lib/hooks/useMe';
+import { hasCap } from '@/lib/capabilities';
+import { renderPdf } from '@/lib/services/pdfService';
 import {
   PURCHASE_ORDER_FSM, canTransitionVio,
 } from '@/lib/workflow/vendors_inventory_ops';
@@ -16,6 +22,14 @@ export function PODetailPage() {
   const lines = usePurchaseOrderLines(id);
   const transition = useTransitionPurchaseOrder(id ?? '');
   const caps = useVioCapabilities();
+  const [pdfPending, setPdfPending] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const me = useMe({ enabled: true });
+  const canRenderPdf = me.data?.active_role
+    ? hasCap(me.data.active_role, 'pdf.document.render')
+    : false;
+
+  const vendor = useVendor(po.data?.vendor_id);
 
   if (po.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (po.error || !po.data) return <p className="px-8 py-12 text-accent">PO not found.</p>;
@@ -25,16 +39,70 @@ export function PODetailPage() {
     .filter((t) => t.from === data.status)
     .map((t) => t.to);
 
+  // F-Wave8-PDF-PO-DOWNLOAD-01. Build the PO render payload from the loaded
+  // purchase order and its line items, call the pdf-worker, and trigger a
+  // download via a hidden anchor. Mirrors InvoiceDetailPage's onDownloadPdf.
+  const onDownloadPdf = async () => {
+    setPdfError(null);
+    setPdfPending(true);
+    try {
+      const result = await renderPdf('purchase_order', {
+        vendor_display_name: vendor.data?.display_name ?? data.vendor_id,
+        po_number: data.po_number ?? data.id.slice(0, 8),
+        issue_date: data.order_date,
+        lines: (lines.data ?? []).map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity_ordered),
+          unit_price_cents: String(l.unit_price_cents),
+          line_total_cents: String(l.line_total_cents),
+        })),
+        subtotal_cents: String(data.subtotal_cents),
+        total_cents: String(data.total_cents),
+        currency: data.currency_code,
+      });
+      if ('not_available' in result) {
+        setPdfError(result.message);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = result.url;
+      a.download = `po-${data.po_number ?? data.id.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Download failed.');
+    } finally {
+      setPdfPending(false);
+    }
+  };
+
   return (
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           PO {data.po_number ?? data.id.slice(0, 8)}
         </h1>
-        <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
-          {data.status}
-        </span>
+        <div className="flex items-center gap-2">
+          {canRenderPdf && (
+            <Button
+              variant="secondary"
+              onClick={onDownloadPdf}
+              disabled={pdfPending}
+            >
+              {pdfPending ? 'Building.' : 'Download PDF'}
+            </Button>
+          )}
+          <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
+            {data.status}
+          </span>
+        </div>
       </header>
+      {pdfError && (
+        <p className="font-sans text-sm text-accent">
+          {pdfError}
+        </p>
+      )}
 
       {caps.can('purchase_orders.purchase_order.transition') && allowedNext.length > 0 ? (
         <div className="flex gap-2">

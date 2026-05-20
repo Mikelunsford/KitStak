@@ -12,6 +12,9 @@ import {
 } from '@/lib/hooks/useQuotes';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useItem } from '@/lib/hooks/useItems';
+import { useMe } from '@/lib/hooks/useMe';
+import { hasCap } from '@/lib/capabilities';
+import { renderPdf } from '@/lib/services/pdfService';
 import { canTransition, QUOTE_FSM } from '@/lib/workflow/sales';
 import { formatCents } from '@/lib/money';
 import type { QuoteState } from '@/lib/types/sales';
@@ -42,10 +45,16 @@ export function QuoteDetailPage() {
   const [lineDiscountBps, setLineDiscountBps] = useState('0');
   const [lineTaxId, setLineTaxId] = useState('');
   const [lineIsTaxable, setLineIsTaxable] = useState(true);
+  const [pdfPending, setPdfPending] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const customerId = data?.quote.customer_id ?? null;
   const customer = useCustomer(customerId ?? undefined);
   const selectedItem = useItem(selectedItemId ?? undefined);
+  const me = useMe({ enabled: true });
+  const canRenderPdf = me.data?.active_role
+    ? hasCap(me.data.active_role, 'pdf.document.render')
+    : false;
 
   if (isLoading) return <p className="p-8 text-ink-dim">Loading.</p>;
   if (error || !data) return <p className="p-8 text-accent">Quote not found.</p>;
@@ -59,6 +68,48 @@ export function QuoteDetailPage() {
       setLineName(selectedItem.data.name);
       setLineSku(selectedItem.data.sku);
       setLinePrice(String(selectedItem.data.unit_price_cents));
+    }
+  };
+
+  // F-Wave8-PDF-QUOTE-DOWNLOAD-01. Build the quote render payload from the
+  // loaded quote and its line items, call the pdf-worker, and trigger a
+  // download via a hidden anchor. Mirrors InvoiceDetailPage's onDownloadPdf.
+  const onDownloadPdf = async () => {
+    setPdfError(null);
+    setPdfPending(true);
+    try {
+      // QuoteLineItem stores quantity_e3 (thousandths). Convert to a decimal
+      // string before handing to the worker so the rendered PDF reads as a
+      // normal quantity rather than a thousandths integer.
+      const result = await renderPdf('quote', {
+        customer_display_name: customer.data?.display_name ?? '',
+        quote_number: quote.number,
+        issue_date: quote.submitted_at ?? quote.sent_at ?? '',
+        lines: lineItems.map((l) => ({
+          description: l.name,
+          quantity: (Number(l.quantity_e3) / 1000).toFixed(3),
+          unit_price_cents: String(l.unit_price_cents),
+          line_total_cents: String(l.line_total_cents),
+        })),
+        subtotal_cents: String(quote.subtotal_cents),
+        tax_cents: String(quote.tax_cents),
+        total_cents: String(quote.total_cents),
+        currency: quote.currency_code,
+      });
+      if ('not_available' in result) {
+        setPdfError(result.message);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = result.url;
+      a.download = `quote-${quote.number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Download failed.');
+    } finally {
+      setPdfPending(false);
     }
   };
 
@@ -142,10 +193,24 @@ export function QuoteDetailPage() {
             {convert.isPending ? 'Converting.' : 'Convert to project'}
           </Button>
         )}
+        {canRenderPdf && (
+          <Button
+            variant="secondary"
+            onClick={onDownloadPdf}
+            disabled={pdfPending}
+          >
+            {pdfPending ? 'Building.' : 'Download PDF'}
+          </Button>
+        )}
       </div>
       {convert.isError && (
         <p className="text-accent font-sans text-sm">
           Convert failed: {convert.error instanceof Error ? convert.error.message : 'unknown error'}
+        </p>
+      )}
+      {pdfError && (
+        <p className="text-accent font-sans text-sm">
+          {pdfError}
         </p>
       )}
 
