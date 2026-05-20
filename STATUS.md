@@ -1,6 +1,6 @@
 # Kitstak Status
 
-Last updated: 2026-05-19 (Phase 7 stabilization close at `9846f1e`)
+Last updated: 2026-05-20 (Phase 7 stabilization close at `9846f1e`)
 
 ## Current state
 
@@ -40,12 +40,14 @@ Closed in PRs #37 to #48 this session. See "Closed in this session" below for de
 - **`F-Wave7-LINES-PAYLOAD-DROP-01`** (filed in PR #47): release after the above. Forward migration drops the `lines` body param from the receive / ship RPCs. Step three of the LINES-01 multi-stage drop.
 - **`F-Wave7-PRODUCTION-LINES-NORMALIZE-01`** (filed in PR #47): mirror of LINES-01 for `production_runs`. Not constitutionally required (production runs are not on the operator's daily path the way receiving / shipment are) but worth doing if operator ergonomics warrant. The Produced-vs-Consumed split surfaced in PR #42 makes this a larger piece of work than the receiving / shipment normalisation.
 - **`F-Wave7-RECEIVING-DETAIL-ENTITY-LABEL-01`** (filed in PR #40): migrate `ReceivingOrderDetailPage`'s PR #31 inline `useWarehousesList` resolve pattern to the new `<EntityLabel kind="warehouse" id={...} />` helper post-soak. Mechanical refactor; PR #31's inline pattern was left intact pending a soak window.
-- **`F-Wave8-CI-VERCEL-DEDUPE-01`** (filed during PR #50 audit sweep): the `vercel-preview` job in `.github/workflows/deploy-preview.yml` runs `npx vercel deploy --prebuilt` on every PR, in addition to Vercel's native Git integration which already deploys the same preview. The duplicative job is what burns through the 100/day free-tier deploy quota and turns PRs red with no code-correctness signal (the `build` job stays green; see PR #50 history). Decide whether to delete the workflow, scope it down (e.g. only run on `main` so production keeps an explicit CLI deploy), or upgrade the Vercel plan. `deploy-prod.yml` may want the same treatment.
-
 ### Other carried open
 
 - **`F-Wave5-TEST-02`**: smoke selectors dry-run against staging. The Playwright smoke spec is scaffolded but selectors have not been validated against live staging. Eventually expand into a cross-domain workflow smoke that walks one full quote-to-cash chain (the only existing cross-domain verifier today is the operator running F-Wave6-FLOW-01).
 - **`F-Wave6-NAV-02`**: align other pillar child paths (Manufacturing, Co-Pack and Ecom, KitForce, KitCost) when those pillars light up. Pillar 1 paths fixed in PR #15.
+
+### Closed in this session (Phase 8 follow-up batch)
+
+- `F-Wave8-CI-VERCEL-DEDUPE-01`: Deleted `.github/workflows/deploy-preview.yml`; Vercel's native Git integration already deploys PR previews. `deploy-prod.yml` retained for explicit CLI prod deploys on main push.
 
 ### Closed in this session
 
