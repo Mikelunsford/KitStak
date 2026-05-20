@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { usePurchaseOrdersList } from '@/lib/hooks/usePurchaseOrders';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -49,7 +50,7 @@ export function POsListPage() {
                   {po.po_number ?? po.id.slice(0, 8)}
                 </Link>
               </td>
-              <td className="px-4 py-2 text-ink-dim">{po.vendor_id.slice(0, 8)}</td>
+              <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="vendor" id={po.vendor_id} /></td>
               <td className="px-4 py-2"><StatusBadge status={po.status} /></td>
               <td className="px-4 py-2 text-ink-dim">{String(po.total_cents)}</td>
               <td className="px-4 py-2 text-ink-dim">{po.order_date}</td>

@@ -57,14 +57,8 @@ export function OpportunityDetailPage() {
   );
 
   // G-OPP-FLOW-01: "Create quote from opportunity" carries the customer_id
-  // through the query string to QuoteCreatePage. QuoteCreatePage already
-  // surfaces the customer picker (closed by 6.5-A G-QUOTE-FORM-01) but does
-  // not yet read customer_id from the URL.
-  // TODO 6.5-D: QuoteCreatePage at apps/web/src/pages/3pl-operations/quotes/QuoteCreatePage.tsx
-  // does NOT currently read the `customer_id` query param. The link below
-  // passes it but the picker initializes to null on load. Orchestrator: have
-  // 6.5-A's quote create page consume useSearchParams().get('customer_id') so
-  // this carry-through actually pre-fills the picker.
+  // through the query string to QuoteCreatePage, which reads it via
+  // useSearchParams().get('customer_id') and pre-fills the customer picker.
   const createQuoteHref = `/3pl-operations/quotes/new?customer_id=${o.customer_id}`;
 
   return (

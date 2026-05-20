@@ -1,3 +1,4 @@
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useStockMovements } from '@/lib/hooks/useInventory';
 
 /**
@@ -20,7 +21,7 @@ export function StockMovementsPage() {
             <tr key={m.id} className="border-t border-line">
               <td className="px-4 py-2 text-ink-dim">{m.occurred_at}</td>
               <td className="px-4 py-2 text-ink">{m.movement_type}</td>
-              <td className="px-4 py-2 text-ink-dim">{m.item_id.slice(0, 8)}</td>
+              <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="item" id={m.item_id} /></td>
               <td className="px-4 py-2 text-ink">{String(m.quantity)}</td>
               <td className="px-4 py-2 text-ink-dim">{String(m.unit_cost_cents)}</td>
               <td className="px-4 py-2 text-ink-dim">{m.source_entity_type ?? ''}</td>
