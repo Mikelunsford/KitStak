@@ -9,6 +9,7 @@ import {
 import type { Session, User } from '@supabase/supabase-js';
 
 import { identifyUser, resetAnalytics, track } from '@/lib/analytics';
+import { identifySentryUser, resetSentryUser } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -57,6 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // page reloads land on the right person. Identify only; no
         // signed_in event here (that fires on the explicit auth call).
         identifyUser(data.session.user.id);
+        // F-Wave5-CO-01: also re-stitch the Sentry user.id so any
+        // post-recovery error capture is attributed correctly. No PII
+        // beyond the opaque Supabase UUID.
+        identifySentryUser(data.session.user.id);
       } else {
         setState({ status: 'unauthenticated' });
       }
@@ -88,8 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // F-Wave5-CO-02: stitch the analytics session to the opaque
         // Supabase user.id and emit the first funnel event. Never pass
         // email or any PII to identifyUser; the UUID is enough.
+        // F-Wave5-CO-01: stitch the Sentry user.id on the same path so
+        // any subsequent error capture is attributed correctly.
         if (!error && data.user) {
           identifyUser(data.user.id);
+          identifySentryUser(data.user.id);
           track('signed_in', { method: 'password' });
         }
         return { error: error?.message ?? null };
@@ -99,6 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // F-Wave5-CO-02: reset the anonymous-session token so the next
         // sign-in on this browser starts a fresh distinct_id.
         resetAnalytics();
+        // F-Wave5-CO-01: clear the Sentry user so subsequent error
+        // capture on this browser is not attributed to the previous
+        // user. Without this an anonymous post-sign-out crash would
+        // still carry the old user.id tag.
+        resetSentryUser();
       },
     }),
     [state],

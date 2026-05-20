@@ -22,6 +22,11 @@ export default defineConfig({
           // is recognisable in dist and survives tree-shaking when
           // VITE_POSTHOG_KEY is absent at build time.
           posthog: ['posthog-js'],
+          // F-Wave5-CO-01 / F-Wave3-OBS-01 (SPA portion): @sentry/react
+          // is dynamic-imported from src/lib/sentry.ts. Named so the
+          // lazy chunk is recognisable in dist; tree-shaken entirely
+          // when VITE_SENTRY_DSN is absent at build time.
+          sentry: ['@sentry/react'],
         },
       },
     },

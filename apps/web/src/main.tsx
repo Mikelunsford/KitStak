@@ -7,7 +7,17 @@ import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
 import { ErrorBoundary } from './components/shell/ErrorBoundary';
 import { initAnalytics } from './lib/analytics';
+import { initSentry } from './lib/sentry';
 import './styles.css';
+
+// F-Wave5-CO-01 / F-Wave3-OBS-01 (SPA portion): fire Sentry init BEFORE
+// React renders so any render-time error during the very first paint is
+// still captured. The dynamic import inside initSentry is fire-and-forget;
+// the network round trip never blocks the render path. No-op when
+// VITE_SENTRY_DSN is absent at build (dev and DSN-less previews).
+if (import.meta.env.VITE_SENTRY_DSN) {
+  void initSentry();
+}
 
 // Per 00-canon/01-architecture.md "State management": staleTime 30_000,
 // refetchOnWindowFocus false, retry 1. Configured once here so every

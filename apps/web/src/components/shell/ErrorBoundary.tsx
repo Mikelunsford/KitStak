@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
+import { captureException } from '@/lib/sentry';
+
 /**
  * ErrorBoundary. last-ditch catcher for render-time errors anywhere below
  * the App tree. Render-time errors above this point (router init, auth
@@ -8,6 +10,11 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
  *
  * The fallback is intentionally minimal: no router-dependent navigation,
  * just a hard reload. The Reload button is keyboard-reachable.
+ *
+ * F-Wave5-CO-01 (SPA portion): componentDidCatch forwards the error and
+ * componentStack to Sentry via the lazy-loaded capture wrapper. The
+ * wrapper is a silent no-op when VITE_SENTRY_DSN is absent or when
+ * running in dev, so this call is safe in every build.
  */
 
 interface ErrorBoundaryProps {
@@ -32,6 +39,10 @@ export class ErrorBoundary extends Component<
     if (import.meta.env.DEV) {
       console.error('[ErrorBoundary] render error', error, info);
     }
+    captureException(
+      error,
+      info.componentStack ? { componentStack: info.componentStack } : undefined,
+    );
   }
 
   handleReload = (): void => {

@@ -67,6 +67,7 @@ Ship fast, validate with the first operator, defer perfection where the chassis 
 - UUIDs: `crypto.randomUUID()`.
 - Backend: Supabase Postgres plus Edge Functions (Deno).
 - PDF rendering (worker-side only): `jspdf` (Apache-2.0 / MIT-permissive). Operator approved at F-Wave2-CO-01 close. Imported by `pdf-worker` only; not allowed in SPA bundle.
+- Error and performance capture (SPA only): `@sentry/react` (MIT). Operator approved at F-Wave5-CO-01 / F-Wave3-OBS-01 SPA close. Lazy-loaded via dynamic import in `apps/web/src/lib/sentry.ts`; no-op when `VITE_SENTRY_DSN` absent at build (tree-shakes to zero chunk). Edge-function capture filed separately as `F-Wave5-CO-01-EDGE-01`.
 - Testing: Vitest plus Playwright plus `@axe-core/playwright`.
 - Bundle gate: `size-limit`.
 
