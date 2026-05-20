@@ -64,6 +64,12 @@ function decodeBase64Prefix(dataUrl: string): string {
   return binary.slice(0, 5);
 }
 
+function decodeFullPdf(dataUrl: string): { binary: string; bytes: number } {
+  const base64 = dataUrl.replace(/^data:application\/pdf;base64,/, '');
+  const binary = atob(base64);
+  return { binary, bytes: binary.length };
+}
+
 describe('pdf-worker — POST /pdf/render (F-Wave2-CO-01)', () => {
   let handler: (req: Request) => Promise<Response> | Response;
 
@@ -100,6 +106,39 @@ describe('pdf-worker — POST /pdf/render (F-Wave2-CO-01)', () => {
     // Magic-byte check: every real PDF starts with '%PDF-' (0x25 50 44 46 2D).
     const head = decodeBase64Prefix(body.data!.url!);
     expect(head).toBe('%PDF-');
+  });
+
+  it('embeds the brand fonts (BebasNeue + InterTight) in the rendered PDF (F-Wave8-PDF-FONT-EMBED-01)', async () => {
+    setActiveMockState(makeState({}));
+
+    const req = new Request('https://example.test/pdf/render', {
+      method: 'POST',
+      headers: {
+        authorization: bearer(OWNER),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        template: 'invoice',
+        data: MINIMAL_INVOICE_PAYLOAD,
+      }),
+    });
+
+    const res = await handler(req);
+    expect(res.status).toBe(200);
+
+    const body = await readJson(res);
+    const { binary, bytes } = decodeFullPdf(body.data!.url!);
+
+    // Both brand fonts must appear in the binary PDF byte stream. jsPDF
+    // writes the registered name as a PostScript-style identifier when it
+    // embeds the font subset, so a substring match is sufficient.
+    expect(binary).toContain('BebasNeue');
+    expect(binary).toContain('InterTight');
+
+    // Sanity bound: a minimal 1-line invoice with both fonts subsetted should
+    // stay well under 2 MB. If this fires the worker is shipping the full
+    // unsubsetted font tables and needs investigation.
+    expect(bytes).toBeLessThan(2_000_000);
   });
 
   it('rejects an invoice payload missing required fields with 422', async () => {
