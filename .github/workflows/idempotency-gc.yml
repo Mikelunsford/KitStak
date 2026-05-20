@@ -10,7 +10,21 @@ jobs:
   sweep:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify secrets are configured
+        id: secrets
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          GC_TRIGGER_SECRET: ${{ secrets.GC_TRIGGER_SECRET }}
+        run: |
+          if [ -z "${SUPABASE_FUNCTION_URL:-}" ] || [ -z "${GC_TRIGGER_SECRET:-}" ]; then
+            echo "::notice::SUPABASE_FUNCTION_URL or GC_TRIGGER_SECRET not configured. Skipping idempotency GC sweep. Set both secrets in the repo Actions settings to enable nightly GC."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Invoke idempotency-gc
+        if: steps.secrets.outputs.configured == 'true'
         env:
           SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
           GC_TRIGGER_SECRET: ${{ secrets.GC_TRIGGER_SECRET }}
