@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 
+import { identifyUser, resetAnalytics, track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -51,6 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: data.session.user,
           session: data.session,
         });
+        // F-Wave5-CO-02: a recovered session on cold mount must
+        // re-stitch the analytics distinct_id so events emitted from
+        // page reloads land on the right person. Identify only; no
+        // signed_in event here (that fires on the explicit auth call).
+        identifyUser(data.session.user.id);
       } else {
         setState({ status: 'unauthenticated' });
       }
@@ -75,14 +81,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       state,
       async signIn(email, password) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+        // F-Wave5-CO-02: stitch the analytics session to the opaque
+        // Supabase user.id and emit the first funnel event. Never pass
+        // email or any PII to identifyUser; the UUID is enough.
+        if (!error && data.user) {
+          identifyUser(data.user.id);
+          track('signed_in', { method: 'password' });
+        }
         return { error: error?.message ?? null };
       },
       async signOut() {
         await supabase.auth.signOut();
+        // F-Wave5-CO-02: reset the anonymous-session token so the next
+        // sign-in on this browser starts a fresh distinct_id.
+        resetAnalytics();
       },
     }),
     [state],

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import { bucketCents, track } from '@/lib/analytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { quotesKeys } from '@/lib/queryKeys/quotes';
 import {
@@ -59,7 +60,28 @@ export const useSubmitQuote   = () => useQuoteAction(submitQuote);
 export const useApproveQuote  = () => useQuoteAction(approveQuote);
 export const useReviseQuote   = () => useQuoteAction(reviseQuote);
 export const useCancelQuote   = () => useQuoteAction(cancelQuote);
-export const useSendQuote     = () => useQuoteAction(sendQuote);
+
+/**
+ * Send-quote mutation. Wires the F-Wave5-CO-02 `quote_sent` funnel
+ * event on success. Total amount is bucketed via bucketCents so absolute
+ * dollar values never leak into the analytics event log.
+ */
+export function useSendQuote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => sendQuote(id),
+    onSuccess: (quote, id) => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(id) });
+      void qc.invalidateQueries({ queryKey: quotesKeys.all });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', id) });
+      track('quote_sent', {
+        quote_id: quote.id,
+        customer_id: quote.customer_id ?? null,
+        total_cents_bucket: bucketCents(quote.total_cents),
+      });
+    },
+  });
+}
 
 export function useConvertQuoteToProject() {
   const qc = useQueryClient();
@@ -74,6 +96,16 @@ export function useConvertQuoteToProject() {
       // the source quote's timeline so the operator returning to the page
       // sees the new entry.
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', id) });
+      // F-Wave5-CO-02: emit the project_converted funnel event. The
+      // source quote id plus the new project id are both opaque UUIDs
+      // (no PII). No amount is tracked here; the dollar value belongs
+      // to the upstream quote_sent event.
+      if (result?.project_id) {
+        track('project_converted', {
+          source_quote_id: id,
+          project_id: result.project_id,
+        });
+      }
       // G-CONVERT-02: navigate to the newly created project so the operator
       // can immediately continue the chain instead of staying on the source
       // quote with no breadcrumb forward.

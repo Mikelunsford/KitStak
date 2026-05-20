@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
 import { ErrorBoundary } from './components/shell/ErrorBoundary';
+import { initAnalytics } from './lib/analytics';
 import './styles.css';
 
 // Per 00-canon/01-architecture.md "State management": staleTime 30_000,
@@ -37,3 +38,10 @@ ReactDOM.createRoot(rootEl).render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// F-Wave5-CO-02: lazy-loaded PostHog analytics. Fire-and-forget so the
+// init network round trip never blocks the React render path. No-op
+// when VITE_POSTHOG_KEY is absent (dev / staging without analytics).
+if (import.meta.env.VITE_POSTHOG_KEY) {
+  void initAnalytics();
+}

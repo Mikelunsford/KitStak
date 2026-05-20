@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { bucketCents, track } from '@/lib/analytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { invoiceKeys } from '@/lib/queryKeys/invoices';
 import {
@@ -87,12 +88,19 @@ export function useSendInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => sendInvoice(id),
-    onSuccess: (_data, id) => {
+    onSuccess: (invoice, id) => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
       // F-Wave7-AUDIT-CACHE-SWEEP-01: invoice send writes an audit row;
       // invalidate the timeline so the operator sees the entry.
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('invoice', id) });
+      // F-Wave5-CO-02: emit the invoice_sent funnel event. Total
+      // amount is bucketed so absolute dollar values never leak.
+      track('invoice_sent', {
+        invoice_id: invoice.id,
+        customer_id: invoice.customer_id ?? null,
+        total_cents_bucket: bucketCents(invoice.total_cents),
+      });
     },
   });
 }
