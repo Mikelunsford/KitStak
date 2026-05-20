@@ -27,6 +27,10 @@ The architectural lock-ins. This file is the single source of truth for "what ru
 | Hosting | Vercel (us-west-1) | Netlify, Cloudflare Pages |
 | Testing | Vitest plus Playwright plus @axe-core/playwright | Jest, Cypress |
 | Bundle gate | size-limit (40 kB gzip on the index chunk) | bundlewatch, manual |
+| PDF rendering (worker-side only) | jspdf (Apache-2.0 / MIT-permissive; operator approved at F-Wave2-CO-01 close) | client-side PDF libs in the SPA bundle |
+| Drag-and-drop (lazy-loaded route surfaces) | @dnd-kit/core + @dnd-kit/sortable + @dnd-kit/utilities (MIT; operator approved at F-Wave2-DNDKIT-01) | react-dnd, react-beautiful-dnd, sortable.js |
+| Product analytics (SPA, lazy-loaded) | posthog-js (MIT; operator approved at F-Wave5-CO-02; activated 2026-05-20 against PostHog US Cloud project 433097) | Segment, Mixpanel, Amplitude |
+| Error + perf capture (SPA, lazy-loaded) | @sentry/react (MIT; operator approved at F-Wave5-CO-01 SPA close; activated 2026-05-20 against Sentry SaaS US region project 4511423235751936) | bare browser onerror, LogRocket, Rollbar |
 
 Banned dependencies enforced at ESLint via `no-restricted-imports`:
 
@@ -172,7 +176,8 @@ Cross-tenant reads return `200 + []`. Workflow POSTs across tenants return `404`
 
 ## Bundle and performance budgets
 
-- SPA index chunk: 40 kB gzip max.
+- SPA index chunk: 40 kB gzip max. **Enforced** by `.size-limit.cjs`. Current at 29.95 kB (2026-05-20).
+- Lazy chunks: no per-chunk gates today. Current sizes for reference (with `VITE_SENTRY_DSN` + `VITE_POSTHOG_KEY` set at build): `sentry-*.js` 120.74 kB gz, `posthog-*.js` 64.72 kB gz, `supabase-*.js` 53.50 kB gz, `react-*.js` 53.74 kB gz, `PhasesSection-*.js` (dnd-kit) 16.56 kB gz, `query-*.js` 12.79 kB gz. Per-route page chunks 0.7-3.4 kB gz each.
 - Asset cache: `/assets/*` served `max-age=31536000, immutable`.
 - Security headers via `vercel.json`.
-- Lighthouse: LCP under 2.5s, CLS under 0.1, TBT under 200ms.
+- Lighthouse: LCP under 2.5s, CLS under 0.1, TBT under 200ms. **Currently NOT enforced**: the `lighthouse.yml` workflow is gated by the repo variable `LIGHTHOUSE_ENABLED` which is not set to `'true'` because Vercel preview Deployment Protection blocks the Lighthouse runner with 401 redirect loops. Re-enable by either dropping preview Deployment Protection or configuring a Vercel Protection Bypass secret. Tracked as a Phase 9 follow-up to revisit.
