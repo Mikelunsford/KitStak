@@ -10,7 +10,21 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify secrets are configured
+        id: secrets
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          AUDIT_VERIFY_SECRET: ${{ secrets.AUDIT_VERIFY_SECRET }}
+        run: |
+          if [ -z "${SUPABASE_FUNCTION_URL:-}" ] || [ -z "${AUDIT_VERIFY_SECRET:-}" ]; then
+            echo "::notice::SUPABASE_FUNCTION_URL or AUDIT_VERIFY_SECRET not configured. Skipping audit chain verify. Set both secrets in the repo Actions settings to enable nightly verification."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Invoke audit-chain-verify
+        if: steps.secrets.outputs.configured == 'true'
         env:
           SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
           AUDIT_VERIFY_SECRET: ${{ secrets.AUDIT_VERIFY_SECRET }}
