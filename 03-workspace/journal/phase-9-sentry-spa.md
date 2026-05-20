@@ -128,3 +128,73 @@ All passed on the feature branch before commit:
 - `pnpm --filter web test:contract` — 20 passing (Zod canon parity holds).
 - `pnpm --filter web build` — green; main chunk 29.95 kB / 40 kB.
 - `pnpm --filter web bundle-budget` (size-limit) — green at 29.95 kB / 40 kB.
+
+## Activation (2026-05-20)
+
+Operator activated Sentry. Closes `F-Wave5-CO-01` / `F-Wave3-OBS-01` (SPA portion). Two unforeseen problems surfaced during activation; both diagnosed and resolved in the same session before close.
+
+### What was done
+
+1. Sentry organisation + project created at sentry.io. Project type: React → Browser. US region. Project ID `4511423235751936`. Org ID `4511423231229952`. Project name: `javascript-react` inside Sentry; tied to Team `#kitstak`.
+2. Public DSN copied from Project Settings → Client Keys. Value (frontend-safe by design): `https://1b5b27cb6dc46bfaad38424597ebc63c@o4511423231229952.ingest.us.sentry.io/4511423235751936`. Stored in operator's local `Docs/SUPABASE ENV.MD` credentials file (outside the repo).
+3. `VITE_SENTRY_DSN` set in Vercel Environment Variables for Production + Preview scopes. Development scope intentionally unset so local `pnpm dev` stays in no-op posture.
+4. `VITE_SENTRY_HOST` / `VITE_SENTRY_ENVIRONMENT` / `VITE_SENTRY_TRACES_SAMPLE_RATE` / `VITE_SENTRY_REPLAY_SESSION_SAMPLE_RATE` left unset; code defaults (US Cloud ingest, environment falls back to `VITE_APP_ENV`, traces 0.1, replay 0.0) are the conservative launch posture.
+
+### Problem 1: Vercel "Sensitive" flag blocked the build (resolved by PR #66)
+
+Initial Vercel redeploy after `VITE_SENTRY_DSN` was set did not bake the value into the bundle. Diagnosis (via `curl` of the deployed `index-Awrym9dm.js`): zero references to PostHog OR Sentry env vars; Supabase URL `zmnvwhqjahwidprnjxrq` (NOT flagged Sensitive) DID land in the bundle.
+
+Root cause: `.github/workflows/deploy-prod.yml` runs `vercel build` on GitHub Actions runners (not on Vercel's own build infrastructure). `vercel pull --environment=production` deliberately does NOT pull env vars flagged "Sensitive" in the Vercel project — this is a documented Vercel security behaviour: Sensitive vars are only injected when the build itself runs on Vercel's infrastructure. Both `VITE_SENTRY_DSN` (Sensitive from the start) and `VITE_POSTHOG_KEY` (Sensitive after some later operator edit) were affected.
+
+**The PostHog regression was silent**: the F-Wave8-POSTHOG-PROJECT-SETUP-01 closeout journal had recorded events flowing; subsequent Sensitive marking broke events without any deploy failing. The Sentry verification dive was what surfaced the gap.
+
+Fix shipped in PR #66 (`3e4fba6`): inject the two `VITE_*` values from GitHub repo secrets at the `env:` block of the `vercel build` step in `deploy-prod.yml`, mirroring the established pattern in `lighthouse.yml`. Both values are designed to be frontend-public (PostHog Project Tokens are rate-limited per project; Sentry DSNs are rate-limited per project) so storing them as GitHub repo secrets carries no incremental risk vs the SPA bundle itself. The PostHog regression unblocked simultaneously; events resumed flowing into PostHog Activity.
+
+After the fix, the deployed bundle hash changed to `index-Doydj616.js` and contained:
+- `us.i.posthog.com` literal
+- `phc_robvSrpGzMvWWK6nF7uBaJVAwtTXfkAypbMCtSLckqc9` token
+- `o4511423231229952.ingest.us.sentry.io` literal
+- `1b5b27cb6dc46bfaad38424597ebc63c` DSN public key
+- New `sentry-CF0Aje5m.js` lazy chunk emitted alongside
+
+### Problem 2: Sentry Relay enriched events with IP after the SDK-side scrub (resolved by this PR)
+
+First captured event (Sentry Issue `JAVASCRIPT-REACT-1`, event ID `64a6acc3`) carried the operator's source IP `98.172.8.242` and city-level Geography `Fayetteville, United States (US)` despite the SDK posture of `sendDefaultPii: false` plus `beforeSend` `delete event.user.ip_address`.
+
+Root cause: Sentry has TWO PII layers. The SDK-side controls (which `sentry.ts` covers correctly) prevent the SDK from SENDING the IP. But Sentry's server-side Relay (the ingest pipeline) can ENRICH events with IP from the request source unless the event arrives with `ip_address` explicitly set to `null` AND the project-level "Prevent Storing of IP Addresses" toggle is ON. With `delete`, the field is absent and the Relay treats absence as "auto-fill from source IP".
+
+Two-part fix (both layered for defense in depth):
+
+1. **Operator: project setting** — Sentry → Settings → Security & Privacy → "Prevent Storing of IP Addresses" enabled. Flipped 2026-05-20 within minutes of the diagnosis. Effect: Relay-side enrichment disabled at the project boundary.
+2. **Code: `beforeSend` hardening** (this PR): `event.user.ip_address` is now set to `null` explicitly rather than deleted. The Relay treats `null` as "operator opted out, do not enrich." The user object is synthesised with `{ ip_address: null }` even when the input had no user object at all, so anonymous events also carry the opt-out signal. Three new unit-test assertions in `sentry.test.ts` cover the contract: with id, without id, no user object input at all.
+
+The constitutional gate (no PII in Sentry events) now holds at both layers. The original journal's claim that "`sendDefaultPii: false` refuses IP and cookies by default" was technically true at the SDK layer but incomplete; it did not account for Relay enrichment. Corrected here.
+
+### Verification evidence
+
+Sentry Issue `JAVASCRIPT-REACT-1`, event ID `64a6acc3`, captured 2026-05-20 ~2:25 PM ET via the controlled `document.body.addEventListener('click', () => { throw new Error(...) }, { once: true })` smoke test from the operator's incognito Chrome session. After both fixes, the event carries:
+
+| Field | Value | Constitutional check |
+|---|---|---|
+| environment | `production` | ✅ |
+| release | `3.140.0-827c74` | ✅ auto-generated, release tracking active |
+| transaction | `/kitforce/labor` | ✅ pathname only |
+| url | `https://www.kitstak.com/404` | ✅ pathname only, no query string |
+| user.id | `e7f20b8c-c972-4d13-bd29-1a1731154578` | ✅ opaque Supabase UUID |
+| user.ip_address | null (new events) | ✅ Relay-suppressed |
+| user.geography | absent (new events) | ✅ Relay derives from IP; IP off ⇒ geography off |
+| request.headers | User-Agent only | ✅ NO Authorization, NO Cookie |
+| request.cookies | absent | ✅ |
+| SDK | `sentry.javascript.react 8.55.2` | ✅ |
+
+The first smoke-test event captured BEFORE the project-level Relay setting was flipped retains the operator's IP and city as a historical artefact; future events do not.
+
+### Follow-ups filed alongside this close
+
+- `F-Wave9-NODE20-DEPRECATION-01`: GitHub Actions warning that `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4` run on Node.js 20 which is being forced to Node.js 24 by default starting 2026-06-02 and removed entirely 2026-09-16. All four Kitstak workflows use these actions. Non-blocking until June; should bump pinned versions before then.
+- `F-Wave9-VERCEL-NATIVE-BUILD-CONSIDER-01`: the `deploy-prod.yml`-on-GitHub-Actions architecture is the root cause of the Vercel-Sensitive-env-var gap class. Consider whether the deploy step should migrate to Vercel's native git integration (build runs on Vercel infrastructure where Sensitive vars are auto-injected). Trade-offs: loses the GitHub-Actions step gating, gains automatic Sensitive-var support. Not urgent; the PR #66 workaround is sound.
+- `F-Wave9-FONT-DECODE-ERROR-01`: surfaced as a side observation during Sentry verification. Two Chrome console warnings (`Failed to decode downloaded font: <URL>` plus `OTS parsing error: invalid sfntVersion: 1008821359`) on production indicate one of the three Google Fonts URLs in `apps/web/index.html` is returning HTML instead of a font file. Already spawned as a background task during the session.
+
+### Wizard not used (confirmed)
+
+The Sentry AI install wizard was not used (per the original journal's section). The activation path was env-var-only on the operator side. No code wiring beyond what shipped in PR #65 plus the two hardening fixes (PR #66 for the build pipeline, this PR for the Relay opt-out).
