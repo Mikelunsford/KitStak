@@ -17,6 +17,11 @@ export default defineConfig({
           react: ['react', 'react-dom', 'react-router-dom'],
           query: ['@tanstack/react-query'],
           supabase: ['@supabase/supabase-js'],
+          // F-Wave5-CO-02: posthog-js is dynamic-imported from
+          // src/lib/analytics.ts. Named manually so the lazy chunk
+          // is recognisable in dist and survives tree-shaking when
+          // VITE_POSTHOG_KEY is absent at build time.
+          posthog: ['posthog-js'],
         },
       },
     },
