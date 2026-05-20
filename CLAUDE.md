@@ -66,6 +66,7 @@ Ship fast, validate with the first operator, defer perfection where the chassis 
 - Dates: native `Intl`.
 - UUIDs: `crypto.randomUUID()`.
 - Backend: Supabase Postgres plus Edge Functions (Deno).
+- PDF rendering (worker-side only): `jspdf` (Apache-2.0 / MIT-permissive). Operator approved at F-Wave2-CO-01 close. Imported by `pdf-worker` only; not allowed in SPA bundle.
 - Testing: Vitest plus Playwright plus `@axe-core/playwright`.
 - Bundle gate: `size-limit`.
 
