@@ -62,7 +62,7 @@ describe('captureException', () => {
 });
 
 describe('scrubEvent (PII scrub)', () => {
-  it('strips user.email, user.ip_address, user.username; keeps user.id', () => {
+  it('strips user.email, user.username, user.ip_address; keeps user.id; pins ip_address: null', () => {
     const event = {
       user: {
         id: 'opaque-uuid',
@@ -74,17 +74,38 @@ describe('scrubEvent (PII scrub)', () => {
 
     const out = scrubEvent(event);
     expect(out).not.toBeNull();
-    expect(out!.user).toEqual({ id: 'opaque-uuid' });
+    // ip_address: null is the explicit opt-out signal to Sentry's
+    // server-side Relay so the request source IP is NOT auto-filled
+    // after this scrub runs. Defense in depth with the project-level
+    // "Prevent Storing of IP Addresses" toggle.
+    expect(out!.user).toEqual({ id: 'opaque-uuid', ip_address: null });
   });
 
-  it('clears user entirely when only PII fields are present (no id)', () => {
+  it('replaces user with { ip_address: null } when only PII fields are present (no id)', () => {
     const event = {
       user: { email: 'jane@example.com' },
     } as unknown as Parameters<typeof scrubEvent>[0];
 
     const out = scrubEvent(event);
     expect(out).not.toBeNull();
-    expect(out!.user).toBeUndefined();
+    // Same Relay-suppression contract for anonymous events: the user
+    // object is still present but carries ONLY the ip_address: null
+    // opt-out signal, never email / name / phone / username.
+    expect(out!.user).toEqual({ ip_address: null });
+  });
+
+  it('synthesizes user with { ip_address: null } even when input had no user', () => {
+    const event = {
+      message: 'render error',
+    } as unknown as Parameters<typeof scrubEvent>[0];
+
+    const out = scrubEvent(event);
+    expect(out).not.toBeNull();
+    // Critical: anonymous events that arrive at the Relay with no user
+    // object can be enriched by the Relay with IP from the request
+    // source. Synthesising { ip_address: null } here forces the
+    // opt-out signal on every event.
+    expect(out!.user).toEqual({ ip_address: null });
   });
 
   it('strips request.cookies and Authorization header', () => {
@@ -182,7 +203,7 @@ describe('scrubEvent (PII scrub)', () => {
     const out = scrubEvent(event);
     expect(out).not.toBeNull();
     expect(out!.message).toBe('render error');
-    expect(out!.user).toEqual({ id: 'opaque-uuid' });
+    expect(out!.user).toEqual({ id: 'opaque-uuid', ip_address: null });
     expect(out!.tags).toEqual({ route: '/dashboard' });
     expect(out!.extra).toEqual({ component: 'InvoiceDetailPage' });
   });

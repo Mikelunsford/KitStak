@@ -84,15 +84,30 @@ function scrubRecord(input: Record<string, unknown>): Record<string, unknown> {
 export function scrubEvent(
   event: SentryReact.ErrorEvent,
 ): SentryReact.ErrorEvent | null {
-  // 1. Strip user PII. Keep only the opaque id (Supabase UUID).
-  if (event.user) {
-    const { id } = event.user;
-    if (id) {
-      event.user = { id };
-    } else {
-      delete event.user;
-    }
-  }
+  // 1. Strip user PII. Keep only the opaque id (Supabase UUID), and set
+  //    ip_address: null explicitly so Sentry's server-side Relay does not
+  //    auto-fill it from the request source IP after this scrub runs.
+  //
+  //    Background: `sendDefaultPii: false` at init prevents the SDK from
+  //    SENDING the IP. But Sentry's Relay (server-side ingest) can still
+  //    ENRICH the event with IP from the request source unless we set
+  //    `ip_address: null` explicitly. The Relay treats null as "operator
+  //    opted out, do not enrich". This is layered with the project-level
+  //    "Prevent Storing of IP Addresses" Security & Privacy toggle which
+  //    must also be ON; the SDK-side null is defense-in-depth so the
+  //    constitutional PII gate holds even if a future operator
+  //    accidentally re-enables the project toggle. See journal
+  //    phase-9-sentry-spa.md "Activation" section for the regression
+  //    discovery context.
+  const userId = event.user?.id;
+  // Sentry's User type declares ip_address as a string (not nullable),
+  // but the Relay accepts null at runtime as the opt-out-of-enrichment
+  // signal per https://docs.sentry.io/platforms/javascript/data-management/sensitive-data/#scrubbing-server-ip-addresses
+  // We cast through unknown to satisfy the strict type while preserving
+  // the runtime null contract.
+  event.user = (userId
+    ? { id: userId, ip_address: null }
+    : { ip_address: null }) as unknown as SentryReact.User;
 
   // 2. Strip request cookies, Authorization header, and query string.
   if (event.request) {
