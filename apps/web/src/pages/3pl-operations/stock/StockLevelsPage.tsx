@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useStockLevels } from '@/lib/hooks/useInventory';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 
@@ -52,7 +53,7 @@ export function StockLevelsPage() {
             <tbody>
               {(rows ?? []).map((r) => (
                 <tr key={r.id} className="border-t border-line">
-                  <td className="px-4 py-2 text-ink-dim">{r.item_id.slice(0, 8)}</td>
+                  <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="item" id={r.item_id} /></td>
                   <td className="px-4 py-2 text-ink">{String(r.quantity_on_hand)}</td>
                   <td className="px-4 py-2 text-ink-dim">{String(r.quantity_reserved)}</td>
                   <td className="px-4 py-2 text-ink-dim">{String(r.quantity_in_transit)}</td>

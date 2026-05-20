@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { useShipmentsList } from '@/lib/hooks/useOps';
 
 export function ShipmentsListPage() {
@@ -19,7 +20,7 @@ export function ShipmentsListPage() {
             <tr key={s.id} className="border-t border-line">
               <td className="px-4 py-2"><Link to={`/3pl-operations/shipments/${s.id}`} className="text-ink underline">{s.shipment_number ?? s.id.slice(0, 8)}</Link></td>
               <td className="px-4 py-2"><span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{s.status}</span></td>
-              <td className="px-4 py-2 text-ink-dim">{s.warehouse_id.slice(0, 8)}</td>
+              <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="warehouse" id={s.warehouse_id} /></td>
               <td className="px-4 py-2 text-ink-dim">{s.ship_date ?? ''}</td>
               <td className="px-4 py-2 text-ink-dim">{s.carrier ?? ''}</td>
             </tr>

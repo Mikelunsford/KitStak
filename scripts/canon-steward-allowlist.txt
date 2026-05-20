@@ -17,20 +17,6 @@
 # DO NOT add new entries without a follow-up ID and a one-line reason.
 
 # ---------------------------------------------------------------------------
-# marker: stale Phase 6.5 sequencing TODOs.
-# These four markers are intentional cross-agent sequencing notes from the
-# Phase 6.5 wave. They reference work that other agents in that wave shipped
-# (or did not). They are factual, narrative-only comments and the underlying
-# work is complete. Tracking the cleanup as a low-priority follow-up.
-# Follow-up: F-Wave7-STALE-6_5-TODOS-01 (sweep these four comments out of
-# tree once Phase 7 is closed; no behavioural impact).
-# ---------------------------------------------------------------------------
-marker|apps/web/src/pages/crm/opportunities/OpportunityDetailPage.tsx|// TODO 6.5-D: QuoteCreatePage at apps/web/src/pages/3pl-operations/quotes/QuoteCreatePage.tsx
-marker|apps/web/src/pages/crm/customers/CustomerDetailPage.tsx|* TODO 6.5-D: the quotes and projects list services do not currently accept a
-marker|apps/web/src/pages/3pl-operations/projects/ProjectDetailPage.tsx|// TODO 6.5-A: receiving / shipment project_id filtering is best-effort
-marker|apps/web/src/lib/hooks/useProjects.ts|// TODO 6.5-A: these wrap the projects-api endpoints Agent 6.5-B ships in
-
-# ---------------------------------------------------------------------------
 # orphan-route: sales-config sub-pages.
 # These six routes are deep settings reachable from the items / quotes /
 # admin surfaces rather than from the primary Sidebar. They are NOT silent
