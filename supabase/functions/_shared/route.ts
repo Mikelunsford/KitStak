@@ -15,6 +15,12 @@
 import { ApiError, fromApiError } from './responses.ts';
 import { handlePreflight } from './cors.ts';
 import { ERROR_CODES, HTTP_HEADERS } from './constants.ts';
+import { initSentry, captureException } from './sentry.ts';
+import { readCallerContext } from './tenant.ts';
+
+// Initialise Sentry once per cold start. No-op when SENTRY_DSN absent.
+// Module-private guard inside sentry.ts ensures this is idempotent.
+initSentry();
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
@@ -123,6 +129,12 @@ export async function route(
   const url = new URL(req.url);
   const path = bundlePath(url, opts.bundle, opts.stripPrefix);
 
+  // Matched route pattern; populated as soon as the path matcher finds one
+  // so the Sentry capture catch arm below can tag the event with the
+  // canonical route pattern (`/customers/:id`) rather than the live path
+  // (`/customers/<uuid>`). Pattern tags group events; live paths do not.
+  let matchedRoutePattern: string | undefined;
+
   try {
     let methodMatched = false;
     for (const r of table) {
@@ -132,6 +144,7 @@ export async function route(
         methodMatched = true;
         continue;
       }
+      matchedRoutePattern = r.path;
       const ctx: RouteCtx = {
         req,
         url,
@@ -154,6 +167,30 @@ export async function route(
       requestId,
     );
   } catch (err) {
+    // F-Wave5-CO-01-EDGE-01: Sentry capture. Only fires on uncaught errors
+    // (the INTERNAL_ERROR class); the ApiError 4xx arm below is the
+    // expected-client-error path and is NOT captured. Capture is fire-and-
+    // forget; the response shape is unchanged.
+    if (!(err instanceof ApiError)) {
+      try {
+        // Best-effort org_id resolution. Opaque UUID only; readCallerContext
+        // returns null fields when the JWT is absent or malformed (no throw,
+        // no PII leak). The scrub layer in sentry.ts strips anything else.
+        const ctx = readCallerContext(req);
+        captureException(err, {
+          route: matchedRoutePattern ?? path,
+          method: req.method,
+          bundle: opts.bundle,
+          request_id: requestId,
+          url: url.origin + url.pathname,
+          ...(ctx.orgId ? { org_id: ctx.orgId } : {}),
+        });
+      } catch {
+        // Capture must never break the response. Swallow any failure in
+        // the capture path itself (e.g. malformed Authorization header).
+      }
+    }
+
     if (err instanceof ApiError) {
       return withRequestId(fromApiError(err), requestId);
     }
