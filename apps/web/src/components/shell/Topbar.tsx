@@ -74,8 +74,10 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
             onClick={() => setOrgMenuOpen((v) => !v)}
             className="flex items-center gap-1 border border-line px-2 py-1 text-sm hover:bg-bg-2"
             aria-haspopup="menu"
+            aria-label="Workspace switcher"
             aria-expanded={orgMenuOpen}
             disabled={!isAuthed || me.isLoading || memberships.length === 0}
+            data-testid="workspace-switcher"
           >
             <span className="font-sans font-medium text-ink">
               {activeOrg?.display_name ??

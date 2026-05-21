@@ -107,6 +107,7 @@ export function PaymentCreatePage() {
         />
         <TextInput
           label="Amount (cents)"
+          name="amount_cents"
           value={amountCents}
           onChange={(e) => setAmountCents(e.target.value)}
           inputMode="numeric"

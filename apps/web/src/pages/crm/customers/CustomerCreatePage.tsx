@@ -139,6 +139,7 @@ export function CustomerCreatePage() {
           <span className="text-sm text-ink-dim">Display name</span>
           <input
             type="text"
+            name="display_name"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required

@@ -85,7 +85,7 @@ export function AuditTimeline({
   }
 
   return (
-    <ol className="space-y-2">
+    <ol className="space-y-2" data-testid="audit-timeline">
       {rows.map((row) => (
         <li key={row.id} className="border border-line p-2 text-sm">
           <div className="flex items-baseline justify-between">
