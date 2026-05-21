@@ -49,6 +49,7 @@ env:
     vendors-api
     inventory-api
     ops-api
+    manufacturing-api
     collaboration-api
     search-api
     customer-portal-api

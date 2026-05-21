@@ -501,3 +501,113 @@ export type ShipmentLineItemCreate = z.infer<typeof ShipmentLineItemCreateSchema
 export const ShipmentLineItemUpdateSchema =
   ShipmentLineItemCreateSchema.partial();
 export type ShipmentLineItemUpdate = z.infer<typeof ShipmentLineItemUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// Pillar 2 Manufacturing (Path A1 — migration 0052).
+//
+// Three tables: manufacturing_runs (parent) + manufacturing_run_consumed_line_items
+// (item_id REQUIRED) + manufacturing_run_produced_line_items (item_id NULLABLE).
+// State machine: draft -> started -> completed; draft|started -> cancelled.
+// Timestamps started_at / completed_at / cancelled_at are handler-set
+// (mirrors production_runs convention). warehouse_id is NULLABLE per A1
+// (admin-only runs that do not touch warehouse inventory).
+// ---------------------------------------------------------------------------
+
+export const ManufacturingRunStatusSchema = z.enum([
+  'draft',
+  'started',
+  'completed',
+  'cancelled',
+]);
+export type ManufacturingRunStatus = z.infer<typeof ManufacturingRunStatusSchema>;
+
+export const ManufacturingRunSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  run_number: z.string().nullable(),
+  status: ManufacturingRunStatusSchema,
+  warehouse_id: Uuid.nullable(),
+  planned_start_at: Iso.nullable(),
+  planned_complete_at: Iso.nullable(),
+  started_at: Iso.nullable(),
+  completed_at: Iso.nullable(),
+  cancelled_at: Iso.nullable(),
+  notes: z.string().nullable(),
+  payload: z.record(z.unknown()),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type ManufacturingRun = z.infer<typeof ManufacturingRunSchema>;
+
+export const ManufacturingRunCreateSchema = z.object({
+  run_number: z.string().optional().nullable(),
+  warehouse_id: Uuid.optional().nullable(),
+  planned_start_at: Iso.optional().nullable(),
+  planned_complete_at: Iso.optional().nullable(),
+  notes: z.string().optional().nullable(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type ManufacturingRunCreate = z.infer<typeof ManufacturingRunCreateSchema>;
+
+export const ManufacturingRunPatchSchema = ManufacturingRunCreateSchema.partial();
+export type ManufacturingRunPatch = z.infer<typeof ManufacturingRunPatchSchema>;
+
+// Consumed: item_id REQUIRED (strict).
+export const ManufacturingRunConsumedLineItemSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  manufacturing_run_id: Uuid,
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.nullable(),
+  uom: z.string().nullable(),
+  reference: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type ManufacturingRunConsumedLineItem = z.infer<typeof ManufacturingRunConsumedLineItemSchema>;
+
+export const ManufacturingRunConsumedLineItemCreateSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.optional().nullable(),
+  uom: z.string().min(1).max(16).optional().nullable(),
+  reference: z.string().optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type ManufacturingRunConsumedLineItemCreate = z.infer<typeof ManufacturingRunConsumedLineItemCreateSchema>;
+
+export const ManufacturingRunConsumedLineItemUpdateSchema =
+  ManufacturingRunConsumedLineItemCreateSchema.partial();
+export type ManufacturingRunConsumedLineItemUpdate = z.infer<typeof ManufacturingRunConsumedLineItemUpdateSchema>;
+
+// Produced: item_id NULLABLE (lenient).
+export const ManufacturingRunProducedLineItemSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  manufacturing_run_id: Uuid,
+  item_id: Uuid.nullable(),
+  quantity: Qty,
+  unit_cost_cents: Cents.nullable(),
+  uom: z.string().nullable(),
+  reference: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type ManufacturingRunProducedLineItem = z.infer<typeof ManufacturingRunProducedLineItemSchema>;
+
+export const ManufacturingRunProducedLineItemCreateSchema = z.object({
+  item_id: Uuid.optional().nullable(),
+  quantity: Qty,
+  unit_cost_cents: Cents.optional().nullable(),
+  uom: z.string().min(1).max(16).optional().nullable(),
+  reference: z.string().optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type ManufacturingRunProducedLineItemCreate = z.infer<typeof ManufacturingRunProducedLineItemCreateSchema>;
+
+export const ManufacturingRunProducedLineItemUpdateSchema =
+  ManufacturingRunProducedLineItemCreateSchema.partial();
+export type ManufacturingRunProducedLineItemUpdate = z.infer<typeof ManufacturingRunProducedLineItemUpdateSchema>;
