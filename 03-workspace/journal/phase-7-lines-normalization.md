@@ -220,17 +220,7 @@ itself does not touch the line-item tables; it overwrites the parent's
 longer reads that field, so the body's value is now vestigial. The
 canonical source for emission is the line-item table.
 
-## What remains
-
-* **Step 3 (next release)**: drop the handler dual-write from
-  `ops-api`. Filed as `F-Wave7-LINES-DUAL-WRITE-DROP-01`. After step 3
-  ships, `payload.lines` on receiving / shipment parents stops being
-  maintained at the application layer.
-* **Step 4 (release after that)**: forward migration drops the `lines`
-  body param from the receive / ship RPCs and the `payload.lines` JSON
-  field from the parent. Filed as `F-Wave7-LINES-PAYLOAD-DROP-01`.
-
-## Gates verified at step 2 close
+### Gates verified at step 2 close
 
 * `pnpm typecheck`: clean.
 * `pnpm lint`: clean.
@@ -244,4 +234,108 @@ canonical source for emission is the line-item table.
   values come from real table columns (not jsonb `->>` casts); the
   trigger-audit-check unguarded-cast rule does not fire. No new
   allowlist entries required.
+
+## Step 3 (this release)
+
+Date: 2026-05-20
+Branch: f-wave7-lines-dual-write-drop-01
+Migration: none (handler-only refactor)
+Closes: F-Wave7-LINES-DUAL-WRITE-DROP-01
+
+Step 3 of the LINES-01 multi-stage drop. The handler-side dual-write to
+`payload.lines` is retired now that step 2 (migration 0051) has moved the
+emit_movements read side off the JSON for receiving + shipments.
+
+Changes in `supabase/functions/ops-api/index.ts`:
+
+* Deleted helper functions `syncReceivingPayloadLines` and
+  `syncShipmentPayloadLines` (and the local `LineRow` interface they
+  used).
+* Removed the six call sites: `await syncReceivingPayloadLines(...)`
+  inside the receiving line-item POST, PATCH, DELETE handlers, and the
+  matching `await syncShipmentPayloadLines(...)` inside the shipment
+  line-item POST, PATCH, DELETE handlers.
+* Updated the file-level comment block (formerly "F-Wave7-LINES-01:
+  dual-write rationale") to describe the new posture: receiving +
+  shipment line items live in their own tables and are the sole source
+  of truth for emission; the parent's `payload.lines` JSON column is
+  vestigial and tracked for drop under
+  `F-Wave7-LINES-PAYLOAD-DROP-01`.
+
+The receive / ship RPCs (`POST /receiving-orders/:id/receive`,
+`POST /shipments/:id/ship`) still accept a `lines` body and still merge
+it into the parent's `payload.lines` on the terminal-state transition.
+This is preserved because the API contract (RPC body shape) is dropped
+in step 4 as the same forward migration that drops the column itself.
+The emit_movements triggers no longer read from `payload.lines` for
+receiving + shipments (step 2 redirected them), so the body value is
+already vestigial at the trigger layer; it just hasn't been removed
+from the wire protocol yet.
+
+What is deliberately NOT touched in this step:
+
+* `tg_production_runs_emit_movements` trigger function: still reads
+  from `payload.lines` on production_runs. Will be migrated alongside
+  production_runs line normalisation under
+  `F-Wave7-PRODUCTION-LINES-NORMALIZE-01` (deferred until Pillar 2
+  lights up).
+* Production-run handlers in `ops-api`
+  (`POST /production-runs/:id/complete`): still write the body's
+  `consumed` and `produced` arrays into `payload`, because the
+  production-run trigger still reads from there.
+* The `payload.lines` JSON column on `receiving_orders` and
+  `shipments`: stays in the schema per the constitutional multi-stage
+  drop rule. Step 4 drops it.
+
+Stale narrative comments scrubbed in lockstep so future readers do not
+re-discover the dual-write pattern:
+
+* `apps/web/src/lib/hooks/useOps.ts`: the comment block above the
+  `useCreateReceivingOrderLineItem` audit-log invalidation now records
+  that the parent UPDATE no longer fires; the invalidation is kept as
+  a defensive sweep for future audit hooks on the line-item tables
+  themselves.
+* `apps/web/src/pages/3pl-operations/receiving/ReceivingOrderDetailPage.tsx`
+  and `apps/web/src/pages/3pl-operations/shipments/ShipmentDetailPage.tsx`:
+  inline `linesEditable` comments now name the normalised tables as
+  the emission source rather than `payload.lines`.
+* The byte-mirrored Zod canon block in
+  `supabase/functions/_shared/types/vendors_inventory_ops.ts` and
+  `apps/web/src/lib/types/vendors_inventory_ops.ts`: comment header
+  rewritten to describe the post-step-3 posture; parity preserved
+  (`pnpm test:contract` 20/20).
+
+### Downstream consumer audit
+
+A repo-wide search for any code reading
+`receiving_orders.payload.lines` or `shipments.payload.lines` after
+the dual-write drop returned zero live read sites in:
+
+* SPA service modules and hooks (`apps/web/src/lib/`).
+* `exports-api` Edge Function.
+* `customer-portal-api` Edge Function.
+* `dashboard-api` Edge Function.
+* `pdf-worker` Edge Function.
+
+The only remaining references are in migration files (historical),
+documentation, and the SPA detail pages' own narrative comments
+(scrubbed in this PR). No downstream-consumer follow-up is needed.
+
+### Gates verified at step 3 close
+
+* `pnpm typecheck`: clean.
+* `pnpm lint`: clean.
+* `pnpm test`: 22 / 24 passed + 2 skipped across 6 regression files.
+* `pnpm test:contract`: 20 / 20 (Zod parity preserved across the
+  shared-byte mirror plus money parity).
+* `pnpm build`: clean.
+* `node scripts/canon-steward-check.mjs`: exit 0.
+* `node scripts/trigger-audit-check.mjs`: exit 0.
+
+## What remains
+
+* **Step 4 (next release)**: forward migration drops the `lines` body
+  param from the receive / ship RPCs and the `payload.lines` JSON
+  column from the receiving_orders / shipments parents. Filed as
+  `F-Wave7-LINES-PAYLOAD-DROP-01`.
 

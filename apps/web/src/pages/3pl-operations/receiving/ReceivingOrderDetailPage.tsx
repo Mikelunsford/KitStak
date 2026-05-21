@@ -39,7 +39,8 @@ export function ReceivingOrderDetailPage() {
 
   // Line editing is allowed while the parent is editable. Once received or
   // cancelled the lines are part of the immutable record; the emit_movements
-  // trigger has already fired against payload.lines on transition to received.
+  // trigger has already fired against receiving_order_line_items on the
+  // transition to received.
   const linesEditable = d.status === 'created' || d.status === 'in_progress';
 
   const onAddLine = (e: FormEvent) => {
