@@ -1,13 +1,15 @@
 // Regression suite for Path B2 - POST /customers/:id/invite-to-portal in
-// crm-api. Covers:
+// crm-api, MAGICLINK-01 revision. Covers:
 //   1. Capability gate (caller without crm.customers.invite_to_portal -> 403)
 //   2. Missing recipient (no primary_email + no override -> 422)
-//   3. Happy path (calls auth.admin.inviteUserByEmail with the right args,
-//      calls create_portal_membership RPC, returns the membership_id +
-//      user_id + email + customer_id envelope)
+//   3. Happy path (calls auth.admin.generateLink with type=magiclink + the
+//      portal redirectTo, calls create_portal_membership RPC, queues a
+//      notifications row carrying the action_link via the email channel,
+//      returns the membership_id + user_id + email + customer_id envelope)
 //   4. Tenant guard (customer from a different org -> 404)
+//   5. email_override beats customer.primary_email
 //
-// Closes the testable side of F-Wave9-PORTAL-B2-INVITE-01.
+// Closes the testable side of F-Wave9-PORTAL-INVITE-MAGICLINK-01.
 
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -159,10 +161,16 @@ describe('crm-api POST /customers/:id/invite-to-portal - Path B2', () => {
     expect(json.error?.code).toBe('NOT_FOUND');
   });
 
-  it('happy path: calls auth.admin.inviteUserByEmail + RPC + returns envelope', async () => {
+  it('happy path: calls auth.admin.generateLink + RPC + queues email + returns envelope', async () => {
     const state = makeStateWithCustomers();
-    state.authAdminInviteResult = {
-      data: { user: { id: NEW_USER_ID, email: 'customer@example.test' } },
+    state.authAdminGenerateLinkResult = {
+      data: {
+        user: { id: NEW_USER_ID, email: 'customer@example.test' },
+        properties: {
+          action_link:
+            'https://www.kitstak.com/portal#access_token=fake&type=magiclink',
+        },
+      },
       error: null,
     };
     state.rpcResults['create_portal_membership'] = {
@@ -182,12 +190,16 @@ describe('crm-api POST /customers/:id/invite-to-portal - Path B2', () => {
       customer_id: CUSTOMER_A,
     });
 
-    // Assert auth.admin.inviteUserByEmail was called with the right shape.
-    expect(state.authAdminInviteCalls).toHaveLength(1);
-    expect(state.authAdminInviteCalls[0]).toMatchObject({
+    // Assert auth.admin.generateLink was called with the magiclink type +
+    // portal redirectTo so the link lands customers signed-in at /portal.
+    expect(state.authAdminGenerateLinkCalls).toHaveLength(1);
+    expect(state.authAdminGenerateLinkCalls[0]).toMatchObject({
+      type: 'magiclink',
       email: 'customer@example.test',
       options: { redirectTo: 'https://www.kitstak.com/portal' },
     });
+    // Defense: the legacy inviteUserByEmail path must not fire.
+    expect(state.authAdminInviteCalls).toHaveLength(0);
 
     // Assert the RPC was called with the right args.
     const rpcCall = state.rpcCalls.find(
@@ -199,12 +211,41 @@ describe('crm-api POST /customers/:id/invite-to-portal - Path B2', () => {
       p_user_id: NEW_USER_ID,
       p_org_id: ORG_A,
     });
+
+    // Assert the branded email was queued via notifications + carries the
+    // action_link in its body. The drain cron (Path B1) ships it via Resend.
+    const notifInsert = state.inserts.find((i) => i.table === 'notifications');
+    expect(notifInsert).toBeDefined();
+    expect(notifInsert?.row).toMatchObject({
+      org_id: ORG_A,
+      recipient_user_id: NEW_USER_ID,
+      entity_type: 'customer',
+      entity_id: CUSTOMER_A,
+      channel: 'email',
+    });
+    expect((notifInsert?.row.payload as Record<string, unknown>)?.to).toBe(
+      'customer@example.test',
+    );
+    expect((notifInsert?.row.payload as Record<string, unknown>)?.kind).toBe(
+      'portal_invite',
+    );
+    expect(notifInsert?.row.body).toContain(
+      'https://www.kitstak.com/portal#access_token=fake&type=magiclink',
+    );
+    expect(notifInsert?.row.body).toContain('No password required');
+    expect(notifInsert?.row.subject).toContain('Acme Co.');
   });
 
   it('email_override wins over customer.primary_email', async () => {
     const state = makeStateWithCustomers();
-    state.authAdminInviteResult = {
-      data: { user: { id: NEW_USER_ID, email: 'override@example.test' } },
+    state.authAdminGenerateLinkResult = {
+      data: {
+        user: { id: NEW_USER_ID, email: 'override@example.test' },
+        properties: {
+          action_link:
+            'https://www.kitstak.com/portal#access_token=fake&type=magiclink',
+        },
+      },
       error: null,
     };
     state.rpcResults['create_portal_membership'] = {
@@ -219,6 +260,32 @@ describe('crm-api POST /customers/:id/invite-to-portal - Path B2', () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(state.authAdminInviteCalls[0]?.email).toBe('override@example.test');
+    expect(state.authAdminGenerateLinkCalls[0]?.email).toBe(
+      'override@example.test',
+    );
+    const notifInsert = state.inserts.find((i) => i.table === 'notifications');
+    expect((notifInsert?.row.payload as Record<string, unknown>)?.to).toBe(
+      'override@example.test',
+    );
+  });
+
+  it('returns 422 when generateLink reports an auth error', async () => {
+    const state = makeStateWithCustomers();
+    state.authAdminGenerateLinkResult = {
+      data: { user: null, properties: null },
+      error: { message: 'Email rate limit exceeded' },
+    };
+    setActiveMockState(state);
+
+    const res = await handler(postInvite(CUSTOMER_A, OWNER));
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(422);
+    expect(json.error?.code).toBe('VALIDATION_ERROR');
+    expect(json.error?.message).toMatch(/magic-link/i);
+    // No membership row created on auth failure.
+    const rpcCall = state.rpcCalls.find(
+      (c) => c.name === 'create_portal_membership',
+    );
+    expect(rpcCall).toBeUndefined();
   });
 });

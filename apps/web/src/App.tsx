@@ -5,6 +5,7 @@ import { ROUTES, type RouteSpec } from './routes';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminProtectedRoute } from './auth/AdminProtectedRoute';
 import { PortalRoute } from './auth/PortalRoute';
+import { IndexRoute } from './auth/IndexRoute';
 import { BrandingProvider } from './whitelabel/BrandingProvider';
 
 /**
@@ -51,7 +52,7 @@ export function App() {
               element={wrapWithGuard(spec)}
             />
           ))}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<IndexRoute />} />
           <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
       </Suspense>
