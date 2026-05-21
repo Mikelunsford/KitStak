@@ -181,7 +181,7 @@ export type Capability =
   | 'projects.line_item.update'
   | 'projects.line_item.delete'
   | 'projects.convert_to_invoice'
-  // vendors_inventory_ops (51)
+  // vendors_inventory_ops (60)
   | 'vendors.vendor.read'
   | 'vendors.vendor.create'
   | 'vendors.vendor.update'
@@ -225,6 +225,15 @@ export type Capability =
   | 'production.run.update'
   | 'production.start'
   | 'production.complete'
+  | 'manufacturing.run.create'
+  | 'manufacturing.run.update'
+  | 'manufacturing.run.delete'
+  | 'manufacturing.run.start'
+  | 'manufacturing.run.complete'
+  | 'manufacturing.run.cancel'
+  | 'manufacturing.run.line_item.create'
+  | 'manufacturing.run.line_item.update'
+  | 'manufacturing.run.line_item.delete'
   | 'shipments.shipment.read'
   | 'shipments.shipment.create'
   | 'shipments.shipment.update'
@@ -441,6 +450,15 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'production.run.update',
   'production.start',
   'production.complete',
+  'manufacturing.run.create',
+  'manufacturing.run.update',
+  'manufacturing.run.delete',
+  'manufacturing.run.start',
+  'manufacturing.run.complete',
+  'manufacturing.run.cancel',
+  'manufacturing.run.line_item.create',
+  'manufacturing.run.line_item.update',
+  'manufacturing.run.line_item.delete',
   'shipments.shipment.read',
   'shipments.shipment.create',
   'shipments.shipment.update',
@@ -643,6 +661,15 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'production.run.update',
   'production.start',
   'production.complete',
+  'manufacturing.run.create',
+  'manufacturing.run.update',
+  'manufacturing.run.delete',
+  'manufacturing.run.start',
+  'manufacturing.run.complete',
+  'manufacturing.run.cancel',
+  'manufacturing.run.line_item.create',
+  'manufacturing.run.line_item.update',
+  'manufacturing.run.line_item.delete',
   'shipments.shipment.read',
   'shipments.shipment.create',
   'shipments.shipment.update',
@@ -855,6 +882,15 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'production.run.update',
   'production.start',
   'production.complete',
+  'manufacturing.run.create',
+  'manufacturing.run.update',
+  'manufacturing.run.delete',
+  'manufacturing.run.start',
+  'manufacturing.run.complete',
+  'manufacturing.run.cancel',
+  'manufacturing.run.line_item.create',
+  'manufacturing.run.line_item.update',
+  'manufacturing.run.line_item.delete',
   'shipments.shipment.read',
   'shipments.shipment.create',
   'shipments.shipment.update',
