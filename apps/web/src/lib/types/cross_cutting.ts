@@ -173,6 +173,51 @@ export const DashboardSummarySchema = z.object({
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;
 
 // ---------------------------------------------------------------------------
+// KitCostSummary (Path C / C1)
+//
+// Read-only KitCost pillar dashboard payload. All monetary fields are BIGINT
+// cents on the wire (string to survive Number.MAX_SAFE_INTEGER at 9.0e15).
+// margin_pct is a Number with one decimal place; the rest are integers.
+// ---------------------------------------------------------------------------
+const BigIntCentsSchema = z.union([
+  z.number().int(),
+  z.string().regex(/^-?\d+$/),
+]);
+
+export const KitCostSummarySchema = z.object({
+  kpis: z.object({
+    total_revenue_ytd_cents: BigIntCentsSchema,
+    invoiced_this_month_cents: BigIntCentsSchema,
+    active_projects_count: z.number().int().nonnegative(),
+    inventory_value_cents: BigIntCentsSchema,
+  }),
+  revenue_trend: z.array(
+    z.object({
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      revenue_cents: BigIntCentsSchema,
+    }),
+  ),
+  top_customers: z.array(
+    z.object({
+      customer_id: UuidSchema,
+      customer_name: z.string(),
+      revenue_cents: BigIntCentsSchema,
+    }),
+  ),
+  project_margins: z.array(
+    z.object({
+      project_id: UuidSchema,
+      project_name: z.string(),
+      revenue_cents: BigIntCentsSchema,
+      cost_cents: BigIntCentsSchema,
+      margin_cents: BigIntCentsSchema,
+      margin_pct: z.number(),
+    }),
+  ),
+});
+export type KitCostSummary = z.infer<typeof KitCostSummarySchema>;
+
+// ---------------------------------------------------------------------------
 // ImportJob
 // ---------------------------------------------------------------------------
 export const ImportEntityTypeSchema = z.enum([

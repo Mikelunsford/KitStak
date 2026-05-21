@@ -56,7 +56,7 @@ export type Capability =
   | 'crm.opportunities.write'
   | 'crm.opportunities.delete'
   | 'crm.opportunities.stage.transition'
-  // cross_cutting (20)
+  // cross_cutting (21)
   | 'audit_log.entry.read'
   | 'attachments.attachment.read'
   | 'attachments.attachment.create'
@@ -77,6 +77,7 @@ export type Capability =
   | 'portal.project.read'
   | 'portal.attachment.read'
   | 'pdf.document.render'
+  | 'kitcost.dashboard.view'
   // finance (24)
   | 'invoices.read'
   | 'invoices.write'
@@ -305,6 +306,7 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'imports.job.commit',
   'exports.job.create',
   'pdf.document.render',
+  'kitcost.dashboard.view',
   // finance (full)
   'invoices.read',
   'invoices.write',
@@ -517,6 +519,7 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'imports.job.commit',
   'exports.job.create',
   'pdf.document.render',
+  'kitcost.dashboard.view',
   // finance (full)
   'invoices.read',
   'invoices.write',
@@ -927,6 +930,7 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   'dashboard.summary.read',
   'exports.job.create',
   'pdf.document.render',
+  'kitcost.dashboard.view',
   // finance ACCOUNTING
   'invoices.read',
   'invoices.write',

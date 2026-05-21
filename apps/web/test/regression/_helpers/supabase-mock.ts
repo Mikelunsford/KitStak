@@ -46,7 +46,11 @@ export function makeState(rows: RowMap = {}): MockState {
   };
 }
 
-type Filter = { kind: 'eq'; col: string; val: unknown } | { kind: 'is'; col: string; val: unknown };
+type Filter =
+  | { kind: 'eq'; col: string; val: unknown }
+  | { kind: 'is'; col: string; val: unknown }
+  | { kind: 'in'; col: string; val: ReadonlyArray<unknown> }
+  | { kind: 'gte'; col: string; val: unknown };
 
 function applyFilters(
   rows: Array<Record<string, unknown>>,
@@ -59,6 +63,14 @@ function applyFilters(
         if (f.val === null) return cur === null || cur === undefined;
         return cur === f.val;
       }
+      if (f.kind === 'in') {
+        return f.val.includes(cur);
+      }
+      if (f.kind === 'gte') {
+        // String-comparable for ISO dates (YYYY-MM-DD); numeric otherwise.
+        if (cur === null || cur === undefined) return false;
+        return (cur as string | number) >= (f.val as string | number);
+      }
       // eq: value equality (Postgres treats string and number distinctly;
       // for our fixtures, all keys are strings so this is safe)
       return cur === f.val;
@@ -67,9 +79,11 @@ function applyFilters(
 }
 
 interface QueryBuilder {
-  select: (cols?: string) => QueryBuilder;
+  select: (cols?: string, opts?: { count?: 'exact'; head?: boolean }) => QueryBuilder;
   eq: (col: string, val: unknown) => QueryBuilder;
   is: (col: string, val: unknown) => QueryBuilder;
+  in: (col: string, val: ReadonlyArray<unknown>) => QueryBuilder;
+  gte: (col: string, val: unknown) => QueryBuilder;
   order: (col: string, opts?: { ascending?: boolean }) => QueryBuilder;
   limit: (n: number) => QueryBuilder;
   maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
@@ -91,8 +105,10 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
   let mode: 'select' | 'update' | 'insert' | 'delete' = 'select';
   let patch: Record<string, unknown> = {};
   let toInsert: Record<string, unknown> | null = null;
+  let countMode: 'exact' | null = null;
+  let headMode = false;
 
-  const execute = async (): Promise<{ data: unknown; error: unknown }> => {
+  const execute = async (): Promise<{ data: unknown; error: unknown; count?: number }> => {
     const tableRows = state.rows[table] ?? [];
 
     if (mode === 'insert') {
@@ -133,18 +149,37 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
         return ascending ? 1 : -1;
       });
     }
+    const totalCount = result.length;
     if (limit !== null) result = result.slice(0, limit);
+    if (headMode) {
+      return { data: null, error: null, count: totalCount };
+    }
+    if (countMode === 'exact') {
+      return { data: result, error: null, count: totalCount };
+    }
     return { data: result, error: null };
   };
 
   const builder: QueryBuilder = {
-    select: () => builder,
+    select: (_cols, opts) => {
+      if (opts?.count === 'exact') countMode = 'exact';
+      if (opts?.head) headMode = true;
+      return builder;
+    },
     eq: (col, val) => {
       filters.push({ kind: 'eq', col, val });
       return builder;
     },
     is: (col, val) => {
       filters.push({ kind: 'is', col, val });
+      return builder;
+    },
+    in: (col, val) => {
+      filters.push({ kind: 'in', col, val });
+      return builder;
+    },
+    gte: (col, val) => {
+      filters.push({ kind: 'gte', col, val });
       return builder;
     },
     order: (col, opts) => {
