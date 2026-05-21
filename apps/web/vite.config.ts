@@ -1,16 +1,81 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import path from 'path';
 
+// F-Wave9-SENTRY-SOURCEMAPS-01: production source-map upload.
+//
+//   1. `build.sourcemap: 'hidden'` emits `.map` files to `dist/` but
+//      strips the `//# sourceMappingURL=` comment from the JS bundle, so
+//      the SPA never tells a browser where the maps live (private maps,
+//      per operator decision).
+//
+//   2. `sentryVitePlugin` runs at the end of the build. When
+//      `SENTRY_AUTH_TOKEN` is set in the environment, it uploads the
+//      maps to Sentry (so Sentry deminifies stack traces server-side)
+//      and then deletes every `.map` file from `dist/`. When the token
+//      is absent the plugin no-ops, matching the existing
+//      `VITE_SENTRY_DSN`-absent posture. CI without the token (preview
+//      builds, contributor checkouts) builds clean and ships nothing
+//      to Sentry.
+//
+//   3. The plugin reads `SENTRY_*` (no `VITE_` prefix) so the values
+//      never reach the SPA bundle via Vite's `define`. The
+//      `sentry-auth-leak` contract test scans `dist/` after every build
+//      to enforce this; see test/regression/sentry-auth-leak.test.ts.
+//
+//   4. `release.name` derives from `VERCEL_GIT_COMMIT_SHA` (Vercel
+//      injects this at build time). Falls back to a stable constant for
+//      local builds so the plugin still has a release name to attach
+//      uploads to.
+
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const sentryOrg = process.env.SENTRY_ORG;
+const sentryProject = process.env.SENTRY_PROJECT;
+const release = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local-dev';
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    sentryVitePlugin({
+      org: sentryOrg,
+      project: sentryProject,
+      authToken: sentryAuthToken,
+      release: { name: release },
+      sourcemaps: {
+        // Maps are emitted to dist/ as a side effect of sourcemap:
+        // 'hidden'. The plugin uploads them to Sentry, then deletes
+        // every .map file from dist/ so they never ship publicly.
+        filesToDeleteAfterUpload: ['./dist/**/*.map'],
+      },
+      // No-op posture when the auth token is absent. Matches the
+      // VITE_SENTRY_DSN-absent posture on the SPA side.
+      disable: !sentryAuthToken,
+      // Keep build logs quiet on success; surface only on failure.
+      silent: true,
+      // The plugin should never break the build. If upload fails (auth
+      // expired, Sentry down, network blip) the build still succeeds
+      // and ships the bundle. Source maps remain in dist/ for the
+      // contract test to assert on; CI is expected to flag the upload
+      // failure separately via Sentry's release-tracking dashboard.
+      errorHandler: () => {
+        // Intentional no-op: capture is observational, build must not
+        // break. The plugin logs internally even with silent: true when
+        // errorHandler swallows. Acceptable.
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
   build: {
-    sourcemap: true,
+    // 'hidden' emits .map files to dist/ but does NOT add the
+    // //# sourceMappingURL= comment to the JS bundle. The plugin
+    // consumes the maps then deletes them; nothing exposing the maps
+    // ships to end users.
+    sourcemap: 'hidden',
     rollupOptions: {
       output: {
         manualChunks: {

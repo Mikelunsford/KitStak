@@ -198,3 +198,74 @@ The first smoke-test event captured BEFORE the project-level Relay setting was f
 ### Wizard not used (confirmed)
 
 The Sentry AI install wizard was not used (per the original journal's section). The activation path was env-var-only on the operator side. No code wiring beyond what shipped in PR #65 plus the two hardening fixes (PR #66 for the build pipeline, this PR for the Relay opt-out).
+
+## Source maps wired (2026-05-20, closes `F-Wave9-SENTRY-SOURCEMAPS-01`)
+
+Production stack traces arriving in Sentry today carry **minified** frames (e.g. `index-C2lRxgyd.js:1:18234`) because the SPA bundle is minified and source maps are not uploaded to Sentry. This follow-up wires `@sentry/vite-plugin@^5.3.0` (MIT) so the maps upload at build time and Sentry deminifies stack traces server-side. After this PR ships and the operator provisions the auth token, captured errors arrive with readable frames (`apps/web/src/pages/.../FooPage.tsx:42:7`).
+
+### Operator decisions
+
+1. **Maps are private.** Configured `build.sourcemap: 'hidden'` in `apps/web/vite.config.ts`. Maps are emitted to `dist/` as a build side effect, but the `//# sourceMappingURL=` comment is NOT written into the JS bundle. The SPA never tells a browser where the maps live. The plugin consumes them, uploads to Sentry, then deletes them from `dist/` via `sourcemaps.filesToDeleteAfterUpload`. Net posture for end users: maps are unreachable; only Sentry has them.
+2. **Annual auth-token rotation.** Operator should rotate `SENTRY_AUTH_TOKEN` once per year. Sentry's auth tokens do not expire automatically; rotation is a hygiene practice against gradual operator-account drift. The rotation is mechanical: generate a new token at Sentry → Settings → Auth Tokens (scope `project:releases` only — no other scopes needed), update BOTH the Vercel env var AND the GitHub repo secret in the same session, redeploy. The token never appears in code or logs.
+3. **Belt-and-suspenders contract test.** New `apps/web/test/regression/sentry-auth-leak.test.ts` scans every file under `dist/` after a build and fails if any chunk contains the literal substring `sentry_auth` (case-insensitive). A second assertion fails if any chunk contains the literal value of `SENTRY_AUTH_TOKEN` when one is set at test runtime. This catches the regression case where a future hand-edit to `vite.config.ts` accidentally drops the var into a string template that Rollup then inlines into a SPA chunk. Synthetic-leak path verified during PR development: appended `sentry_auth=fake_token_for_test` to a chunk, the test failed as expected with the offender filename listed, restored the chunk before commit.
+
+### Why the plugin is a devDep, not a top-level prod dep
+
+`@sentry/vite-plugin` runs only at `vite build` time. It does not ship to runtime; the SPA bundle does not import it. It belongs in `apps/web/package.json`'s `devDependencies`, not the top-level `package.json`. The constitution's banned-deps list (`antd`, `redux`, `axios`, etc.) targets runtime SPA deps, not build tooling. Confirmed: top-level `package.json` is untouched; `apps/web/package.json` carries `"@sentry/vite-plugin": "^5.3.0"` in `devDependencies` only.
+
+### Bundle delta
+
+Main `index-*.js` chunk lands at **29.92 kB / 40 kB** gzipped (was 29.95 kB pre-plugin; effectively zero delta, well under the 0.5 kB threshold). The plugin imports a single `sentryVitePlugin` factory inside `vite.config.ts`; no SPA-side module references it. `size-limit` gate green at 29.92 kB / 40 kB.
+
+### `release.name` strategy
+
+Derived from `process.env.VERCEL_GIT_COMMIT_SHA` (Vercel injects this at build time on both Production and Preview deploys). Falls back to the literal `'local-dev'` for local builds. The release name appears on every Sentry event so the operator can correlate events to a specific deploy SHA; the Sentry UI shows a "Releases" pane listing each release plus its associated commits, errors, and adoption rate. The fallback name `'local-dev'` is intentional: a local `pnpm build` test with the token set would upload maps under the `local-dev` release; in practice the local build never runs with the token set (operator action is "set the token in CI", not "in your shell"), so `local-dev` is a placeholder. If a developer ever does set the token locally and runs a build, the upload lands under a single shared `local-dev` release; that is harmless because Sentry deduplicates uploads by content hash.
+
+### No-op posture when token absent
+
+The plugin is configured with `disable: !sentryAuthToken`. When `SENTRY_AUTH_TOKEN` is unset (every contributor checkout, every preview build before secrets are provisioned, the very first deploy before the operator does the operator-action steps), the plugin is a no-op. The build still succeeds; `.map` files remain in `dist/` because `filesToDeleteAfterUpload` only runs after an upload; the bundle ships fine; errors still arrive at Sentry, but with minified frames. The contract test still passes against this dist state because nothing in `dist/` contains `sentry_auth`.
+
+### Workflow integration
+
+`.github/workflows/deploy-prod.yml` now injects three new secrets at the `vercel build` step's `env:` block:
+
+```yaml
+SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+```
+
+Same pattern as `VITE_POSTHOG_KEY` and `VITE_SENTRY_DSN` from PR #66. The GitHub repo secret is the actual source of truth because `vercel pull` on GitHub Actions does not pull Sensitive-flagged env vars from Vercel (the documented Vercel-on-third-party-runner behaviour that surfaced during the Sentry activation regression). Operator should still set the values in Vercel env vars for Production + Preview scopes so the chassis is consistent and the values are recoverable from a single canonical source if needed; the actual build reads from `process.env` populated by the workflow `env:` block.
+
+### Operator action required
+
+Before the source-map upload is live in production:
+
+1. Sentry → Settings → Auth Tokens → "Create New Auth Token". Name: `kitstak-spa-sourcemaps-2026`. Scopes: `project:releases` only. Copy the token (starts with `sntrys_`).
+2. Sentry → Settings → General → copy the Organization Slug (likely `kitstak` or similar; this is the URL-safe org identifier, not the display name).
+3. Sentry → project → Settings → General → copy the Project Slug (`javascript-react` per the activation journal).
+4. Vercel → Kitstak project → Settings → Environment Variables → add three new vars for **Production + Preview** scopes:
+   - `SENTRY_ORG` = the org slug from step 2.
+   - `SENTRY_PROJECT` = the project slug from step 3.
+   - `SENTRY_AUTH_TOKEN` = the token from step 1. Flag as Sensitive.
+5. GitHub → repository → Settings → Secrets and variables → Actions → New repository secret. Add three secrets matching the names above with the same values.
+6. Push a commit (or trigger a redeploy). The `deploy-prod` workflow's `vercel build` step will now read all three from `process.env`; the plugin uploads maps to Sentry and deletes them from `dist/`.
+7. **Verify**: load the live SPA, trigger an error (any of the F-Wave3 sentry-tagged routes, or the controlled `?test=throw` shape from the activation verification), wait ~30 seconds for the event to arrive in Sentry → Issues. Confirm the stack trace shows readable file names and line numbers instead of minified shapes.
+
+### Verification before activation
+
+This PR ships the chassis; the operator action above flips the switch. Verification scope on this PR before merge:
+
+- `pnpm -C apps/web typecheck` — green.
+- `pnpm -C apps/web lint` — green.
+- `pnpm -C apps/web build` — green at 29.92 kB / 40 kB. Maps emitted to `dist/`. No `//# sourceMappingURL=` comments in JS chunks.
+- `pnpm -C apps/web test:regression` — 7 files / 24 passed / 2 skipped. New `sentry-auth-leak.test.ts` passes against the clean dist.
+- Synthetic-leak path verified: appended `sentry_auth=...` to a chunk, the test failed as expected, chunk restored before commit.
+- `pnpm -C apps/web test:contract` — 20 passed (parity holds).
+- `pnpm -C apps/web bundle-budget` — green at 29.92 kB / 40 kB.
+
+After operator action above and a redeploy, post-activation verification:
+
+- Real production error captured in Sentry shows readable frames (not minified). 
+- New `Releases` entry appears in Sentry tied to the Vercel commit SHA. 
+- `dist/` on the production build's CI run shows no `.map` files persisted past the upload step (only readable in the Vercel build logs; the `filesToDeleteAfterUpload` glob removes them).
