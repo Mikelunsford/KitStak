@@ -38,8 +38,8 @@ export function ShipmentDetailPage() {
   const next = SHIPMENT_FSM.transitions.filter((t) => t.from === d.status).map((t) => t.to);
 
   // Lines are editable until the shipment ships. After shipped, the
-  // emit_movements trigger has already fired against payload.lines and the
-  // record is immutable.
+  // emit_movements trigger has already fired against shipment_line_items
+  // and the record is immutable.
   const linesEditable = d.status === 'created' || d.status === 'picking';
 
   const onAddLine = (e: FormEvent) => {

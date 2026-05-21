@@ -433,12 +433,15 @@ export type ProductionRunPayload = z.infer<typeof ProductionRunPayloadSchema>;
 // ---------------------------------------------------------------------------
 // 3PL Ops - normalised line item tables (F-Wave7-LINES-01, migration 0050)
 //
-// Receiving + shipment line items now live in their own tables. The handler
-// layer dual-writes both the new tables and the parent's payload.lines JSON
-// mirror until a future migration moves the emit_movements triggers off the
-// JSON read and a follow-up multi-stage-drop migration removes the JSON
-// field. Production runs intentionally stay JSON for this round; the
-// `consumed` / `produced` schemas above remain authoritative there.
+// Receiving + shipment line items live in their own tables. The
+// emit_movements triggers were migrated off the JSON read in 0051
+// (F-Wave7-EMIT-MOVEMENTS-MIGRATION-01) and the handler-side dual-write was
+// retired in F-Wave7-LINES-DUAL-WRITE-DROP-01. The parent's payload.lines
+// JSON column still exists for backward compatibility with the receive /
+// ship RPC body shape; F-Wave7-LINES-PAYLOAD-DROP-01 will retire it.
+// Production runs intentionally stay JSON for this round; the `consumed` /
+// `produced` schemas above remain authoritative there (production-run line
+// normalisation is tracked as F-Wave7-PRODUCTION-LINES-NORMALIZE-01).
 // ---------------------------------------------------------------------------
 
 export const ReceivingOrderLineItemSchema = z.object({

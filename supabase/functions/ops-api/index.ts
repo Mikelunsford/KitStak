@@ -148,81 +148,25 @@ const ShipmentShip = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// F-Wave7-LINES-01: receiving + shipment line item normalised tables.
+// F-Wave7-LINES-01 + F-Wave7-LINES-DUAL-WRITE-DROP-01: receiving + shipment
+// line items live in their own normalised tables. The parent's payload.lines
+// JSON mirror is NO LONGER maintained by these handlers.
 //
-// Lines now live in their own tables. The parent's payload.lines JSON mirror
-// is kept in sync by dual-write here because the emit_movements triggers
-// (migrations 0032 + 0048) still read from payload.lines on the parent's
-// terminal status transition. A future release migrates those triggers to
-// read from the new tables, after which a multi-stage-drop migration removes
-// the JSON field per the constitution.
+// Step 1 (migration 0050) added the normalised tables and the handler
+// dual-wrote both. Step 2 (migration 0051) redirected the emit_movements
+// trigger functions for receiving_orders and shipments to read from the
+// normalised tables instead of payload.lines. With the read side moved, the
+// handler dual-write is now redundant: this commit removes it. The
+// payload.lines JSON column is left in place because the multi-stage drop
+// rule defers the column drop to a separate forward migration
+// (F-Wave7-LINES-PAYLOAD-DROP-01), which also drops the `lines` body param
+// from the receive / ship RPCs.
 //
-// Why dual-write at the handler layer (not a database trigger): a DB trigger
-// that rewrote payload.lines on every line-item INSERT / UPDATE / DELETE
-// would run inside the same transaction as the parent UPDATE that fires
-// emit_movements, which could surface as inconsistent intermediate state if
-// the order of trigger firings shifted. Dual-writing at the handler keeps
-// the contract explicit and the failure mode loud.
+// Production runs are deliberately excluded from this step. The third
+// emit_movements trigger (tg_production_runs_emit_movements) still reads
+// from payload.lines on production_runs; its handler-side normalisation is
+// tracked separately as F-Wave7-PRODUCTION-LINES-NORMALIZE-01.
 // ---------------------------------------------------------------------------
-
-interface LineRow {
-  item_id: string;
-  quantity: number | string;
-  unit_cost_cents?: number | string | null;
-  uom?: string | null;
-  reference?: string | null;
-  position: number;
-}
-
-async function syncReceivingPayloadLines(
-  caller: Caller, receivingOrderId: string,
-): Promise<void> {
-  const { data: rows, error } = await admin()
-    .from('receiving_order_line_items')
-    .select('item_id, quantity, unit_cost_cents, uom, reference, position')
-    .eq('org_id', caller.orgId)
-    .eq('receiving_order_id', receivingOrderId)
-    .order('position', { ascending: true });
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  const { data: parent, error: parentErr } = await admin()
-    .from('receiving_orders').select('payload')
-    .eq('org_id', caller.orgId).eq('id', receivingOrderId).maybeSingle();
-  if (parentErr) throw new ApiError('INTERNAL_ERROR', 500, parentErr.message);
-  if (!parent) return;
-  const merged = {
-    ...(parent.payload as Record<string, unknown>),
-    lines: (rows ?? []) as LineRow[],
-  };
-  const { error: updateErr } = await admin().from('receiving_orders')
-    .update({ payload: merged, updated_by: caller.userId, updated_at: new Date().toISOString() })
-    .eq('org_id', caller.orgId).eq('id', receivingOrderId);
-  if (updateErr) throw new ApiError('INTERNAL_ERROR', 500, updateErr.message);
-}
-
-async function syncShipmentPayloadLines(
-  caller: Caller, shipmentId: string,
-): Promise<void> {
-  const { data: rows, error } = await admin()
-    .from('shipment_line_items')
-    .select('item_id, quantity, unit_cost_cents, uom, reference, position')
-    .eq('org_id', caller.orgId)
-    .eq('shipment_id', shipmentId)
-    .order('position', { ascending: true });
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  const { data: parent, error: parentErr } = await admin()
-    .from('shipments').select('payload')
-    .eq('org_id', caller.orgId).eq('id', shipmentId).maybeSingle();
-  if (parentErr) throw new ApiError('INTERNAL_ERROR', 500, parentErr.message);
-  if (!parent) return;
-  const merged = {
-    ...(parent.payload as Record<string, unknown>),
-    lines: (rows ?? []) as LineRow[],
-  };
-  const { error: updateErr } = await admin().from('shipments')
-    .update({ payload: merged, updated_by: caller.userId, updated_at: new Date().toISOString() })
-    .eq('org_id', caller.orgId).eq('id', shipmentId);
-  if (updateErr) throw new ApiError('INTERNAL_ERROR', 500, updateErr.message);
-}
 
 async function assertReceivingParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('receiving_orders').select('id')
@@ -412,7 +356,6 @@ const TABLE: Route[] = [
             .from('receiving_order_line_items').insert(insert)
             .select('*').single();
           if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-          await syncReceivingPayloadLines(caller, params.id);
           return created(ReceivingOrderLineItemSchema.parse(data));
         },
       );
@@ -447,7 +390,6 @@ const TABLE: Route[] = [
             .select('*').maybeSingle();
           if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
           if (!data) throw new ApiError('NOT_FOUND', 404);
-          await syncReceivingPayloadLines(caller, params.id);
           return ok(ReceivingOrderLineItemSchema.parse(data));
         },
       );
@@ -472,7 +414,6 @@ const TABLE: Route[] = [
             .select('id').maybeSingle();
           if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
           if (!data) throw new ApiError('NOT_FOUND', 404);
-          await syncReceivingPayloadLines(caller, params.id);
           return ok({ id: params.lineId, deleted: true });
         },
       );
@@ -752,7 +693,6 @@ const TABLE: Route[] = [
             .from('shipment_line_items').insert(insert)
             .select('*').single();
           if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
-          await syncShipmentPayloadLines(caller, params.id);
           return created(ShipmentLineItemSchema.parse(data));
         },
       );
@@ -787,7 +727,6 @@ const TABLE: Route[] = [
             .select('*').maybeSingle();
           if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
           if (!data) throw new ApiError('NOT_FOUND', 404);
-          await syncShipmentPayloadLines(caller, params.id);
           return ok(ShipmentLineItemSchema.parse(data));
         },
       );
@@ -812,7 +751,6 @@ const TABLE: Route[] = [
             .select('id').maybeSingle();
           if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
           if (!data) throw new ApiError('NOT_FOUND', 404);
-          await syncShipmentPayloadLines(caller, params.id);
           return ok({ id: params.lineId, deleted: true });
         },
       );

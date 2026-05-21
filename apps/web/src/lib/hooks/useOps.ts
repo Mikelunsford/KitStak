@@ -241,10 +241,11 @@ export function useCreateReceivingOrderLineItem(receivingOrderId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: receivingLineItemsKey(receivingOrderId) });
       void qc.invalidateQueries({ queryKey: receivingOrdersKeys.detail(receivingOrderId) });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: line-item create updates the parent's
-      // payload.lines mirror via dual-write, which counts as a parent update;
-      // invalidate the timeline so the operator returning to the detail
-      // page sees the new entry.
+      // F-Wave7-AUDIT-CACHE-SWEEP-01 + F-Wave7-LINES-DUAL-WRITE-DROP-01:
+      // the parent's payload.lines dual-write was retired with the step 2
+      // trigger redirect, so line-item create no longer produces a parent
+      // UPDATE row in audit_log. The invalidation is kept as a defensive
+      // sweep for future audit hooks on the line-item tables themselves.
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', receivingOrderId) });
     },
   });
