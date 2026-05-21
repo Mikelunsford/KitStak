@@ -303,17 +303,108 @@ async function transitionInvoiceTo(
   return rowToInvoice(data as InvoiceRow);
 }
 
+// SendInvoice resolves the customer's email (override > customer.primary_email),
+// fails 422 if neither is available, transitions the invoice to 'sent', stamps
+// invoice.sent_to with the resolved address, and queues an email notification.
+// The notifications-worker drains it on the next cycle and the Resend sender
+// posts the message. Mirrors the quote send pattern in quotes-api/index.ts.
+const SendInvoiceBodySchema = z.object({
+  recipient_email: z.string().email().optional(),
+});
+
 export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'invoices.send');
   const id = parseUuidParam(ctx.params.id!);
+  const body = await parseBody(ctx.req, SendInvoiceBodySchema);
   return respondWithIdempotency(
     ctx.req,
     caller,
     BUNDLE,
     `${ctx.req.method} /invoices/:id/send`,
-    null,
-    async () => ok(await transitionInvoiceTo(caller, id, 'sent')),
+    body,
+    async () => {
+      const client = admin();
+
+      // Resolve the invoice and its customer's email up-front so a missing
+      // recipient surfaces as 422 before the state transition is attempted.
+      const { data: invoiceRow, error: invErr } = await client
+        .from('invoices')
+        .select('id, invoice_number, customer_id, total_cents, currency_code, status')
+        .eq('id', id)
+        .eq('org_id', caller.orgId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (invErr) throw new ApiError('INTERNAL_ERROR', 500, invErr.message);
+      if (!invoiceRow) throw new ApiError('NOT_FOUND', 404);
+
+      let customerEmail: string | null = null;
+      let customerName: string | null = null;
+      if (invoiceRow.customer_id) {
+        const { data: cust, error: custErr } = await client
+          .from('customers')
+          .select('primary_email, display_name')
+          .eq('id', invoiceRow.customer_id)
+          .eq('org_id', caller.orgId)
+          .maybeSingle();
+        if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+        customerEmail = cust?.primary_email ?? null;
+        customerName = cust?.display_name ?? null;
+      }
+      const recipient = body.recipient_email ?? customerEmail;
+      if (!recipient) {
+        throw new ApiError(
+          'VALIDATION_ERROR',
+          422,
+          'No recipient email available. Provide recipient_email in the request body or add a primary_email to the customer record.',
+        );
+      }
+
+      // Transition to 'sent' (the existing helper stamps sent_at + status).
+      // Then stamp sent_to in a follow-up update; the helper is shared with
+      // cancel/transition so we keep sent_to threading out of it.
+      const updated = await transitionInvoiceTo(caller, id, 'sent');
+      const { error: sentToErr } = await client
+        .from('invoices')
+        .update({ sent_to: recipient })
+        .eq('id', id)
+        .eq('org_id', caller.orgId);
+      if (sentToErr) {
+        console.error('invoicing-api: failed to stamp invoices.sent_to', {
+          invoice_id: id,
+          org_id: caller.orgId,
+          message: sentToErr.message,
+        });
+      }
+
+      // Queue the email notification.
+      const greeting = customerName ? `Hi ${customerName},` : 'Hello,';
+      const subject = `Invoice ${invoiceRow.invoice_number}`;
+      const emailBody =
+        `${greeting}\n\n` +
+        `Invoice ${invoiceRow.invoice_number} is ready for review. ` +
+        `Reply to this email with any questions about payment.\n\n` +
+        `Thanks.`;
+      const { error: notifErr } = await client.from('notifications').insert({
+        org_id: caller.orgId,
+        recipient_user_id: caller.userId,
+        entity_type: 'invoice',
+        entity_id: id,
+        channel: 'email',
+        subject,
+        body: emailBody,
+        payload: { to: recipient, invoice_number: invoiceRow.invoice_number },
+      });
+      if (notifErr) {
+        console.error('invoicing-api: failed to queue email notification', {
+          invoice_id: id,
+          org_id: caller.orgId,
+          message: notifErr.message,
+        });
+      }
+
+      return ok(updated);
+    },
   );
 }
 

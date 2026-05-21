@@ -63,12 +63,18 @@ const inappSender: Sender = async () => {
 //
 // Supported providers (operator selects via EMAIL_PROVIDER):
 //   - "smtp"   : SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
-//   - "resend" : RESEND_API_KEY, RESEND_FROM
+//                (chassis present; SMTP HTTP call not implemented; pick Resend
+//                unless an explicit SMTP host operator chooses otherwise)
+//   - "resend" : RESEND_API_KEY, RESEND_FROM. Posts to api.resend.com/emails
+//                via the Deno runtime's built-in fetch. Closes the Path B1
+//                end-to-end quote/invoice email slice.
 //
-// This module does NOT ship a real SMTP/Resend client today (no operator pick
-// yet, no banned-dep was added). It validates configuration and returns a
-// transport_rejected stub when configured. Wiring the actual HTTP/SMTP call
-// is a follow-up once the operator chooses a provider.
+// Recipient resolution: the email address comes from `row.payload.to` (string).
+// The notifications producer (quote/invoice send handlers in this PR) reads
+// `customers.primary_email` and threads it through. The sender fails closed
+// with transport_not_configured if `payload.to` is absent so we never silently
+// drop a queued email; the operator can fix the upstream caller and the
+// next worker drain retries.
 const emailSender: Sender = async (row) => {
   const provider = denoEnv('EMAIL_PROVIDER');
   if (!provider) {
@@ -98,22 +104,7 @@ const emailSender: Sender = async (row) => {
     };
   }
   if (provider === 'resend') {
-    const apiKey = denoEnv('RESEND_API_KEY');
-    const from = denoEnv('RESEND_FROM');
-    if (!apiKey || !from) {
-      return {
-        ok: false,
-        reason: 'transport_not_configured',
-        retryable: false,
-        message: 'RESEND_API_KEY / RESEND_FROM env vars not set',
-      };
-    }
-    return {
-      ok: false,
-      reason: 'transport_rejected',
-      retryable: true,
-      message: `Resend send for notification ${row.id} not implemented in this build`,
-    };
+    return sendViaResend(row);
   }
   return {
     ok: false,
@@ -122,6 +113,85 @@ const emailSender: Sender = async (row) => {
     message: `Unknown EMAIL_PROVIDER value: ${provider}`,
   };
 };
+
+// Resend HTTP transport.
+//
+// POST https://api.resend.com/emails
+// Headers:
+//   Authorization: Bearer <RESEND_API_KEY>
+//   Content-Type: application/json
+// Body: { from, to, subject, text }
+//
+// Success: 200 / 201 / 202 with JSON body { id, ... } -> SendSuccess.
+// 4xx: transport_rejected, retryable:false (config error or bad recipient).
+//      Worker leaves delivered_at NULL; the row sits for operator inspection.
+// 5xx: transport_rejected, retryable:true (Resend transient).
+// Network error: send_error, retryable:true.
+async function sendViaResend(row: NotificationRow): Promise<SendResult> {
+  const apiKey = denoEnv('RESEND_API_KEY');
+  const from = denoEnv('RESEND_FROM');
+  if (!apiKey || !from) {
+    return {
+      ok: false,
+      reason: 'transport_not_configured',
+      retryable: false,
+      message: 'RESEND_API_KEY / RESEND_FROM env vars not set',
+    };
+  }
+  const to =
+    typeof row.payload?.to === 'string' ? (row.payload.to as string) : null;
+  if (!to) {
+    return {
+      ok: false,
+      reason: 'transport_not_configured',
+      retryable: false,
+      message:
+        'payload.to (recipient email) absent on notification row; producer must populate it',
+    };
+  }
+  const body = {
+    from,
+    to,
+    subject: row.subject,
+    text: row.body ?? '',
+  };
+  let res: Response;
+  try {
+    res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'send_error',
+      retryable: true,
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+  if (res.status >= 200 && res.status < 300) {
+    return { ok: true };
+  }
+  // Drain the response body so we can include the Resend error message in the
+  // worker log without leaving the connection hanging. Resend returns JSON like
+  // { name: 'validation_error', message: '...' }; we just stringify.
+  let detail = '';
+  try {
+    detail = await res.text();
+  } catch {
+    // Body already consumed or unreadable; fall back to status code only.
+  }
+  return {
+    ok: false,
+    reason: 'transport_rejected',
+    retryable: res.status >= 500,
+    message: `Resend POST returned HTTP ${res.status}${detail ? `: ${detail.slice(0, 500)}` : ''}`,
+  };
+}
 
 // Webhook: HTTP POST to either a per-row payload.webhook_url or a globally
 // configured WEBHOOK_URL. We do attempt the POST when configured; failure
