@@ -19,8 +19,51 @@ import {
   useAddProducedLine,
   useDeleteProducedLine,
 } from '@/lib/hooks/useManufacturing';
+import { useStockLevels } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
+
+/**
+ * Non-blocking warning surfaced when staging a Consumed line would push the
+ * projected on-hand for the (run.warehouse_id, item_id) pair below zero.
+ *
+ * Lives in its own component so useStockLevels only fires when both
+ * warehouseId and itemId are present; otherwise the hook would request the
+ * entire stock_levels table.
+ *
+ * Closes F-Wave9-MFG-NEGATIVE-STOCK-WARN-01. Constitution stays permissive:
+ * negative on-hand is allowed at the DB layer (no CHECK constraint, no API
+ * 422); this is a UI signal only. Save still succeeds.
+ */
+function ConsumeNegativeStockWarning(props: {
+  warehouseId: string;
+  itemId: string;
+  enteredQty: number;
+  stagedConsumedQty: number;
+}) {
+  const stock = useStockLevels({
+    warehouseId: props.warehouseId,
+    itemId: props.itemId,
+  });
+  if (stock.isLoading || stock.error) return null;
+  const row = (stock.data ?? []).find(
+    (r) => r.warehouse_id === props.warehouseId && r.item_id === props.itemId,
+  );
+  const onHand = Number(row?.quantity_on_hand ?? 0);
+  const projected = onHand - props.stagedConsumedQty - props.enteredQty;
+  if (projected >= 0) return null;
+  return (
+    <p
+      role="status"
+      className="font-sans text-sm text-warning border-l-2 border-warning pl-3 py-1 bg-warning/5"
+    >
+      Warning: this consume would result in {projected.toFixed(2)} on hand for
+      the selected item at this warehouse. The save will still succeed (Kitstak
+      allows negative on-hand by design); confirm the inventory delta is what
+      you expect.
+    </p>
+  );
+}
 
 /**
  * ManufacturingRunDetailPage. Path A5. Mirrors ReceivingOrderDetailPage.
@@ -330,6 +373,16 @@ export function ManufacturingRunDetailPage() {
                 {addConsumed.isPending ? 'Adding.' : 'Add material'}
               </Button>
             </div>
+            {d.warehouse_id && conItemId && Number(conQty) > 0 ? (
+              <ConsumeNegativeStockWarning
+                warehouseId={d.warehouse_id}
+                itemId={conItemId}
+                enteredQty={Number(conQty) || 0}
+                stagedConsumedQty={(consumed.data ?? [])
+                  .filter((l) => l.item_id === conItemId)
+                  .reduce((acc, l) => acc + Number(l.quantity), 0)}
+              />
+            ) : null}
             {addConsumed.error ? (
               <p className="text-accent font-sans text-sm">
                 Add failed:{' '}

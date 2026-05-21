@@ -53,6 +53,7 @@ import {
 } from '../_shared/handler-helpers.ts';
 import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
+import { nextDocNumber } from '../_shared/numbering.ts';
 import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ManufacturingRunSchema,
@@ -168,10 +169,17 @@ const TABLE: Route[] = [
       requireCap(caller, 'manufacturing.run.create');
       const body = await parseBody(req, ManufacturingRunCreateSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/manufacturing-runs', body, async () => {
+        // Operator may pass a `run_number` to override; otherwise the
+        // org-scoped numbering chassis (next_doc_number RPC) allocates the
+        // next MFG-YYYY-NNNNN string. Seeded with prefix MFG- + yearly reset
+        // by migration 0054 (F-Wave9-MFG-RUN-NUMBERING-01).
+        const runNumber = body.run_number?.trim()
+          ? body.run_number.trim()
+          : await nextDocNumber(caller.orgId, 'manufacturing_run');
         const insert: Record<string, unknown> = {
           org_id: caller.orgId,
           status: 'draft',
-          run_number: body.run_number ?? null,
+          run_number: runNumber,
           warehouse_id: body.warehouse_id ?? null,
           planned_start_at: body.planned_start_at ?? null,
           planned_complete_at: body.planned_complete_at ?? null,

@@ -28,7 +28,8 @@ export type DocType =
   | 'journal_entry'
   | 'receiving_order'
   | 'production_run'
-  | 'shipment';
+  | 'shipment'
+  | 'manufacturing_run';
 
 /**
  * Allocate the next document number for (org, docType). Returns the
