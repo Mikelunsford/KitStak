@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { z } from 'zod';
 
 import { Logo } from '@/components/ui/Logo';
@@ -92,6 +92,16 @@ export function SignInPage() {
               {submitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+
+          <p className="border-t border-line pt-5 text-sm text-ink-dim">
+            Customer accessing your portal?{' '}
+            <Link
+              to="/portal/signin"
+              className="text-accent underline underline-offset-2"
+            >
+              Sign in to your portal
+            </Link>
+          </p>
         </section>
       </div>
     </main>

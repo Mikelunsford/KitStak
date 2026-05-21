@@ -58,6 +58,11 @@ export interface MockState {
     };
     error: { message: string } | null;
   };
+  authAdminListUsersCalls: Array<{ filter?: string; perPage?: number }>;
+  authAdminListUsersResult: {
+    data: { users: Array<{ id: string; email: string }> } | null;
+    error: { message: string } | null;
+  };
 }
 
 export function makeState(rows: RowMap = {}): MockState {
@@ -88,6 +93,11 @@ export function makeState(rows: RowMap = {}): MockState {
           action_link: 'https://default-mock.test/#token=fake',
         },
       },
+      error: null,
+    },
+    authAdminListUsersCalls: [],
+    authAdminListUsersResult: {
+      data: { users: [] },
       error: null,
     },
   };
@@ -284,6 +294,11 @@ export function makeSupabaseMock(state: MockState): {
         email: string;
         options?: { redirectTo?: string };
       }) => Promise<MockState['authAdminGenerateLinkResult']>;
+      listUsers: (params?: {
+        filter?: string;
+        perPage?: number;
+        page?: number;
+      }) => Promise<MockState['authAdminListUsersResult']>;
     };
   };
 } {
@@ -304,6 +319,13 @@ export function makeSupabaseMock(state: MockState): {
         generateLink: async ({ type, email, options }) => {
           state.authAdminGenerateLinkCalls.push({ type, email, options });
           return state.authAdminGenerateLinkResult;
+        },
+        listUsers: async (params) => {
+          state.authAdminListUsersCalls.push({
+            filter: params?.filter,
+            perPage: params?.perPage,
+          });
+          return state.authAdminListUsersResult;
         },
       },
     },
