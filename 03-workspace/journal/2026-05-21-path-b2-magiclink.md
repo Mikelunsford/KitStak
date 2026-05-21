@@ -64,10 +64,29 @@ New `IndexRoute` component reads `useAuth` + `useMe` and routes the bare "/" pat
 ## Closes
 
 - **`F-Wave9-PORTAL-INVITE-MAGICLINK-01`** — handler swapped to generateLink, branded email shipped via Resend, defense-in-depth IndexRoute added. Confirmed via 6 regression tests + green build + green size-limit.
+- **`F-Wave9-PORTAL-INVITE-REDIRECT-01`** — operator closed the Supabase Auth Site URL configuration on the same day: Site URL set to `https://www.kitstak.com`, `https://www.kitstak.com/**` added to Redirect URLs allow-list (the 8 pre-existing Vercel-deployment-domain entries pruned for cleanup, leaving only the prod entry).
+
+## Verified live (2026-05-21)
+
+PR #91 merged at `f07343c` (18:43:13Z). deploy-functions workflow rolled both prod (18:44:24Z) and staging (18:45:46Z) `crm-api` bundles. Operator smoke from `/crm/customers/{Test Customer}` with `primary_email=Malunsf@gmail.com`:
+
+| Check | Result |
+|---|---|
+| `Invite` click returned 200 + green success banner | Yes |
+| Manual `gh workflow run notifications-drain.yml` returned `polled=2 delivered=2 failed=0` | Yes (the 2 = one stale row from an earlier test + the fresh invite) |
+| Email arrived at Malunsf@gmail.com | Yes, ~10s after drain |
+| Sender header rendered as `Kitstak <notifications@kitstak.com>` | Yes |
+| Subject: `Sign in to your Test Customer portal` | Yes — customer.display_name interpolated correctly |
+| Body: branded greeting + magic-link URL + "No password required." | Yes |
+| Magic-link URL pointed at `<supabase-project>.supabase.co/auth/v1/verify?token=...&redirect_to=https://www.kitstak.com/portal` | Yes |
+| Click landed signed-in at `/portal` (no password page) | Yes — portal shell rendered with Invoices / Quotes / Projects sections, honest "No X yet" empty states for the test customer |
+
+## Quirk (documented, not a bug)
+
+The verify URL carried `type=signup` rather than `type=magiclink`. This is Supabase's documented behavior for `generateLink({ type: 'magiclink' })` when the recipient's `auth.users` row does not yet exist (the magic-link call auto-creates the row on demand). For an existing user being re-invited, the same call returns a `type=magiclink` URL (consistent with the diagnostic captured in PR #90 against a pre-existing user). Both URLs hit the same `/auth/v1/verify` endpoint and produce an identical authenticated session; the type token only labels how the underlying user shadow was created. No code action needed.
 
 ## Carried open
 
-- **`F-Wave9-PORTAL-INVITE-REDIRECT-01`** — operator-action only (Supabase Auth URL config). Will close on the next operator session.
 - **`F-Wave9-SEND-FEEDBACK-01`** — Send button feedback on quote/invoice detail pages, surfaced during Path B1 verification. Still open.
 
 ## Spawns
