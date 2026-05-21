@@ -105,6 +105,22 @@ None. The endpoint is live after merge + deploy. The two cross-links and the wor
 - **`F-Wave9-PORTAL-SIGNIN-REENTRY-01`** (implicit; would have been filed) — customer re-entry sign-in surface now exists.
 - **Discovered-and-closed gap**: staff signin page now has a cross-link to portal signin (and vice versa). Customers landing at `kitstak.com` from any path now have a discoverable route to authentication.
 
+## Verified live (2026-05-21)
+
+PR #93 merged at `f1af231` (20:00:50Z). deploy-functions workflow rolled both prod and staging `auth-api` bundles to success (run 26249912173). Operator smoke walked the full 4-step rubric:
+
+| Step | Result |
+|---|---|
+| Cross-link from `kitstak.com` (fresh incognito) → `/signin` → footer "Sign in to your portal" → lands on `/portal/signin` with the email form | Pass |
+| Type an invited customer email → click "Send sign-in link" → success card appears with canonical message | Pass |
+| Manual `gh workflow run notifications-drain.yml` → workflow ran 26250139653 → returned `polled=1 delivered=1 failed=0` | Pass |
+| Email arrived from `Kitstak <notifications@kitstak.com>` with subject "Sign in to your Kitstak portal", body containing fresh magic link, "No password required" line present | Pass |
+| Magic link clicked in incognito → lands signed-in at `/portal` (no password page) | Pass |
+| **Anti-leak gate**: typed an unregistered email → identical success card text → confirmed NO notifications row was created in Supabase for that email | Pass |
+| Reverse cross-link from `/portal/signin` → "Staff sign-in" → bounces to `/signin` | Pass |
+
+All seven smoke checks green. The constitutional anti-leak posture (the critical gate for this endpoint) is verified — the endpoint does not distinguish between "registered customer", "unregistered email", or "email exists but is not a customer_user" at the response shape level. Resend is only invoked for legitimate `customer_user` recipients.
+
 ## Spawns
 
 - **`F-Wave9-PORTAL-SIGNIN-RATE-LIMIT-01`**: the constitutional deviation noted above (skipping idempotency on the public sign-in-link request endpoint) leaves rate-limiting as the right control to bound abuse. Deferred to v2 because Resend's account-level rate limit + the 5-min drain cron + the listUsers + membership gate already make a brute-force enumeration attack low-yield: per email, the attacker can only force ONE notifications row per ~5 minutes of drain cycle, and only IF that email matches a real customer_user. Revisit trigger: any signal of abuse (Resend rate-limit alerts, suspicious notifications-table volume) OR the first paying customer's questions about portal security.
