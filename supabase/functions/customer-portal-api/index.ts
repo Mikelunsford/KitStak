@@ -64,7 +64,10 @@ const me: Route = {
     const customerId = await resolveCustomerId(caller);
     const { data, error } = await admin()
       .from('customers')
-      .select('id, org_id, display_name, email')
+      // customers.email does not exist; the column is primary_email.
+      // Alias it so the response envelope keeps its existing `email`
+      // shape and SPA consumers do not need to change.
+      .select('id, org_id, display_name, email:primary_email')
       .eq('org_id', caller.orgId)
       .eq('id', customerId)
       .single();
@@ -93,14 +96,19 @@ const invoices: Route = {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
+    // Actual columns: invoice_number, issue_date, due_date. Quotes/projects
+    // use `state` not `status`. Alias to keep the SPA-facing response shape
+    // stable. Order by created_at (always populated) instead of the
+    // historically-stamped issue_date which is null for drafts.
     const { data, error } = await admin()
       .from('invoices')
       .select(
-        'id, number, status, issued_at, due_at, total_cents, balance_cents, currency_code',
+        'id, number:invoice_number, status, issued_at:issue_date, due_at:due_date, total_cents, balance_cents, currency_code',
       )
       .eq('org_id', caller.orgId)
       .eq('customer_id', customerId)
-      .order('issued_at', { ascending: false })
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
       .limit(200);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
     return ok(data ?? []);
@@ -120,12 +128,18 @@ const quotes: Route = {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
+    // quotes uses `state` not `status`, `expiration_date` not `expires_at`,
+    // and has no `issued_at`. Alias `sent_at` to `issued_at` since that is
+    // the customer-visible "when did we send you this quote" timestamp.
     const { data, error } = await admin()
       .from('quotes')
-      .select('id, number, status, issued_at, expires_at, total_cents, currency_code')
+      .select(
+        'id, number, status:state, issued_at:sent_at, expires_at:expiration_date, total_cents, currency_code',
+      )
       .eq('org_id', caller.orgId)
       .eq('customer_id', customerId)
-      .order('issued_at', { ascending: false })
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
       .limit(200);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
     return ok(data ?? []);
@@ -145,12 +159,18 @@ const projects: Route = {
       throw new ApiError('NOT_FOUND', 404);
     }
     const customerId = await resolveCustomerId(caller);
+    // projects uses `state` not `status`, `start_date` not `started_at`,
+    // and `due_date` not `expected_completion_at`. Alias to preserve the
+    // SPA-facing response shape.
     const { data, error } = await admin()
       .from('projects')
-      .select('id, name, status, started_at, expected_completion_at')
+      .select(
+        'id, name, status:state, started_at:start_date, expected_completion_at:due_date',
+      )
       .eq('org_id', caller.orgId)
       .eq('customer_id', customerId)
-      .order('started_at', { ascending: false })
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
       .limit(200);
     if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
     return ok(data ?? []);
