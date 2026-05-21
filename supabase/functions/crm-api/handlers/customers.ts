@@ -9,6 +9,8 @@
 // from migration 0007. Handlers also call `.eq('org_id', caller.orgId)` for
 // defense in depth.
 
+import { z } from 'zod';
+
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';
 import {
@@ -248,6 +250,102 @@ export async function deleteCustomer({ req, params }: RouteCtx): Promise<Respons
         });
       }
       return noContent();
+    },
+  );
+}
+
+// POST /customers/:id/invite-to-portal
+//
+// Path B2 customer portal invitation. Calls supabase.auth.admin.inviteUserByEmail
+// to create the auth.users row + send the magic-link email (sender is governed
+// by Supabase Auth's SMTP config; operator should point it at Resend for brand
+// consistency with B1). After the invite returns, calls the
+// create_portal_membership RPC from migration 0055 to atomically insert the
+// org_memberships row with role=customer_user + customer_id mapping.
+//
+// Recipient resolution: body.email_override > customer.primary_email > 422.
+// Capability: crm.customers.invite_to_portal (granted to org_owner, org_admin,
+// sales, accounting; NOT to ops, viewer, customer_user, vendor_user).
+//
+// Idempotency: the surrounding respondWithIdempotency wrapper deduplicates
+// repeat clicks of the same Invite button (same key + same body). At the DB
+// layer, create_portal_membership uses ON CONFLICT (org_id, user_id) DO UPDATE
+// so even a fresh-key re-invite of the same user is safe.
+const InviteToPortalBodySchema = z.object({
+  email_override: z.string().email().optional(),
+});
+
+export async function inviteCustomerToPortal({ req, params }: RouteCtx): Promise<Response> {
+  const caller = requireCaller(req);
+  requireCap(caller, 'crm.customers.invite_to_portal');
+  parseUuidParam(params.id);
+  const body = await parseBody(req, InviteToPortalBodySchema);
+
+  return respondWithIdempotency(
+    req,
+    caller,
+    BUNDLE,
+    'POST /customers/:id/invite-to-portal',
+    { id: params.id, ...body },
+    async () => {
+      const customer = await fetchCustomerRow(caller, params.id);
+      const email = body.email_override ?? customer.primary_email;
+      if (!email) {
+        throw new ApiError(
+          'VALIDATION_ERROR',
+          422,
+          'Customer has no primary_email and no email_override was provided. Add an email to the customer record or pass email_override on the request.',
+        );
+      }
+
+      const client = admin();
+      const inviteResult = await client.auth.admin.inviteUserByEmail(email, {
+        redirectTo: 'https://www.kitstak.com/portal',
+      });
+      if (inviteResult.error) {
+        // Most common 422 case: user already registered (re-invite).
+        // We surface the error rather than auto-resolve for v1; a future
+        // polish PR can look up the existing user via listUsers and proceed
+        // with membership creation without re-sending the link.
+        throw new ApiError(
+          'VALIDATION_ERROR',
+          422,
+          `Auth invite failed: ${inviteResult.error.message}`,
+          { detail: inviteResult.error.message },
+        );
+      }
+      const userId = inviteResult.data.user?.id;
+      if (!userId) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          'Auth invite returned no user id',
+        );
+      }
+
+      const { data: membershipId, error: rpcError } = await client.rpc(
+        'create_portal_membership',
+        {
+          p_customer_id: customer.id,
+          p_user_id: userId,
+          p_org_id: caller.orgId,
+        },
+      );
+      if (rpcError) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `Portal membership creation failed: ${rpcError.message}`,
+          { detail: rpcError.message },
+        );
+      }
+
+      return ok({
+        membership_id: membershipId,
+        user_id: userId,
+        email,
+        customer_id: customer.id,
+      });
     },
   );
 }

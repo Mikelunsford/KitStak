@@ -28,12 +28,22 @@ interface UpdateRecord {
   filters: Array<{ col: string; val: unknown }>;
 }
 
+export interface AuthAdminInviteCall {
+  email: string;
+  options?: { redirectTo?: string } | undefined;
+}
+
 export interface MockState {
   rows: RowMap;
   updates: UpdateRecord[];
   inserts: Array<{ table: string; row: Record<string, unknown> }>;
   rpcCalls: Array<{ name: string; args: unknown }>;
   rpcResults: Record<string, { data: unknown; error: unknown }>;
+  authAdminInviteCalls: AuthAdminInviteCall[];
+  authAdminInviteResult: {
+    data: { user: { id: string; email: string } | null };
+    error: { message: string } | null;
+  };
 }
 
 export function makeState(rows: RowMap = {}): MockState {
@@ -43,6 +53,16 @@ export function makeState(rows: RowMap = {}): MockState {
     inserts: [],
     rpcCalls: [],
     rpcResults: {},
+    authAdminInviteCalls: [],
+    authAdminInviteResult: {
+      data: {
+        user: {
+          id: '00000000-0000-4000-8000-00000000aaaa',
+          email: 'default-mock@example.test',
+        },
+      },
+      error: null,
+    },
   };
 }
 
@@ -226,6 +246,14 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
 export function makeSupabaseMock(state: MockState): {
   from: (table: string) => QueryBuilder;
   rpc: (name: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
+  auth: {
+    admin: {
+      inviteUserByEmail: (
+        email: string,
+        options?: { redirectTo?: string },
+      ) => Promise<MockState['authAdminInviteResult']>;
+    };
+  };
 } {
   return {
     from: (table) => makeQuery(state, table),
@@ -234,6 +262,14 @@ export function makeSupabaseMock(state: MockState): {
       return (
         state.rpcResults[name] ?? { data: null, error: null }
       );
+    },
+    auth: {
+      admin: {
+        inviteUserByEmail: async (email, options) => {
+          state.authAdminInviteCalls.push({ email, options });
+          return state.authAdminInviteResult;
+        },
+      },
     },
   };
 }

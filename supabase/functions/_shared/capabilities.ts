@@ -38,10 +38,11 @@ export type Capability =
   | 'org.sso.write'
   | 'org.feature_flag.read'
   | 'org.audit_log.read'
-  // crm.* (17)
+  // crm.* (18)
   | 'crm.customers.read'
   | 'crm.customers.write'
   | 'crm.customers.delete'
+  | 'crm.customers.invite_to_portal'
   | 'crm.contacts.read'
   | 'crm.contacts.write'
   | 'crm.contacts.delete'
@@ -276,6 +277,7 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'crm.customers.read',
   'crm.customers.write',
   'crm.customers.delete',
+  'crm.customers.invite_to_portal',
   'crm.contacts.read',
   'crm.contacts.write',
   'crm.contacts.delete',
@@ -489,6 +491,7 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'crm.customers.read',
   'crm.customers.write',
   'crm.customers.delete',
+  'crm.customers.invite_to_portal',
   'crm.contacts.read',
   'crm.contacts.write',
   'crm.contacts.delete',
@@ -692,6 +695,7 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   // crm SALES
   'crm.customers.read',
   'crm.customers.write',
+  'crm.customers.invite_to_portal',
   'crm.contacts.read',
   'crm.contacts.write',
   'crm.contacts.delete',
@@ -912,6 +916,7 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   'org.feature_flag.read',
   // crm ACCOUNTING
   'crm.customers.read',
+  'crm.customers.invite_to_portal',
   'crm.contacts.read',
   'crm.activities.read',
   'crm.leads.read',
