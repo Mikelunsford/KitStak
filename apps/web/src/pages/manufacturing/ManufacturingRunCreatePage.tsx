@@ -10,8 +10,9 @@ import type { ManufacturingRunCreate } from '@/lib/types/vendors_inventory_ops';
 
 /**
  * ManufacturingRunCreatePage. Path A5. Mirrors ReceivingOrderCreatePage
- * shape. All fields optional per A1 (warehouse_id NULLABLE for admin-only
- * runs; run_number nullable until numbering lands).
+ * shape. All form fields optional: warehouse_id NULLABLE for admin-only
+ * runs, run_number auto-assigned by the manufacturing-api handler via
+ * next_doc_number when left blank (F-Wave9-MFG-RUN-NUMBERING-01).
  *
  * datetime-local inputs return a "YYYY-MM-DDTHH:mm" string with no timezone
  * suffix. We coerce to ISO via new Date(value).toISOString() before posting
@@ -70,7 +71,7 @@ export function ManufacturingRunCreatePage() {
       ) : null}
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
-          label="Run number (optional)"
+          label="Run number (auto-assigned if blank, e.g. MFG-2026-00001)"
           value={runNumber}
           onChange={(e) => setRunNumber(e.target.value)}
         />

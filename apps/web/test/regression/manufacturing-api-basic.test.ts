@@ -224,4 +224,34 @@ describe('manufacturing-api — Path A3 basics', () => {
     expect(res.status).not.toBe(403);
     expect(res.status).not.toBe(404);
   });
+
+  // -------------------------------------------------------------------------
+  // F-Wave9-MFG-RUN-NUMBERING-01: when the caller omits run_number, the
+  // create handler calls public.next_doc_number(org_id, 'manufacturing_run')
+  // to allocate the next MFG-YYYY-NNNNN value via the org-scoped numbering
+  // chassis (migration 0054 / _shared/numbering.ts).
+  // -------------------------------------------------------------------------
+
+  it('POST /manufacturing-runs calls next_doc_number when run_number is absent', async () => {
+    const state = makeStateWithFlag({ manufacturing_runs: [] });
+    state.rpcResults['next_doc_number'] = {
+      data: 'MFG-2026-00001',
+      error: null,
+    };
+    setActiveMockState(state);
+    const req = new Request('https://example.test/manufacturing-runs', {
+      method: 'POST',
+      headers: idemHeaders(),
+      body: JSON.stringify({
+        notes: 'auto-numbered run',
+      }),
+    });
+    await handler(req);
+    const call = state.rpcCalls.find((c) => c.name === 'next_doc_number');
+    expect(call).toBeDefined();
+    expect(call?.args).toMatchObject({
+      p_org_id: ORG_A,
+      p_doc_type: 'manufacturing_run',
+    });
+  });
 });
