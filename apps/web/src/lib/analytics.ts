@@ -154,3 +154,72 @@ export function track(event: AnalyticsEvent, properties?: AnalyticsProps): void 
   if (!posthog) return;
   posthog.capture(event, properties);
 }
+
+// ---------------------------------------------------------------------------
+// Feature-flag wrappers (F-Wave8-POSTHOG-FEATURE-FLAGS-01).
+//
+// PostHog caches feature flags client-side after init resolves the
+// /decide call; `posthog.getFeatureFlag(key)` is a synchronous read
+// against that cache. `posthog.onFeatureFlags(cb)` fires once flags
+// arrive and on every subsequent refresh.
+//
+// These wrappers stay neutral about precedence: they only expose the
+// raw PostHog cached value. The precedence rule (server-side flags via
+// useOrgFlags() are AUTHORITATIVE; PostHog can only narrow a server
+// true to a false for rollout / A-B, never flip a server false to true)
+// is enforced in the useFeatureFlag() hook that consumes these.
+// ---------------------------------------------------------------------------
+
+/**
+ * Synchronous read of a PostHog feature flag from the SDK's cache.
+ *
+ * Returns:
+ *   - `boolean` for a simple multivariate-off / multivariate-on flag,
+ *   - `string` for an A/B test variant key,
+ *   - `undefined` when PostHog has not initialised (no DSN, dev mode
+ *     without key, init still in flight, or flag-not-defined).
+ *
+ * Never throws. Safe to call from a React render path.
+ */
+export function getPostHogFlag(key: string): boolean | string | undefined {
+  if (!posthog) return undefined;
+  // posthog.getFeatureFlag returns boolean | string | undefined per the SDK
+  // typing; cast to the same shape so callers do not depend on the SDK type.
+  return posthog.getFeatureFlag(key) as boolean | string | undefined;
+}
+
+/**
+ * Subscribe to the PostHog SDK's onFeatureFlags event. The callback
+ * fires once flags have been resolved client-side (typically after the
+ * /decide call returns) and on every subsequent refresh.
+ *
+ * Returns an unsubscribe function. When PostHog is not initialised the
+ * subscribe is a silent no-op and the unsubscribe is a no-op too, so
+ * call sites do not need to special-case the no-DSN dev path.
+ */
+export function onPostHogFlagsLoaded(cb: () => void): () => void {
+  if (!posthog) return () => {};
+  // posthog.onFeatureFlags(cb) returns an unsubscribe function per the
+  // posthog-js typings. Wrap defensively so a SDK quirk cannot leak.
+  const unsubscribe = posthog.onFeatureFlags(() => {
+    cb();
+  });
+  return () => {
+    try {
+      unsubscribe();
+    } catch {
+      // PostHog's unsubscribe is best-effort; never throw out of cleanup.
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Test-only reset. Lets the unit tests stub the module-private posthog
+// handle without going through the lazy init network round trip.
+// ---------------------------------------------------------------------------
+
+/** @internal — test-only. Do not call from production code paths. */
+export function __setPostHogForTests(stub: PostHog | null): void {
+  posthog = stub;
+  initPromise = stub ? Promise.resolve() : null;
+}

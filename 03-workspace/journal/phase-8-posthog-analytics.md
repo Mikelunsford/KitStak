@@ -279,3 +279,149 @@ Node.js project (it does not understand the Vite + React SPA in
 `apps/web/`), and the SDK is already wired by PR #58. Running the
 wizard would have created a duplicate / conflicting init and
 written outside the worktree. Activation was env-var-only.
+
+## Feature flag layering (F-Wave8-POSTHOG-FEATURE-FLAGS-01)
+
+Closes `F-Wave8-POSTHOG-FEATURE-FLAGS-01`, the second of two
+follow-ups filed alongside the F-Wave5-CO-02 chassis close.
+
+### Precedence rule
+
+Server-side flags via `useOrgFlags()` are AUTHORITATIVE. PostHog
+flags layer on top for gradual rollout and A/B-test experiments,
+but a server-side `false` always wins.
+
+Rationale: per the constitution, capability gates and per-route
+feature flag misses MUST return `403 FEATURE_DISABLED { flag }`.
+The server is the authority on access. PostHog is a client-side
+cache; it cannot enforce a route. PostHog's role is narrowing a
+server-side `true` to a `false` for a specific rollout cohort
+(gradual rollout) or splitting a server-side `true` across
+variants (A/B test). PostHog must NEVER flip a server-side `false`
+to `true`.
+
+The pure precedence helper `resolveFeatureFlag()` enforces this
+gate before consulting any PostHog value. The unit tests at
+`apps/web/src/lib/hooks/featureFlagResolver.test.ts` cover the
+critical row of the precedence matrix: `server-false + posthog-
+true` resolves to `false` with `source: 'server'`.
+
+### Two surfaces, not one
+
+`useOrgFlags()` keeps its existing semantics unchanged. Every
+current call site (Sidebar pillar gates, `RequireFlag` route
+guards, etc.) continues to read server-only truth. PostHog has no
+influence on route-level access, by design.
+
+The new `useFeatureFlag(key)` hook is the surface for experiments
+and gradual rollouts. Feature teams that explicitly want
+PostHog-cohort behaviour opt in by using it. No existing call site
+is migrated by this filing; per-feature adoption is a separate
+decision per feature team.
+
+### Hook shape
+
+```ts
+const { isEnabled, source, variant, isLoading } = useFeatureFlag('new_quote_flow');
+if (isLoading) return <Spinner />;
+if (!isEnabled) return null;
+return variant === 'experiment_b' ? <FlowB /> : <FlowA />;
+```
+
+Return shape:
+
+- `isEnabled: boolean`. Final layered decision. `false` whenever
+  the server says false; otherwise PostHog's value if defined,
+  otherwise the server's value.
+- `source: 'server' | 'posthog' | 'default'`. Provenance of the
+  decision. `'default'` only paired with `isLoading: true`.
+- `variant: string | null`. A/B-test variant key, populated only
+  when PostHog returned a multivariate string value on top of a
+  server `true`.
+- `isLoading: boolean`. True while the server-side flag query is
+  still in flight.
+
+### Analytics module additions
+
+`apps/web/src/lib/analytics.ts` grew two typed wrappers around
+the PostHog SDK's flag API:
+
+- `getPostHogFlag(key): boolean | string | undefined`. Synchronous
+  read of the SDK's cached flag value. PostHog caches flags
+  client-side after the `/decide` call returns; this is a sync
+  read against that cache. Returns `undefined` when PostHog is
+  not initialised (no DSN, dev mode without key) so callers can
+  use it on render paths without await.
+- `onPostHogFlagsLoaded(cb): () => void`. Subscribes to the SDK's
+  `onFeatureFlags` event so React state can re-render when the
+  flag cache updates. Returns an unsubscribe. When PostHog is not
+  initialised this is a silent no-op pair.
+
+Both wrappers stay neutral about precedence; they only expose the
+raw PostHog value. The precedence rule lives in
+`featureFlagResolver.ts` and applies to PostHog values via the
+hook composition.
+
+### Bundle delta
+
+PostHog SDK is already lazy-loaded by `initAnalytics()` from the
+F-Wave5-CO-02 chassis. The two new wrappers add ~0.06 kB to the
+SPA main chunk; no new dep, no new chunk. Main `index-*.js` lands
+at **29.98 kB / 40 kB** gzipped (was 29.92 kB after the source-
+maps merge).
+
+### When to use `useFeatureFlag()` vs `useOrgFlags()`
+
+Use `useOrgFlags()` directly when:
+
+- The decision gates a route or top-level navigation surface
+  (Sidebar pillar gates, `RequireFlag` outlets).
+- A `403 FEATURE_DISABLED` from the server must bounce the user.
+- The decision must remain stable across a PostHog outage.
+
+Use `useFeatureFlag()` when:
+
+- Gradual-rollout cohort: a feature is enabled at the org level
+  but the team wants to ship it to a fraction of orgs first.
+- A/B test: a feature is enabled at the org level and the team
+  wants to show two variants and measure.
+- An experimental surface inside a feature that is otherwise
+  server-true.
+
+### Test coverage
+
+`apps/web/src/lib/hooks/featureFlagResolver.test.ts` — 16
+assertions across two suites:
+
+- Precedence matrix (10): server-true + posthog-{true,false,
+  undefined}; server-false + posthog-{true,string,undefined};
+  server-absent (off) + posthog-true; server-loading; multivariate
+  variant; empty-variant edge case.
+- Analytics wrappers (6): `getPostHogFlag` and
+  `onPostHogFlagsLoaded` against both the not-initialised path
+  and a stubbed PostHog handle.
+
+All 37 SPA unit tests pass (16 new + 16 sentry + 5 money).
+
+### Files touched
+
+- `apps/web/src/lib/analytics.ts`: two new exports
+  (`getPostHogFlag`, `onPostHogFlagsLoaded`) plus a test-only
+  `__setPostHogForTests` helper.
+- `apps/web/src/lib/hooks/featureFlagResolver.ts`: new. Pure
+  precedence-resolution helper plus types.
+- `apps/web/src/lib/hooks/useFeatureFlag.ts`: new. React hook that
+  composes `useOrgFlags()` plus `getPostHogFlag` plus the
+  resolver, with a flag-cache subscription to drive re-renders.
+- `apps/web/src/lib/hooks/featureFlagResolver.test.ts`: new. 16
+  test assertions.
+- `apps/web/src/lib/hooks/index.ts`: export the new hook and
+  types.
+- `STATUS.md`: F-Wave8-POSTHOG-FEATURE-FLAGS-01 moved to closed
+  with precedence rule called out.
+
+### Follow-ups
+
+None filed. The chassis is small, the precedence rule is
+constitutionally bounded, and per-feature adoption is the
+feature team's call when an experiment surfaces.

@@ -19,6 +19,8 @@ export {
 } from './useSettings';
 export { useFlags, useUpsertFlag } from './useFlags';
 export { useOrgFlags } from './useOrgFlags';
+export { useFeatureFlag } from './useFeatureFlag';
+export type { FeatureFlagResult, FeatureFlagSource } from './useFeatureFlag';
 
 // CRM (Wave 2, Agent B)
 export { useCustomers } from './useCustomers';
