@@ -256,12 +256,20 @@ export async function deleteCustomer({ req, params }: RouteCtx): Promise<Respons
 
 // POST /customers/:id/invite-to-portal
 //
-// Path B2 customer portal invitation. Calls supabase.auth.admin.inviteUserByEmail
-// to create the auth.users row + send the magic-link email (sender is governed
-// by Supabase Auth's SMTP config; operator should point it at Resend for brand
-// consistency with B1). After the invite returns, calls the
-// create_portal_membership RPC from migration 0055 to atomically insert the
-// org_memberships row with role=customer_user + customer_id mapping.
+// Path B2 customer portal invitation, MAGICLINK-01 revision. Calls
+// supabase.auth.admin.generateLink({ type: 'magiclink' }) to produce a
+// single-use sign-in URL (creates auth.users on demand for first-time
+// recipients; reuses the existing row otherwise). The returned action_link
+// is embedded in a Kitstak-branded email queued through the existing
+// notifications table, which the 5-minute drain cron ships via the Resend
+// transport proven end-to-end in Path B1. Click flow: customer opens email,
+// clicks the link, Supabase exchanges the token for a session, browser
+// lands signed-in at https://www.kitstak.com/portal — no password ever
+// required.
+//
+// After the link generates, calls the create_portal_membership RPC from
+// migration 0055 to atomically insert the org_memberships row with
+// role=customer_user + customer_id mapping.
 //
 // Recipient resolution: body.email_override > customer.primary_email > 422.
 // Capability: crm.customers.invite_to_portal (granted to org_owner, org_admin,
@@ -270,10 +278,14 @@ export async function deleteCustomer({ req, params }: RouteCtx): Promise<Respons
 // Idempotency: the surrounding respondWithIdempotency wrapper deduplicates
 // repeat clicks of the same Invite button (same key + same body). At the DB
 // layer, create_portal_membership uses ON CONFLICT (org_id, user_id) DO UPDATE
-// so even a fresh-key re-invite of the same user is safe.
+// so even a fresh-key re-invite of the same user is safe. generateLink itself
+// is safe to re-call: each call returns a fresh single-use token, the
+// previous one becomes invalid.
 const InviteToPortalBodySchema = z.object({
   email_override: z.string().email().optional(),
 });
+
+const PORTAL_REDIRECT_URL = 'https://www.kitstak.com/portal';
 
 export async function inviteCustomerToPortal({ req, params }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
@@ -299,27 +311,26 @@ export async function inviteCustomerToPortal({ req, params }: RouteCtx): Promise
       }
 
       const client = admin();
-      const inviteResult = await client.auth.admin.inviteUserByEmail(email, {
-        redirectTo: 'https://www.kitstak.com/portal',
+      const linkResult = await client.auth.admin.generateLink({
+        type: 'magiclink',
+        email,
+        options: { redirectTo: PORTAL_REDIRECT_URL },
       });
-      if (inviteResult.error) {
-        // Most common 422 case: user already registered (re-invite).
-        // We surface the error rather than auto-resolve for v1; a future
-        // polish PR can look up the existing user via listUsers and proceed
-        // with membership creation without re-sending the link.
+      if (linkResult.error) {
         throw new ApiError(
           'VALIDATION_ERROR',
           422,
-          `Auth invite failed: ${inviteResult.error.message}`,
-          { detail: inviteResult.error.message },
+          `Auth magic-link generation failed: ${linkResult.error.message}`,
+          { detail: linkResult.error.message },
         );
       }
-      const userId = inviteResult.data.user?.id;
-      if (!userId) {
+      const userId = linkResult.data.user?.id;
+      const actionLink = linkResult.data.properties?.action_link;
+      if (!userId || !actionLink) {
         throw new ApiError(
           'INTERNAL_ERROR',
           500,
-          'Auth invite returned no user id',
+          'Auth magic-link generation returned no user id or action_link',
         );
       }
 
@@ -338,6 +349,41 @@ export async function inviteCustomerToPortal({ req, params }: RouteCtx): Promise
           `Portal membership creation failed: ${rpcError.message}`,
           { detail: rpcError.message },
         );
+      }
+
+      // Queue the branded magic-link email through the existing notifications
+      // chassis. The 5-minute drain cron picks this up and ships via Resend
+      // (same path that delivered the 7 Path B1 smoke emails). Failure to
+      // queue is logged but does not unwind the membership: the staff caller
+      // can re-click Invite to retry queuing, and the membership row is
+      // idempotent.
+      const subject = `Sign in to your ${customer.display_name} portal`;
+      const emailBody =
+        `Hi ${customer.display_name},\n\n` +
+        `You have been invited to your customer portal at Kitstak. ` +
+        `Click the link below to sign in. No password required.\n\n` +
+        `${actionLink}\n\n` +
+        `This link signs you in directly. If you did not expect this email, ` +
+        `you can ignore it.\n\n` +
+        `Thanks.`;
+      const { error: notifErr } = await client.from('notifications').insert({
+        org_id: caller.orgId,
+        recipient_user_id: userId,
+        entity_type: 'customer',
+        entity_id: customer.id,
+        channel: 'email',
+        subject,
+        body: emailBody,
+        payload: { to: email, kind: 'portal_invite' },
+        created_by: caller.userId,
+        updated_by: caller.userId,
+      });
+      if (notifErr) {
+        console.error('crm-api: failed to queue portal-invite email', {
+          customer_id: customer.id,
+          org_id: caller.orgId,
+          message: notifErr.message,
+        });
       }
 
       return ok({

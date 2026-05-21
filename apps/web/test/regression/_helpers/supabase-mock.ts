@@ -33,6 +33,12 @@ export interface AuthAdminInviteCall {
   options?: { redirectTo?: string } | undefined;
 }
 
+export interface AuthAdminGenerateLinkCall {
+  type: string;
+  email: string;
+  options?: { redirectTo?: string } | undefined;
+}
+
 export interface MockState {
   rows: RowMap;
   updates: UpdateRecord[];
@@ -42,6 +48,14 @@ export interface MockState {
   authAdminInviteCalls: AuthAdminInviteCall[];
   authAdminInviteResult: {
     data: { user: { id: string; email: string } | null };
+    error: { message: string } | null;
+  };
+  authAdminGenerateLinkCalls: AuthAdminGenerateLinkCall[];
+  authAdminGenerateLinkResult: {
+    data: {
+      user: { id: string; email: string } | null;
+      properties: { action_link: string } | null;
+    };
     error: { message: string } | null;
   };
 }
@@ -59,6 +73,19 @@ export function makeState(rows: RowMap = {}): MockState {
         user: {
           id: '00000000-0000-4000-8000-00000000aaaa',
           email: 'default-mock@example.test',
+        },
+      },
+      error: null,
+    },
+    authAdminGenerateLinkCalls: [],
+    authAdminGenerateLinkResult: {
+      data: {
+        user: {
+          id: '00000000-0000-4000-8000-00000000aaaa',
+          email: 'default-mock@example.test',
+        },
+        properties: {
+          action_link: 'https://default-mock.test/#token=fake',
         },
       },
       error: null,
@@ -252,6 +279,11 @@ export function makeSupabaseMock(state: MockState): {
         email: string,
         options?: { redirectTo?: string },
       ) => Promise<MockState['authAdminInviteResult']>;
+      generateLink: (params: {
+        type: string;
+        email: string;
+        options?: { redirectTo?: string };
+      }) => Promise<MockState['authAdminGenerateLinkResult']>;
     };
   };
 } {
@@ -268,6 +300,10 @@ export function makeSupabaseMock(state: MockState): {
         inviteUserByEmail: async (email, options) => {
           state.authAdminInviteCalls.push({ email, options });
           return state.authAdminInviteResult;
+        },
+        generateLink: async ({ type, email, options }) => {
+          state.authAdminGenerateLinkCalls.push({ type, email, options });
+          return state.authAdminGenerateLinkResult;
         },
       },
     },
