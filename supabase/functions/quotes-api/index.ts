@@ -291,7 +291,17 @@ const approveQuote  = (c: RouteCtx) => transitionTo(c, 'approved',         'quot
 const reviseQuote   = (c: RouteCtx) => transitionTo(c, 'revise_requested', 'quotes.quote.revise',  '/quotes/:id/revise');
 const cancelQuote   = (c: RouteCtx) => transitionTo(c, 'cancelled',        'quotes.quote.cancel',  '/quotes/:id/cancel');
 
-// --- send (no transition, marks sent_at) ---
+// --- send (no transition, marks sent_at + queues an email notification) ---
+//
+// Resolution order for the recipient email:
+//   1. body.recipient_email (operator override on this send)
+//   2. customers.primary_email for the quote's customer_id
+//   3. 422 VALIDATION_ERROR if neither is available
+//
+// The notification row carries payload.to which the Resend sender reads at
+// drain time (see supabase/functions/_shared/notifications/senders.ts).
+// Email body is intentionally minimal at v1; richer templating + PDF
+// attachment can land in a follow-up without breaking this contract.
 
 const SendBodySchema = z.object({ recipient_email: z.string().email().optional() });
 
@@ -304,6 +314,40 @@ const sendQuote = async (ctx: RouteCtx) => {
     ctx.req, caller, BUNDLE, '/quotes/:id/send', body,
     async () => {
       const client = admin();
+
+      // Resolve the quote and its customer's email before stamping sent_at,
+      // so we fail closed cleanly when the recipient cannot be determined.
+      const { data: quoteRow, error: quoteErr } = await client
+        .from('quotes')
+        .select('id, number, customer_id, total_cents, currency_code')
+        .eq('id', ctx.params.id).eq('org_id', caller.orgId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (quoteErr) throw new ApiError('INTERNAL_ERROR', 500, quoteErr.message);
+      if (!quoteRow) throw new ApiError('NOT_FOUND', 404);
+
+      let customerEmail: string | null = null;
+      let customerName: string | null = null;
+      if (quoteRow.customer_id) {
+        const { data: cust, error: custErr } = await client
+          .from('customers')
+          .select('primary_email, display_name')
+          .eq('id', quoteRow.customer_id).eq('org_id', caller.orgId)
+          .maybeSingle();
+        if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+        customerEmail = cust?.primary_email ?? null;
+        customerName = cust?.display_name ?? null;
+      }
+      const recipient = body.recipient_email ?? customerEmail;
+      if (!recipient) {
+        throw new ApiError(
+          'VALIDATION_ERROR',
+          422,
+          'No recipient email available. Provide recipient_email in the request body or add a primary_email to the customer record.',
+        );
+      }
+
+      // Stamp sent_at on the quote.
       const { data, error } = await client
         .from('quotes')
         .update({ sent_at: new Date().toISOString(), updated_by: caller.userId })
@@ -311,7 +355,38 @@ const sendQuote = async (ctx: RouteCtx) => {
         .select('*').maybeSingle();
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
       if (!data) throw new ApiError('NOT_FOUND', 404);
-      // PDF email wiring lands when Agent F's pdf-worker is online.
+
+      // Queue the email notification. The notifications-worker drains it on
+      // its next cycle. If the INSERT fails after the UPDATE landed, the
+      // operator can re-click Send (idempotency-key changes per click) and
+      // the second attempt re-queues without double-stamping sent_at.
+      const greeting = customerName ? `Hi ${customerName},` : 'Hello,';
+      const subject = `Quote ${quoteRow.number}`;
+      const emailBody =
+        `${greeting}\n\n` +
+        `Your quote ${quoteRow.number} is ready for review. ` +
+        `Reply to this email if you have any questions.\n\n` +
+        `Thanks.`;
+      const { error: notifErr } = await client.from('notifications').insert({
+        org_id: caller.orgId,
+        recipient_user_id: caller.userId,
+        entity_type: 'quote',
+        entity_id: ctx.params.id,
+        channel: 'email',
+        subject,
+        body: emailBody,
+        payload: { to: recipient, quote_number: quoteRow.number },
+      });
+      if (notifErr) {
+        // Do not throw — sent_at already stamped. Log so the operator can
+        // diagnose via Edge Function logs and re-click Send to retry.
+        console.error('quotes-api: failed to queue email notification', {
+          quote_id: ctx.params.id,
+          org_id: caller.orgId,
+          message: notifErr.message,
+        });
+      }
+
       return ok(data);
     },
   );
