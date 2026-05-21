@@ -1,0 +1,56 @@
+name: notifications-drain
+
+# Drives the notifications-worker /drain endpoint on a schedule. The worker
+# polls undelivered notifications, invokes the channel sender (e.g. the Resend
+# email transport from Path B1), and stamps delivered_at only on confirmed
+# delivery. Without this scheduler, queued rows would sit unread.
+#
+# Cadence: every 5 minutes. Hits MAX_BATCH (200) per drain; if backlog ever
+# exceeds 2400/hour we'll tighten or add per-org sharding.
+#
+# Auth: WORKER_SECRET header. The worker bundle has verify_jwt = false (per
+# supabase/config.toml) because the secret is the bearer of trust.
+#
+# Skip-guard mirrors audit-chain-verify.yml: if SUPABASE_FUNCTION_URL or
+# WORKER_SECRET is missing from repo Actions secrets, the job emits a notice
+# and exits success, so a fresh fork or pre-secret state never red-X's.
+
+on:
+  schedule:
+    # Every 5 minutes. Cron uses UTC.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify secrets are configured
+        id: secrets
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+        run: |
+          if [ -z "${SUPABASE_FUNCTION_URL:-}" ] || [ -z "${WORKER_SECRET:-}" ]; then
+            echo "::notice::SUPABASE_FUNCTION_URL or WORKER_SECRET not configured. Skipping notifications drain. Set both secrets in the repo Actions settings to enable scheduled delivery."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: POST /notifications-worker/drain
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS -X POST \
+            -H "X-Worker-Secret: ${WORKER_SECRET}" \
+            -H "Content-Type: application/json" \
+            "${SUPABASE_FUNCTION_URL}/notifications-worker/drain")
+          echo "$response"
+          polled=$(echo "$response" | jq -r '.data.polled')
+          delivered=$(echo "$response" | jq -r '.data.delivered')
+          failed=$(echo "$response" | jq -r '.data.failed')
+          echo "::notice::drain polled=${polled} delivered=${delivered} failed=${failed}"
