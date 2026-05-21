@@ -1,24 +1,31 @@
 name: notifications-drain
 
-# Drives the notifications-worker /drain endpoint on a schedule. The worker
-# polls undelivered notifications, invokes the channel sender (e.g. the Resend
-# email transport from Path B1), and stamps delivered_at only on confirmed
-# delivery. Without this scheduler, queued rows would sit unread.
+# Backstop drain trigger. The primary drain trigger now lives inside
+# Supabase Postgres via pg_cron (migration 0056_pg_cron_notifications_drain.sql,
+# every 1 minute, reads URL + secret from Supabase Vault). This GitHub
+# Actions workflow runs at /30 cadence as a defense-in-depth backstop: if
+# pg_cron ever errors out or Vault entries are accidentally cleared, the
+# workflow still drains queued notifications eventually. Both triggers
+# hit the same idempotent endpoint, so double-firing is harmless.
 #
-# Cadence: every 5 minutes. Hits MAX_BATCH (200) per drain; if backlog ever
-# exceeds 2400/hour we'll tighten or add per-org sharding.
+# History: this used to be the ONLY drain trigger at /5 cadence. GitHub
+# scheduled workflows are documented as best-effort and routinely skip
+# 30+ minute windows during peak load. On 2026-05-21 a customer sign-in
+# magic link expired (1h Supabase token TTL) before the cron fired,
+# motivating the pg_cron move. F-Wave9-NOTIFICATIONS-DRAIN-PG-CRON-01.
 #
-# Auth: WORKER_SECRET header. The worker bundle has verify_jwt = false (per
-# supabase/config.toml) because the secret is the bearer of trust.
+# Auth: WORKER_SECRET header. The worker bundle has verify_jwt = false
+# (per supabase/config.toml) because the secret is the bearer of trust.
 #
-# Skip-guard mirrors audit-chain-verify.yml: if SUPABASE_FUNCTION_URL or
-# WORKER_SECRET is missing from repo Actions secrets, the job emits a notice
-# and exits success, so a fresh fork or pre-secret state never red-X's.
+# Skip-guard: if SUPABASE_FUNCTION_URL or WORKER_SECRET is missing from
+# repo Actions secrets, the job emits a notice and exits success, so a
+# fresh fork or pre-secret state never red-X's.
 
 on:
   schedule:
-    # Every 5 minutes. Cron uses UTC.
-    - cron: '*/5 * * * *'
+    # Every 30 minutes. Backstop only — primary trigger is pg_cron.
+    # Cron uses UTC.
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
