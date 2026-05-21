@@ -474,6 +474,14 @@ const ManufacturingRunDetailPage = lazy(() =>
 );
 // === End Path A5 ===
 
+// === Path C2: KitCost pillar routes ===
+const KitCostDashboardPage = lazy(() =>
+  import('./pages/kitcost/KitCostDashboardPage').then((m) => ({
+    default: m.KitCostDashboardPage,
+  })),
+);
+// === End Path C2 ===
+
 export const ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/signin',
@@ -829,4 +837,7 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/manufacturing/runs/new', element: ManufacturingRunCreatePage,  guard: 'protected', layout: 'shell' },
   { path: '/manufacturing/runs/:id', element: ManufacturingRunDetailPage,  guard: 'protected', layout: 'shell' },
   // === End Path A5 ===
+  // === Path C2: KitCost pillar routes ===
+  { path: '/kitcost/dashboard',      element: KitCostDashboardPage,        guard: 'protected', layout: 'shell' },
+  // === End Path C2 ===
 ] as const;
