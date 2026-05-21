@@ -1,8 +1,12 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/TextInput';
 import { useCustomer } from '@/lib/hooks/useCustomer';
+import { useInviteCustomerToPortal } from '@/lib/hooks/useCustomers';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useQuotesList } from '@/lib/hooks/useQuotes';
 import { useProjectsList } from '@/lib/hooks/useProjects';
 import { useInvoices } from '@/lib/hooks/useInvoices';
@@ -100,6 +104,11 @@ export function CustomerDetailPage() {
         <dt className="text-ink-dim">Default currency</dt>
         <dd>{c.default_currency_code ?? ''}</dd>
       </dl>
+
+      <InviteToPortalSection
+        customerId={c.id}
+        customerEmail={c.primary_email}
+      />
 
       <RelatedSection
         title="QUOTES"
@@ -265,6 +274,98 @@ function RelatedSection({
       ) : (
         <p className="font-sans text-sm text-ink-dim">{emptyMessage}</p>
       )}
+    </section>
+  );
+}
+
+/**
+ * Path B2: invite a customer to the self-service portal. Cap-gated on
+ * crm.customers.invite_to_portal (granted to org_owner, org_admin, sales,
+ * accounting). Hidden entirely for callers without the cap.
+ *
+ * Recipient resolution: customer.primary_email is the default. Operator can
+ * override via the optional input (e.g. invite a specific contact at a
+ * company even when the customer record carries a generic billing address).
+ *
+ * Inline mutation feedback is deliberate: clicking the button shows
+ * "Sending invite." -> "Invite sent. {email}" or "Invite failed: {msg}".
+ * Closes the F-Wave9-SEND-FEEDBACK-01 class of UI gap that bit the quote
+ * Send button during Path B1 prod smoke.
+ */
+function InviteToPortalSection({
+  customerId,
+  customerEmail,
+}: {
+  customerId: string;
+  customerEmail: string | null;
+}) {
+  const caps = useCapabilities();
+  const invite = useInviteCustomerToPortal(customerId);
+  const [emailOverride, setEmailOverride] = useState('');
+
+  if (!caps.can('crm.customers.invite_to_portal')) {
+    return null;
+  }
+
+  const resolvedEmail = emailOverride.trim() || customerEmail || null;
+  const canSubmit = Boolean(resolvedEmail) && !invite.isPending;
+
+  return (
+    <section className="border border-line bg-bg-2 p-4 flex flex-col gap-3">
+      <header className="flex items-center justify-between gap-2">
+        <h2 className="text-xl font-display tracking-wide text-ink">
+          CUSTOMER PORTAL ACCESS
+        </h2>
+      </header>
+      <p className="text-sm text-ink-dim font-sans">
+        Invite this customer to the self-service portal. They will receive a
+        magic-link email and can view their own invoices, quotes, and
+        projects. The link arrives from the Kitstak sender domain configured
+        in your auth settings.
+      </p>
+      <TextInput
+        label={`Recipient email (leave blank to use ${customerEmail ?? 'customer.primary_email'})`}
+        value={emailOverride}
+        onChange={(e) => setEmailOverride(e.target.value)}
+        type="email"
+        placeholder={customerEmail ?? 'customer has no primary_email on file'}
+      />
+      <div className="flex gap-2 items-center">
+        <Button
+          onClick={() =>
+            invite.mutate(
+              emailOverride.trim()
+                ? { email_override: emailOverride.trim() }
+                : {},
+            )
+          }
+          disabled={!canSubmit}
+        >
+          {invite.isPending ? 'Sending invite.' : 'Invite to portal'}
+        </Button>
+        {!resolvedEmail ? (
+          <p className="text-sm text-ink-dim font-sans">
+            Add a primary email to the customer or enter one above.
+          </p>
+        ) : null}
+      </div>
+      {invite.isSuccess ? (
+        <p
+          role="status"
+          className="font-sans text-sm text-success border-l-2 border-success pl-3 py-1 bg-success/5"
+        >
+          Invite sent to {invite.data.email}. The customer will receive a
+          magic-link email shortly.
+        </p>
+      ) : null}
+      {invite.isError ? (
+        <p
+          role="alert"
+          className="font-sans text-sm text-accent border-l-2 border-accent pl-3 py-1 bg-accent/5"
+        >
+          Invite failed: {invite.error instanceof Error ? invite.error.message : 'unknown error'}
+        </p>
+      ) : null}
     </section>
   );
 }

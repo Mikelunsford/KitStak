@@ -9,6 +9,7 @@ import {
   createCustomer,
   deleteCustomer,
   getCustomer,
+  inviteCustomerToPortal,
   listCustomers,
   patchCustomer,
 } from './handlers/customers.ts';
@@ -48,11 +49,12 @@ export const routes: Route[] = [
   },
 
   // Customers
-  { method: 'GET',    path: '/customers',         handler: listCustomers },
-  { method: 'POST',   path: '/customers',         handler: createCustomer },
-  { method: 'GET',    path: '/customers/:id',     handler: getCustomer },
-  { method: 'PATCH',  path: '/customers/:id',     handler: patchCustomer },
-  { method: 'DELETE', path: '/customers/:id',     handler: deleteCustomer },
+  { method: 'GET',    path: '/customers',                       handler: listCustomers },
+  { method: 'POST',   path: '/customers',                       handler: createCustomer },
+  { method: 'GET',    path: '/customers/:id',                   handler: getCustomer },
+  { method: 'PATCH',  path: '/customers/:id',                   handler: patchCustomer },
+  { method: 'DELETE', path: '/customers/:id',                   handler: deleteCustomer },
+  { method: 'POST',   path: '/customers/:id/invite-to-portal',  handler: inviteCustomerToPortal },
 
   // Contacts
   { method: 'GET',    path: '/contacts',          handler: listContacts },

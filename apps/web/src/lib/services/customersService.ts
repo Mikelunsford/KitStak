@@ -72,3 +72,21 @@ export async function updateCustomer(
 export async function deleteCustomer(id: string): Promise<void> {
   await apiRequest<unknown>(`/crm-api/customers/${id}`, { method: 'DELETE' });
 }
+
+export interface InviteToPortalResult {
+  membership_id: string;
+  user_id: string;
+  email: string;
+  customer_id: string;
+}
+
+export async function inviteCustomerToPortal(
+  id: string,
+  body: { email_override?: string } = {},
+): Promise<InviteToPortalResult> {
+  const data = await apiRequest<unknown>(
+    `/crm-api/customers/${id}/invite-to-portal`,
+    { method: 'POST', body },
+  );
+  return data as InviteToPortalResult;
+}

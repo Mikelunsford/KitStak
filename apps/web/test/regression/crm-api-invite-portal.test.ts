@@ -1,0 +1,224 @@
+// Regression suite for Path B2 - POST /customers/:id/invite-to-portal in
+// crm-api. Covers:
+//   1. Capability gate (caller without crm.customers.invite_to_portal -> 403)
+//   2. Missing recipient (no primary_email + no override -> 422)
+//   3. Happy path (calls auth.admin.inviteUserByEmail with the right args,
+//      calls create_portal_membership RPC, returns the membership_id +
+//      user_id + email + customer_id envelope)
+//   4. Tenant guard (customer from a different org -> 404)
+//
+// Closes the testable side of F-Wave9-PORTAL-B2-INVITE-01.
+
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+
+import {
+  installDenoShim,
+  capturedHandler,
+  resetCapturedHandler,
+} from './_helpers/deno-shim.ts';
+import { makeState, bearer } from './_helpers/supabase-mock.ts';
+import {
+  setActiveMockState,
+  clearActiveMockState,
+} from './_helpers/supabase-stub.ts';
+
+const ORG_A = '00000000-0000-4000-8000-0000000000a1';
+const ORG_B = '00000000-0000-4000-8000-0000000000a2';
+const USER_A = '00000000-0000-4000-8000-0000000000b1';
+const CUSTOMER_A = '00000000-0000-4000-8000-0000000000c1';
+const CUSTOMER_NO_EMAIL = '00000000-0000-4000-8000-0000000000c2';
+const CUSTOMER_OTHER_ORG = '00000000-0000-4000-8000-0000000000c3';
+const NEW_USER_ID = '00000000-0000-4000-8000-0000000000d1';
+
+const OWNER = { userId: USER_A, orgId: ORG_A, role: 'org_owner' as const };
+const VIEWER = { userId: USER_A, orgId: ORG_A, role: 'viewer' as const };
+
+function makeStateWithCustomers() {
+  return makeState({
+    customers: [
+      {
+        id: CUSTOMER_A,
+        org_id: ORG_A,
+        display_name: 'Acme Co.',
+        kind: 'business',
+        status: 'active',
+        primary_email: 'customer@example.test',
+        primary_phone: null,
+        tax_id: null,
+        billing_address: null,
+        shipping_address: null,
+        default_currency_code: 'USD',
+        default_payment_terms_days: null,
+        tags: [],
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: CUSTOMER_NO_EMAIL,
+        org_id: ORG_A,
+        display_name: 'No Email Co.',
+        kind: 'business',
+        status: 'active',
+        primary_email: null,
+        primary_phone: null,
+        tax_id: null,
+        billing_address: null,
+        shipping_address: null,
+        default_currency_code: 'USD',
+        default_payment_terms_days: null,
+        tags: [],
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: CUSTOMER_OTHER_ORG,
+        org_id: ORG_B,
+        display_name: 'Other Tenant Co.',
+        kind: 'business',
+        status: 'active',
+        primary_email: 'other@example.test',
+        primary_phone: null,
+        tax_id: null,
+        billing_address: null,
+        shipping_address: null,
+        default_currency_code: 'USD',
+        default_payment_terms_days: null,
+        tags: [],
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
+function readJsonStatus(res: Response): Promise<{
+  status: number;
+  json: { data?: unknown; error?: { code?: string; message?: string } };
+}> {
+  return res.text().then((t) => ({ status: res.status, json: JSON.parse(t) }));
+}
+
+function postInvite(
+  customerId: string,
+  caller: { userId: string; orgId: string; role: string },
+  body: Record<string, unknown> = {},
+): Request {
+  return new Request(
+    `https://example.test/customers/${customerId}/invite-to-portal`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: bearer(caller),
+        'content-type': 'application/json',
+        'idempotency-key': crypto.randomUUID(),
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+describe('crm-api POST /customers/:id/invite-to-portal - Path B2', () => {
+  let handler: (req: Request) => Promise<Response> | Response;
+
+  beforeAll(async () => {
+    installDenoShim();
+    resetCapturedHandler();
+    await import('../../../../supabase/functions/crm-api/index.ts');
+    handler = capturedHandler();
+  });
+
+  afterEach(() => {
+    clearActiveMockState();
+  });
+
+  it('cap-gates: viewer without crm.customers.invite_to_portal returns 403', async () => {
+    setActiveMockState(makeStateWithCustomers());
+    const res = await handler(postInvite(CUSTOMER_A, VIEWER));
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(403);
+    expect(json.error?.code).toBe('FORBIDDEN');
+  });
+
+  it('returns 422 when customer has no primary_email and no override provided', async () => {
+    setActiveMockState(makeStateWithCustomers());
+    const res = await handler(postInvite(CUSTOMER_NO_EMAIL, OWNER));
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(422);
+    expect(json.error?.code).toBe('VALIDATION_ERROR');
+    expect(json.error?.message).toMatch(/primary_email/i);
+  });
+
+  it('cross-tenant customer surfaces as 404 (constitutional contract)', async () => {
+    setActiveMockState(makeStateWithCustomers());
+    const res = await handler(postInvite(CUSTOMER_OTHER_ORG, OWNER));
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(404);
+    expect(json.error?.code).toBe('NOT_FOUND');
+  });
+
+  it('happy path: calls auth.admin.inviteUserByEmail + RPC + returns envelope', async () => {
+    const state = makeStateWithCustomers();
+    state.authAdminInviteResult = {
+      data: { user: { id: NEW_USER_ID, email: 'customer@example.test' } },
+      error: null,
+    };
+    state.rpcResults['create_portal_membership'] = {
+      data: '00000000-0000-4000-8000-00000000eeee',
+      error: null,
+    };
+    setActiveMockState(state);
+
+    const res = await handler(postInvite(CUSTOMER_A, OWNER));
+    const { status, json } = await readJsonStatus(res);
+
+    expect(status).toBe(200);
+    expect(json.data).toMatchObject({
+      membership_id: '00000000-0000-4000-8000-00000000eeee',
+      user_id: NEW_USER_ID,
+      email: 'customer@example.test',
+      customer_id: CUSTOMER_A,
+    });
+
+    // Assert auth.admin.inviteUserByEmail was called with the right shape.
+    expect(state.authAdminInviteCalls).toHaveLength(1);
+    expect(state.authAdminInviteCalls[0]).toMatchObject({
+      email: 'customer@example.test',
+      options: { redirectTo: 'https://www.kitstak.com/portal' },
+    });
+
+    // Assert the RPC was called with the right args.
+    const rpcCall = state.rpcCalls.find(
+      (c) => c.name === 'create_portal_membership',
+    );
+    expect(rpcCall).toBeDefined();
+    expect(rpcCall?.args).toMatchObject({
+      p_customer_id: CUSTOMER_A,
+      p_user_id: NEW_USER_ID,
+      p_org_id: ORG_A,
+    });
+  });
+
+  it('email_override wins over customer.primary_email', async () => {
+    const state = makeStateWithCustomers();
+    state.authAdminInviteResult = {
+      data: { user: { id: NEW_USER_ID, email: 'override@example.test' } },
+      error: null,
+    };
+    state.rpcResults['create_portal_membership'] = {
+      data: '00000000-0000-4000-8000-00000000eeee',
+      error: null,
+    };
+    setActiveMockState(state);
+
+    const res = await handler(
+      postInvite(CUSTOMER_A, OWNER, {
+        email_override: 'override@example.test',
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(state.authAdminInviteCalls[0]?.email).toBe('override@example.test');
+  });
+});
