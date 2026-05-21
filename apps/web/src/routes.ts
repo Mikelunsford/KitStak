@@ -456,6 +456,24 @@ const VendorBillCreatePage = lazy(() =>
 );
 // === End Agent 6.5-C ===
 
+// === Path A5: Manufacturing pillar routes ===
+const ManufacturingRunsListPage = lazy(() =>
+  import('./pages/manufacturing/ManufacturingRunsListPage').then((m) => ({
+    default: m.ManufacturingRunsListPage,
+  })),
+);
+const ManufacturingRunCreatePage = lazy(() =>
+  import('./pages/manufacturing/ManufacturingRunCreatePage').then((m) => ({
+    default: m.ManufacturingRunCreatePage,
+  })),
+);
+const ManufacturingRunDetailPage = lazy(() =>
+  import('./pages/manufacturing/ManufacturingRunDetailPage').then((m) => ({
+    default: m.ManufacturingRunDetailPage,
+  })),
+);
+// === End Path A5 ===
+
 export const ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/signin',
@@ -802,4 +820,13 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/shipments/new',     element: ShipmentCreatePage,       guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/vendor-bills/new',  element: VendorBillCreatePage,     guard: 'protected', layout: 'shell' },
   // === End Agent 6.5-C ===
+  // === Path A5: Manufacturing pillar routes ===
+  // /new MUST precede /:id (F-Wave6-WAREHOUSE-CREATE-01 trap: react-router v6
+  // matches the first hit, and a literal segment beats a param, but routing
+  // pages also need to be registered in this order for clarity and to mirror
+  // the warehouses/production_runs precedent set by 6.5-C).
+  { path: '/manufacturing/runs',     element: ManufacturingRunsListPage,   guard: 'protected', layout: 'shell' },
+  { path: '/manufacturing/runs/new', element: ManufacturingRunCreatePage,  guard: 'protected', layout: 'shell' },
+  { path: '/manufacturing/runs/:id', element: ManufacturingRunDetailPage,  guard: 'protected', layout: 'shell' },
+  // === End Path A5 ===
 ] as const;
