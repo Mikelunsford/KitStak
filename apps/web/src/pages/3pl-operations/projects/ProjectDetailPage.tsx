@@ -5,6 +5,11 @@ import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
+import { StateStepper } from '@/components/shell/StateStepper';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -258,8 +263,21 @@ export function ProjectDetailPage() {
             </span>
           </div>
         </div>
-        <span className="px-3 py-1 border border-line font-mono text-sm">{state}</span>
       </header>
+
+      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
+          static state pill. Placed below header so the customer + budget
+          summary remain at the top of the page, and the stepper anchors
+          the workflow context immediately above the FSM CTA cluster. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.project.path]}
+        current={state}
+        offPath={
+          isOffPath('project', state)
+            ? { state, label: STATE_STEPPER_PATHS.project.resolveLabel(state) }
+            : undefined
+        }
+      />
 
       {/* UX-Q4: forward-transition CTA promoted to primary top placement
           when state === 'ready_to_ship'. Predicate lives in

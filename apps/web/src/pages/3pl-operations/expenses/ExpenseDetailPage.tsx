@@ -1,10 +1,15 @@
 import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { useExpense, useTransitionExpense } from '@/lib/hooks/useExpenses';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { EXPENSE_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ExpenseStatus } from '@/lib/types/vendors_inventory_ops';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 
 export function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,9 +28,21 @@ export function ExpenseDetailPage() {
           { label: d.expense_number ?? d.id.slice(0, 8) },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.expense.path]}
+        current={d.status}
+        offPath={
+          isOffPath('expense', d.status)
+            ? {
+                state: d.status,
+                label: STATE_STEPPER_PATHS.expense.resolveLabel(d.status),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">EXPENSE {d.expense_number ?? d.id.slice(0, 8)}</h1>
-        <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>
       </header>
       {transition.error && (
         <p className="font-sans text-sm text-accent">

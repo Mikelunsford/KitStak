@@ -5,6 +5,11 @@ import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
+import { StateStepper } from '@/components/shell/StateStepper';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -190,15 +195,27 @@ export function InvoiceDetailPage() {
           { label: inv.invoice_number },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
+          "Status: <status>" line below the title. partially_paid is on
+          the happy path between sent and paid per PR #99's B2 fix. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.invoice.path]}
+        current={inv.status}
+        offPath={
+          isOffPath('invoice', inv.status)
+            ? {
+                state: inv.status,
+                label: STATE_STEPPER_PATHS.invoice.resolveLabel(inv.status),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase text-ink-dim font-sans">Invoice</p>
           <h1 className="text-4xl font-display tracking-wide text-ink">
             {inv.invoice_number}
           </h1>
-          <p className="text-ink-dim font-sans uppercase text-xs mt-1">
-            Status: {inv.status}
-          </p>
           <div className="text-ink-dim text-sm mt-2 flex flex-col gap-1">
             {customerId && (
               <span>

@@ -2,9 +2,14 @@ import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { useCreditNote } from '@/lib/hooks/useCreditNotes';
 import { useInvoice } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 
 /**
  * CreditNoteDetailPage. Header with amount, applied, reason, source invoice.
@@ -34,14 +39,25 @@ export function CreditNoteDetailPage() {
           { label: row.credit_note_number },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
+          "Status: <status>" line. voided is the off-path sink. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.credit_note.path]}
+        current={row.status}
+        offPath={
+          isOffPath('credit_note', row.status)
+            ? {
+                state: row.status,
+                label: STATE_STEPPER_PATHS.credit_note.resolveLabel(row.status),
+              }
+            : undefined
+        }
+      />
       <header>
         <p className="text-xs uppercase text-ink-dim font-sans">Credit note</p>
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {row.credit_note_number}
         </h1>
-        <p className="text-ink-dim font-sans uppercase text-xs mt-1">
-          Status: {row.status}
-        </p>
         {sourceInvoiceId && (
           <p className="font-sans text-sm text-ink-dim mt-2">
             Source invoice:{' '}

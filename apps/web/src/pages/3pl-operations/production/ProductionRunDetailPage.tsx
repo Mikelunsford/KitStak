@@ -1,10 +1,15 @@
 import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { useProductionRun, useStartProductionRun, useCompleteProductionRun } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 
 export function ProductionRunDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,9 +29,21 @@ export function ProductionRunDetailPage() {
           { label: d.run_number ?? d.id.slice(0, 8) },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.production_run.path]}
+        current={d.status}
+        offPath={
+          isOffPath('production_run', d.status)
+            ? {
+                state: d.status,
+                label: STATE_STEPPER_PATHS.production_run.resolveLabel(d.status),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">RUN {d.run_number ?? d.id.slice(0, 8)}</h1>
-        <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>
       </header>
       <div className="flex gap-2">
         {d.status === 'planned' && caps.can('production.start') ? (

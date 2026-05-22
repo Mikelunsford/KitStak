@@ -4,7 +4,12 @@ import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { Button } from '@/components/ui/Button';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 import {
   usePurchaseOrder, usePurchaseOrderLines, useTransitionPurchaseOrder,
 } from '@/lib/hooks/usePurchaseOrders';
@@ -93,6 +98,19 @@ export function PODetailPage() {
           { label: data.po_number ?? data.id.slice(0, 8) },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.purchase_order.path]}
+        current={data.status}
+        offPath={
+          isOffPath('purchase_order', data.status)
+            ? {
+                state: data.status,
+                label: STATE_STEPPER_PATHS.purchase_order.resolveLabel(data.status),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           PO {data.po_number ?? data.id.slice(0, 8)}
@@ -107,9 +125,6 @@ export function PODetailPage() {
               {pdfPending ? 'Building.' : 'Download PDF'}
             </Button>
           )}
-          <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
-            {data.status}
-          </span>
         </div>
       </header>
       {pdfError && (
