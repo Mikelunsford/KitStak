@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useReceivingOrdersList } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -15,6 +16,15 @@ export function ReceivingOrdersListPage() {
         ) : null}
       </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
+      {!isLoading && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="receiving order"
+          explainer="Receiving orders track inbound inventory from a vendor or customer."
+          addLabel="Add receiving order"
+          addTo="/3pl-operations/receiving/new"
+          canAdd={caps.can('receiving.order.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr><th className="px-4 py-2">#</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Warehouse</th><th className="px-4 py-2">Expected</th></tr>
@@ -30,6 +40,7 @@ export function ReceivingOrdersListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

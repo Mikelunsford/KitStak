@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { listContacts } from '@/lib/services/contactsService';
 
@@ -34,6 +35,13 @@ export function ContactsListPage() {
       />
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
+      ) : (query.data?.length ?? 0) === 0 && !q && !customerId ? (
+        <ListEmptyState
+          entity="contact"
+          explainer="Contacts are the people at your customer companies you talk to."
+          addLabel="Add contact"
+          addTo="/crm/contacts/new"
+        />
       ) : (
         <table className="w-full border border-line">
           <thead className="bg-bg-2 text-left font-display tracking-wider text-sm">

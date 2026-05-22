@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useCustomers } from '@/lib/hooks/useCustomers';
 
 /**
@@ -57,6 +58,13 @@ export function CustomersListPage() {
           Failed to load customers.{' '}
           {query.error instanceof Error ? query.error.message : ''}
         </p>
+      ) : (query.data?.length ?? 0) === 0 && !q && !status ? (
+        <ListEmptyState
+          entity="customer"
+          explainer="Customers are the businesses you sell to. Add one to start a quote."
+          addLabel="Add customer"
+          addTo="/crm/customers/new"
+        />
       ) : (
         <table className="w-full border border-line">
           <thead className="bg-bg-2 text-left font-display tracking-wider text-sm">

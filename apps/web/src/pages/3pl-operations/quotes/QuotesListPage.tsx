@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { useQuotesList } from '@/lib/hooks/useQuotes';
 import { formatCents } from '@/lib/money';
@@ -46,7 +47,15 @@ export function QuotesListPage() {
       ) : null}
       {isLoading && <p className="text-ink-dim">Loading.</p>}
       {error && <p className="text-accent">Failed to load quotes.</p>}
-      {data && (
+      {data && data.length === 0 && !stateFilter ? (
+        <ListEmptyState
+          entity="quote"
+          explainer="Quotes are priced proposals for a customer order."
+          addLabel="Add quote"
+          addTo="/3pl-operations/quotes/new"
+        />
+      ) : null}
+      {data && data.length > 0 && (
         <table className="w-full border border-line">
           <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
             <tr>

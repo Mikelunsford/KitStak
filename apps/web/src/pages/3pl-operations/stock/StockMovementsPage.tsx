@@ -1,4 +1,5 @@
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useStockMovements } from '@/lib/hooks/useInventory';
 
 /**
@@ -12,6 +13,15 @@ export function StockMovementsPage() {
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
       <h1 className="text-4xl font-display tracking-wide text-ink">STOCK MOVEMENTS</h1>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
+      {!isLoading && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="movement"
+          explainer="Stock movements are the audit trail of every inventory change. They appear automatically when you receive, build, or ship items."
+          addLabel="Add movement"
+          addTo="/3pl-operations/stock/movements"
+          canAdd={false}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr><th className="px-4 py-2">When</th><th className="px-4 py-2">Type</th><th className="px-4 py-2">Item</th><th className="px-4 py-2">Qty</th><th className="px-4 py-2">Unit cost</th><th className="px-4 py-2">Source</th></tr>
@@ -29,6 +39,7 @@ export function StockMovementsPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

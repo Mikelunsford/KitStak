@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { useProjectsList } from '@/lib/hooks/useProjects';
 
@@ -15,7 +16,15 @@ export function ProjectsListPage() {
       </header>
       {isLoading && <p className="text-ink-dim">Loading.</p>}
       {error && <p className="text-accent">Failed to load projects.</p>}
-      {data && (
+      {data && data.length === 0 ? (
+        <ListEmptyState
+          entity="project"
+          explainer="Projects are accepted quotes you are delivering."
+          addLabel="Add project"
+          addTo="/3pl-operations/projects/new"
+        />
+      ) : null}
+      {data && data.length > 0 && (
         <table className="w-full border border-line">
           <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
             <tr>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -14,6 +15,15 @@ export function WarehousesListPage() {
         ) : null}
       </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
+      {!isLoading && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="warehouse"
+          explainer="Warehouses are the physical locations where your inventory lives."
+          addLabel="Add warehouse"
+          addTo="/3pl-operations/warehouses/new"
+          canAdd={caps.can('warehouses.warehouse.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr><th className="px-4 py-2">Code</th><th className="px-4 py-2">Name</th><th className="px-4 py-2">Default</th><th className="px-4 py-2">Active</th></tr>
@@ -29,6 +39,7 @@ export function WarehousesListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

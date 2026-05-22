@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useExpensesList } from '@/lib/hooks/useExpenses';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -14,6 +15,15 @@ export function ExpensesListPage() {
         ) : null}
       </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
+      {!isLoading && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="expense"
+          explainer="Expenses are operating costs outside of vendor bills."
+          addLabel="Add expense"
+          addTo="/3pl-operations/expenses/new"
+          canAdd={caps.can('expenses.expense.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr><th className="px-4 py-2">#</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Date</th><th className="px-4 py-2">Total</th></tr>
@@ -29,6 +39,7 @@ export function ExpensesListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

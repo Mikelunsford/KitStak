@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useInvoices } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
 
@@ -68,6 +69,13 @@ export function InvoicesListPage() {
         <p className="text-ink-dim">Loading invoices.</p>
       ) : error ? (
         <p className="text-accent">Failed to load invoices.</p>
+      ) : (data?.length ?? 0) === 0 && !status ? (
+        <ListEmptyState
+          entity="invoice"
+          explainer="Invoices bill a customer for delivered work."
+          addLabel="Add invoice"
+          addTo="/invoicing/invoices/new"
+        />
       ) : (
         <table className="w-full text-sm font-sans border-collapse">
           <thead>
