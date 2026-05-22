@@ -1,20 +1,33 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import {
+  LineItemsEditor,
+  draftToPostBody,
+  type LineDraft,
+} from '@/components/forms/LineItemsEditor';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateReceivingOrder } from '@/lib/hooks/useOps';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
+import { createReceivingOrderLineItem } from '@/lib/services/receivingOrderLineItemsService';
 import type { ReceivingOrder } from '@/lib/types/vendors_inventory_ops';
 
 /**
- * ReceivingOrderCreatePage. Closes G-RECV-FORM-01. Operator picks the
- * warehouse and (optionally) the vendor and project this receipt is bound
- * to, plus a free-form line payload edited as JSON. Normalized line storage
- * (G-RECV-LINES-01) is a Phase 7 follow-up; the ops-api handler stores the
- * payload object verbatim today, so this page exposes the same shape the
- * downstream stock-movement trigger already reads.
+ * ReceivingOrderCreatePage. Closes G-RECV-FORM-01 plus G-RECV-LINES-01
+ * (the Phase 7 follow-up to retire the raw-JSON line textarea — bug B3
+ * from the 2026-05-21 E2E smoke walk, journal entry
+ * `03-workspace/journal/2026-05-21-e2e-smoke-investigation.md`).
+ *
+ * Operator picks the warehouse and (optionally) the vendor and project
+ * this receipt is bound to, plus a structured list of line items via the
+ * shared `LineItemsEditor`. The flow is two-stage: POST the header to
+ * `/receiving-orders` (no line payload accepted by the create schema),
+ * then POST each staged line to `/receiving-orders/:id/line-items`. This
+ * mirrors the working detail-page editor (`ReceivingOrderDetailPage.tsx`),
+ * which is the only path the line-item endpoint has been validated
+ * against.
  *
  * Note: the new project_id column was added by migration 0046. The ops-api
  * ReceivingCreate Zod schema does not yet enumerate project_id, so the field
@@ -44,10 +57,9 @@ export function ReceivingOrderCreatePage() {
   const [expectedDate, setExpectedDate] = useState('');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
-  const [linesJson, setLinesJson] = useState(
-    '[\n  { "item_id": "", "name": "", "quantity_expected": 0 }\n]',
-  );
+  const [lines, setLines] = useState<LineDraft[]>([]);
   const [linesError, setLinesError] = useState<string | null>(null);
+  const [submittingLines, setSubmittingLines] = useState(false);
 
   const warehouseOptions = useMemo(() => warehouses.data ?? [], [warehouses.data]);
 
@@ -55,28 +67,17 @@ export function ReceivingOrderCreatePage() {
     e.preventDefault();
     setLinesError(null);
 
-    let lines: unknown = [];
-    const trimmed = linesJson.trim();
-    if (trimmed.length > 0) {
-      try {
-        lines = JSON.parse(trimmed);
-        if (!Array.isArray(lines)) {
-          setLinesError('Lines must be a JSON array.');
-          return;
-        }
-      } catch (err) {
-        setLinesError(`Invalid JSON: ${(err as Error).message}`);
-        return;
-      }
-    }
-
     const body: Partial<ReceivingOrder> & {
       project_id?: string;
       purchase_order_id?: string;
       vendor_id?: string;
     } = {
       warehouse_id: warehouseId,
-      payload: { lines },
+      // payload retained as a header-level object for forward compatibility
+      // with the not-yet-normalised payload.lines path the trigger reads.
+      // F-Wave7-LINES-DUAL-WRITE-DROP-01 already retired the dual-write
+      // but the column is still present and harmless.
+      payload: {},
     };
     if (vendorId) body.vendor_id = vendorId;
     if (projectId) body.project_id = projectId;
@@ -85,12 +86,43 @@ export function ReceivingOrderCreatePage() {
     if (reference) body.reference = reference;
     if (notes) body.notes = notes;
 
-    const out = await create.mutateAsync(body);
-    navigate(`/3pl-operations/receiving/${out.id}`);
+    let createdId: string;
+    try {
+      const out = await create.mutateAsync(body);
+      createdId = out.id;
+    } catch {
+      // The mutation hook exposes `.error` for render; nothing else to do.
+      return;
+    }
+
+    // Stage 2: POST each staged line via the dedicated endpoint. Stop on
+    // the first failure so the operator can review on the detail page and
+    // re-add the remainder rather than silently dropping rows.
+    if (lines.length > 0) {
+      setSubmittingLines(true);
+      try {
+        for (const draft of lines) {
+          await createReceivingOrderLineItem(createdId, draftToPostBody(draft));
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'unknown error';
+        setLinesError(
+          `Header saved but a line failed: ${msg}. Edit the rest on the detail page.`,
+        );
+        setSubmittingLines(false);
+        navigate(`/3pl-operations/receiving/${createdId}`);
+        return;
+      }
+      setSubmittingLines(false);
+    }
+
+    navigate(`/3pl-operations/receiving/${createdId}`);
   }
 
+  const pending = create.isPending || submittingLines;
+
   return (
-    <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
+    <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
       <h1 className="text-4xl font-display tracking-wide text-ink">
         NEW RECEIVING ORDER
       </h1>
@@ -155,21 +187,16 @@ export function ReceivingOrderCreatePage() {
             className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
-        <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-            Lines (JSON array)
-          </span>
-          <textarea
-            value={linesJson}
-            onChange={(e) => setLinesJson(e.target.value)}
-            rows={6}
-            spellCheck={false}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-mono text-sm focus:outline-none focus:border-accent"
-          />
-          {linesError && (
-            <span className="text-accent font-sans text-sm">{linesError}</span>
-          )}
-        </label>
+
+        <LineItemsEditor
+          lines={lines}
+          onChange={setLines}
+          mode="receiving"
+          disabled={pending}
+        />
+        {linesError && (
+          <p className="text-accent font-sans text-sm">{linesError}</p>
+        )}
 
         {create.error && (
           <p className="text-accent font-sans text-sm">
@@ -178,8 +205,8 @@ export function ReceivingOrderCreatePage() {
         )}
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? 'Saving.' : 'Save receiving order'}
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Saving.' : 'Save receiving order'}
           </Button>
           <Button
             type="button"
