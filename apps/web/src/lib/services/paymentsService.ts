@@ -34,6 +34,13 @@ export type PaymentApplyBody = {
 
 export type ListPaymentsFilters = {
   customer_id?: string;
+  // BNEW-12: invoice_id filter scopes the list to payments that have at
+  // least one allocation against this invoice. Backed by a server-side
+  // join over payment_allocations (RLS Pattern B). Used by
+  // InvoiceDetailPage's PAYMENTS section so a brand-new invoice with
+  // zero allocations renders an empty section even when the customer
+  // has payments against other invoices.
+  invoice_id?: string;
   cursor?: string;
   limit?: number;
 };
@@ -41,6 +48,7 @@ export type ListPaymentsFilters = {
 function qs(f: ListPaymentsFilters): string {
   const p = new URLSearchParams();
   if (f.customer_id) p.set('customer_id', f.customer_id);
+  if (f.invoice_id) p.set('invoice_id', f.invoice_id);
   if (f.cursor) p.set('cursor', f.cursor);
   if (f.limit !== undefined) p.set('limit', String(f.limit));
   const s = p.toString();

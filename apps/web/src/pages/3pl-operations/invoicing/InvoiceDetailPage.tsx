@@ -62,8 +62,16 @@ export function InvoiceDetailPage() {
   const customer = useCustomer(customerId ?? undefined);
   const project = useProject(projectId ?? undefined);
   const sourceQuote = useQuote(sourceQuoteId ?? undefined);
+  // BNEW-12: scope the PAYMENTS section to allocations against THIS
+  // invoice, not all payments from this customer. The 2026-05-22 v2
+  // re-smoke surfaced that a brand-new DRAFT invoice for Smoke V2 Co.
+  // with $0 balance and zero allocations was rendering yesterday's
+  // SV2-PAY-001/SV2-PAY-002 under PAYMENTS with "unapplied $0.00",
+  // because the query filtered by customer_id only. The customer-wide
+  // payments list still lives on CustomerDetailPage; this page now
+  // honors what the section header has always implied.
   const payments = usePayments(
-    customerId ? { customer_id: customerId } : {},
+    invoiceId ? { invoice_id: invoiceId } : {},
   );
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -185,12 +193,16 @@ export function InvoiceDetailPage() {
     }
   };
 
-  const invoicePayments = (payments.data ?? []).filter((p) =>
-    // Payments are listed by customer; the per-invoice allocation requires a
-    // join over payment_allocations which is not yet on the SPA. Show all
-    // customer payments and label the link for the operator to follow.
-    p.customer_id === customerId,
-  );
+  // BNEW-12: the list is already scoped server-side via
+  // ?invoice_id=<this-invoice>, so no client-side filter is required.
+  // Each row in the response has at least one allocation against this
+  // invoice; the row's amount_cents reflects the full payment amount
+  // (one payment may spread across many invoices). Showing the
+  // per-allocation amount would require returning the allocation
+  // shape alongside the payment header; deferred — the section's
+  // primary job is "did money land on this invoice" which the row
+  // listing answers.
+  const invoicePayments = payments.data ?? [];
 
   return (
     <section className="px-8 py-8 flex flex-col gap-8">
@@ -437,13 +449,11 @@ export function InvoiceDetailPage() {
 
       <section>
         <h2 className="text-2xl font-display tracking-wide text-ink mb-3">PAYMENTS</h2>
-        {!customerId ? (
+        {invoicePayments.length === 0 ? (
+          // BNEW-12: empty state reflects invoice-scoped semantics. The
+          // customer-wide payments view stays on CustomerDetailPage.
           <p className="text-ink-dim text-sm">
-            Attach a customer to surface payments.
-          </p>
-        ) : invoicePayments.length === 0 ? (
-          <p className="text-ink-dim text-sm">
-            No payments received from this customer yet.
+            No payments applied to this invoice yet.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

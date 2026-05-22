@@ -96,6 +96,63 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
   const limit = parseLimit(url);
   const cursor = decodeCursor(url.searchParams.get('cursor'));
   const customerId = url.searchParams.get('customer_id');
+  // BNEW-12: invoice_id filter resolves payments via payment_allocations.
+  // The 2026-05-22 re-smoke surfaced that InvoiceDetailPage's PAYMENTS
+  // section was rendering customer-scoped payments (any payment from
+  // this customer) instead of invoice-scoped (only payments allocated
+  // against this invoice). A brand-new DRAFT invoice for Smoke V2 Co.
+  // with $0 balance and zero allocations was showing yesterday's
+  // payments under "unapplied $0.00". The fix narrows the section to
+  // payments that have at least one allocation against THIS invoice.
+  // RLS Pattern B on payment_allocations gates the inner read by org;
+  // a cross-tenant invoice_id reads the empty set and 200 + [].
+  const invoiceId = url.searchParams.get('invoice_id');
+
+  if (invoiceId) {
+    const { data: allocRows, error: allocErr } = await admin()
+      .from('payment_allocations')
+      .select('payment_id')
+      .eq('invoice_id', invoiceId);
+    if (allocErr) {
+      throw new ApiError('INTERNAL_ERROR', 500, 'payment list failed', {
+        detail: allocErr.message,
+      });
+    }
+    const paymentIds = Array.from(
+      new Set(
+        (allocRows ?? [])
+          .map((r) => (r as { payment_id: string }).payment_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (paymentIds.length === 0) {
+      return ok([] as Payment[]);
+    }
+    let query = admin()
+      .from('payments')
+      .select(PAYMENT_COLS)
+      .eq('org_id', caller.orgId)
+      .is('deleted_at', null)
+      .in('id', paymentIds)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit + 1);
+    if (customerId) query = query.eq('customer_id', customerId);
+    if (cursor) {
+      query = query.or(
+        `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
+      );
+    }
+    const { data, error } = await query;
+    if (error) {
+      throw new ApiError('INTERNAL_ERROR', 500, 'payment list failed', {
+        detail: error.message,
+      });
+    }
+    const rows = (data ?? []) as Array<{ id: string; created_at: string }>;
+    const { items, next_cursor } = paginate(rows, limit);
+    return ok(items.map(rowToPayment), next_cursor ? { next_cursor } : undefined);
+  }
 
   let query = admin()
     .from('payments')
