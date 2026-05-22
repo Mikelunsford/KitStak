@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -46,6 +46,10 @@ import type { QuoteState } from '@/lib/types/sales';
 // the vitest unit test can exercise the pure formatter without
 // transitively loading the supabase singleton at module load.
 import { formatQuoteStateLabel } from './formatQuoteStateLabel';
+// PR-C / BNEW-3: item-pick prefill helper extracted to applyItemSelection.ts
+// for the same reason — pure function, unit-testable, fixes the async-stale
+// race in the previous synchronous handler.
+import { applyItemSelection } from './applyItemSelection';
 
 export { formatQuoteStateLabel };
 
@@ -86,14 +90,22 @@ export function QuoteDetailPage() {
   const { quote, lineItems } = data;
   const state = quote.state as QuoteState;
 
-  const onPickItem = (itemId: string | null) => {
-    setSelectedItemId(itemId);
-    if (itemId && selectedItem.data) {
-      setLineName(selectedItem.data.name);
-      setLineSku(selectedItem.data.sku);
-      setLinePrice(String(selectedItem.data.unit_price_cents));
-    }
-  };
+  // PR-C / BNEW-3: pre-fill Name, SKU, and Unit price when the fetched item
+  // resolves. Doing this synchronously inside the picker's onChange handler
+  // raced against the `useItem` query — on the first pick `selectedItem.data`
+  // was undefined and the fields stayed empty, then Name failed the required
+  // validation. A useEffect watching the resolved item id closes the race.
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const next = applyItemSelection(selectedItem.data);
+    if (!next) return;
+    // Only run when the fetched item matches the currently picked id; this
+    // guards against an in-flight response for a previous selection.
+    if (selectedItem.data?.id !== selectedItemId) return;
+    setLineName(next.name);
+    setLineSku(next.sku);
+    setLinePrice(next.unit_price_cents);
+  }, [selectedItemId, selectedItem.data]);
 
   // F-Wave8-PDF-QUOTE-DOWNLOAD-01. Build the quote render payload from the
   // loaded quote and its line items, call the pdf-worker, and trigger a
@@ -342,7 +354,7 @@ export function QuoteDetailPage() {
           <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
           <ItemPicker
             value={selectedItemId}
-            onChange={onPickItem}
+            onChange={setSelectedItemId}
             label="Item (optional, pre-fills name and price)"
             filter={{ active: true }}
           />
