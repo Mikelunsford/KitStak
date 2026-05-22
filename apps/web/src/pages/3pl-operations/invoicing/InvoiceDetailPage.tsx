@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -22,6 +23,7 @@ import { useMe } from '@/lib/hooks/useMe';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
+import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
 
 /**
  * InvoiceDetailPage. Closes G-INV-DETAIL-01 and G-PAY-FLOW-01. Adds
@@ -74,7 +76,9 @@ export function InvoiceDetailPage() {
   const canSend = inv.status === 'draft' || inv.status === 'pending';
   const canCancel = ['draft', 'pending', 'sent', 'on_hold'].includes(inv.status);
   const canEditLines = inv.status === 'draft';
-  const canReceivePayment = ['sent', 'partially_paid', 'overdue'].includes(inv.status);
+  // UX-Q4: source-of-truth predicate lives in `@/lib/workflow/nextStepCTA`
+  // so the regression test locks the trigger state set.
+  const canReceivePayment = shouldShowInvoiceNextStepCTA(inv.status);
 
   const onPickItem = (itemId: string | null) => {
     setSelectedItemId(itemId);
@@ -213,15 +217,15 @@ export function InvoiceDetailPage() {
             )}
           </div>
         </div>
+        {/* Secondary cluster of header actions. Cancel and Download PDF
+            live here at neutral weight; Send stays at primary weight
+            because it is itself a forward transition from draft / pending
+            (the state before Receive payment becomes available), so the
+            "next step" CTA below never co-exists with Send. */}
         <div className="flex gap-2 flex-wrap">
           {canSend && (
             <Button onClick={() => sendMutation.mutate(invoiceId)} disabled={sendMutation.isPending}>
               Send
-            </Button>
-          )}
-          {canReceivePayment && (
-            <Button onClick={onReceivePayment} variant="secondary">
-              Receive payment
             </Button>
           )}
           {canRenderPdf && (
@@ -244,6 +248,17 @@ export function InvoiceDetailPage() {
           )}
         </div>
       </header>
+
+      {/* UX-Q4: forward-transition CTA promoted to primary top placement
+          when status is sent / partially_paid / overdue. PaymentCreatePage
+          already honors customer_id and invoice_id query params, so
+          onReceivePayment navigates with both pre-filled. */}
+      {canReceivePayment && (
+        <NextStepCTA
+          label="Receive payment"
+          onClick={onReceivePayment}
+        />
+      )}
 
       {(sendMutation.error || cancelMutation.error || pdfError) && (
         <p className="font-sans text-sm text-accent">

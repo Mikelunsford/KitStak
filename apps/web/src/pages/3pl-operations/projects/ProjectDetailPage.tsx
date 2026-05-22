@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -20,6 +21,7 @@ import {
   PROJECT_FSM, PROJECT_PHASE_FSM, canTransition,
   type ProjectState, type ProjectPhaseState,
 } from '@/lib/workflow/sales';
+import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents } from '@/lib/money';
 import type { ProjectPhase } from '@/lib/types/sales';
 
@@ -229,6 +231,23 @@ export function ProjectDetailPage() {
         <span className="px-3 py-1 border border-line font-mono text-sm">{state}</span>
       </header>
 
+      {/* UX-Q4: forward-transition CTA promoted to primary top placement
+          when state === 'ready_to_ship'. Predicate lives in
+          `@/lib/workflow/nextStepCTA` so the regression test can lock the
+          trigger state. Deep-links to the create-shipment form with
+          project_id pre-filled (ShipmentCreatePage already reads this
+          query param). */}
+      {shouldShowProjectNextStepCTA(state) && (
+        <NextStepCTA
+          label="Create shipment"
+          to={`/3pl-operations/shipments/new?project_id=${projectId}`}
+        />
+      )}
+
+      {/* Secondary cluster of FSM transitions. The new primary CTA above
+          replaces the equal-weight "Move to <state>" button that would
+          have read "Move to completed" from ready_to_ship; the other
+          targets stay so the operator can still complete or cancel. */}
       <div className="flex flex-wrap gap-2">
         {PROJECT_TARGETS
           .filter((to) => to !== state && canTransition(PROJECT_FSM, state, to))

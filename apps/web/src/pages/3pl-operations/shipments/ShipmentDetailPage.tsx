@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -12,8 +13,10 @@ import {
 } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { SHIPMENT_FSM } from '@/lib/workflow/vendors_inventory_ops';
+import { shouldShowShipmentNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import type { ShipmentStatus } from '@/lib/types/vendors_inventory_ops';
 import { formatCents } from '@/lib/money';
+import { buildCreateInvoiceUrl, getShipmentProjectId } from './shipmentInvoiceLink';
 
 export function ShipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +74,24 @@ export function ShipmentDetailPage() {
         <h1 className="text-4xl font-display tracking-wide text-ink">SHIPMENT {d.shipment_number ?? d.id.slice(0, 8)}</h1>
         <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>
       </header>
+
+      {/* UX-Q4: forward-transition CTA promoted to primary top placement
+          when status === 'shipped'. Predicate lives in
+          `@/lib/workflow/nextStepCTA`. Deep-links to the create-invoice
+          form with customer_id (and project_id if duck-typed off the
+          shipment) pre-filled. InvoiceCreatePage already honors both
+          query params. customer_id null-check stays inline because the
+          deep link is meaningless without it. */}
+      {shouldShowShipmentNextStepCTA(d.status) && d.customer_id && (
+        <NextStepCTA
+          label="Create invoice"
+          to={buildCreateInvoiceUrl(d.customer_id, getShipmentProjectId(d))}
+        />
+      )}
+
+      {/* Secondary cluster. FSM transitions (start_pick / cancel) stay
+          visible at neutral weight so an operator who needs to cancel
+          doesn't have to dig — they are demoted, not hidden. */}
       <div className="flex gap-2">
         {caps.can('shipments.shipment.update') && next.length > 0
           ? next.map((to) => (
