@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -16,6 +17,7 @@ import { useMe } from '@/lib/hooks/useMe';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { canTransition, QUOTE_FSM } from '@/lib/workflow/sales';
+import { shouldShowQuoteNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents } from '@/lib/money';
 import type { QuoteState } from '@/lib/types/sales';
 
@@ -183,12 +185,37 @@ export function QuoteDetailPage() {
         </span>
       </header>
 
+      {/* UX-Q4: forward-transition CTA promoted to primary top placement.
+          Predicate lives in `@/lib/workflow/nextStepCTA` so the regression
+          test can lock the trigger state. */}
+      {shouldShowQuoteNextStepCTA(state) && id && (
+        <NextStepCTA
+          label="Convert to project"
+          onClick={() => convert.mutate(id)}
+          pending={convert.isPending}
+          error={
+            convert.isError
+              ? convert.error instanceof Error
+                ? convert.error.message
+                : 'Convert failed.'
+              : null
+          }
+        />
+      )}
+
+      {/* Secondary cluster. Cancel / revise / sideways transitions stay
+          visible (operator who NEEDS to cancel shouldn't have to dig), but
+          render at secondary weight so they don't compete with the primary
+          forward CTA above. Submit and Approve also live here — they are
+          forward transitions but their next-step CTA targets the LATER
+          state (approved -> project_pending), so wiring them at top-CTA
+          weight would create two primaries on the same page. */}
       <div className="flex flex-wrap gap-2">
         {canTransition(QUOTE_FSM, state, 'submitted') && id && (
-          <Button onClick={() => submit.mutate(id)}>Send for approval</Button>
+          <Button variant="secondary" onClick={() => submit.mutate(id)}>Send for approval</Button>
         )}
         {canTransition(QUOTE_FSM, state, 'approved') && id && (
-          <Button onClick={() => approve.mutate(id)}>Approve</Button>
+          <Button variant="secondary" onClick={() => approve.mutate(id)}>Approve</Button>
         )}
         {canTransition(QUOTE_FSM, state, 'revise_requested') && id && (
           <Button variant="secondary" onClick={() => revise.mutate(id)}>Request revise</Button>
@@ -198,14 +225,6 @@ export function QuoteDetailPage() {
         )}
         {state === 'approved' && id && (
           <Button variant="secondary" onClick={() => send.mutate(id)}>Send to customer</Button>
-        )}
-        {canTransition(QUOTE_FSM, state, 'project_pending') && id && (
-          <Button
-            onClick={() => convert.mutate(id)}
-            disabled={convert.isPending}
-          >
-            {convert.isPending ? 'Converting.' : 'Convert to project'}
-          </Button>
         )}
         {canRenderPdf && (
           <Button
@@ -217,11 +236,6 @@ export function QuoteDetailPage() {
           </Button>
         )}
       </div>
-      {convert.isError && (
-        <p className="text-accent font-sans text-sm">
-          Convert failed: {convert.error instanceof Error ? convert.error.message : 'unknown error'}
-        </p>
-      )}
       {pdfError && (
         <p className="text-accent font-sans text-sm">
           {pdfError}
