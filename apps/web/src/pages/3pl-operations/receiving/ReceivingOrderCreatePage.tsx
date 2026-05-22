@@ -13,6 +13,7 @@ import { useCreateReceivingOrder } from '@/lib/hooks/useOps';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { createReceivingOrderLineItem } from '@/lib/services/receivingOrderLineItemsService';
 import type { ReceivingOrder } from '@/lib/types/vendors_inventory_ops';
+import { parseProjectIdParam } from './receivingProjectParam';
 
 /**
  * ReceivingOrderCreatePage. Closes G-RECV-FORM-01 plus G-RECV-LINES-01
@@ -29,11 +30,15 @@ import type { ReceivingOrder } from '@/lib/types/vendors_inventory_ops';
  * which is the only path the line-item endpoint has been validated
  * against.
  *
- * Note: the new project_id column was added by migration 0046. The ops-api
- * ReceivingCreate Zod schema does not yet enumerate project_id, so the field
- * is sent at top level and silently stripped server-side until 6.5-B (or a
- * later wave) extends the create schema. The picker is wired now so the
- * carry-through lands once the handler catches up.
+ * UX-Q6: the project_id query param (e.g. when launched from the
+ * ProjectDetailPage "New receiving order" link) is now persisted through
+ * to the server. The ops-api ReceivingCreate schema enumerates
+ * project_id, the receiving_orders row carries it through migrations
+ * 0046 + 0061, and ReceivingOrderSchema returns it to the SPA. The
+ * `?project_id=` param is validated as a UUID before binding so an
+ * operator pasting a bad URL does not blow up the picker or send
+ * garbage to the server (the API would reject it as 422, but better to
+ * silently drop and let the picker stay empty).
  */
 export function ReceivingOrderCreatePage() {
   const navigate = useNavigate();
@@ -42,7 +47,11 @@ export function ReceivingOrderCreatePage() {
   const warehouses = useWarehousesList();
 
   const prefilledVendorId = searchParams.get('vendor_id');
-  const prefilledProjectId = searchParams.get('project_id');
+  // UX-Q6: validate the project_id query param before binding it. An
+  // operator pasting a malformed URL should not poison the picker (the
+  // ProjectPicker silently drops a non-UUID value, but defending here
+  // means the misuse never reaches the API as a 422 either).
+  const prefilledProjectId = parseProjectIdParam(searchParams.get('project_id'));
   const prefilledPoId = searchParams.get('purchase_order_id');
 
   // F-Wave9-AUTO-NUMBERING-01 (B8): the ops-api POST /receiving-orders

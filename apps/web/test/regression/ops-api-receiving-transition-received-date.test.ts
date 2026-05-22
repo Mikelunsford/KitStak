@@ -56,6 +56,7 @@ function makeStateWithRO(status: 'created' | 'in_progress' | 'received' | 'cance
         purchase_order_id: null,
         warehouse_id: WAREHOUSE_ID,
         vendor_id: null,
+        project_id: null,
         status,
         expected_date: null,
         received_date: null,

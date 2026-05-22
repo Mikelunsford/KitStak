@@ -99,6 +99,12 @@ const ReceivingCreate = z.object({
   warehouse_id: z.string().uuid(),
   purchase_order_id: z.string().uuid().optional().nullable(),
   vendor_id: z.string().uuid().optional().nullable(),
+  // UX-Q6: project linkage. Column + FK + ON DELETE SET NULL live in
+  // migrations 0046 + 0061. RLS Pattern A on receiving_orders applies;
+  // the projects FK is validated by Postgres before the row lands so a
+  // cross-tenant project_id 404s naturally (the projects row is invisible
+  // under the caller's org gate, so the FK lookup fails).
+  project_id: z.string().uuid().optional().nullable(),
   receiving_number: z.string().optional().nullable(),
   expected_date: z.string().optional().nullable(),
   reference: z.string().optional().nullable(),
@@ -211,12 +217,19 @@ const TABLE: Route[] = [
       // F-Wave7-LISTFILTER-01: vendor_id FK filter lifts VendorDetailPage
       // client-side .filter(...) into a SQL where-clause. RLS Pattern A
       // wraps the org gate so a cross-tenant vendor_id still 200 + [].
+      //
+      // UX-Q6: project_id filter added so ProjectDetailPage can ask the
+      // server for only receiving orders bound to a given project instead
+      // of fetching the whole list and filtering client-side. The
+      // receiving_orders_project_id_idx (0061) covers this lookup.
       const vendorId = url.searchParams.get('vendor_id');
+      const projectId = url.searchParams.get('project_id');
       let q = admin()
         .from('receiving_orders').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(200);
       if (vendorId) q = q.eq('vendor_id', vendorId);
+      if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
       return ok((data ?? []).map((r) => ReceivingOrderSchema.parse(r)));
