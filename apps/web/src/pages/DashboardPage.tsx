@@ -1,18 +1,31 @@
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { FEATURE_FLAGS } from '@/lib/constants';
+import {
+  PILLAR_TILES,
+  visiblePillarTiles,
+  type PillarTileSpec,
+} from './dashboardTiles';
 
 /**
  * DashboardPage. landing for authenticated staff sessions.
  *
  * The five-pillar surface lives in Sidebar; this page is the post-login
- * resting state. Wave 1 ships an overview card grid; pillars 2 through 5
- * are gated, so the corresponding cards stay informational only until the
- * relevant `plugins.<pillar>` flag is enabled.
+ * resting state. Wave 1 ships an overview card grid; pillars are gated
+ * by `plugins.<pillar>` flags. Per UX-Q3, unbuilt pillars (Co-Pack and
+ * KitForce) are omitted entirely from the tile grid when their flags
+ * are off, so the first-impression surface no longer advertises routes
+ * that return 404. Pillars that are merely off pending an operator
+ * flip (3PL, Manufacturing, KitCost) remain visible.
  *
  * Wraps in <AppShell> via the ProtectedRoute guard, not directly here.
  */
 export function DashboardPage() {
   const branding = useBrandingContext();
+  const orgFlags = useOrgFlags();
   const appName = branding.branding?.app_name_override ?? 'Kitstak';
+
+  const tiles = visiblePillarTiles(PILLAR_TILES, orgFlags.data);
 
   return (
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-8">
@@ -21,26 +34,15 @@ export function DashboardPage() {
           BUILT TO SHIP.
         </h1>
         <p className="font-sans text-lg text-ink-dim max-w-2xl">
-          Signed in to {appName}. The five pillars below light up as your
+          Signed in to {appName}. The pillars below light up as your
           workspace enables each one.
         </p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card
-          title="3PL OPERATIONS"
-          body="Receiving, kitting, production, shipments."
-        />
-        <Card
-          title="MANUFACTURING"
-          body="BOMs, runs, finished goods, output movements."
-        />
-        <Card
-          title="CO-PACK AND ECOM"
-          body="Channel intake, kit-to-order, packaging."
-        />
-        <Card title="KITFORCE" body="Labor, time, and crew assignment." />
-        <Card title="KITCOST" body="Job costing rolled up by run and SKU." />
+        {tiles.map((tile) => (
+          <Card key={tile.key} title={tile.title} body={tile.body} />
+        ))}
       </div>
     </section>
   );
@@ -56,3 +58,8 @@ function Card({ title, body }: CardProps) {
     </article>
   );
 }
+
+// Re-exported so consumers (and tests) can verify the wired tile set
+// without importing the page component itself.
+export { PILLAR_TILES, visiblePillarTiles, FEATURE_FLAGS };
+export type { PillarTileSpec };
