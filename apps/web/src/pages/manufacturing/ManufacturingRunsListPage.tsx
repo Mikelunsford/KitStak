@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { useManufacturingRunsList } from '@/lib/hooks/useManufacturing';
@@ -18,8 +18,28 @@ import type { ManufacturingRunStatus } from '@/lib/types/vendors_inventory_ops';
  */
 type StatusFilter = ManufacturingRunStatus | 'all';
 
+const ALLOWED_RUN_STATUSES = new Set<string>([
+  'draft',
+  'started',
+  'completed',
+  'cancelled',
+]);
+
+function parseRunStatusParam(raw: string | null): StatusFilter {
+  if (raw && ALLOWED_RUN_STATUSES.has(raw)) {
+    return raw as ManufacturingRunStatus;
+  }
+  return 'all';
+}
+
 export function ManufacturingRunsListPage() {
-  const [status, setStatus] = useState<StatusFilter>('all');
+  // UX-Q5: support ?status= deep-links from the dashboard work card
+  // ("Runs in production" -> ?status=started). Filter is preserved as
+  // local state once the page mounts so the operator can change it.
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState<StatusFilter>(() =>
+    parseRunStatusParam(searchParams.get('status')),
+  );
   const [warehouseId, setWarehouseId] = useState<string>('');
 
   const filters = useMemo(() => {
