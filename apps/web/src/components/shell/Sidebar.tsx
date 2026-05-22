@@ -41,14 +41,26 @@ import {
 
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { FEATURE_FLAGS } from '@/lib/constants';
+import { resolveSectionVisibility } from './sidebarGating';
 
 /**
  * Sidebar. Navigation IA grouped into collapsible sections. Core sections
  * (Workspace, Sales, Procurement, Inventory, Finance, Tools, Admin) are
  * always rendered; admin and route-level guards still apply at the page
  * boundary. Pillar sections (3PL Operations, Manufacturing, Co-Pack and
- * Ecom, KitForce, KitCost) gate on `plugins.<pillar>` flags and render
- * disabled when off for the active org.
+ * Ecom, KitForce, KitCost) gate on `plugins.<pillar>` flags.
+ *
+ * Two gating postures (UX-Q3):
+ *   - Sections with a flag default to "visible but disabled" when off,
+ *     so the operator can see the surface and recognise the flip when
+ *     it lights up. 3PL, Manufacturing, KitCost, and Finance use this.
+ *   - Sections with `hideWhenOff: true` are omitted entirely when the
+ *     flag is off. Co-Pack and KitForce use this so unbuilt pillars
+ *     stop leaking into the first-impression sidebar; flipping the
+ *     flag on later restores the section.
+ *
+ * The constitutional `403 FEATURE_DISABLED` API guard is unchanged --
+ * this is a pure SPA-render adjustment.
  *
  * Below the `md:` breakpoint this renders as a slide-in drawer driven by
  * AppShell. At md and above it stays a fixed `w-56` rail.
@@ -67,6 +79,10 @@ interface NavSection {
   /** Optional `org_feature_flags.flag_key`. When set, the section is
    *  disabled (and children hidden) if the flag is off for the active org. */
   flag?: string;
+  /** UX-Q3: when true AND the flag is off, omit the section instead
+   *  of rendering it in the disabled state. Used for unbuilt pillars
+   *  (Co-Pack, KitForce). */
+  hideWhenOff?: boolean;
   children: NavChild[];
 }
 
@@ -173,19 +189,25 @@ const PILLAR_SECTIONS: ReadonlyArray<NavSection> = [
     ],
   },
   {
+    // UX-Q3: hide entirely when off. Co-Pack routes return 404 today;
+    // omit from the first-impression sidebar until the pillar ships.
     key: 'copack_ecom',
     label: 'CO-PACK AND ECOM',
     icon: Boxes,
     flag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+    hideWhenOff: true,
     children: [
       { to: '/copack/orders', label: 'Channel orders', icon: Boxes },
     ],
   },
   {
+    // UX-Q3: hide entirely when off. KitForce routes return 404 today;
+    // omit from the first-impression sidebar until the pillar ships.
     key: 'kitforce',
     label: 'KITFORCE',
     icon: Users,
     flag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+    hideWhenOff: true,
     children: [
       { to: '/kitforce/labor', label: 'Labor', icon: Users },
     ],
@@ -307,7 +329,9 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
       </NavLink>
 
       {ALL_SECTIONS.map((section) => {
-        const isOn = section.flag === undefined || flags[section.flag] === true;
+        const visibility = resolveSectionVisibility(section, flags);
+        if (!visibility.visible) return null;
+        const isOn = visibility.enabled;
         const isOpen = openCategories.has(section.key);
         const Icon = section.icon;
         const disabledTitle = section.flag?.startsWith('plugins.')
