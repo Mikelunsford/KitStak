@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -173,6 +175,21 @@ export function InvoiceDetailPage() {
 
   return (
     <section className="px-8 py-8 flex flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Customers', to: '/crm/customers' },
+          ...(customerId
+            ? [
+                {
+                  label: fallbackLabel(customer.data?.display_name, customerId),
+                  to: `/crm/customers/${customerId}`,
+                },
+              ]
+            : []),
+          { label: 'Invoices', to: '/invoicing/invoices' },
+          { label: inv.invoice_number },
+        ]}
+      />
       <header className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase text-ink-dim font-sans">Invoice</p>

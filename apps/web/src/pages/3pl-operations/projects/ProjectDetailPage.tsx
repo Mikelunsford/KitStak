@@ -2,6 +2,8 @@ import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -185,6 +187,33 @@ export function ProjectDetailPage() {
 
   return (
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Customers', to: '/crm/customers' },
+          ...(customerId
+            ? [
+                {
+                  label: fallbackLabel(customer.data?.display_name, customerId),
+                  to: `/crm/customers/${customerId}`,
+                },
+              ]
+            : []),
+          ...(sourceQuoteId
+            ? [
+                { label: 'Quotes', to: '/3pl-operations/quotes' },
+                {
+                  label: fallbackLabel(
+                    sourceQuote.data?.quote.number,
+                    sourceQuoteId,
+                  ),
+                  to: `/3pl-operations/quotes/${sourceQuoteId}`,
+                },
+              ]
+            : []),
+          { label: 'Projects', to: '/3pl-operations/projects' },
+          { label: project.number },
+        ]}
+      />
       <header className="flex items-baseline justify-between">
         <div>
           <h1 className="text-4xl font-display tracking-wide text-ink">{project.number}</h1>

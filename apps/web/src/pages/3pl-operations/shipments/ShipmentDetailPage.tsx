@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { Button } from '@/components/ui/Button';
@@ -71,6 +72,12 @@ export function ShipmentDetailPage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Shipments', to: '/3pl-operations/shipments' },
+          { label: d.shipment_number ?? d.id.slice(0, 8) },
+        ]}
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">SHIPMENT {d.shipment_number ?? d.id.slice(0, 8)}</h1>
         <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>

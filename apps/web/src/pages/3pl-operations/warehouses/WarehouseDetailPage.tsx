@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useWarehouse } from '@/lib/hooks/useInventory';
 
 export function WarehouseDetailPage() {
@@ -8,6 +9,12 @@ export function WarehouseDetailPage() {
   if (error || !data) return <p className="px-8 py-12 text-accent">Warehouse not found.</p>;
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Warehouses', to: '/3pl-operations/warehouses' },
+          { label: data.display_name },
+        ]}
+      />
       <h1 className="text-4xl font-display tracking-wide text-ink">{data.display_name}</h1>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Code</dt><dd className="text-ink">{data.code}</dd>

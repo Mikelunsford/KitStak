@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { Button } from '@/components/ui/Button';
 import {
   usePurchaseOrder, usePurchaseOrderLines, useTransitionPurchaseOrder,
@@ -80,6 +82,17 @@ export function PODetailPage() {
 
   return (
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Vendors', to: '/3pl-operations/vendors' },
+          {
+            label: fallbackLabel(vendor.data?.display_name, data.vendor_id),
+            to: `/3pl-operations/vendors/${data.vendor_id}`,
+          },
+          { label: 'POs', to: '/3pl-operations/purchase-orders' },
+          { label: data.po_number ?? data.id.slice(0, 8) },
+        ]}
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           PO {data.po_number ?? data.id.slice(0, 8)}

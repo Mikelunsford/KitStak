@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
@@ -63,6 +64,12 @@ export function OpportunityDetailPage() {
 
   return (
     <section className="px-8 py-10 max-w-3xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Opportunities', to: '/crm/opportunities' },
+          { label: o.display_name },
+        ]}
+      />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {o.display_name.toUpperCase()}
