@@ -193,7 +193,7 @@ export function CustomerDetailPage() {
       <RelatedSection
         title="CONTACTS"
         ctaLabel="New contact"
-        ctaHref={`/crm/contacts/new?customer_id=${c.id}`}
+        ctaHref={`/crm/contacts/new?customer_id=${c.id}&return_to=${encodeURIComponent(`/crm/customers/${c.id}`)}`}
         isLoading={contactsQuery.isLoading}
         emptyMessage="No contacts for this customer."
         count={contacts.length}

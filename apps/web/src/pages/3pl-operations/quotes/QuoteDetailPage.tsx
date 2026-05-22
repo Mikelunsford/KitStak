@@ -24,7 +24,21 @@ import type { QuoteState } from '@/lib/types/sales';
  * the customer detail page. Line-add form uses ItemPicker; selecting an item
  * pre-fills sku, unit_price_cents, and item_id, with tax/discount inputs
  * exposed (the handler already accepts them per G-QUOTE-LINE-01).
+ *
+ * PR-6 / B7: the DB enum keeps the historical `submitted` value
+ * (constitutional: forward-only migrations) but the operator-facing
+ * verb is "send for approval" in the pre-approval phase and "send to
+ * customer" in the post-approval phase. The state pill renders "Sent
+ * for approval" while the underlying value stays `submitted`.
  */
+
+// PR-6 / B7: vocabulary helper extracted to formatQuoteStateLabel.ts so
+// the vitest unit test can exercise the pure formatter without
+// transitively loading the supabase singleton at module load.
+import { formatQuoteStateLabel } from './formatQuoteStateLabel';
+
+export { formatQuoteStateLabel };
+
 export function QuoteDetailPage() {
   const { id } = useParams();
   const { data, isLoading, error } = useQuote(id);
@@ -165,13 +179,13 @@ export function QuoteDetailPage() {
           )}
         </div>
         <span className="px-3 py-1 border border-line font-mono text-sm">
-          {state}
+          {formatQuoteStateLabel(state)}
         </span>
       </header>
 
       <div className="flex flex-wrap gap-2">
         {canTransition(QUOTE_FSM, state, 'submitted') && id && (
-          <Button onClick={() => submit.mutate(id)}>Submit</Button>
+          <Button onClick={() => submit.mutate(id)}>Send for approval</Button>
         )}
         {canTransition(QUOTE_FSM, state, 'approved') && id && (
           <Button onClick={() => approve.mutate(id)}>Approve</Button>
@@ -183,7 +197,7 @@ export function QuoteDetailPage() {
           <Button variant="ghost" onClick={() => cancel.mutate(id)}>Cancel</Button>
         )}
         {state === 'approved' && id && (
-          <Button variant="secondary" onClick={() => send.mutate(id)}>Send</Button>
+          <Button variant="secondary" onClick={() => send.mutate(id)}>Send to customer</Button>
         )}
         {canTransition(QUOTE_FSM, state, 'project_pending') && id && (
           <Button
