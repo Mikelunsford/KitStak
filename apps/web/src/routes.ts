@@ -317,14 +317,25 @@ const ReceivingOrdersListPage = lazy(() =>
 const ReceivingOrderDetailPage = lazy(() =>
   import('./pages/3pl-operations/receiving/ReceivingOrderDetailPage').then((m) => ({ default: m.ReceivingOrderDetailPage })),
 );
-const ProductionRunsListPage = lazy(() =>
-  import('./pages/3pl-operations/production/ProductionRunsListPage').then((m) => ({ default: m.ProductionRunsListPage })),
-);
 const ProductionRunDetailPage = lazy(() =>
   import('./pages/3pl-operations/production/ProductionRunDetailPage').then((m) => ({ default: m.ProductionRunDetailPage })),
 );
-const ProductionRunCreatePage = lazy(() =>
-  import('./pages/3pl-operations/production/ProductionRunCreatePage').then((m) => ({ default: m.ProductionRunCreatePage })),
+// BNEW-2 (PR-A, 2026-05-22 v2 smoke): the legacy production list/create
+// surfaces are replaced by /manufacturing/runs and /manufacturing/runs/new.
+// The list and create routes stay registered as <Navigate> redirects so
+// existing deep links and bookmarks land on the canonical surface; the
+// detail route at /3pl-operations/production/:id keeps rendering the
+// detail page so deep links from before the migration still resolve.
+// Follow-up: F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01.
+const LegacyProductionListRedirect = lazy(() =>
+  import('./pages/3pl-operations/production/LegacyProductionRedirect').then((m) => ({
+    default: m.LegacyProductionListRedirect,
+  })),
+);
+const LegacyProductionCreateRedirect = lazy(() =>
+  import('./pages/3pl-operations/production/LegacyProductionRedirect').then((m) => ({
+    default: m.LegacyProductionCreateRedirect,
+  })),
 );
 const ShipmentsListPage = lazy(() =>
   import('./pages/3pl-operations/shipments/ShipmentsListPage').then((m) => ({ default: m.ShipmentsListPage })),
@@ -792,9 +803,11 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/stock/movements',        element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving',              element: ReceivingOrdersListPage,   guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving/:id',          element: ReceivingOrderDetailPage,  guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/production',             element: ProductionRunsListPage,    guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/production/new',         element: ProductionRunCreatePage,   guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/production/:id',         element: ProductionRunDetailPage,   guard: 'protected', layout: 'shell' },
+  // BNEW-2 (PR-A): legacy production list + create -> /manufacturing/runs.
+  // See LegacyProductionRedirect.tsx for the rationale and follow-up ID.
+  { path: '/3pl-operations/production',             element: LegacyProductionListRedirect,   guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/production/new',         element: LegacyProductionCreateRedirect, guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/production/:id',         element: ProductionRunDetailPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments',              element: ShipmentsListPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments/:id',          element: ShipmentDetailPage,        guard: 'protected', layout: 'shell' },
   // === End Agent E ===

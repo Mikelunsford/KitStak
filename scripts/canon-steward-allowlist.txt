@@ -55,3 +55,14 @@ orphan-route|apps/web/src/routes.ts|/imports/history
 # header search box is being missed).
 # ---------------------------------------------------------------------------
 orphan-route|apps/web/src/routes.ts|/search
+
+# ---------------------------------------------------------------------------
+# orphan-route: /3pl-operations/production (and /new).
+# Legacy production-runs route. Replaced by /manufacturing/runs in UX-Q1
+# (PR #112). Kept registered as a `<Navigate>` redirect so old bookmarks
+# land on the new form. Not in the sidebar by design.
+# Follow-up: F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01 — drop the
+# redirect once we're confident no bookmarks land on it.
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/3pl-operations/production
+orphan-route|apps/web/src/routes.ts|/3pl-operations/production/new

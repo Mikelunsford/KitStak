@@ -76,12 +76,23 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(paths).toContain('/3pl-operations/quotes');
   });
 
-  it('MAKE groups projects + manufacturing + production + receiving', () => {
+  it('MAKE groups projects + manufacturing + receiving (legacy production route excluded post-BNEW-2)', () => {
     const paths = pathsFor('make');
     expect(paths).toContain('/3pl-operations/projects');
     expect(paths).toContain('/manufacturing/runs');
-    expect(paths).toContain('/3pl-operations/production');
     expect(paths).toContain('/3pl-operations/receiving');
+  });
+
+  it('MAKE does NOT contain the legacy /3pl-operations/production sidebar entry (BNEW-2, 2026-05-22 v2 smoke)', () => {
+    // The legacy production-runs surface rendered an older form (raw UUID
+    // inputs, no warehouse dropdown, no auto-number, no item picker). The
+    // canonical surface is /manufacturing/runs. The legacy routes stay
+    // registered as <Navigate> redirects in routes.ts so deep links land
+    // on the new surface; they MUST NOT appear in the sidebar.
+    // Follow-up: F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01.
+    const paths = pathsFor('make');
+    expect(paths).not.toContain('/3pl-operations/production');
+    expect(paths).not.toContain('/3pl-operations/production/new');
   });
 
   it('SHIP groups shipments and stock movements only', () => {
@@ -190,7 +201,6 @@ describe('visibleRoutesForMode (UX-Q1)', () => {
     expect(paths).not.toContain('/manufacturing/runs');
     // Other routes still present.
     expect(paths).toContain('/3pl-operations/projects');
-    expect(paths).toContain('/3pl-operations/production');
     expect(paths).toContain('/3pl-operations/receiving');
   });
 

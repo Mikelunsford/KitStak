@@ -113,11 +113,13 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Factory,
         requiresFlag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
       },
-      {
-        path: '/3pl-operations/production',
-        label: 'Production runs',
-        icon: Factory,
-      },
+      // BNEW-2 (PR-A, 2026-05-22 v2 smoke): the legacy "Production runs"
+      // entry at /3pl-operations/production was removed. It rendered an
+      // older form (raw UUID inputs, no warehouse dropdown, no auto-number,
+      // no item picker); the canonical surface is /manufacturing/runs.
+      // The legacy routes stay registered as <Navigate> redirects in
+      // routes.ts so deep links and bookmarks land on the new surface.
+      // Follow-up: F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01.
       {
         path: '/3pl-operations/receiving',
         label: 'Receiving',
