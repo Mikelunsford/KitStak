@@ -32,18 +32,12 @@ import type { QuoteState } from '@/lib/types/sales';
  * for approval" while the underlying value stays `submitted`.
  */
 
-// PR-6 / B7: humanise a quote state value for the operator. The map
-// only re-labels the values where the constitutional verb has drifted
-// from the DB enum; every other state is rendered with a Title-Case
-// cosmetic touch-up (underscores -> spaces). Keep colocated so the
-// QuoteDetailPage owns the vocabulary alongside the buttons.
-export function formatQuoteStateLabel(state: string): string {
-  if (state === 'submitted') return 'Sent for approval';
-  return state
-    .split('_')
-    .map((part) => (part.length === 0 ? part : part[0]!.toUpperCase() + part.slice(1)))
-    .join(' ');
-}
+// PR-6 / B7: vocabulary helper extracted to formatQuoteStateLabel.ts so
+// the vitest unit test can exercise the pure formatter without
+// transitively loading the supabase singleton at module load.
+import { formatQuoteStateLabel } from './formatQuoteStateLabel';
+
+export { formatQuoteStateLabel };
 
 export function QuoteDetailPage() {
   const { id } = useParams();

@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { parseEntityTypeParam } from './ActivityCreatePage';
+import { parseEntityTypeParam } from './parseEntityTypeParam';
 
 describe('parseEntityTypeParam', () => {
   it('returns customer when the param is missing', () => {

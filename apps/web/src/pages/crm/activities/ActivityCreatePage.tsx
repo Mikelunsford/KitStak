@@ -6,21 +6,14 @@ import { activitiesKeys } from '@/lib/queryKeys/activities';
 import { createActivity } from '@/lib/services/activitiesService';
 import {
   ActivityCreateSchema,
-  ActivityEntityTypeSchema,
   type ActivityCreate,
   type ActivityEntityType,
   type ActivityKind,
 } from '@/lib/types/crm';
 
-// PR-6 / B5: validate the `?entity_type=` URL parameter against the
-// ActivityEntityType union and fall back to 'customer' if the value is
-// missing or not a member of the enum. Colocated here (not a shared
-// helper) because this is the only consumer of the validation.
-export function parseEntityTypeParam(raw: string | null): ActivityEntityType {
-  if (!raw) return 'customer';
-  const parsed = ActivityEntityTypeSchema.safeParse(raw);
-  return parsed.success ? parsed.data : 'customer';
-}
+import { parseEntityTypeParam } from './parseEntityTypeParam';
+
+export { parseEntityTypeParam };
 
 export function ActivityCreatePage() {
   const navigate = useNavigate();

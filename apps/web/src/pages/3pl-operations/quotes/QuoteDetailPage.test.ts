@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { formatQuoteStateLabel } from './QuoteDetailPage';
+import { formatQuoteStateLabel } from './formatQuoteStateLabel';
 
 describe('formatQuoteStateLabel', () => {
   it('relabels submitted as "Sent for approval"', () => {
