@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -19,7 +19,6 @@ import {
   useAddLineItem, useRemoveLineItem,
 } from '@/lib/hooks/useQuotes';
 import { useCustomer } from '@/lib/hooks/useCustomer';
-import { useItem } from '@/lib/hooks/useItems';
 import { useMe } from '@/lib/hooks/useMe';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
@@ -78,30 +77,17 @@ export function QuoteDetailPage() {
 
   const customerId = data?.quote.customer_id ?? null;
   const customer = useCustomer(customerId ?? undefined);
-  const selectedItem = useItem(selectedItemId ?? undefined);
   const me = useMe({ enabled: true });
   const canRenderPdf = me.data?.active_role
     ? hasCap(me.data.active_role, 'pdf.document.render')
     : false;
 
-  // PR-C / BNEW-3: pre-fill Name, SKU, and Unit price when the fetched item
-  // resolves. Doing this synchronously inside the picker's onChange handler
-  // raced against the `useItem` query — on the first pick `selectedItem.data`
-  // was undefined and the fields stayed empty, then Name failed the required
-  // validation. A useEffect watching the resolved item id closes the race.
-  // MUST live above the early returns below so the hook call order stays
-  // stable across renders (react-hooks/rules-of-hooks).
-  useEffect(() => {
-    if (!selectedItemId) return;
-    const next = applyItemSelection(selectedItem.data);
-    if (!next) return;
-    // Only run when the fetched item matches the currently picked id; this
-    // guards against an in-flight response for a previous selection.
-    if (selectedItem.data?.id !== selectedItemId) return;
-    setLineName(next.name);
-    setLineSku(next.sku);
-    setLinePrice(next.unit_price_cents);
-  }, [selectedItemId, selectedItem.data]);
+  // PR-F: pre-fill happens synchronously in the picker's onChange handler
+  // below. The previous useItem(id) + useEffect plumbing introduced a
+  // visible flash (id was set one render before name/sku/price landed),
+  // and the dropdown already has the matched record in scope at click
+  // time. The applyItemSelection helper still owns the field-population
+  // shape so the existing unit test continues to lock the contract.
 
   if (isLoading) return <p className="p-8 text-ink-dim">Loading.</p>;
   if (error || !data) return <p className="p-8 text-accent">Quote not found.</p>;
@@ -356,7 +342,14 @@ export function QuoteDetailPage() {
           <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
           <ItemPicker
             value={selectedItemId}
-            onChange={setSelectedItemId}
+            onChange={(itemId, item) => {
+              setSelectedItemId(itemId);
+              const next = applyItemSelection(item);
+              if (!next) return;
+              setLineName(next.name);
+              setLineSku(next.sku);
+              setLinePrice(next.unit_price_cents);
+            }}
             label="Item (optional, pre-fills name and price)"
             filter={{ active: true }}
           />

@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { itemsKeys } from '@/lib/queryKeys/items';
 import { listItems } from '@/lib/services/itemsService';
-import type { ItemKind } from '@/lib/types/sales';
+import type { Item, ItemKind } from '@/lib/types/sales';
+import { pickItemFromList } from './pickItemFromList';
 
 /**
  * ItemPicker. Fetches the items catalog (sales-config-api). Caller may
@@ -11,10 +12,21 @@ import type { ItemKind } from '@/lib/types/sales';
  * The schema's ItemKind is the canonical enum; 'good'/'service' here is a
  * SPA-side coarse grouping for callers that only need to distinguish things
  * you ship vs. things you charge for time on.
+ *
+ * PR-F: `onChange` now emits the matched Item (or undefined on clear) as a
+ * second argument so callers can synchronously pre-fill dependent form
+ * fields without spinning up a separate `useItem(id)` query + useEffect.
+ * The earlier id-only flow (quotes PR #115, invoices PR #119) introduced
+ * a visible flash because the Item resolved one render after the id was
+ * set. The picker already has the loaded list in scope at selection time,
+ * so resolving the record sync is free and removes the race entirely.
+ *
+ * Backward-compatible: existing callers that ignore the second arg
+ * continue to work unchanged.
  */
 export interface ItemPickerProps {
   value: string | null;
-  onChange: (id: string | null) => void;
+  onChange: (id: string | null, item?: Item) => void;
   label?: string;
   required?: boolean;
   disabled?: boolean;
@@ -66,7 +78,10 @@ export function ItemPicker({
       )}
       <select
         value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        onChange={(e) => {
+          const { id, item } = pickItemFromList(items, e.target.value);
+          onChange(id, item);
+        }}
         required={required}
         disabled={disabled || isLoading}
         className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"

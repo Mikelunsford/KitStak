@@ -1,23 +1,24 @@
-// PR-D / BNEW-3-INV: helper for pre-filling the invoice line-add form when
-// the operator picks an item from ItemPicker. Extracted as a pure function
-// so the vitest unit test can pin the contract without rendering the page,
-// mirroring the precedent set by PR-C (`applyItemSelection.ts` in the
-// quotes folder, commit 5285534).
+// PR-D / BNEW-3-INV (refined by PR-F): helper for pre-filling the
+// invoice line-add form when the operator picks an item from
+// ItemPicker. Extracted as a pure function so the vitest unit test can
+// pin the contract without rendering the page, mirroring the precedent
+// set by PR-C (`applyItemSelection.ts` in the quotes folder).
 //
-// The bug this closes: `InvoiceDetailPage.onPickItem` read
-// `selectedItem.data` from `useItem(selectedItemId)` *synchronously* after
-// calling `setSelectedItemId(itemId)`. On the first pick the react-query
-// hook has not yet resolved, so `selectedItem.data` is undefined and the
-// description / unit price fields stay empty. On subsequent picks the
-// stale data pointed at the previously picked item. Either way the picker
-// label "PRE-FILLS DESCRIPTION AND PRICE" lied.
+// History: PR-D originally closed an async-stale race with a
+// `useEffect` watching a `useItem(id)` result. PR-F removes the effect
+// entirely — ItemPicker emits the matched Item from its loaded list at
+// selection time and InvoiceDetailPage calls this helper synchronously
+// from the picker's onChange. No more visible flash, no more
+// rules-of-hooks gymnastics.
 //
-// The fix moves the prefill into a `useEffect` watching the resolved item;
-// the actual field-population shape lives here.
+// The shape of this helper is unchanged — it accepts an Item and
+// returns the populated field bundle, so the unit-test contract is
+// preserved across both call patterns.
 //
-// The invoice line shape differs from the quote line shape: invoices use
-// `description` (not `name`) and do not snapshot a sku on the line, so a
-// dedicated helper is clearer than overloading the quote helper.
+// The invoice line shape differs from the quote line shape: invoices
+// use `description` (not `name`) and do not snapshot a sku on the
+// line, so a dedicated helper is clearer than overloading the quote
+// helper.
 
 import type { Item } from '@/lib/types/sales';
 
@@ -27,9 +28,10 @@ export interface InvoiceLineSelectionFields {
 }
 
 /**
- * Given a fetched Item, return the values that should populate the invoice
- * line-add form fields. Returns null when no item is provided so the caller
- * can leave the form alone (e.g. on clear or while the query is pending).
+ * Given an Item (resolved synchronously from the ItemPicker dropdown
+ * list as of PR-F), return the values that should populate the invoice
+ * line-add form fields. Returns null when no item is provided so the
+ * caller can leave the form alone (e.g. on clear).
  */
 export function applyItemSelectionToInvoiceLine(
   item: Item | null | undefined,

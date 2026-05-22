@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -24,7 +24,6 @@ import {
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useProject } from '@/lib/hooks/useProjects';
 import { useQuote } from '@/lib/hooks/useQuotes';
-import { useItem } from '@/lib/hooks/useItems';
 import { usePayments } from '@/lib/hooks/usePayments';
 import { useMe } from '@/lib/hooks/useMe';
 import { hasCap } from '@/lib/capabilities';
@@ -82,28 +81,18 @@ export function InvoiceDetailPage() {
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const selectedItem = useItem(selectedItemId ?? undefined);
   const me = useMe({ enabled: true });
   const canRenderPdf = me.data?.active_role
     ? hasCap(me.data.active_role, 'pdf.document.render')
     : false;
 
-  // PR-D / BNEW-3-INV: pre-fill Description and Unit price when the fetched
-  // item resolves. Doing this synchronously inside the picker's onChange
-  // handler raced against the `useItem` query — on the first pick
-  // `selectedItem.data` was undefined and the fields stayed empty, then
-  // Description failed the required validation. A useEffect watching the
-  // resolved item id closes the race. Mirrors QuoteDetailPage PR-C.
-  // Declared above the early returns to satisfy rules-of-hooks.
-  useEffect(() => {
-    if (!selectedItemId) return;
-    const next = applyItemSelectionToInvoiceLine(selectedItem.data);
-    if (!next) return;
-    // Guard against an in-flight response for a previous selection.
-    if (selectedItem.data?.id !== selectedItemId) return;
-    setLineDesc(next.description);
-    setLinePrice(next.unit_price_cents);
-  }, [selectedItemId, selectedItem.data]);
+  // PR-F: pre-fill now happens synchronously inside the picker's onChange
+  // handler below (ItemPicker emits the matched record alongside the id).
+  // The previous useItem(id) + useEffect plumbing introduced a visible
+  // flash — id landed one render before description/price did — and the
+  // dropdown already has the matched record in scope at click time.
+  // applyItemSelectionToInvoiceLine still owns the field-population shape
+  // so the existing unit test continues to lock the contract.
 
   if (!invoiceId) return <p>Missing invoice id.</p>;
   if (invoice.isLoading) return <p className="px-8 py-8">Loading.</p>;
@@ -402,7 +391,13 @@ export function InvoiceDetailPage() {
             <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
             <ItemPicker
               value={selectedItemId}
-              onChange={setSelectedItemId}
+              onChange={(itemId, item) => {
+                setSelectedItemId(itemId);
+                const next = applyItemSelectionToInvoiceLine(item);
+                if (!next) return;
+                setLineDesc(next.description);
+                setLinePrice(next.unit_price_cents);
+              }}
               label="Item (optional, pre-fills description and price)"
               filter={{ active: true }}
             />
