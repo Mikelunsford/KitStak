@@ -3,7 +3,12 @@ import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { useCustomer } from '@/lib/hooks/useCustomer';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import {
@@ -70,6 +75,23 @@ export function OpportunityDetailPage() {
           { label: o.display_name },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
+          Stage row in the dl below; visualizes discovery -> evaluation
+          -> proposal -> negotiation -> closed_won. closed_lost is the
+          off-path sink. Existing stage-advance buttons below remain
+          unchanged - they drive transitions; the stepper only visualizes. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.opportunity.path]}
+        current={o.stage}
+        offPath={
+          isOffPath('opportunity', o.stage)
+            ? {
+                state: o.stage,
+                label: STATE_STEPPER_PATHS.opportunity.resolveLabel(o.stage),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {o.display_name.toUpperCase()}
@@ -82,8 +104,6 @@ export function OpportunityDetailPage() {
         </Link>
       </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Stage</dt>
-        <dd>{o.stage}</dd>
         <dt className="text-ink-dim">Customer</dt>
         <dd>
           <Link

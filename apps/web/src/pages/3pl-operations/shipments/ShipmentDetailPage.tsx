@@ -4,7 +4,12 @@ import { useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -78,9 +83,21 @@ export function ShipmentDetailPage() {
           { label: d.shipment_number ?? d.id.slice(0, 8) },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.shipment.path]}
+        current={d.status}
+        offPath={
+          isOffPath('shipment', d.status)
+            ? {
+                state: d.status,
+                label: STATE_STEPPER_PATHS.shipment.resolveLabel(d.status),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">SHIPMENT {d.shipment_number ?? d.id.slice(0, 8)}</h1>
-        <span className="px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{d.status}</span>
       </header>
 
       {/* UX-Q4: forward-transition CTA promoted to primary top placement

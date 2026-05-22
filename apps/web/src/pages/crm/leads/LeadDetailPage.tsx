@@ -3,9 +3,14 @@ import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { StateStepper } from '@/components/shell/StateStepper';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { leadsKeys } from '@/lib/queryKeys/leads';
 import { getLead } from '@/lib/services/leadsService';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +36,22 @@ export function LeadDetailPage() {
           { label: l.display_name },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
+          Status row in the dl below; the stepper visualizes lead progress
+          from new -> working -> qualified -> converted. disqualified is
+          the off-path sink. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.lead.path]}
+        current={l.status}
+        offPath={
+          isOffPath('lead', l.status)
+            ? {
+                state: l.status,
+                label: STATE_STEPPER_PATHS.lead.resolveLabel(l.status),
+              }
+            : undefined
+        }
+      />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {l.display_name.toUpperCase()}
@@ -45,8 +66,6 @@ export function LeadDetailPage() {
         ) : null}
       </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Status</dt>
-        <dd>{l.status}</dd>
         <dt className="text-ink-dim">Company</dt>
         <dd>{l.company_name ?? ''}</dd>
         <dt className="text-ink-dim">Source</dt>

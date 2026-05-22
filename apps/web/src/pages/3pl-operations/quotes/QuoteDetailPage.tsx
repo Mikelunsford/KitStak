@@ -5,6 +5,11 @@ import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
+import { StateStepper } from '@/components/shell/StateStepper';
+import {
+  STATE_STEPPER_PATHS,
+  isOffPath,
+} from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
@@ -182,6 +187,20 @@ export function QuoteDetailPage() {
           { label: quote.number },
         ]}
       />
+      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
+          static state pill that previously lived in the header. Placed
+          BELOW the breadcrumbs and ABOVE the page title because the
+          stepper sets the workflow context the operator carries into
+          everything below it (title, CTA, line items). */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.quote.path]}
+        current={state}
+        offPath={
+          isOffPath('quote', state)
+            ? { state, label: formatQuoteStateLabel(state) }
+            : undefined
+        }
+      />
       <header className="flex items-baseline justify-between">
         <div>
           <h1 className="text-4xl font-display tracking-wide text-ink">{quote.number}</h1>
@@ -198,9 +217,6 @@ export function QuoteDetailPage() {
             </p>
           )}
         </div>
-        <span className="px-3 py-1 border border-line font-mono text-sm">
-          {formatQuoteStateLabel(state)}
-        </span>
       </header>
 
       {/* UX-Q4: forward-transition CTA promoted to primary top placement.
