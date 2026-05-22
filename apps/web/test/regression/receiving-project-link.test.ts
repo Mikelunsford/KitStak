@@ -126,6 +126,11 @@ describe('ops-api — receiving_orders.project_id round-trip (UX-Q6)', () => {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
+        // receiving_number supplied so the handler skips the
+        // next_doc_number RPC chassis call (which would require a
+        // separate state.rpcResults stub — auto-numbering-b8 covers
+        // that path explicitly; this test is about project_id only).
+        receiving_number: 'TEST-RO-001',
         warehouse_id: WAREHOUSE_ID,
         project_id: PROJECT_ID,
       }),
@@ -152,6 +157,8 @@ describe('ops-api — receiving_orders.project_id round-trip (UX-Q6)', () => {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
+        // receiving_number supplied to skip the chassis call; see prior test.
+        receiving_number: 'TEST-RO-002',
         warehouse_id: WAREHOUSE_ID,
       }),
     });
@@ -181,7 +188,9 @@ describe('ops-api — receiving_orders.project_id round-trip (UX-Q6)', () => {
     const res = await handler(req);
     expect(res.status).toBe(200);
 
-    const payload = (await res.json()) as Array<{ id: string; project_id: string | null }>;
+    // ok() wraps list responses in { data: [...] } — unwrap before asserting.
+    const envelope = (await res.json()) as { data: Array<{ id: string; project_id: string | null }> };
+    const payload = envelope.data;
     expect(payload.length).toBe(1);
     expect(payload[0]!.id).toBe(RO_ID);
     expect(payload[0]!.project_id).toBe(PROJECT_ID);
@@ -201,8 +210,8 @@ describe('ops-api — receiving_orders.project_id round-trip (UX-Q6)', () => {
     const res = await handler(req);
     expect(res.status).toBe(200);
 
-    const payload = (await res.json()) as Array<{ id: string }>;
-    expect(payload.length).toBe(2);
+    const envelope = (await res.json()) as { data: Array<{ id: string }> };
+    expect(envelope.data.length).toBe(2);
   });
 
   it('PATCH /receiving-orders/:id can link an existing receiving order to a project', async () => {
