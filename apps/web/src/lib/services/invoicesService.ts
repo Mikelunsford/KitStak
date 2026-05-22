@@ -23,8 +23,12 @@ export type ListInvoicesFilters = {
   limit?: number;
 };
 
+// BNEW-4 (v2 smoke 2026-05-22): invoice_number is optional. The handler
+// allocates the next INV-YYYY-NNNNN via the numbering chassis when the field
+// is absent. Operator-supplied values still win. Mirrors the quote / receiving
+// / shipment shape landed at PR #105.
 export type InvoiceCreate = {
-  invoice_number: string;
+  invoice_number?: string;
   customer_id?: string;
   project_id?: string;
   quote_id?: string;
