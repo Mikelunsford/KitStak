@@ -67,6 +67,7 @@ import {
   RECEIVING_ORDER_FSM, PRODUCTION_RUN_FSM, SHIPMENT_FSM,
   canTransitionVio, type Fsm,
 } from '../_shared/workflow/vendors_inventory_ops.ts';
+import { nextDocNumber } from '../_shared/numbering.ts';
 
 function assertTransition<S extends string>(fsm: Fsm<S>, from: S, to: S): void {
   if (!canTransitionVio(fsm, from, to)) {
@@ -228,8 +229,16 @@ const TABLE: Route[] = [
       requireCap(caller, 'receiving.order.create');
       const body = await parseBody(req, ReceivingCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders', body, async () => {
+        // F-Wave9-AUTO-NUMBERING-01 (B8): operator may pass a `receiving_number`
+        // to override; otherwise allocate the next RCV-YYYY-NNNNN via the
+        // org-scoped numbering chassis (next_doc_number / 0038). Mirrors the
+        // manufacturing-api pattern from 0054.
+        const suppliedRecv = body.receiving_number?.trim();
+        const receiving_number = suppliedRecv
+          ? suppliedRecv
+          : await nextDocNumber(caller.orgId, 'receiving_order');
         const { data, error } = await admin().from('receiving_orders').insert({
-          ...body, status: 'created', org_id: caller.orgId,
+          ...body, receiving_number, status: 'created', org_id: caller.orgId,
           created_by: caller.userId, updated_by: caller.userId,
         }).select('*').single();
         if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
@@ -570,8 +579,16 @@ const TABLE: Route[] = [
       requireCap(caller, 'shipments.shipment.create');
       const body = await parseBody(req, ShipmentCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments', body, async () => {
+        // F-Wave9-AUTO-NUMBERING-01 (B8): operator may pass a `shipment_number`
+        // to override; otherwise allocate the next SHP-YYYY-NNNNN via the
+        // org-scoped numbering chassis (next_doc_number / 0038). Mirrors the
+        // manufacturing-api pattern from 0054.
+        const suppliedShip = body.shipment_number?.trim();
+        const shipment_number = suppliedShip
+          ? suppliedShip
+          : await nextDocNumber(caller.orgId, 'shipment');
         const { data, error } = await admin().from('shipments').insert({
-          ...body, status: 'created', org_id: caller.orgId,
+          ...body, shipment_number, status: 'created', org_id: caller.orgId,
           created_by: caller.userId, updated_by: caller.userId,
         }).select('*').single();
         if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);

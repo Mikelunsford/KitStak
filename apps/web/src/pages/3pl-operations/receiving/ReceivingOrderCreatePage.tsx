@@ -32,7 +32,11 @@ export function ReceivingOrderCreatePage() {
   const prefilledProjectId = searchParams.get('project_id');
   const prefilledPoId = searchParams.get('purchase_order_id');
 
-  const [receivingNumber, setReceivingNumber] = useState('');
+  // F-Wave9-AUTO-NUMBERING-01 (B8): the ops-api POST /receiving-orders
+  // handler now allocates RCV-YYYY-NNNNN via the numbering chassis when
+  // `receiving_number` is absent, so the SPA no longer asks the operator
+  // to type it. Per-org prefix / pad / reset policy is configurable from
+  // the numbering admin page.
   const [warehouseId, setWarehouseId] = useState('');
   const [vendorId, setVendorId] = useState<string | null>(prefilledVendorId);
   const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
@@ -74,7 +78,6 @@ export function ReceivingOrderCreatePage() {
       warehouse_id: warehouseId,
       payload: { lines },
     };
-    if (receivingNumber) body.receiving_number = receivingNumber;
     if (vendorId) body.vendor_id = vendorId;
     if (projectId) body.project_id = projectId;
     if (purchaseOrderId) body.purchase_order_id = purchaseOrderId;
@@ -92,11 +95,6 @@ export function ReceivingOrderCreatePage() {
         NEW RECEIVING ORDER
       </h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <TextInput
-          label="Receiving number"
-          value={receivingNumber}
-          onChange={(e) => setReceivingNumber(e.target.value)}
-        />
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Warehouse

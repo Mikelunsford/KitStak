@@ -349,7 +349,11 @@ export type ProjectPhase = z.infer<typeof ProjectPhaseSchema>;
 // ---------------------------------------------------------------------------
 
 export const CreateQuoteRequestSchema = z.object({
-  number: z.string().min(1),
+  // F-Wave9-AUTO-NUMBERING-01 (B8): operator can leave this blank and the
+  // quotes-api handler allocates the next Q-YYYY-NNNNN via the org-scoped
+  // numbering chassis (next_doc_number / 0038). Operator-supplied numbers
+  // still win. Empty string is treated as absent.
+  number: z.string().min(1).optional(),
   customer_id: UuidSchema.nullable().optional(),
   title: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
