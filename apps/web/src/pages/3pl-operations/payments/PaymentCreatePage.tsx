@@ -22,7 +22,13 @@ export function PaymentCreatePage() {
   const prefilledCustomerId = searchParams.get('customer_id');
   const prefilledInvoiceId = searchParams.get('invoice_id');
 
-  const [paymentNumber, setPaymentNumber] = useState('');
+  // B8 completion (v2 smoke 2026-05-22): the invoicing-api handler now
+  // allocates PMT-YYYY-NNNNN via the numbering chassis when payment_number
+  // is absent, so the SPA no longer asks the operator to type it. Mirrors
+  // the standalone invoice create page landed at PR-B (#117). Per-org
+  // prefix / pad / reset policy is configurable from the numbering admin
+  // page. Payment is the last chassis-eligible doc type still requiring
+  // manual entry.
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [invoiceId, setInvoiceId] = useState<string | null>(prefilledInvoiceId);
   const [amountCents, setAmountCents] = useState('0');
@@ -45,7 +51,6 @@ export function PaymentCreatePage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const body: {
-      payment_number: string;
       customer_id?: string;
       amount_cents: string;
       currency_code: string;
@@ -54,7 +59,6 @@ export function PaymentCreatePage() {
       received_at?: string;
       notes?: string;
     } = {
-      payment_number: paymentNumber,
       amount_cents: amountCents,
       currency_code: currency,
     };
@@ -83,12 +87,6 @@ export function PaymentCreatePage() {
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
       <h1 className="text-4xl font-display tracking-wide text-ink">RECEIVE PAYMENT</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <TextInput
-          label="Payment number"
-          value={paymentNumber}
-          onChange={(e) => setPaymentNumber(e.target.value)}
-          required
-        />
         <CustomerPicker
           value={customerId}
           onChange={(v) => {

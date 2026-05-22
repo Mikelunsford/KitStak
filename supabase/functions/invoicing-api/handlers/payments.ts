@@ -32,6 +32,7 @@ import {
 } from '../../_shared/types/finance.ts';
 import { BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
+import { nextDocNumber } from '../../_shared/numbering.ts';
 
 const PAYMENT_COLS =
   'id, org_id, payment_number, customer_id, amount_cents, currency_code, ' +
@@ -40,8 +41,15 @@ const PAYMENT_COLS =
 
 const ALLOC_COLS = 'id, payment_id, invoice_id, amount_cents, created_at';
 
+// B8 completion (v2 smoke 2026-05-22): payment_number is optional. When
+// absent or whitespace-only the handler allocates the next PMT-YYYY-NNNNN
+// via the numbering chassis (next_doc_number RPC). Operator-supplied values
+// still win. Migration 0038 seeded the 'payment' doc_type with prefix
+// PMT-. Payment is the last of the five chassis-eligible doc types still
+// requiring manual entry; PR-B (#117) wired the same change for the
+// standalone invoice POST.
 const PaymentCreateSchema = z.object({
-  payment_number: z.string().min(1),
+  payment_number: z.string().min(1).optional(),
   customer_id: z.string().uuid().optional(),
   amount_cents: z.union([z.number().int(), z.string().regex(/^-?\d+$/)]),
   currency_code: z.string().min(3).max(3).default('USD'),
@@ -199,12 +207,23 @@ export async function createPayment(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /payments`,
     body,
     async () => {
+      // B8 completion (v2 smoke 2026-05-22): operator may pass a
+      // payment_number to override; otherwise the org-scoped numbering
+      // chassis allocates the next PMT-YYYY-NNNNN string via
+      // next_doc_number. Empty / whitespace-only strings are treated as
+      // absent so the SPA can drop the field entirely. Mirrors the
+      // standalone invoice POST landed at PR-B (#117). Payment is the
+      // last chassis-eligible doc type still requiring manual entry.
+      const suppliedNumber = body.payment_number?.trim();
+      const paymentNumber = suppliedNumber
+        ? suppliedNumber
+        : await nextDocNumber(caller.orgId, 'payment');
       const amount = typeof body.amount_cents === 'string'
         ? body.amount_cents
         : body.amount_cents;
       const insert = {
         org_id: caller.orgId,
-        payment_number: body.payment_number,
+        payment_number: paymentNumber,
         customer_id: body.customer_id ?? null,
         amount_cents: amount,
         currency_code: body.currency_code,

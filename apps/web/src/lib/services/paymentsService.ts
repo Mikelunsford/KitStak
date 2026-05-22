@@ -15,8 +15,13 @@ import {
 const PaymentListSchema = z.array(PaymentSchema);
 const AllocationListSchema = z.array(PaymentAllocationSchema);
 
+// B8 completion (v2 smoke 2026-05-22): payment_number is optional. The
+// handler allocates the next PMT-YYYY-NNNNN via the numbering chassis when
+// the field is absent. Operator-supplied values still win. Mirrors the
+// invoice / quote / receiving / shipment shape landed at PR-B (#117) and
+// PR #105.
 export type PaymentCreate = {
-  payment_number: string;
+  payment_number?: string;
   customer_id?: string;
   amount_cents: number | string;
   currency_code?: string;
