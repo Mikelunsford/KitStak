@@ -10,15 +10,24 @@
  * does not declare a project_id column today, but the row may carry one as
  * a payload extension. Mirrors the duck-typing in ProjectDetailPage's
  * filter over the shipments list (G-SHIP-FK-01 will add the column).
+ *
+ * B1 (Wave B): now emits `shipment_id=` as a third optional param so
+ * InvoiceCreatePage can pull the shipment's line items as a pre-fill for
+ * the new invoice's lines (closes the source-document chain for the
+ * "ship -> invoice" handoff).
  */
 export function buildCreateInvoiceUrl(
   customerId: string,
   projectId: string | null,
+  shipmentId: string | null = null,
 ): string {
   const params = new URLSearchParams();
   params.set('customer_id', customerId);
   if (projectId) {
     params.set('project_id', projectId);
+  }
+  if (shipmentId) {
+    params.set('shipment_id', shipmentId);
   }
   return `/invoicing/invoices/new?${params.toString()}`;
 }

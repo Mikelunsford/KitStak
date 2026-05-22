@@ -36,6 +36,25 @@ describe('buildCreateInvoiceUrl', () => {
     // as a literal plus rather than a space.
     expect(url).toBe('/invoicing/invoices/new?customer_id=c%2B1');
   });
+
+  it('B1: emits shipment_id when supplied so the create page can pre-fill lines', () => {
+    const url = buildCreateInvoiceUrl('cust-1', 'proj-1', 'ship-1');
+    expect(url).toBe(
+      '/invoicing/invoices/new?customer_id=cust-1&project_id=proj-1&shipment_id=ship-1',
+    );
+  });
+
+  it('B1: emits shipment_id without project_id when project is null', () => {
+    const url = buildCreateInvoiceUrl('cust-1', null, 'ship-1');
+    expect(url).toBe(
+      '/invoicing/invoices/new?customer_id=cust-1&shipment_id=ship-1',
+    );
+  });
+
+  it('B1: omits shipment_id when not supplied (default)', () => {
+    const url = buildCreateInvoiceUrl('cust-1', 'proj-1');
+    expect(url).not.toContain('shipment_id');
+  });
 });
 
 describe('getShipmentProjectId', () => {
