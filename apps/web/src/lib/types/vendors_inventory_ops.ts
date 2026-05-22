@@ -291,6 +291,10 @@ export const ReceivingOrderSchema = z.object({
   purchase_order_id: Uuid.nullable(),
   warehouse_id: Uuid,
   vendor_id: Uuid.nullable(),
+  // UX-Q6: project linkage column landed in migration 0046 and was locked
+  // in by 0061. Nullable for historical rows. Receivers may not be linked
+  // to a project (e.g. raw-stock inbound for general inventory).
+  project_id: Uuid.nullable(),
   status: ReceivingOrderStatusSchema,
   expected_date: z.string().nullable(),
   received_date: z.string().nullable(),

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -107,6 +107,19 @@ export function ReceivingOrderDetailPage() {
       )}
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Warehouse</dt><dd className="text-ink"><EntityLabel kind="warehouse" id={d.warehouse_id} /></dd>
+        <dt className="text-ink-dim">Project</dt>
+        <dd className="text-ink">
+          {d.project_id ? (
+            <Link
+              to={`/3pl-operations/projects/${d.project_id}`}
+              className="text-ink hover:text-accent"
+            >
+              <EntityLabel kind="project" id={d.project_id} />
+            </Link>
+          ) : (
+            ''
+          )}
+        </dd>
         <dt className="text-ink-dim">Expected</dt><dd className="text-ink">{d.expected_date ?? ''}</dd>
         <dt className="text-ink-dim">Received</dt><dd className="text-ink">{d.received_date ?? ''}</dd>
         <dt className="text-ink-dim">Reference</dt><dd className="text-ink">{d.reference ?? ''}</dd>

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s /b \"C:\\\\Users\\\\Mike Lunsford\\\\Desktop\\\\CLAUDE AGENTS\")",
+      "Bash(findstr /i \"PROJECT-INIT\")",
+      "Bash(pnpm --filter web typecheck)"
+    ]
+  }
+}

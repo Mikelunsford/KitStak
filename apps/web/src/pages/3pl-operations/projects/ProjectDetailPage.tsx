@@ -53,11 +53,11 @@ const PHASE_TARGETS: ProjectPhaseState[] = [
  * invoices bound to the project, and the "convert to invoice" action on
  * completion. Closes G-PROJECT-DETAIL-01.
  *
- * Receiving and shipment filtering is client-side until Agent 6.5-B adds
- * project_id columns (G-RECV-FK-01, G-SHIP-FK-01) and the list endpoints
- * grow the corresponding filter. Until then the filter is opportunistic and
- * relies on the read-only `project_id` field if 6.5-B ships it as part of
- * the type extension; otherwise this section renders the empty-state.
+ * Receiving is now a typed FK + server-side filter as of UX-Q6
+ * (migration 0061, ReceivingOrderSchema gained `project_id`, ops-api
+ * GET /receiving-orders accepts ?project_id=). Shipment filtering
+ * remains client-side until the matching shipments-API filter ships;
+ * see F-Wave9-UX-Q6-SHIPMENT-LIST-FILTER-01 for the symmetry follow-up.
  */
 export function ProjectDetailPage() {
   const navigate = useNavigate();
@@ -79,7 +79,12 @@ export function ProjectDetailPage() {
   const sourceQuote = useQuote(sourceQuoteId ?? undefined);
   const lineItems = useProjectLineItems(projectId);
   const invoices = useInvoices({});
-  const receiving = useReceivingOrdersList();
+  // UX-Q6: server-side filter via the new ?project_id= param on
+  // GET /receiving-orders. ReceivingOrderSchema now carries project_id
+  // natively so the prior duck-typed cast is no longer required.
+  const receiving = useReceivingOrdersList(
+    projectId ? { project_id: projectId } : {},
+  );
   const shipments = useShipmentsList();
 
   const [phaseName, setPhaseName] = useState('');
@@ -175,12 +180,16 @@ export function ProjectDetailPage() {
     (inv) => inv.project_id === projectId,
   );
 
-  // Receiving and Shipment side-car schemas do not carry a project_id field
-  // today, so the filter reads it via a duck-typed cast. The section stays
-  // harmlessly empty until the column lands and the schemas extend.
+  // UX-Q6: ReceivingOrderSchema now carries `project_id` natively. The
+  // hook above already passes ?project_id= so this is a pass-through;
+  // the redundant client-side check guards against a stale cache or a
+  // future hook-level cache mix.
   const projectReceiving = (receiving.data ?? []).filter(
-    (r) => (r as unknown as { project_id?: string | null }).project_id === projectId,
+    (r) => r.project_id === projectId,
   );
+  // Shipment schema still lacks a typed project_id (the FK exists per
+  // migration 0046 / G-SHIP-FK-01 but the Zod schema has not been
+  // extended). Duck-typed cast remains until the symmetry follow-up.
   const projectShipments = (shipments.data ?? []).filter(
     (s) => (s as unknown as { project_id?: string | null }).project_id === projectId,
   );
