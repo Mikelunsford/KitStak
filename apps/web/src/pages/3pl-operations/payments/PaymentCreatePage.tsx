@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
@@ -6,6 +6,9 @@ import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { CustomerPicker, InvoicePicker } from '@/components/ui/pickers';
 import { useCreatePayment, useApplyPayment } from '@/lib/hooks/usePayments';
+import { useInvoice } from '@/lib/hooks/useInvoices';
+
+import { resolveInvoiceBalancePrefill } from './resolveInvoiceBalancePrefill';
 
 /**
  * PaymentCreatePage. Closes G-PAY-FORM-01 and partially G-PAY-FLOW-01.
@@ -13,6 +16,12 @@ import { useCreatePayment, useApplyPayment } from '@/lib/hooks/usePayments';
  * "Receive payment" CTA lands here with context. Allocates the new payment
  * to the selected invoice in a second mutation so the operator does not have
  * to follow the apply step manually.
+ *
+ * PR A3: also pre-fills the Amount field with the invoice's outstanding
+ * balance_cents on first load so the most common case ("pay this invoice in
+ * full") is a one-click flow. The operator can still type a partial amount
+ * over the pre-fill; the prefill effect only fires once per invoice id so
+ * a manual edit is never clobbered.
  */
 export function PaymentCreatePage() {
   const navigate = useNavigate();
@@ -49,6 +58,22 @@ export function PaymentCreatePage() {
     // the controlled state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // PR A3: amount-from-balance pre-fill. Fetch the selected invoice (if
+  // any) and copy its outstanding balance_cents into the Amount field
+  // exactly once per invoice id. Tracked via a ref so a manual edit by
+  // the operator is never clobbered, and so flipping the invoice picker
+  // to a different invoice re-arms the prefill for the new id.
+  const invoice = useInvoice(invoiceId ?? '');
+  const prefillAppliedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!invoiceId) return;
+    if (prefillAppliedForRef.current === invoiceId) return;
+    if (!invoice.data) return;
+    const next = resolveInvoiceBalancePrefill(invoice.data.balance_cents);
+    if (next !== null) setAmountCents(next);
+    prefillAppliedForRef.current = invoiceId;
+  }, [invoiceId, invoice.data]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
