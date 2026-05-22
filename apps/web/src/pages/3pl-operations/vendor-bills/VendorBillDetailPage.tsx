@@ -12,6 +12,7 @@ import { useVendor } from '@/lib/hooks/useVendors';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { VENDOR_BILL_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { VendorBillStatus } from '@/lib/types/vendors_inventory_ops';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 export function VendorBillDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -89,7 +90,14 @@ export function VendorBillDetailPage() {
           {next.map((to) => (
             <button
               key={to}
-              onClick={() => transition.mutate(to as VendorBillStatus)}
+              onClick={() => {
+                // UX-Q8: cancelling reverses an AP obligation.
+                if (to === 'cancelled' && !destructiveConfirm({
+                  action: 'Cancel this vendor bill',
+                  consequence: 'The bill will move to cancelled and the payable obligation will be reversed.',
+                })) return;
+                transition.mutate(to as VendorBillStatus);
+              }}
               disabled={transition.isPending}
               className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
             >

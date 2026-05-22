@@ -16,6 +16,7 @@ import { SHIPMENT_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import { shouldShowShipmentNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import type { ShipmentStatus } from '@/lib/types/vendors_inventory_ops';
 import { formatCents } from '@/lib/money';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { buildCreateInvoiceUrl, getShipmentProjectId } from './shipmentInvoiceLink';
 
 export function ShipmentDetailPage() {
@@ -95,7 +96,17 @@ export function ShipmentDetailPage() {
       <div className="flex gap-2">
         {caps.can('shipments.shipment.update') && next.length > 0
           ? next.map((to) => (
-            <button key={to} onClick={() => transition.mutate(to as ShipmentStatus)} disabled={transition.isPending}
+            <button
+              key={to}
+              onClick={() => {
+                // UX-Q8: cancelling reverses an outbound commitment.
+                if (to === 'cancelled' && !destructiveConfirm({
+                  action: 'Cancel this shipment',
+                  consequence: 'The shipment will move to cancelled and the outbound commitment to the customer will be reversed.',
+                })) return;
+                transition.mutate(to as ShipmentStatus);
+              }}
+              disabled={transition.isPending}
               className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2">{to.replace('_', ' ')}</button>
           ))
           : null}

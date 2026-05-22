@@ -15,6 +15,7 @@ import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { RECEIVING_ORDER_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ReceivingOrderStatus } from '@/lib/types/vendors_inventory_ops';
 import { formatCents } from '@/lib/money';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 export function ReceivingOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -75,7 +76,17 @@ export function ReceivingOrderDetailPage() {
       {caps.can('receiving.order.update') && next.length > 0 ? (
         <div className="flex gap-2">
           {next.map((to) => (
-            <button key={to} onClick={() => transition.mutate(to as ReceivingOrderStatus)} disabled={transition.isPending}
+            <button
+              key={to}
+              onClick={() => {
+                // UX-Q8: cancelling reverses an inbound expectation.
+                if (to === 'cancelled' && !destructiveConfirm({
+                  action: 'Cancel this receiving order',
+                  consequence: 'The order will move to cancelled and the expected inbound stock will no longer be tracked.',
+                })) return;
+                transition.mutate(to as ReceivingOrderStatus);
+              }}
+              disabled={transition.isPending}
               className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2">{to}</button>
           ))}
         </div>

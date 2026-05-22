@@ -23,6 +23,7 @@ import { useMe } from '@/lib/hooks/useMe';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
 
 /**
@@ -240,7 +241,16 @@ export function InvoiceDetailPage() {
           {canCancel && (
             <Button
               variant="ghost"
-              onClick={() => cancelMutation.mutate(invoiceId)}
+              onClick={() => {
+                // UX-Q8: cancelling a posted invoice changes the
+                // customer-facing state (the append-only audit chain
+                // stays intact server-side).
+                if (!destructiveConfirm({
+                  action: 'Cancel this invoice',
+                  consequence: 'The invoice will move to cancelled and stop appearing in active receivable lists.',
+                })) return;
+                cancelMutation.mutate(invoiceId);
+              }}
               disabled={cancelMutation.isPending}
             >
               Cancel
