@@ -185,17 +185,37 @@ function parseSidebarLinks() {
     'shell',
     'Sidebar.tsx',
   );
-  if (!existsSync(path)) return [];
-  const text = readFileSync(path, 'utf8');
-  // NavChild entries: `{ to: '/foo', label: 'Foo', icon: X }`. Match the
-  // `to:` key inside the NavChild object literals. Sidebar also has a
-  // top-level `<NavLink to="/dashboard">`; pick that up too.
+  // Post-UX-Q1 the route strings live in sidebarModes.ts; Sidebar.tsx
+  // consumes the SIDEBAR_MODES export but no longer carries the literal
+  // `to: '/foo'` entries. Scan both files so the orphan-route check
+  // remains accurate. Order matches the import direction (consumer →
+  // data) but the check is path-agnostic.
+  const modesPath = join(
+    ROOT,
+    'apps',
+    'web',
+    'src',
+    'components',
+    'shell',
+    'sidebarModes.ts',
+  );
+  const sources = [path, modesPath].filter((p) => existsSync(p));
+  if (sources.length === 0) return [];
   const out = [];
+  // NavChild entries / ModeSpec route entries: `{ to: '/foo', label: 'Foo' }` or
+  // `{ path: '/foo', label: 'Foo' }`. Match both the `to:` and `path:`
+  // keys inside object literals. Sidebar.tsx also has a top-level
+  // `<NavLink to="/dashboard">`; pick that up too.
   const reTo = /\bto:\s*['"`]([^'"`]+)['"`]/g;
+  const rePath = /\bpath:\s*['"`]([^'"`]+)['"`]/g;
   const reJsx = /<NavLink\s+to=["']([^"']+)["']/g;
   let m;
-  while ((m = reTo.exec(text)) !== null) out.push(m[1]);
-  while ((m = reJsx.exec(text)) !== null) out.push(m[1]);
+  for (const file of sources) {
+    const text = readFileSync(file, 'utf8');
+    while ((m = reTo.exec(text)) !== null) out.push(m[1]);
+    while ((m = rePath.exec(text)) !== null) out.push(m[1]);
+    while ((m = reJsx.exec(text)) !== null) out.push(m[1]);
+  }
   return out;
 }
 
