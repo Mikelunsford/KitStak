@@ -1,8 +1,12 @@
 /**
  * EntityLabel. Resolves a foreign-key UUID to a human-readable label
  * (`{code ?? short_label} · {display_name}`) using the matching list hook
- * for the given kind. Falls back to the raw id when the row cannot be
- * resolved (fetch in flight, deleted parent, cross-tenant filter, etc.).
+ * for the given kind. While the list query is in flight we render a
+ * short-prefix placeholder so the operator never sees a raw UUID flash
+ * on first paint (BNEW-8 from the 2026-05-22 v2 smoke walk). When the
+ * fetch settles and the row is genuinely missing (deleted parent,
+ * cross-tenant filter), we still fall back to the raw id so the field
+ * stays diagnosable.
  *
  * Mirrors the shape originally introduced by PR #31 for the warehouse
  * column on ReceivingOrderDetailPage (F-Wave6-WAREHOUSE-NAME-01).
@@ -23,6 +27,8 @@ import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import { listContacts } from '@/lib/services/contactsService';
 import { listOpportunities } from '@/lib/services/opportunitiesService';
+
+import { classifyEntityLabel } from './entityLabelState';
 
 export type EntityKind =
   | 'warehouse'
@@ -45,8 +51,28 @@ function format(code: string | null | undefined, displayName: string): string {
   return code ? `${code} · ${displayName}` : displayName;
 }
 
+/**
+ * In-flight placeholder. Shown while the matching list query has not
+ * settled yet. Renders the short id prefix (first 8 chars) so the UI
+ * keeps a stable width without leaking the full UUID to the operator.
+ * BNEW-8.
+ */
+function PendingLabel({ id }: { id: string }) {
+  return (
+    <span
+      className="text-ink-dim"
+      data-testid="entity-label-pending"
+      aria-busy="true"
+    >
+      {id.slice(0, 8)}…
+    </span>
+  );
+}
+
 function WarehouseLabel({ id }: { id: string }) {
   const q = useWarehousesList();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((w) => w.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
@@ -58,6 +84,8 @@ function WarehouseLabel({ id }: { id: string }) {
 
 function ItemLabel({ id }: { id: string }) {
   const q = useItemsList();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((it) => it.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
@@ -69,6 +97,8 @@ function ItemLabel({ id }: { id: string }) {
 
 function CustomerLabel({ id }: { id: string }) {
   const q = useCustomers();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((c) => c.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
@@ -80,7 +110,11 @@ function CustomerLabel({ id }: { id: string }) {
 
 function VendorLabel({ id }: { id: string }) {
   const q = useVendorsList();
-  const row = q.data?.items.find((v) => v.id === id);
+  // useVendorsList wraps rows in { items: [...] } — adapt before classifying.
+  const items = q.data?.items;
+  const state = classifyEntityLabel(items, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
+  const row = items?.find((v) => v.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
     <Link to={`/3pl-operations/vendors/${id}`} className="text-ink underline">
@@ -91,6 +125,8 @@ function VendorLabel({ id }: { id: string }) {
 
 function ProjectLabel({ id }: { id: string }) {
   const q = useProjectsList();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((p) => p.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
@@ -106,6 +142,8 @@ function ContactLabel({ id }: { id: string }) {
     queryFn: () => listContacts({}),
     ...C,
   });
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((c) => c.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   const displayName = [row.first_name, row.last_name].filter(Boolean).join(' ');
@@ -118,6 +156,8 @@ function ContactLabel({ id }: { id: string }) {
 
 function AccountLabel({ id }: { id: string }) {
   const q = useChartOfAccounts();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((a) => a.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return <span className="text-ink">{format(row.code, row.name)}</span>;
@@ -129,6 +169,8 @@ function OpportunityLabel({ id }: { id: string }) {
     queryFn: () => listOpportunities({}),
     ...C,
   });
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((o) => o.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (

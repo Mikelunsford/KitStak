@@ -4,6 +4,8 @@ import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { supabase } from '@/lib/supabase';
 import { AuditEntrySchema, type AuditEntry } from '@/lib/types';
 
+import { formatStateLabel } from './auditStateFormatters';
+
 /**
  * AuditTimeline. per-entity audit_log timeline.
  *
@@ -93,7 +95,8 @@ export function AuditTimeline({
               {row.action ?? 'change'}
               {row.from_state && row.to_state ? (
                 <span className="ml-2 text-ink-dim">
-                  {row.from_state} to {row.to_state}
+                  {formatStateLabel(entityType, row.from_state)} to{' '}
+                  {formatStateLabel(entityType, row.to_state)}
                 </span>
               ) : null}
             </span>
