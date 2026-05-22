@@ -35,6 +35,7 @@ import {
 } from '../../_shared/workflow/finance.ts';
 import { BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
+import { nextDocNumber } from '../../_shared/numbering.ts';
 
 const INVOICE_COLS =
   'id, org_id, invoice_number, customer_id, project_id, quote_id, status, ' +
@@ -43,8 +44,13 @@ const INVOICE_COLS =
   'balance_cents, notes, pdf_url, sent_at, sent_to, paid_at, cancelled_at, ' +
   'created_at, updated_at';
 
+// BNEW-4 (v2 smoke 2026-05-22): invoice_number is optional. When absent or
+// whitespace-only the handler allocates the next INV-YYYY-NNNNN via the
+// numbering chassis (next_doc_number RPC). Operator-supplied values still
+// win. Migration 0060 wired the same behaviour into convert_project_to_invoice;
+// this standalone POST /invoices handler was missed at PR #105 close.
 const InvoiceCreateSchema = z.object({
-  invoice_number: z.string().min(1),
+  invoice_number: z.string().min(1).optional(),
   customer_id: z.string().uuid().optional(),
   project_id: z.string().uuid().optional(),
   quote_id: z.string().uuid().optional(),
@@ -170,9 +176,19 @@ export async function createInvoice(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /invoices`,
     body,
     async () => {
+      // BNEW-4 (v2 smoke 2026-05-22): operator may pass an invoice_number to
+      // override; otherwise the org-scoped numbering chassis allocates the
+      // next INV-YYYY-NNNNN string via next_doc_number. Empty / whitespace-
+      // only strings are treated as absent so the SPA can drop the field
+      // entirely. Mirrors the manufacturing-api + quotes-api / ops-api
+      // pattern landed at PR #105 (B8) and the convert RPC in 0060.
+      const supplied = body.invoice_number?.trim();
+      const invoiceNumber = supplied
+        ? supplied
+        : await nextDocNumber(caller.orgId, 'invoice');
       const insert = {
         org_id: caller.orgId,
-        invoice_number: body.invoice_number,
+        invoice_number: invoiceNumber,
         customer_id: body.customer_id ?? null,
         project_id: body.project_id ?? null,
         quote_id: body.quote_id ?? null,

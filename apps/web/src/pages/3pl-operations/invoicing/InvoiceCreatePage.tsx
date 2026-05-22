@@ -22,7 +22,11 @@ export function InvoiceCreatePage() {
   const prefilledCustomerId = searchParams.get('customer_id');
   const prefilledProjectId = searchParams.get('project_id');
 
-  const [invoiceNumber, setInvoiceNumber] = useState('');
+  // BNEW-4 (v2 smoke 2026-05-22): the invoicing-api handler now allocates
+  // INV-YYYY-NNNNN via the numbering chassis when invoice_number is absent,
+  // so the SPA no longer asks the operator to type it. Mirrors the quote /
+  // receiving / shipment create pages landed at PR #105 (B8). Per-org prefix /
+  // pad / reset policy is configurable from the numbering admin page.
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
   const [quoteId, setQuoteId] = useState('');
@@ -35,7 +39,6 @@ export function InvoiceCreatePage() {
     e.preventDefault();
     try {
       const body: {
-        invoice_number: string;
         currency_code: string;
         customer_id?: string;
         project_id?: string;
@@ -44,7 +47,6 @@ export function InvoiceCreatePage() {
         due_date?: string;
         notes?: string;
       } = {
-        invoice_number: invoiceNumber,
         currency_code: currency,
       };
       if (customerId) body.customer_id = customerId;
@@ -64,15 +66,6 @@ export function InvoiceCreatePage() {
     <section className="px-8 py-8 max-w-2xl flex flex-col gap-6">
       <h1 className="text-4xl font-display tracking-wide text-ink">NEW INVOICE</h1>
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-        <Field label="Invoice number">
-          <input
-            type="text"
-            value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            required
-            className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
-          />
-        </Field>
         <CustomerPicker
           value={customerId}
           onChange={setCustomerId}
