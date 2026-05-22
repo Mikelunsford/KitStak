@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import {
   useJournalEntry,
@@ -36,6 +37,12 @@ export function JournalEntryDetailPage() {
 
   return (
     <section className="px-8 py-8 flex flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Journal entries', to: '/finance/journal-entries' },
+          { label: entry.entry_number },
+        ]}
+      />
       <header className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase text-ink-dim font-sans">Journal entry</p>

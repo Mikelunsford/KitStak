@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { useCustomer } from '@/lib/hooks/useCustomer';
@@ -79,6 +80,12 @@ export function CustomerDetailPage() {
 
   return (
     <section className="px-8 py-10 max-w-4xl mx-auto flex flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Customers', to: '/crm/customers' },
+          { label: c.display_name },
+        ]}
+      />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {c.display_name.toUpperCase()}

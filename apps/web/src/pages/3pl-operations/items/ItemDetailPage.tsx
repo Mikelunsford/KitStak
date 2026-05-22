@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useItem } from '@/lib/hooks/useItems';
 import { formatCents } from '@/lib/money';
 
@@ -10,6 +11,12 @@ export function ItemDetailPage() {
   if (error || !data) return <p className="p-8 text-accent">Item not found.</p>;
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Items', to: '/3pl-operations/items' },
+          { label: data.sku },
+        ]}
+      />
       <h1 className="text-4xl font-display tracking-wide text-ink">{data.name}</h1>
       <dl className="grid grid-cols-2 gap-x-8 gap-y-3 font-sans text-ink">
         <dt className="text-ink-dim">SKU</dt>

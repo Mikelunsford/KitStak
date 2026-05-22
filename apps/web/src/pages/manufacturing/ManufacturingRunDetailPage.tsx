@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -187,6 +188,13 @@ export function ManufacturingRunDetailPage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Manufacturing', to: '/manufacturing/runs' },
+          { label: 'Runs', to: '/manufacturing/runs' },
+          { label: d.run_number ?? d.id.slice(0, 8) },
+        ]}
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           MANUFACTURING RUN {d.run_number ?? d.id.slice(0, 8)}

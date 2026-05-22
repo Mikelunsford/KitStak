@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { leadsKeys } from '@/lib/queryKeys/leads';
 import { getLead } from '@/lib/services/leadsService';
@@ -24,6 +25,12 @@ export function LeadDetailPage() {
   const l = query.data;
   return (
     <section className="px-8 py-10 max-w-3xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Leads', to: '/crm/leads' },
+          { label: l.display_name },
+        ]}
+      />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {l.display_name.toUpperCase()}

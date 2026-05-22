@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import {
@@ -76,6 +78,17 @@ export function VendorBillDetailPage() {
 
   return (
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Vendors', to: '/3pl-operations/vendors' },
+          {
+            label: fallbackLabel(vendor.data?.display_name, d.vendor_id),
+            to: `/3pl-operations/vendors/${d.vendor_id}`,
+          },
+          { label: 'Bills', to: '/3pl-operations/vendor-bills' },
+          { label: d.bill_number ?? d.id.slice(0, 8) },
+        ]}
+      />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           BILL {d.bill_number ?? d.id.slice(0, 8)}

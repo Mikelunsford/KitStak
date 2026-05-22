@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useVendor } from '@/lib/hooks/useVendors';
 import { usePurchaseOrdersList } from '@/lib/hooks/usePurchaseOrders';
 import { useVendorBillsList } from '@/lib/hooks/useVendorBills';
@@ -43,6 +44,12 @@ export function VendorDetailPage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Vendors', to: '/3pl-operations/vendors' },
+          { label: data.display_name },
+        ]}
+      />
       <h1 className="text-4xl font-display tracking-wide text-ink">
         {data.display_name}
       </h1>

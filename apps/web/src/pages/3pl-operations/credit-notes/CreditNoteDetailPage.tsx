@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useCreditNote } from '@/lib/hooks/useCreditNotes';
 import { useInvoice } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
@@ -27,6 +28,12 @@ export function CreditNoteDetailPage() {
 
   return (
     <section className="px-8 py-8 flex flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Credit notes', to: '/invoicing/credit-notes' },
+          { label: row.credit_note_number },
+        ]}
+      />
       <header>
         <p className="text-xs uppercase text-ink-dim font-sans">Credit note</p>
         <h1 className="text-4xl font-display tracking-wide text-ink">
