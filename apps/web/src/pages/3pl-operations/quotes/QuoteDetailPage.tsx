@@ -84,17 +84,13 @@ export function QuoteDetailPage() {
     ? hasCap(me.data.active_role, 'pdf.document.render')
     : false;
 
-  if (isLoading) return <p className="p-8 text-ink-dim">Loading.</p>;
-  if (error || !data) return <p className="p-8 text-accent">Quote not found.</p>;
-
-  const { quote, lineItems } = data;
-  const state = quote.state as QuoteState;
-
   // PR-C / BNEW-3: pre-fill Name, SKU, and Unit price when the fetched item
   // resolves. Doing this synchronously inside the picker's onChange handler
   // raced against the `useItem` query — on the first pick `selectedItem.data`
   // was undefined and the fields stayed empty, then Name failed the required
   // validation. A useEffect watching the resolved item id closes the race.
+  // MUST live above the early returns below so the hook call order stays
+  // stable across renders (react-hooks/rules-of-hooks).
   useEffect(() => {
     if (!selectedItemId) return;
     const next = applyItemSelection(selectedItem.data);
@@ -106,6 +102,12 @@ export function QuoteDetailPage() {
     setLineSku(next.sku);
     setLinePrice(next.unit_price_cents);
   }, [selectedItemId, selectedItem.data]);
+
+  if (isLoading) return <p className="p-8 text-ink-dim">Loading.</p>;
+  if (error || !data) return <p className="p-8 text-accent">Quote not found.</p>;
+
+  const { quote, lineItems } = data;
+  const state = quote.state as QuoteState;
 
   // F-Wave8-PDF-QUOTE-DOWNLOAD-01. Build the quote render payload from the
   // loaded quote and its line items, call the pdf-worker, and trigger a
