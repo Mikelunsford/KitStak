@@ -3,11 +3,13 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   Flag,
   Hash,
   Home,
   Palette,
   Settings,
+  Upload,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -54,6 +56,8 @@ const ADMIN_LINKS: ReadonlyArray<AdminLink> = [
   { to: '/admin/branding', label: 'Branding', icon: Palette },
   { to: '/admin/flags', label: 'Feature flags', icon: Flag },
   { to: '/admin/numbering', label: 'Numbering', icon: Hash },
+  { to: '/imports', label: 'Imports', icon: Upload },
+  { to: '/exports', label: 'Exports', icon: Download },
 ];
 
 const STORAGE_KEY = 'kitstak.sidebar.modes.expanded';

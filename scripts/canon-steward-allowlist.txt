@@ -44,3 +44,14 @@ orphan-route|apps/web/src/routes.ts|/3pl-operations/vas
 # Sidebar or drop from this allowlist when the IA decision lands).
 # ---------------------------------------------------------------------------
 orphan-route|apps/web/src/routes.ts|/imports/history
+
+# ---------------------------------------------------------------------------
+# orphan-route: /search.
+# Global search is a top-bar feature reachable from AppShell's header,
+# not a Sidebar entry. The route is intentionally NOT in SIDEBAR_MODES
+# because it would compete with the workflow-stage IA without adding
+# discoverability value (operators reach it via the header search box).
+# Follow-up: F-Wave9-SEARCH-PROMOTE-01 (revisit if usage data shows the
+# header search box is being missed).
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/search

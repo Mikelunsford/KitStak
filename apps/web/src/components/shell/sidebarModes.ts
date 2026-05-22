@@ -133,6 +133,11 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     routes: [
       { path: '/3pl-operations/shipments', label: 'Shipments', icon: Truck },
       {
+        path: '/3pl-operations/stock/levels',
+        label: 'Stock levels',
+        icon: Package,
+      },
+      {
         path: '/3pl-operations/stock/movements',
         label: 'Stock movements',
         icon: ArrowLeftRight,
@@ -148,6 +153,9 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/invoicing/invoices', label: 'Invoices', icon: FileSpreadsheet },
       { path: '/invoicing/credit-notes', label: 'Credit notes', icon: FileMinus },
       { path: '/invoicing/payments', label: 'Payments', icon: DollarSign },
+      { path: '/kitcost/dashboard', label: 'Cost dashboard', icon: DollarSign },
+      { path: '/finance/coa', label: 'Chart of accounts', icon: Wallet },
+      { path: '/finance/period-close', label: 'Period close', icon: Wallet },
       {
         path: '/finance/journal-entries',
         label: 'Journal entries',
