@@ -169,6 +169,13 @@ export const DashboardSummarySchema = z.object({
   in_flight_shipments_count: z.number().int().nonnegative(),
   active_projects_count: z.number().int().nonnegative(),
   currency_code: z.string().default('USD'),
+  // UX-Q5: live dashboard work-card counts. Default to 0 so older clients
+  // that do not yet send these fields parse cleanly against a refreshed
+  // schema during deploy lag.
+  quotes_awaiting_approval_count: z.number().int().nonnegative().default(0),
+  runs_in_production_count: z.number().int().nonnegative().default(0),
+  shipments_ready_to_ship_count: z.number().int().nonnegative().default(0),
+  unpaid_invoices_count: z.number().int().nonnegative().default(0),
 });
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;
 

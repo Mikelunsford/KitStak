@@ -33,6 +33,28 @@ async function countTable(
   return count ?? 0;
 }
 
+// UX-Q5 helper. Counts rows whose status column matches any of the provided
+// states, ignoring soft-deleted rows. Matches the work-card predicates
+// declared in the UX revision spec. Falls back to 0 on any error (e.g. an
+// upstream table missing) so the dashboard never 500s on a fresh org.
+async function countByStates(
+  client: ReturnType<typeof admin>,
+  table: string,
+  statusColumn: string,
+  orgId: string,
+  states: ReadonlyArray<string>,
+): Promise<number> {
+  let q = client
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .in(statusColumn, states)
+    .is('deleted_at', null);
+  const { count, error } = await q;
+  if (error) return 0;
+  return count ?? 0;
+}
+
 async function sumColumn(
   client: ReturnType<typeof admin>,
   table: string,
@@ -67,6 +89,18 @@ const summary: Route = {
     // Each helper tolerates a missing parent table by returning 0; that
     // keeps the bundle deployable even when an upstream agent's migration
     // has not yet been applied.
+    //
+    // UX-Q5: the four `*_work_card_count` fields back the dashboard work
+    // cards. Predicates per the UX revision spec:
+    //   - quotes_awaiting_approval_count: state IN ('submitted',
+    //     'revise_requested') AND deleted_at IS NULL
+    //   - runs_in_production_count: status = 'started' AND deleted_at IS NULL
+    //     (manufacturing_runs has no 'in_progress'; 'started' covers the
+    //     working state per ManufacturingRunStatusSchema)
+    //   - shipments_ready_to_ship_count: status IN ('created','picking')
+    //     AND deleted_at IS NULL
+    //   - unpaid_invoices_count: status IN ('sent','partially_paid',
+    //     'overdue') AND deleted_at IS NULL
     const [
       openInvoices,
       overdueInvoices,
@@ -75,6 +109,10 @@ const summary: Route = {
       inFlightShipments,
       activeProjects,
       arBalance,
+      quotesAwaitingApproval,
+      runsInProduction,
+      shipmentsReadyToShip,
+      unpaidInvoices,
     ] = await Promise.all([
       countTable(client, 'invoices', orgId, [['status', 'open']]).catch(() => 0),
       countTable(client, 'invoices', orgId, [['status', 'overdue']]).catch(() => 0),
@@ -83,6 +121,22 @@ const summary: Route = {
       countTable(client, 'shipments', orgId, [['status', 'in_transit']]).catch(() => 0),
       countTable(client, 'projects', orgId, [['status', 'active']]).catch(() => 0),
       sumColumn(client, 'invoices', 'balance_cents', orgId, [['status', 'open']]).catch(() => 0n),
+      countByStates(client, 'quotes', 'state', orgId, [
+        'submitted',
+        'revise_requested',
+      ]).catch(() => 0),
+      countByStates(client, 'manufacturing_runs', 'status', orgId, [
+        'started',
+      ]).catch(() => 0),
+      countByStates(client, 'shipments', 'status', orgId, [
+        'created',
+        'picking',
+      ]).catch(() => 0),
+      countByStates(client, 'invoices', 'status', orgId, [
+        'sent',
+        'partially_paid',
+        'overdue',
+      ]).catch(() => 0),
     ]);
 
     // Resolve currency from org default.
@@ -102,6 +156,11 @@ const summary: Route = {
       active_projects_count: activeProjects,
       ar_balance_cents: arBalance.toString(),
       currency_code: currency,
+      // UX-Q5 work-card counts.
+      quotes_awaiting_approval_count: quotesAwaitingApproval,
+      runs_in_production_count: runsInProduction,
+      shipments_ready_to_ship_count: shipmentsReadyToShip,
+      unpaid_invoices_count: unpaidInvoices,
     };
     return ok(out);
   },

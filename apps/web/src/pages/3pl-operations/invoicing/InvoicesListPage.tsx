@@ -1,16 +1,37 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { useInvoices } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
+
+const ALLOWED_INVOICE_STATUSES = new Set<string>([
+  'draft',
+  'sent',
+  'partially_paid',
+  'paid',
+  'overdue',
+  'cancelled',
+]);
+
+function parseInvoiceStatusParam(raw: string | null): string | undefined {
+  if (raw && ALLOWED_INVOICE_STATUSES.has(raw)) return raw;
+  return undefined;
+}
 
 /**
  * InvoicesListPage. Lists invoices in the active org. Status filter chips,
  * paginated through TanStack Query. The full ledger view ships with sorting
  * and customer filter in a later wave; Wave 2 focuses on chassis correctness.
+ *
+ * UX-Q5: accepts ?status= deep-links from the dashboard work card
+ * ("Unpaid invoices" -> ?status=sent). The filter is captured into local
+ * state on mount so the operator can change it via the chips.
  */
 export function InvoicesListPage() {
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState<string | undefined>(() =>
+    parseInvoiceStatusParam(searchParams.get('status')),
+  );
   const { data, isLoading, error } = useInvoices(status ? { status } : {});
 
   return (
