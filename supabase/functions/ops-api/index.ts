@@ -275,8 +275,22 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id/transition', body, async () => {
         const cur = await loadOrgScoped<ReceivingOrder>('receiving_orders', caller, params.id);
         assertTransition(RECEIVING_ORDER_FSM, cur.status, body.to);
+        // B9 fix: the SPA detail page state-machine button POSTs to /transition
+        // (not the dedicated /receive endpoint that stamps received_date). Stamp
+        // received_date here when transitioning TO 'received' so the column is
+        // populated atomically with the status change. Match the YYYY-MM-DD
+        // date format used by /receive (received_date is a `date` column per
+        // migration 0032_ops_receiving_production_shipments.sql).
+        const updatePayload: Record<string, unknown> = {
+          status: body.to,
+          updated_by: caller.userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (body.to === 'received') {
+          updatePayload.received_date = new Date().toISOString().slice(0, 10);
+        }
         const { data, error } = await admin().from('receiving_orders')
-          .update({ status: body.to, updated_by: caller.userId, updated_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
         if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
         return ok(ReceivingOrderSchema.parse(data));
