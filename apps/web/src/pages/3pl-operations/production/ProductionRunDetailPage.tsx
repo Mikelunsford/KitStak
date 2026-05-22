@@ -3,6 +3,7 @@ import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { useProductionRun, useStartProductionRun, useCompleteProductionRun } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 export function ProductionRunDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,7 +27,17 @@ export function ProductionRunDetailPage() {
         ) : null}
         {d.status === 'in_progress' && caps.can('production.complete') ? (
           <button
-            onClick={() => complete.mutate({ quantity_produced: d.quantity_planned, consumed: [] })}
+            onClick={() => {
+              // UX-Q8: Complete on a production run writes
+              // production_consumed and production_produced stock
+              // movements; the transition cannot be undone.
+              if (!destructiveConfirm({
+                action: 'Complete this production run',
+                consequence: 'This writes production_consumed and production_produced stock movements.',
+                irreversible: true,
+              })) return;
+              complete.mutate({ quantity_produced: d.quantity_planned, consumed: [] });
+            }}
             disabled={complete.isPending}
             className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2">Complete</button>
         ) : null}

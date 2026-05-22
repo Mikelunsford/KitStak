@@ -23,6 +23,7 @@ import {
 } from '@/lib/workflow/sales';
 import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents } from '@/lib/money';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import type { ProjectPhase } from '@/lib/types/sales';
 
 // F-Wave2-DNDKIT-01: drag-and-drop phase reorder lives in its own lazy
@@ -252,7 +253,21 @@ export function ProjectDetailPage() {
         {PROJECT_TARGETS
           .filter((to) => to !== state && canTransition(PROJECT_FSM, state, to))
           .map((to) => (
-            <Button key={to} variant="secondary" onClick={() => transition.mutate({ to })}>
+            <Button
+              key={to}
+              variant="secondary"
+              onClick={() => {
+                // UX-Q8: only the cancelled transition is destructive.
+                // Other targets ('pending', 'ready_to_build',
+                // 'in_production', 'ready_to_ship', 'completed') are
+                // forward movements through the project lifecycle.
+                if (to === 'cancelled' && !destructiveConfirm({
+                  action: 'Cancel this project',
+                  consequence: 'The project will move to cancelled and stop appearing in active work lists.',
+                })) return;
+                transition.mutate({ to });
+              }}
+            >
               Move to {to.replace(/_/g, ' ')}
             </Button>
           ))}

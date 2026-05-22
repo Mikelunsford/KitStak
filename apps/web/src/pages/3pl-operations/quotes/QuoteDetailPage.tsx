@@ -19,6 +19,7 @@ import { renderPdf } from '@/lib/services/pdfService';
 import { canTransition, QUOTE_FSM } from '@/lib/workflow/sales';
 import { shouldShowQuoteNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents } from '@/lib/money';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import type { QuoteState } from '@/lib/types/sales';
 
 /**
@@ -221,7 +222,17 @@ export function QuoteDetailPage() {
           <Button variant="secondary" onClick={() => revise.mutate(id)}>Request revise</Button>
         )}
         {canTransition(QUOTE_FSM, state, 'cancelled') && id && (
-          <Button variant="ghost" onClick={() => cancel.mutate(id)}>Cancel</Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              // UX-Q8: cancelling reverses an active sales flow.
+              if (!destructiveConfirm({
+                action: 'Cancel this quote',
+                consequence: 'The quote will move to cancelled and stop appearing in active sales lists.',
+              })) return;
+              cancel.mutate(id);
+            }}
+          >Cancel</Button>
         )}
         {state === 'approved' && id && (
           <Button variant="secondary" onClick={() => send.mutate(id)}>Send to customer</Button>

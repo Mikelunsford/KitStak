@@ -22,6 +22,7 @@ import {
 import { useStockLevels } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 /**
  * Non-blocking warning surfaced when staging a Consumed line would push the
@@ -164,22 +165,32 @@ export function ManufacturingRunDetailPage() {
   }
 
   function onComplete() {
-    const ok = window.confirm(
-      'Complete this manufacturing run? This writes stock movements and cannot be undone.',
-    );
-    if (!ok) return;
+    // UX-Q8: Complete is the original precedent for destructive confirm.
+    // Route through destructiveConfirm so the copy stays in sync with the
+    // other irreversible transitions across the SPA.
+    if (!destructiveConfirm({
+      action: 'Complete this manufacturing run',
+      consequence: 'This writes production_consumed and production_produced stock movements.',
+      irreversible: true,
+    })) return;
     complete.mutate();
   }
 
   function onCancel() {
-    const ok = window.confirm('Cancel this manufacturing run?');
-    if (!ok) return;
+    // UX-Q8: cancelling an in-flight build reverses the work commitment.
+    if (!destructiveConfirm({
+      action: 'Cancel this manufacturing run',
+      consequence: 'The run will move to cancelled and stop appearing in active build lists.',
+    })) return;
     cancel.mutate();
   }
 
   function onDelete() {
-    const ok = window.confirm('Delete this draft manufacturing run?');
-    if (!ok) return;
+    if (!destructiveConfirm({
+      action: 'Delete this draft manufacturing run',
+      consequence: 'The draft will be removed permanently.',
+      irreversible: true,
+    })) return;
     remove.mutate(undefined, {
       onSuccess: () => navigate('/manufacturing/runs'),
     });

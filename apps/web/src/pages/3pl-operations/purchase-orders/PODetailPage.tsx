@@ -15,6 +15,7 @@ import {
   PURCHASE_ORDER_FSM, canTransitionVio,
 } from '@/lib/workflow/vendors_inventory_ops';
 import type { PurchaseOrderStatus } from '@/lib/types/vendors_inventory_ops';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 export function PODetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,7 +112,14 @@ export function PODetailPage() {
               key={to}
               type="button"
               disabled={transition.isPending || !canTransitionVio(PURCHASE_ORDER_FSM, data.status, to)}
-              onClick={() => transition.mutate(to as PurchaseOrderStatus)}
+              onClick={() => {
+                // UX-Q8: cancelling reverses a vendor commitment.
+                if (to === 'cancelled' && !destructiveConfirm({
+                  action: 'Cancel this purchase order',
+                  consequence: 'The order will move to cancelled and the vendor commitment will be reversed.',
+                })) return;
+                transition.mutate(to as PurchaseOrderStatus);
+              }}
               className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
             >
               {to.replace('_', ' ')}
