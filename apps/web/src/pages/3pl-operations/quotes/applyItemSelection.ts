@@ -1,16 +1,19 @@
-// PR-C / BNEW-3: helper for pre-filling the quote line-add form when the
-// operator picks an item from ItemPicker. Extracted as a pure function so
-// the vitest unit test can pin the contract without rendering the page.
+// PR-C / BNEW-3 (refined by PR-F): helper for pre-filling the quote
+// line-add form when the operator picks an item from ItemPicker.
+// Extracted as a pure function so the vitest unit test can pin the
+// contract without rendering the page.
 //
-// The bug this closes: the original `onPickItem` handler read
-// `selectedItem.data` from `useItem(selectedItemId)` *synchronously* after
-// calling `setSelectedItemId(itemId)`. On the first pick, the query is in
-// flight, so `selectedItem.data` is undefined and the name/sku/price fields
-// stay empty. The form then validates Name as required and the operator has
-// to retype it. See `Kitstak_E2E_Smoke_v2_Results_2026-05-22.md` § BNEW-3.
+// History: PR-C originally closed an async-stale race with a
+// `useEffect` watching a `useItem(id)` result. That fixed the empty-
+// fields bug from `Kitstak_E2E_Smoke_v2_Results_2026-05-22.md` § BNEW-3
+// but introduced a visible flash (id landed one render before fields).
+// PR-F removes the effect entirely: ItemPicker now emits the matched
+// Item from its loaded list at selection time, and QuoteDetailPage
+// calls this helper *synchronously* from the picker's onChange.
 //
-// The fix moves the prefill into a `useEffect` watching the resolved item,
-// and the actual field-population logic lives here as a pure function.
+// The shape of this helper has not changed — it accepts an Item and
+// returns the populated field bundle, so the unit-test contract is
+// preserved across both call patterns.
 
 import type { Item } from '@/lib/types/sales';
 
@@ -21,10 +24,10 @@ export interface ItemSelectionFields {
 }
 
 /**
- * Given a fetched Item, return the values that should populate the quote
- * line-add form fields. Returns null when no item is provided so the caller
- * can decide to leave the form alone (e.g. on clear or while the query is
- * pending).
+ * Given an Item (resolved synchronously from the ItemPicker dropdown
+ * list as of PR-F), return the values that should populate the quote
+ * line-add form fields. Returns null when no item is provided so the
+ * caller can leave the form alone (e.g. on clear).
  */
 export function applyItemSelection(item: Item | null | undefined): ItemSelectionFields | null {
   if (!item) return null;
