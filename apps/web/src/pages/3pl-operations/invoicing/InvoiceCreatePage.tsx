@@ -2,8 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
-import { TextInput } from '@/components/ui/TextInput';
-import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
+import { CustomerPicker, ProjectPicker, QuotePicker } from '@/components/ui/pickers';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
 import { useProjectsList } from '@/lib/hooks/useProjects';
 
@@ -32,7 +31,10 @@ export function InvoiceCreatePage() {
   // pad / reset policy is configurable from the numbering admin page.
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
-  const [quoteId, setQuoteId] = useState('');
+  // B2 (Wave B): operator picks the source quote via the typed list now
+  // rather than pasting a UUID. quoteId stays a nullable id so the rest
+  // of the submit body code keeps its conditional spread shape.
+  const [quoteId, setQuoteId] = useState<string | null>(null);
 
   // BNEW-9: when the caller deep-links with customer_id but no project_id
   // (e.g. the Shipment "Create invoice" CTA, since shipments don't carry
@@ -101,11 +103,11 @@ export function InvoiceCreatePage() {
           label="Project (optional)"
           filter={customerId ? { customer_id: customerId } : undefined}
         />
-        <TextInput
-          label="Source quote id (optional)"
+        <QuotePicker
           value={quoteId}
-          onChange={(e) => setQuoteId(e.target.value)}
-          placeholder="optional uuid"
+          onChange={setQuoteId}
+          label="Source quote (optional)"
+          filter={customerId ? { customer_id: customerId } : undefined}
         />
         <Field label="Currency">
           <input
