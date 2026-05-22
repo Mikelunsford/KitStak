@@ -302,9 +302,15 @@ const kitcostSummary: Route = {
     const activeProjects = (activeProjectsCount.count as number | null) ?? 0;
 
     // KPI 4: inventory value = SUM(stock_levels.quantity_on_hand *
-    //   items.unit_cost_cents) over the org. Items without unit_cost_cents
-    //   contribute zero. The two tables are joined client-side via an item
-    //   id lookup; the dataset is small for v1 operators.
+    //   cost_cents) over the org. Cost source is items.unit_cost_cents
+    //   if non-null on the catalog, falling back to the most recent
+    //   receiving_order_line_items.unit_cost_cents for that item if the
+    //   catalog row has no cost set. The receiving fallback was added
+    //   for BNEW-6 (2026-05-22 v2 smoke walk) because v1 operators set
+    //   the unit cost on the receiving line, not on the catalog row,
+    //   and the KPI would otherwise stay at $0.00 even with valued
+    //   stock on hand. Two tables are joined client-side via an item id
+    //   lookup; the dataset is small for v1 operators.
     let inventoryValue = 0n;
     try {
       const { data: levels } = await client
@@ -323,7 +329,43 @@ const kitcostSummary: Route = {
           .in('id', itemIds);
         const costByItem = new Map<string, bigint>();
         for (const it of (items ?? []) as Array<Record<string, unknown>>) {
-          costByItem.set(it.id as string, asBig(it.unit_cost_cents));
+          // Only seed from catalog when unit_cost_cents is non-null; a
+          // null catalog cost should fall through to the receiving
+          // fallback below.
+          if (it.unit_cost_cents !== null && it.unit_cost_cents !== undefined) {
+            costByItem.set(it.id as string, asBig(it.unit_cost_cents));
+          }
+        }
+        // BNEW-6: fall back to receiving_order_line_items.unit_cost_cents
+        // for any item that still has no cost mapped. The receiving line
+        // captures what the operator actually paid, which is the cost
+        // they expect to see reflected in the inventory value KPI.
+        const missingIds = itemIds.filter((id) => !costByItem.has(id));
+        if (missingIds.length > 0) {
+          const { data: rliRows } = await client
+            .from('receiving_order_line_items')
+            .select('item_id,unit_cost_cents,created_at')
+            .eq('org_id', orgId)
+            .in('item_id', missingIds);
+          // Pick the most recent non-null cost per item.
+          const latestByItem = new Map<
+            string,
+            { cost: bigint; createdAt: string }
+          >();
+          for (const row of (rliRows ?? []) as Array<Record<string, unknown>>) {
+            const itemId = row.item_id as string | null;
+            const cost = row.unit_cost_cents;
+            if (!itemId) continue;
+            if (cost === null || cost === undefined) continue;
+            const createdAt = (row.created_at as string | null) ?? '';
+            const prior = latestByItem.get(itemId);
+            if (!prior || createdAt > prior.createdAt) {
+              latestByItem.set(itemId, { cost: asBig(cost), createdAt });
+            }
+          }
+          for (const [itemId, entry] of latestByItem) {
+            costByItem.set(itemId, entry.cost);
+          }
         }
         for (const lv of levelRows) {
           const qty = asNum(lv.quantity_on_hand);

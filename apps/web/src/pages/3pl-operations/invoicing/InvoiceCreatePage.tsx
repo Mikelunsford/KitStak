@@ -1,10 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
+import { useProjectsList } from '@/lib/hooks/useProjects';
+
+import { deriveInvoiceProjectId } from './deriveInvoiceProjectId';
 
 /**
  * InvoiceCreatePage. Captures the FK pivots that the handler already
@@ -26,6 +29,27 @@ export function InvoiceCreatePage() {
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
   const [quoteId, setQuoteId] = useState('');
+
+  // BNEW-9: when the caller deep-links with customer_id but no project_id
+  // (e.g. the Shipment "Create invoice" CTA, since shipments don't carry
+  // a project_id column yet — F-Wave9-UX-Q6-SHIPMENT-LIST-FILTER-01),
+  // derive the most recent active project for that customer and use it
+  // as the pre-fill. The operator can change it via the picker before
+  // submit. We only derive when the operator hasn't picked anything
+  // themselves yet (projectId is null) and the caller didn't pre-fill.
+  const projectsList = useProjectsList(
+    customerId ? { customer_id: customerId } : {},
+  );
+  useEffect(() => {
+    if (projectId !== null) return;
+    if (!customerId) return;
+    if (projectsList.data === undefined) return;
+    const derived = deriveInvoiceProjectId(projectsList.data, customerId);
+    if (derived) setProjectId(derived);
+    // We intentionally depend on `customerId` and the projects payload so
+    // the derivation re-runs when the operator switches customers. Once
+    // the operator picks a project (or the form already has one) we stop.
+  }, [projectId, customerId, projectsList.data]);
   const [currency, setCurrency] = useState('USD');
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
