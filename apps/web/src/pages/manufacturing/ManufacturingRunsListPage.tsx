@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useManufacturingRunsList } from '@/lib/hooks/useManufacturing';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
@@ -107,6 +108,15 @@ export function ManufacturingRunsListPage() {
         </p>
       ) : null}
 
+      {!runs.isLoading && (runs.data ?? []).length === 0 && status === 'all' && !warehouseId ? (
+        <ListEmptyState
+          entity="manufacturing run"
+          explainer="Manufacturing runs convert raw materials into finished kits."
+          addLabel="Add manufacturing run"
+          addTo="/manufacturing/runs/new"
+          canAdd={caps.can('manufacturing.run.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr>
@@ -122,7 +132,7 @@ export function ManufacturingRunsListPage() {
           {(runs.data ?? []).length === 0 && !runs.isLoading ? (
             <tr>
               <td colSpan={6} className="px-4 py-6 text-ink-dim text-sm">
-                No manufacturing runs yet. Click New manufacturing run to create your first one.
+                No manufacturing runs match the current filters.
               </td>
             </tr>
           ) : (
@@ -153,6 +163,7 @@ export function ManufacturingRunsListPage() {
           )}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

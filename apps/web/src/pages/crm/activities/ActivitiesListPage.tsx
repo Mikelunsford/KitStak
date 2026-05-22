@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { activitiesKeys } from '@/lib/queryKeys/activities';
 import { listActivities } from '@/lib/services/activitiesService';
 
@@ -39,6 +40,13 @@ export function ActivitiesListPage() {
       </select>
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
+      ) : (query.data?.length ?? 0) === 0 ? (
+        <ListEmptyState
+          entity="activity"
+          explainer="Activities log calls, emails, and notes against a customer or opportunity."
+          addLabel="Add activity"
+          addTo="/crm/activities/new"
+        />
       ) : (
         <table className="w-full border border-line">
           <thead className="bg-bg-2 text-left font-display tracking-wider text-sm">

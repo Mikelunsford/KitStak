@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useCreditNotes } from '@/lib/hooks/useCreditNotes';
 import { formatCents } from '@/lib/money';
 
@@ -20,6 +21,13 @@ export function CreditNotesListPage() {
         <p className="text-ink-dim">Loading credit notes.</p>
       ) : error ? (
         <p className="text-accent">Failed to load credit notes.</p>
+      ) : (data?.length ?? 0) === 0 ? (
+        <ListEmptyState
+          entity="credit note"
+          explainer="Credit notes reverse part or all of an invoice."
+          addLabel="Add credit note"
+          addTo="/3pl-operations/credit-notes/new"
+        />
       ) : (
         <table className="w-full text-sm font-sans border-collapse">
           <thead>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { usePurchaseOrdersList } from '@/lib/hooks/usePurchaseOrders';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -32,6 +33,15 @@ export function POsListPage() {
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {error ? <p className="text-accent">Failed to load.</p> : null}
 
+      {!isLoading && !error && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="purchase order"
+          explainer="Purchase orders commit to buying from a vendor."
+          addLabel="Add purchase order"
+          addTo="/3pl-operations/purchase-orders/new"
+          canAdd={caps.can('purchase_orders.purchase_order.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr>
@@ -58,6 +68,7 @@ export function POsListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

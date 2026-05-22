@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useShipmentsList } from '@/lib/hooks/useOps';
 
 const ALLOWED_SHIPMENT_STATUSES = new Set<string>([
@@ -45,6 +46,14 @@ export function ShipmentsListPage() {
         </p>
       ) : null}
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
+      {!isLoading && (filtered ?? []).length === 0 && !statusFilter ? (
+        <ListEmptyState
+          entity="shipment"
+          explainer="Shipments track outbound inventory leaving the warehouse."
+          addLabel="Add shipment"
+          addTo="/3pl-operations/shipments/new"
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr><th className="px-4 py-2">#</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Warehouse</th><th className="px-4 py-2">Ship date</th><th className="px-4 py-2">Carrier</th></tr>
@@ -61,6 +70,7 @@ export function ShipmentsListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

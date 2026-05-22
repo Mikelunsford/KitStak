@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { usePayments } from '@/lib/hooks/usePayments';
 import { formatCents } from '@/lib/money';
 
@@ -20,6 +21,13 @@ export function PaymentsListPage() {
         <p className="text-ink-dim">Loading payments.</p>
       ) : error ? (
         <p className="text-accent">Failed to load payments.</p>
+      ) : (data?.length ?? 0) === 0 ? (
+        <ListEmptyState
+          entity="payment"
+          explainer="Payments record cash received against an invoice."
+          addLabel="Add payment"
+          addTo="/3pl-operations/payments/new"
+        />
       ) : (
         <table className="w-full text-sm font-sans border-collapse">
           <thead>

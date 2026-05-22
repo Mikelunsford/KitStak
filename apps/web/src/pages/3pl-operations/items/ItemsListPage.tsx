@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { formatCents } from '@/lib/money';
@@ -16,7 +17,15 @@ export function ItemsListPage() {
       </header>
       {isLoading && <p className="text-ink-dim">Loading items.</p>}
       {error && <p className="text-accent">Failed to load items.</p>}
-      {data && (
+      {data && data.length === 0 ? (
+        <ListEmptyState
+          entity="item"
+          explainer="Items are the SKUs you receive, build, and ship."
+          addLabel="Add item"
+          addTo="/3pl-operations/items/new"
+        />
+      ) : null}
+      {data && data.length > 0 && (
         <table className="w-full border border-line">
           <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
             <tr>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useProductionRunsList } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -15,6 +16,15 @@ export function ProductionRunsListPage() {
         ) : null}
       </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
+      {!isLoading && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="production run"
+          explainer="Production runs convert raw materials into finished kits."
+          addLabel="Add production run"
+          addTo="/3pl-operations/production/new"
+          canAdd={caps.can('production.run.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr><th className="px-4 py-2">#</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Output item</th><th className="px-4 py-2">Planned</th><th className="px-4 py-2">Produced</th></tr>
@@ -31,6 +41,7 @@ export function ProductionRunsListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

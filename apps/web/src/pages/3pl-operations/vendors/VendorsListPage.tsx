@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useVendorsList } from '@/lib/hooks/useVendors';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -48,6 +49,15 @@ export function VendorsListPage() {
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {error ? <p className="text-accent">Failed to load vendors.</p> : null}
 
+      {!isLoading && !error && (data?.items?.length ?? 0) === 0 && !filter ? (
+        <ListEmptyState
+          entity="vendor"
+          explainer="Vendors are the companies you buy materials from."
+          addLabel="Add vendor"
+          addTo="/3pl-operations/vendors/new"
+          canAdd={caps.can('vendors.vendor.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr>
@@ -72,6 +82,7 @@ export function VendorsListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }

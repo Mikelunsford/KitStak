@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useVendorBillsList } from '@/lib/hooks/useVendorBills';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -16,6 +17,15 @@ export function VendorBillsListPage() {
       </header>
       {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {error ? <p className="text-accent">Failed to load.</p> : null}
+      {!isLoading && !error && (data ?? []).length === 0 ? (
+        <ListEmptyState
+          entity="vendor bill"
+          explainer="Vendor bills are invoices from your vendors."
+          addLabel="Add vendor bill"
+          addTo="/3pl-operations/vendor-bills/new"
+          canAdd={caps.can('vendor_bills.vendor_bill.create')}
+        />
+      ) : (
       <table className="w-full border border-line text-sm font-sans">
         <thead className="bg-bg-2 text-left text-ink-dim">
           <tr>
@@ -40,6 +50,7 @@ export function VendorBillsListPage() {
           ))}
         </tbody>
       </table>
+      )}
     </section>
   );
 }
