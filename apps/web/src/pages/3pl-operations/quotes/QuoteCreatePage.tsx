@@ -25,7 +25,10 @@ export function QuoteCreatePage() {
 
   const prefilledCustomerId = searchParams.get('customer_id');
 
-  const [number, setNumber] = useState('');
+  // F-Wave9-AUTO-NUMBERING-01 (B8): the quotes-api handler now allocates
+  // Q-YYYY-NNNNN via the numbering chassis when `number` is absent, so the
+  // SPA no longer asks the operator to type it. Per-org prefix / pad / reset
+  // policy is configurable from the numbering admin page.
   const [title, setTitle] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [currencyCode, setCurrencyCode] = useState('USD');
@@ -39,7 +42,6 @@ export function QuoteCreatePage() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const body: CreateQuoteRequest = {
-      number,
       title: title || null,
       currency_code: currencyCode,
       customer_id: customerId,
@@ -64,12 +66,6 @@ export function QuoteCreatePage() {
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
       <h1 className="text-4xl font-display tracking-wide text-ink">NEW QUOTE</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <TextInput
-          label="Quote number"
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          required
-        />
         <CustomerPicker
           value={customerId}
           onChange={setCustomerId}

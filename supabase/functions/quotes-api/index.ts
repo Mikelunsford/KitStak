@@ -19,6 +19,7 @@ import {
   QuoteStateSchema,
 } from '../_shared/types/sales.ts';
 import { QUOTE_FSM, canTransition, type QuoteState } from '../_shared/workflow/sales.ts';
+import { nextDocNumber } from '../_shared/numbering.ts';
 
 const BUNDLE = 'quotes-api';
 
@@ -76,11 +77,21 @@ const createQuote = async (ctx: RouteCtx) => {
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes', body,
     async () => {
+      // F-Wave9-AUTO-NUMBERING-01 (B8): operator may pass a `number` to
+      // override; otherwise the org-scoped numbering chassis allocates the
+      // next Q-YYYY-NNNNN string via next_doc_number. Mirrors the
+      // manufacturing-api pattern from 0054. Empty string is treated as
+      // absent so the SPA can drop the field entirely.
+      const supplied = body.number?.trim();
+      const number = supplied
+        ? supplied
+        : await nextDocNumber(caller.orgId, 'quote');
       const client = admin();
       const { data, error } = await client
         .from('quotes')
         .insert({
           ...body,
+          number,
           org_id: caller.orgId,
           state: 'draft',
           created_by: caller.userId,

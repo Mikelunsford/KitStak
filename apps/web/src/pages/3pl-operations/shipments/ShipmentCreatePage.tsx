@@ -25,7 +25,11 @@ export function ShipmentCreatePage() {
   const prefilledCustomerId = searchParams.get('customer_id');
   const prefilledProjectId = searchParams.get('project_id');
 
-  const [shipmentNumber, setShipmentNumber] = useState('');
+  // F-Wave9-AUTO-NUMBERING-01 (B8): the ops-api POST /shipments handler now
+  // allocates SHP-YYYY-NNNNN via the numbering chassis when `shipment_number`
+  // is absent, so the SPA no longer asks the operator to type it. Per-org
+  // prefix / pad / reset policy is configurable from the numbering admin
+  // page.
   const [warehouseId, setWarehouseId] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
@@ -66,7 +70,6 @@ export function ShipmentCreatePage() {
       warehouse_id: warehouseId,
       payload: { lines },
     };
-    if (shipmentNumber) body.shipment_number = shipmentNumber;
     if (customerId) body.customer_id = customerId;
     if (projectId) body.project_id = projectId;
     if (shipDate) body.ship_date = shipDate;
@@ -84,11 +87,6 @@ export function ShipmentCreatePage() {
         NEW SHIPMENT
       </h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <TextInput
-          label="Shipment number"
-          value={shipmentNumber}
-          onChange={(e) => setShipmentNumber(e.target.value)}
-        />
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Warehouse
