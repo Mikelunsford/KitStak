@@ -1,21 +1,41 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { activitiesKeys } from '@/lib/queryKeys/activities';
 import { createActivity } from '@/lib/services/activitiesService';
 import {
   ActivityCreateSchema,
+  ActivityEntityTypeSchema,
   type ActivityCreate,
   type ActivityEntityType,
   type ActivityKind,
 } from '@/lib/types/crm';
 
+// PR-6 / B5: validate the `?entity_type=` URL parameter against the
+// ActivityEntityType union and fall back to 'customer' if the value is
+// missing or not a member of the enum. Colocated here (not a shared
+// helper) because this is the only consumer of the validation.
+export function parseEntityTypeParam(raw: string | null): ActivityEntityType {
+  if (!raw) return 'customer';
+  const parsed = ActivityEntityTypeSchema.safeParse(raw);
+  return parsed.success ? parsed.data : 'customer';
+}
+
 export function ActivityCreatePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [entityType, setEntityType] = useState<ActivityEntityType>('customer');
-  const [entityId, setEntityId] = useState('');
+  const [searchParams] = useSearchParams();
+  // PR-6 / B5: pre-fill entity_type and entity_id from the URL. The
+  // CRM customer detail page (and forthcoming related-entity surfaces)
+  // links here as `/crm/activities/new?entity_type=customer&entity_id=<uuid>`.
+  // Invalid entity_type falls back to 'customer'.
+  const [entityType, setEntityType] = useState<ActivityEntityType>(() =>
+    parseEntityTypeParam(searchParams.get('entity_type')),
+  );
+  const [entityId, setEntityId] = useState(() =>
+    searchParams.get('entity_id') ?? '',
+  );
   const [kind, setKind] = useState<ActivityKind>('note');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');

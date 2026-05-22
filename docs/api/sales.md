@@ -59,12 +59,14 @@ Quote document handling.
 
 All transitions go through `respondWithIdempotency` and verify legality via the 6-state quote FSM declared in `_shared/workflow/sales.ts`.
 
-- `POST /quotes-api/quotes/:id/submit` -> submitted
+- `POST /quotes-api/quotes/:id/submit` -> submitted (operator label: "Send for approval"; state pill: "Sent for approval")
 - `POST /quotes-api/quotes/:id/approve` -> approved
 - `POST /quotes-api/quotes/:id/revise` -> revise_requested
 - `POST /quotes-api/quotes/:id/cancel` -> cancelled
-- `POST /quotes-api/quotes/:id/send` updates `sent_at` (no state change). PDF email wiring lands when the pdf-worker is online.
+- `POST /quotes-api/quotes/:id/send` updates `sent_at` (no state change; operator label: "Send to customer"). PDF email wiring lands when the pdf-worker is online.
 - `POST /quotes-api/quotes/:id/convert-to-project` calls the SECURITY DEFINER RPC `convert_quote_to_project`. Transitions to `project_pending` and creates the project row in `pending`.
+
+UI vocabulary: PR-6 (B7) renames the pre-approval button from "Submit" to "Send for approval" and the post-approval button from "Send" to "Send to customer". The DB enum value stays `submitted` (forward-only migration rule); the operator-facing label is rendered by `formatQuoteStateLabel(state)` on `QuoteDetailPage.tsx`.
 
 A quote version snapshot is written automatically by the audit trigger on transitions into `submitted` and `approved`.
 

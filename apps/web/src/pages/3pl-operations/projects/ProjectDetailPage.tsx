@@ -201,9 +201,21 @@ export function ProjectDetailPage() {
             {sourceQuoteId && (
               <span>
                 Source quote:{' '}
+                {/*
+                  PR-6 / B11: operator reported this link appeared red on
+                  the smoke walk. Investigation: the resting className is
+                  `text-ink hover:text-accent` (identical to the customer
+                  link two lines up), and there is no conditional class
+                  override anywhere. The "red" observation was the hover
+                  state (accent is #c8102e). No code change needed beyond
+                  the data-testid below so the next smoke pass can target
+                  the element precisely (resting vs hover) and avoid the
+                  same false positive.
+                */}
                 <Link
                   to={`/3pl-operations/quotes/${sourceQuoteId}`}
                   className="text-ink hover:text-accent"
+                  data-testid="source-quote-link"
                 >
                   {sourceQuote.data?.quote.number ?? sourceQuoteId}
                 </Link>

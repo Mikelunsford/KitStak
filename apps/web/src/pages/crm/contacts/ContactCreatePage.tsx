@@ -7,6 +7,7 @@ import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { createContact } from '@/lib/services/contactsService';
+import { safeSameOriginPath } from '@/lib/safePath';
 import {
   ContactCreateSchema,
   type Contact,
@@ -25,6 +26,12 @@ export function ContactCreatePage() {
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   const prefilledCustomerId = searchParams.get('customer_id');
+  // PR-6 / B6: when a customer page links here to create a related
+  // contact, it appends `?return_to=/crm/customers/<id>` so we can
+  // bounce the operator back to where they came from instead of
+  // yanking them to the new contact detail page. Validated for
+  // same-origin to prevent open-redirect.
+  const returnTo = safeSameOriginPath(searchParams.get('return_to'));
 
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [firstName, setFirstName] = useState('');
@@ -39,7 +46,10 @@ export function ContactCreatePage() {
     mutationFn: (body: ContactCreate) => createContact(body),
     onSuccess: (created: Contact) => {
       void qc.invalidateQueries({ queryKey: contactsKeys.all });
-      navigate(`/crm/contacts/${created.id}`);
+      // PR-6 / B6: prefer the validated return_to (same-origin path)
+      // over the default contact-detail destination so a customer-page
+      // entry round-trips back to that customer.
+      navigate(returnTo ?? `/crm/contacts/${created.id}`);
     },
     onError: (e) =>
       setError(e instanceof Error ? e.message : 'Failed to save contact.'),
