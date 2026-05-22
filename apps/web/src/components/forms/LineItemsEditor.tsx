@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
 import { ItemPicker } from '@/components/ui/pickers';
 import { formatCents } from '@/lib/money';
 
@@ -60,7 +61,9 @@ export function LineItemsEditor({
 }: LineItemsEditorProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [qty, setQty] = useState('1');
-  const [unitCost, setUnitCost] = useState('');
+  // PR A2: DollarInput owns integer cents; the LineDraft contract still
+  // carries a string so the existing draftToPostBody helper is unchanged.
+  const [unitCostCents, setUnitCostCents] = useState<number | null>(null);
   const [uom, setUom] = useState('');
   const [reference, setReference] = useState('');
 
@@ -71,14 +74,14 @@ export function LineItemsEditor({
       draftId: nextDraftId(),
       item_id: selectedItemId,
       quantity: qty,
-      unit_cost_cents: unitCost,
+      unit_cost_cents: unitCostCents === null ? '' : String(unitCostCents),
       uom,
       reference,
     };
     onChange([...lines, next]);
     setSelectedItemId(null);
     setQty('1');
-    setUnitCost('');
+    setUnitCostCents(null);
     setUom('');
     setReference('');
   };
@@ -162,11 +165,10 @@ export function LineItemsEditor({
             inputMode="decimal"
           />
           {mode === 'receiving' && (
-            <TextInput
-              label="Unit cost (whole cents, e.g. 250 = $2.50)"
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
-              inputMode="numeric"
+            <DollarInput
+              label="Unit cost"
+              value={unitCostCents}
+              onChange={setUnitCostCents}
             />
           )}
           <TextInput

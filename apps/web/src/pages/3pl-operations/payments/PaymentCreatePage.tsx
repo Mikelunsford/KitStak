@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
 import { CustomerPicker, InvoicePicker } from '@/components/ui/pickers';
 import { useCreatePayment, useApplyPayment } from '@/lib/hooks/usePayments';
 
@@ -31,7 +32,8 @@ export function PaymentCreatePage() {
   // manual entry.
   const [customerId, setCustomerId] = useState<string | null>(prefilledCustomerId);
   const [invoiceId, setInvoiceId] = useState<string | null>(prefilledInvoiceId);
-  const [amountCents, setAmountCents] = useState('0');
+  // PR A2: state holds integer cents (DollarInput emits number | null).
+  const [amountCents, setAmountCents] = useState<number | null>(0);
   const [currency, setCurrency] = useState('USD');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [receivedAt, setReceivedAt] = useState('');
@@ -50,6 +52,7 @@ export function PaymentCreatePage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const amountCentsWire = String(amountCents ?? 0);
     const body: {
       customer_id?: string;
       amount_cents: string;
@@ -59,7 +62,7 @@ export function PaymentCreatePage() {
       received_at?: string;
       notes?: string;
     } = {
-      amount_cents: amountCents,
+      amount_cents: amountCentsWire,
       currency_code: currency,
     };
     if (customerId) body.customer_id = customerId;
@@ -74,7 +77,7 @@ export function PaymentCreatePage() {
       await apply.mutateAsync({
         id: payment.id,
         body: {
-          allocations: [{ invoice_id: invoiceId, amount_cents: amountCents }],
+          allocations: [{ invoice_id: invoiceId, amount_cents: amountCentsWire }],
         },
       });
       navigate(`/invoicing/invoices/${invoiceId}`);
@@ -103,12 +106,11 @@ export function PaymentCreatePage() {
           label="Invoice (optional, allocates on save)"
           filter={customerId ? { customer_id: customerId } : undefined}
         />
-        <TextInput
-          label="Amount (cents)"
+        <DollarInput
+          label="Amount"
           name="amount_cents"
           value={amountCents}
-          onChange={(e) => setAmountCents(e.target.value)}
-          inputMode="numeric"
+          onChange={setAmountCents}
           required
         />
         <TextInput

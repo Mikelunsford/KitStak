@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
 import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
 import {
   useCreateExpense,
@@ -43,7 +44,8 @@ export function ExpenseCreatePage() {
 
   const [date, setDate] = useState(today);
   const [desc, setDesc] = useState('');
-  const [amount, setAmount] = useState(0);
+  // PR A2: amount holds integer cents via DollarInput.
+  const [amount, setAmount] = useState<number | null>(0);
   const [currency, setCurrency] = useState('USD');
   const [reimbursable, setReimbursable] = useState(false);
   const [categoryId, setCategoryId] = useState('');
@@ -58,11 +60,12 @@ export function ExpenseCreatePage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const amountCentsInt = amount ?? 0;
     const parsed = FormSchema.safeParse({
       expense_date: date,
       description: desc || undefined,
-      amount_cents: amount,
-      total_cents: amount,
+      amount_cents: amountCentsInt,
+      total_cents: amountCentsInt,
       currency_code: currency,
       reimbursable,
     });
@@ -136,12 +139,10 @@ export function ExpenseCreatePage() {
           onChange={setProjectId}
           label="Project (optional)"
         />
-        <TextInput
-          label="Amount (cents)"
-          type="number"
-          value={String(amount)}
-          onChange={(e) => setAmount(Number(e.target.value))}
-          inputMode="numeric"
+        <DollarInput
+          label="Amount"
+          value={amount}
+          onChange={setAmount}
         />
         <TextInput
           label="Currency"

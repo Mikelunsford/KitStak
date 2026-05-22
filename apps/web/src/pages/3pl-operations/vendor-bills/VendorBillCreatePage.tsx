@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
 import { VendorPicker } from '@/components/ui/pickers';
 import { useCreateVendorBill } from '@/lib/hooks/useVendorBills';
 import type { VendorBill } from '@/lib/types/vendors_inventory_ops';
@@ -31,9 +32,10 @@ export function VendorBillCreatePage() {
   );
   const [dueDate, setDueDate] = useState('');
   const [currency, setCurrency] = useState('USD');
-  const [subtotalCents, setSubtotalCents] = useState('0');
-  const [taxCents, setTaxCents] = useState('0');
-  const [totalCents, setTotalCents] = useState('0');
+  // PR A2: cents fields hold integer cents via DollarInput.
+  const [subtotalCents, setSubtotalCents] = useState<number | null>(0);
+  const [taxCents, setTaxCents] = useState<number | null>(0);
+  const [totalCents, setTotalCents] = useState<number | null>(0);
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +53,9 @@ export function VendorBillCreatePage() {
       vendor_id: vendorId,
       bill_date: billDate,
       currency_code: currency,
-      subtotal_cents: subtotalCents,
-      tax_cents: taxCents,
-      total_cents: totalCents,
+      subtotal_cents: String(subtotalCents ?? 0),
+      tax_cents: String(taxCents ?? 0),
+      total_cents: String(totalCents ?? 0),
     };
     if (billNumber) body.bill_number = billNumber;
     if (purchaseOrderId) body.purchase_order_id = purchaseOrderId;
@@ -108,23 +110,20 @@ export function VendorBillCreatePage() {
           maxLength={3}
           required
         />
-        <TextInput
-          label="Subtotal (cents)"
+        <DollarInput
+          label="Subtotal"
           value={subtotalCents}
-          onChange={(e) => setSubtotalCents(e.target.value)}
-          inputMode="numeric"
+          onChange={setSubtotalCents}
         />
-        <TextInput
-          label="Tax (cents)"
+        <DollarInput
+          label="Tax"
           value={taxCents}
-          onChange={(e) => setTaxCents(e.target.value)}
-          inputMode="numeric"
+          onChange={setTaxCents}
         />
-        <TextInput
-          label="Total (cents)"
+        <DollarInput
+          label="Total"
           value={totalCents}
-          onChange={(e) => setTotalCents(e.target.value)}
-          inputMode="numeric"
+          onChange={setTotalCents}
           required
         />
         <TextInput
