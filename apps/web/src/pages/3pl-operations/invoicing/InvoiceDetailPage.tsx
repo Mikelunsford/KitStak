@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -32,6 +32,11 @@ import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
+// PR-D / BNEW-3-INV: item-pick prefill helper extracted to
+// applyItemSelectionToInvoiceLine.ts for the same reason PR-C extracted the
+// quote-side helper — pure function, unit-testable, closes the async-stale
+// race in the previous synchronous handler.
+import { applyItemSelectionToInvoiceLine } from './applyItemSelectionToInvoiceLine';
 
 /**
  * InvoiceDetailPage. Closes G-INV-DETAIL-01 and G-PAY-FLOW-01. Adds
@@ -75,6 +80,23 @@ export function InvoiceDetailPage() {
     ? hasCap(me.data.active_role, 'pdf.document.render')
     : false;
 
+  // PR-D / BNEW-3-INV: pre-fill Description and Unit price when the fetched
+  // item resolves. Doing this synchronously inside the picker's onChange
+  // handler raced against the `useItem` query — on the first pick
+  // `selectedItem.data` was undefined and the fields stayed empty, then
+  // Description failed the required validation. A useEffect watching the
+  // resolved item id closes the race. Mirrors QuoteDetailPage PR-C.
+  // Declared above the early returns to satisfy rules-of-hooks.
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const next = applyItemSelectionToInvoiceLine(selectedItem.data);
+    if (!next) return;
+    // Guard against an in-flight response for a previous selection.
+    if (selectedItem.data?.id !== selectedItemId) return;
+    setLineDesc(next.description);
+    setLinePrice(next.unit_price_cents);
+  }, [selectedItemId, selectedItem.data]);
+
   if (!invoiceId) return <p>Missing invoice id.</p>;
   if (invoice.isLoading) return <p className="px-8 py-8">Loading.</p>;
   if (invoice.error || !invoice.data)
@@ -87,14 +109,6 @@ export function InvoiceDetailPage() {
   // UX-Q4: source-of-truth predicate lives in `@/lib/workflow/nextStepCTA`
   // so the regression test locks the trigger state set.
   const canReceivePayment = shouldShowInvoiceNextStepCTA(inv.status);
-
-  const onPickItem = (itemId: string | null) => {
-    setSelectedItemId(itemId);
-    if (itemId && selectedItem.data) {
-      setLineDesc(selectedItem.data.name);
-      setLinePrice(String(selectedItem.data.unit_price_cents));
-    }
-  };
 
   const onAddLine = (e: FormEvent) => {
     e.preventDefault();
@@ -376,7 +390,7 @@ export function InvoiceDetailPage() {
             <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
             <ItemPicker
               value={selectedItemId}
-              onChange={onPickItem}
+              onChange={setSelectedItemId}
               label="Item (optional, pre-fills description and price)"
               filter={{ active: true }}
             />
