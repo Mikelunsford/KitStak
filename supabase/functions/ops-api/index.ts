@@ -580,11 +580,19 @@ const TABLE: Route[] = [
       // F-Wave7-LISTFILTER-01: customer_id FK filter mirrors the customer-hub
       // pattern. RLS Pattern A wraps the org gate so a cross-tenant
       // customer_id still resolves to 200 + [].
+      //
+      // F-Wave9-AUDIT-V3-WAVE-C4-01: project_id filter added so
+      // ProjectDetailPage can ask the server for only shipments bound to
+      // a given project. Mirrors the receiving_orders project_id filter
+      // shape (UX-Q6). Backed by shipments_project_id_idx (migration 0063
+      // re-declaration of 0046).
       const customerId = url.searchParams.get('customer_id');
+      const projectId = url.searchParams.get('project_id');
       let q = admin().from('shipments').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(200);
       if (customerId) q = q.eq('customer_id', customerId);
+      if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
       if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
       return ok((data ?? []).map((r) => ShipmentSchema.parse(r)));

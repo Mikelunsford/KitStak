@@ -25,6 +25,13 @@ import { useItem } from '@/lib/hooks/useItems';
 import { useQuote } from '@/lib/hooks/useQuotes';
 import { useInvoices } from '@/lib/hooks/useInvoices';
 import { useReceivingOrdersList, useShipmentsList } from '@/lib/hooks/useOps';
+import { useManufacturingRunsList } from '@/lib/hooks/useManufacturing';
+import {
+  buildManufacturingRunDetailUrl,
+  buildNewManufacturingRunUrl,
+  buildNewShipmentUrl,
+  buildShipmentDetailUrl,
+} from './projectChildLinks';
 import {
   PROJECT_FSM, PROJECT_PHASE_FSM, canTransition,
   type ProjectState, type ProjectPhaseState,
@@ -91,7 +98,18 @@ export function ProjectDetailPage() {
   const receiving = useReceivingOrdersList(
     projectId ? { project_id: projectId } : {},
   );
-  const shipments = useShipmentsList();
+  // F-Wave9-AUDIT-V3-WAVE-C4-01: server-side filter via the new ?project_id=
+  // param on GET /shipments and GET /manufacturing-runs. ShipmentSchema
+  // and ManufacturingRunSchema now both carry project_id natively (C2 /
+  // PR #133) and the list endpoints filter by it. Replaces the prior
+  // duck-typed client-side cast on shipments and adds the missing
+  // manufacturing-runs section.
+  const shipments = useShipmentsList(
+    projectId ? { project_id: projectId } : {},
+  );
+  const manufacturingRuns = useManufacturingRunsList(
+    projectId ? { project_id: projectId } : {},
+  );
 
   const [phaseName, setPhaseName] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -196,11 +214,17 @@ export function ProjectDetailPage() {
   const projectReceiving = (receiving.data ?? []).filter(
     (r) => r.project_id === projectId,
   );
-  // Shipment schema still lacks a typed project_id (the FK exists per
-  // migration 0046 / G-SHIP-FK-01 but the Zod schema has not been
-  // extended). Duck-typed cast remains until the symmetry follow-up.
+  // F-Wave9-AUDIT-V3-WAVE-C4-01: ShipmentSchema now carries `project_id`
+  // natively (C2 / PR #133) and the hook above passes ?project_id= so
+  // this is a pass-through; the redundant client-side check guards
+  // against a stale cache or a future hook-level cache mix.
   const projectShipments = (shipments.data ?? []).filter(
-    (s) => (s as unknown as { project_id?: string | null }).project_id === projectId,
+    (s) => s.project_id === projectId,
+  );
+  // F-Wave9-AUDIT-V3-WAVE-C4-01: manufacturing_runs.project_id wired by
+  // C2 / PR #133. Same defense-in-depth filter shape as shipments.
+  const projectManufacturingRuns = (manufacturingRuns.data ?? []).filter(
+    (r) => r.project_id === projectId,
   );
 
   return (
@@ -514,29 +538,80 @@ export function ProjectDetailPage() {
         )}
       </section>
 
+      {/* F-Wave9-AUDIT-V3-WAVE-C4-01: MANUFACTURING RUNS section. Server
+          filtered by project_id (manufacturing-api GET /manufacturing-runs
+          accepts ?project_id=). New CTA deep-links to the create form
+          with ?project_id= prefilled; the prefill behaviour itself lands
+          in the matching C3 PR. Mirrors the receiving + shipments
+          section layouts above and below. */}
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-2xl font-display tracking-wider text-ink">MANUFACTURING RUNS</h2>
+          <Link
+            to={buildNewManufacturingRunUrl(projectId)}
+            className="text-sm text-accent hover:text-accent-bright"
+            data-testid="project-mfg-new-link"
+          >
+            New manufacturing run
+          </Link>
+        </div>
+        {projectManufacturingRuns.length === 0 ? (
+          <p className="text-ink-dim text-sm">
+            No manufacturing runs linked to this project yet.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2" data-testid="project-mfg-list">
+            {projectManufacturingRuns.map((r) => (
+              <li key={r.id} className="border border-line p-3">
+                <Link
+                  to={buildManufacturingRunDetailUrl(r.id)}
+                  className="text-ink hover:text-accent font-mono text-sm"
+                >
+                  {r.run_number ?? r.id}
+                </Link>
+                <span className="text-ink-dim text-sm ml-3">{r.status}</span>
+                {r.planned_start_at && (
+                  <span className="text-ink-dim text-sm ml-3 font-mono">
+                    planned {r.planned_start_at.slice(0, 10)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section>
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-2xl font-display tracking-wider text-ink">SHIPMENTS</h2>
           <Link
-            to={`/3pl-operations/shipments/new?project_id=${projectId}`}
+            to={buildNewShipmentUrl(projectId)}
             className="text-sm text-accent hover:text-accent-bright"
+            data-testid="project-shipment-new-link"
           >
             New shipment
           </Link>
         </div>
         {projectShipments.length === 0 ? (
-          <p className="text-ink-dim text-sm">No shipments against this project.</p>
+          <p className="text-ink-dim text-sm">
+            No shipments linked to this project yet.
+          </p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2" data-testid="project-shipment-list">
             {projectShipments.map((s) => (
               <li key={s.id} className="border border-line p-3">
                 <Link
-                  to={`/3pl-operations/shipments/${s.id}`}
+                  to={buildShipmentDetailUrl(s.id)}
                   className="text-ink hover:text-accent font-mono text-sm"
                 >
                   {s.shipment_number ?? s.id}
                 </Link>
                 <span className="text-ink-dim text-sm ml-3">{s.status}</span>
+                {s.ship_date && (
+                  <span className="text-ink-dim text-sm ml-3 font-mono">
+                    {s.ship_date.slice(0, 10)}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
