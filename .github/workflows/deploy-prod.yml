@@ -4,6 +4,18 @@ on:
   push:
     branches: [main]
 
+# Serialize production deploys so back-to-back merges to main don't race.
+# Without this, two PRs merged within seconds (e.g. SMOKE-01 #139 + SMOKE-02
+# #140 on 2026-05-23) trigger two parallel deploy-prod runs whose Vercel-side
+# alias promotions race; whichever finishes last wins the production alias,
+# which can leave the OLDER commit serving on www.kitstak.com even though its
+# CI finished FIRST. `cancel-in-progress: false` keeps any in-flight prod
+# deploy alive (we never want to abort a promotion mid-flight) and queues the
+# next one behind it.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 jobs:
   vercel-prod:
     runs-on: ubuntu-latest
