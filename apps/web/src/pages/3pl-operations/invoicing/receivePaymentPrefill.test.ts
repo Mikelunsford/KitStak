@@ -123,4 +123,26 @@ describe('buildReceivePaymentPostBodies', () => {
     expect(out.payment.amount_cents).toBe('0');
     expect(out.allocation.allocations[0]?.amount_cents).toBe('0');
   });
+
+  // F-Wave9-SMOKE-2026-05-23-01: lock the closed-set payment_method
+  // vocabulary that the modal `<select>` exposes. Each value the dropdown
+  // surfaces must round-trip into the POST body unchanged so the wire
+  // contract matches the standalone PaymentCreatePage. The empty
+  // "unspecified" default is exercised by the "omits optional fields"
+  // test above.
+  it.each(['ach', 'wire', 'check', 'card', 'cash', 'other'] as const)(
+    'passes selected payment_method "%s" through to the payment body',
+    (method) => {
+      const out = buildReceivePaymentPostBodies(
+        {
+          amountCents: 1000,
+          receivedAt: '2026-05-23',
+          paymentMethod: method,
+          referenceNumber: '',
+        },
+        ctx,
+      );
+      expect(out.payment.payment_method).toBe(method);
+    },
+  );
 });
