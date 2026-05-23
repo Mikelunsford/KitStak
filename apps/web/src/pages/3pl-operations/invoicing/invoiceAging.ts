@@ -1,21 +1,26 @@
-// F-Wave9-AUDIT-V3-WAVE-D-01: invoice aging helper used by InvoicesListPage
-// to render an Aging column. Pure function so it stays unit-testable
-// without standing up TanStack Query plus jsdom; the list page calls it
-// with `today` left to the default `new Date()` in production but injects
-// a deterministic clock in tests.
+// F-Wave9-SMOKE-2026-05-23-02: humanize the Aging column on the invoices
+// list. Operator smoke flagged the prior copy ("-30 days") as misleading
+// since negative-day strings read as "past due" to operators. This helper
+// now returns one of seven operator-facing copy strings.
 //
-// Brand: returns plain strings ("Paid", "12 days", ".", etc). No em-dash,
-// no double-hyphen, no emoji. The placeholder for "no issue/due date" is
-// "." which matches the rest of the SPA's no-em-dash convention (see
-// dates.ts `formatDateMedium`).
+// Mapping (state + days-from-due):
+//   paid                                  -> "Paid"
+//   cancelled                             -> "."
+//   draft                                 -> "."
+//   sent/unpaid, past due  (today > due)  -> "N days late" (singular "1 day late")
+//   sent/unpaid, due today (today == due) -> "Due today"
+//   sent/unpaid, not yet due (today<due)  -> "Due in N days" (singular "Due in 1 day")
+//   sent/unpaid, no due_date              -> "."
 //
-// Math: pure day diff via UTC midnight to dodge DST. Negative diffs are
-// returned verbatim ("3 days" when due in three days) so the operator
-// sees a credit-side aging on draft/future-issue invoices instead of
-// "-3 days".
+// Brand: NO em-dash, NO double-hyphen, NO emoji. Inert cells render "."
+// (period). The list page renders the returned string verbatim.
+//
+// Math: pure day diff via UTC midnight to dodge DST. Invoices store dates
+// as YYYY-MM-DD strings, so parsing as `${iso}T00:00:00Z` is sufficient.
 
 const PAID_STATUSES = new Set<string>(['paid']);
 const CANCELLED_STATUSES = new Set<string>(['cancelled']);
+const DRAFT_STATUSES = new Set<string>(['draft']);
 
 interface InvoiceAgingInput {
   status: string;
@@ -24,41 +29,49 @@ interface InvoiceAgingInput {
 }
 
 /**
- * Compute the aging label for a single invoice row.
+ * Compute the operator-facing aging label for a single invoice row.
  *
- * Behavior:
- * - status === 'paid'       -> "Paid"
- * - status === 'cancelled'  -> "."  (no aging on a cancelled bill)
- * - has due_date            -> days since due_date (unpaid receivable)
- * - else has issue_date     -> days since issue_date (draft/awaiting send)
- * - else                    -> "."
- *
- * Day diff is computed in UTC to avoid DST gaps; invoices store dates as
- * YYYY-MM-DD strings already, so parsing them as `${iso}T00:00:00Z` is
- * sufficient.
+ * Returns one of:
+ *  - "Paid"
+ *  - "."                  (cancelled, draft, no due_date, unparseable date)
+ *  - "Due today"          (today == due_date)
+ *  - "Due in N days"      (today < due_date; "Due in 1 day" at the singular)
+ *  - "N days late"        (today > due_date; "1 day late" at the singular)
  */
 export function formatInvoiceAging(
-  invoice: InvoiceAgingInput,
+  invoice: InvoiceAgingInput | null | undefined,
   now: Date = new Date(),
 ): string {
+  if (!invoice) return '.';
   if (PAID_STATUSES.has(invoice.status)) return 'Paid';
   if (CANCELLED_STATUSES.has(invoice.status)) return '.';
+  if (DRAFT_STATUSES.has(invoice.status)) return '.';
 
-  const anchor = invoice.due_date ?? invoice.issue_date;
-  if (!anchor) return '.';
+  // sent / unpaid / partially_paid / overdue / anything else with a balance:
+  // we need a due_date to say anything useful. No due_date => inert.
+  if (!invoice.due_date) return '.';
 
-  const days = diffDaysUtc(anchor, now);
+  const days = diffDaysUtc(invoice.due_date, now);
   if (days === null) return '.';
 
-  // Singular vs plural so "1 days" never ships.
-  const unit = Math.abs(days) === 1 ? 'day' : 'days';
-  return `${days} ${unit}`;
+  // days > 0 => past due (today is days past the due_date)
+  // days === 0 => due today
+  // days < 0  => not yet due (due in |days| days)
+  if (days === 0) return 'Due today';
+  if (days > 0) {
+    const unit = days === 1 ? 'day' : 'days';
+    return `${days} ${unit} late`;
+  }
+  const ahead = -days;
+  const unit = ahead === 1 ? 'day' : 'days';
+  return `Due in ${ahead} ${unit}`;
 }
 
 /**
  * Whole-day diff between an ISO YYYY-MM-DD date and a Date. Positive when
- * the iso anchor is in the past. Returns null when the input is not a
- * parseable YYYY-MM-DD so callers can fall back without throwing.
+ * the iso anchor is in the past (i.e. invoice is past due). Returns null
+ * when the input is not a parseable YYYY-MM-DD so callers can fall back
+ * without throwing.
  */
 function diffDaysUtc(isoDate: string, now: Date): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
