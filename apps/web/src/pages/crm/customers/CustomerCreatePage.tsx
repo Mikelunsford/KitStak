@@ -9,6 +9,10 @@ import {
   type Address,
   type CustomerCreate,
 } from '@/lib/types/crm';
+import {
+  copyBillingToShipping,
+  type AddressFields,
+} from './copyBillingToShipping';
 
 /**
  * Form for new customer. useState + Zod safeParse per the constitution; no
@@ -43,8 +47,44 @@ export function CustomerCreatePage() {
   const [shipRegion, setShipRegion] = useState('');
   const [shipPostal, setShipPostal] = useState('');
   const [shipCountry, setShipCountry] = useState('');
+  // F-Wave9-AUDIT-V3-WAVE-E-01 (item 3): "Same as billing" toggle.
+  // When checked, we copy the billing fields into shipping ONCE; we
+  // do not keep re-syncing on every billing keystroke, because that
+  // would silently clobber a manual shipping edit the operator made
+  // after toggling on. The shipping field onChange handlers below
+  // un-check the box whenever the operator types into a shipping
+  // input, so the form re-anchors to "shipping owns its own state"
+  // the moment manual editing resumes.
+  const [sameAsBilling, setSameAsBilling] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
+  function onToggleSameAsBilling(next: boolean) {
+    setSameAsBilling(next);
+    if (!next) return;
+    const fields: AddressFields = {
+      line1: billLine1,
+      line2: billLine2,
+      city: billCity,
+      region: billRegion,
+      postal: billPostal,
+      country: billCountry,
+    };
+    const copied = copyBillingToShipping(fields);
+    setShipLine1(copied.line1);
+    setShipLine2(copied.line2);
+    setShipCity(copied.city);
+    setShipRegion(copied.region);
+    setShipPostal(copied.postal);
+    setShipCountry(copied.country);
+  }
+
+  function onEditShipping<T>(setter: (v: T) => void) {
+    return (value: T) => {
+      if (sameAsBilling) setSameAsBilling(false);
+      setter(value);
+    };
+  }
 
   const mutation = useMutation({
     mutationFn: (body: CustomerCreate) => createCustomer(body),
@@ -259,17 +299,30 @@ export function CustomerCreatePage() {
 
         <fieldset className="flex flex-col gap-2 border border-line p-3">
           <legend className="text-sm text-ink-dim px-1">Shipping address</legend>
+          {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 3): Same-as-billing toggle.
+              Copies billing fields once on toggle-on; the shipping
+              onChange handlers below un-check whenever the operator
+              edits a shipping field manually so the copy is never
+              re-applied silently. */}
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={sameAsBilling}
+              onChange={(e) => onToggleSameAsBilling(e.target.checked)}
+            />
+            <span className="text-sm text-ink-dim">Same as billing</span>
+          </label>
           <input
             type="text"
             value={shipLine1}
-            onChange={(e) => setShipLine1(e.target.value)}
+            onChange={(e) => onEditShipping(setShipLine1)(e.target.value)}
             placeholder="Line 1"
             className="bg-bg-2 border border-line px-3 py-2"
           />
           <input
             type="text"
             value={shipLine2}
-            onChange={(e) => setShipLine2(e.target.value)}
+            onChange={(e) => onEditShipping(setShipLine2)(e.target.value)}
             placeholder="Line 2"
             className="bg-bg-2 border border-line px-3 py-2"
           />
@@ -277,28 +330,28 @@ export function CustomerCreatePage() {
             <input
               type="text"
               value={shipCity}
-              onChange={(e) => setShipCity(e.target.value)}
+              onChange={(e) => onEditShipping(setShipCity)(e.target.value)}
               placeholder="City"
               className="bg-bg-2 border border-line px-3 py-2"
             />
             <input
               type="text"
               value={shipRegion}
-              onChange={(e) => setShipRegion(e.target.value)}
+              onChange={(e) => onEditShipping(setShipRegion)(e.target.value)}
               placeholder="State / region"
               className="bg-bg-2 border border-line px-3 py-2"
             />
             <input
               type="text"
               value={shipPostal}
-              onChange={(e) => setShipPostal(e.target.value)}
+              onChange={(e) => onEditShipping(setShipPostal)(e.target.value)}
               placeholder="Postal code"
               className="bg-bg-2 border border-line px-3 py-2"
             />
             <input
               type="text"
               value={shipCountry}
-              onChange={(e) => setShipCountry(e.target.value)}
+              onChange={(e) => onEditShipping(setShipCountry)(e.target.value)}
               placeholder="Country"
               className="bg-bg-2 border border-line px-3 py-2"
             />

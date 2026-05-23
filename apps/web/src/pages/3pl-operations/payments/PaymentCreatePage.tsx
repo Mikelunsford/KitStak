@@ -148,12 +148,30 @@ export function PaymentCreatePage() {
           onChange={(e) => setCurrency(e.target.value.toUpperCase())}
           maxLength={3}
         />
-        <TextInput
-          label="Payment method"
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-          placeholder="ach, wire, card, check."
-        />
+        {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 2): payment method is a closed
+            set of business values, not freeform. Storage shape unchanged
+            (lowercase string), so historical rows continue to render and
+            the wire contract stays stable. Empty string remains the
+            "unspecified" sentinel; the body builder above only includes
+            payment_method when non-empty. */}
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Payment method
+          </span>
+          <select
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
+          >
+            <option value="">Unspecified</option>
+            <option value="ach">ACH</option>
+            <option value="wire">Wire</option>
+            <option value="check">Check</option>
+            <option value="card">Card</option>
+            <option value="cash">Cash</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
         <TextInput
           label="Received at"
           type="date"
