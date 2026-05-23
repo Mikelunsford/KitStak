@@ -138,6 +138,11 @@ const ShipmentCreate = z.object({
   warehouse_id: z.string().uuid(),
   customer_id: z.string().uuid().optional().nullable(),
   sales_order_id: z.string().uuid().optional().nullable(),
+  // F-Wave9-AUDIT-V3-WAVE-C2-01: project linkage. Column landed in
+  // migration 0046 (G-SHIP-FK-01) and was re-declared by 0063 for parity
+  // with manufacturing_runs. Optional + nullable; cross-tenant project_id
+  // writes still 404 at the projects RLS gate (Pattern A).
+  project_id: z.string().uuid().optional().nullable(),
   shipment_number: z.string().optional().nullable(),
   ship_date: z.string().optional().nullable(),
   carrier: z.string().optional().nullable(),

@@ -348,6 +348,11 @@ export const ShipmentSchema = z.object({
   warehouse_id: Uuid,
   customer_id: Uuid.nullable(),
   sales_order_id: Uuid.nullable(),
+  // F-Wave9-AUDIT-V3-WAVE-C2-01: project linkage column added structurally
+  // by migration 0046 (G-SHIP-FK-01) and re-declared by 0063 for parity
+  // with manufacturing_runs. Nullable; ON DELETE SET NULL at the FK.
+  // Legacy rows pre-0046 carry NULL.
+  project_id: Uuid.nullable().optional(),
   status: ShipmentStatusSchema,
   ship_date: z.string().nullable(),
   carrier: z.string().nullable(),
@@ -531,6 +536,12 @@ export const ManufacturingRunSchema = z.object({
   run_number: z.string().nullable(),
   status: ManufacturingRunStatusSchema,
   warehouse_id: Uuid.nullable(),
+  // F-Wave9-AUDIT-V3-WAVE-C2-01: project linkage column added by migration
+  // 0063. Nullable; ON DELETE SET NULL at the FK. Optional on the read
+  // schema so legacy rows that pre-date the column (and any synthetic
+  // mock state that omits it) still parse cleanly. The DB column default
+  // is NULL.
+  project_id: Uuid.nullable().optional(),
   planned_start_at: Iso.nullable(),
   planned_complete_at: Iso.nullable(),
   started_at: Iso.nullable(),
@@ -546,6 +557,11 @@ export type ManufacturingRun = z.infer<typeof ManufacturingRunSchema>;
 export const ManufacturingRunCreateSchema = z.object({
   run_number: z.string().optional().nullable(),
   warehouse_id: Uuid.optional().nullable(),
+  // F-Wave9-AUDIT-V3-WAVE-C2-01: optional nullable project linkage on
+  // create. Mirror of receiving_orders ReceivingCreate.project_id added
+  // for UX-Q6. Cross-tenant project_id writes still 404 at the handler
+  // level because the projects row is invisible under the org gate.
+  project_id: Uuid.nullable().optional(),
   planned_start_at: Iso.optional().nullable(),
   planned_complete_at: Iso.optional().nullable(),
   notes: z.string().optional().nullable(),
