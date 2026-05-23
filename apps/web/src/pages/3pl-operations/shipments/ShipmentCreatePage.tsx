@@ -13,6 +13,7 @@ import { useCreateShipment } from '@/lib/hooks/useOps';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useProject } from '@/lib/hooks/useProjects';
 import { createShipmentLineItem } from '@/lib/services/shipmentLineItemsService';
+import { parseProjectIdParam } from '@/lib/urlParams';
 import type { Shipment } from '@/lib/types/vendors_inventory_ops';
 
 import { deriveShipmentCustomerFromProject } from './deriveShipmentCustomerFromProject';
@@ -30,9 +31,11 @@ import { deriveShipmentCustomerFromProject } from './deriveShipmentCustomerFromP
  * `/shipments/:id/line-items`. This mirrors the working detail-page
  * editor (`ShipmentDetailPage.tsx`).
  *
- * project_id is sent at top level; the ops-api ShipmentCreate Zod schema
- * does not yet accept it, so the value is silently stripped until the
- * handler catches up.
+ * project_id is sent at top level. F-Wave9-AUDIT-V3-WAVE-C2-01 wired the
+ * ops-api ShipmentCreate Zod schema to accept it, so the value is now
+ * persisted to the shipments row instead of being silently stripped.
+ * F-Wave9-AUDIT-V3-WAVE-C3-01 hardens the deep-link prefill with a UUID
+ * guard so a malformed `?project_id=` URL falls back to null.
  */
 export function ShipmentCreatePage() {
   const navigate = useNavigate();
@@ -41,7 +44,11 @@ export function ShipmentCreatePage() {
   const warehouses = useWarehousesList();
 
   const prefilledCustomerId = searchParams.get('customer_id');
-  const prefilledProjectId = searchParams.get('project_id');
+  // F-Wave9-AUDIT-V3-WAVE-C3-01: defend against malformed `?project_id=`
+  // deep-link values so a bad URL falls back to null rather than poisoning
+  // the picker or generating a 422 on submit. The server side (C2,
+  // PR #133) accepts a UUID or null here on ShipmentCreate.
+  const prefilledProjectId = parseProjectIdParam(searchParams.get('project_id'));
 
   // F-Wave9-AUTO-NUMBERING-01 (B8): the ops-api POST /shipments handler now
   // allocates SHP-YYYY-NNNNN via the numbering chassis when `shipment_number`
