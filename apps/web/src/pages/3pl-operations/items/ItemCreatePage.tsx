@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
 import { useCreateItem } from '@/lib/hooks/useItems';
 
 export function ItemCreatePage() {
@@ -10,7 +11,10 @@ export function ItemCreatePage() {
   const create = useCreateItem();
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
-  const [unitPrice, setUnitPrice] = useState('0');
+  // PR A2: state holds integer cents (DollarInput emits number | null).
+  // Wire format is unchanged: the cents value goes out as a string to
+  // match CentsSchema's z.union<int, string-of-digits>.
+  const [unitPriceCents, setUnitPriceCents] = useState<number | null>(0);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -20,7 +24,7 @@ export function ItemCreatePage() {
     create.mutate(
       {
         sku, name,
-        unit_price_cents: unitPrice,
+        unit_price_cents: String(unitPriceCents ?? 0),
       },
       {
         onSuccess: (result) => {
@@ -46,11 +50,10 @@ export function ItemCreatePage() {
           onChange={(e) => setName(e.target.value)}
           required
         />
-        <TextInput
-          label="Unit price (cents)"
-          value={unitPrice}
-          onChange={(e) => setUnitPrice(e.target.value)}
-          inputMode="numeric"
+        <DollarInput
+          label="Unit price"
+          value={unitPriceCents}
+          onChange={setUnitPriceCents}
         />
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}

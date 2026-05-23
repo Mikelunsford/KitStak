@@ -12,6 +12,7 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
 import { ItemPicker } from '@/components/ui/pickers';
 import {
   useProject, useTransitionProject, useCreatePhase,
@@ -96,7 +97,10 @@ export function ProjectDetailPage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [materialName, setMaterialName] = useState('');
   const [materialQty, setMaterialQty] = useState('1');
-  const [materialPrice, setMaterialPrice] = useState('0');
+  // PR A2: integer cents via DollarInput; quantity remains a plain decimal
+  // string because the project line-item schema uses `quantity` (decimal)
+  // not `quantity_e3`.
+  const [materialPrice, setMaterialPrice] = useState<number | null>(0);
 
   const selectedItem = useItem(selectedItemId ?? undefined);
 
@@ -110,7 +114,7 @@ export function ProjectDetailPage() {
     setSelectedItemId(itemId);
     if (itemId && selectedItem.data) {
       setMaterialName(selectedItem.data.name);
-      setMaterialPrice(String(selectedItem.data.unit_price_cents));
+      setMaterialPrice(Number(selectedItem.data.unit_price_cents));
     }
   };
 
@@ -139,7 +143,7 @@ export function ProjectDetailPage() {
         name: materialName,
         item_id: selectedItemId,
         quantity: materialQty,
-        unit_price_cents: materialPrice,
+        unit_price_cents: String(materialPrice ?? 0),
         discount_percent: 0,
       },
       {
@@ -147,7 +151,7 @@ export function ProjectDetailPage() {
           setSelectedItemId(null);
           setMaterialName('');
           setMaterialQty('1');
-          setMaterialPrice('0');
+          setMaterialPrice(0);
         },
       },
     );
@@ -422,11 +426,10 @@ export function ProjectDetailPage() {
                 onChange={(e) => setMaterialQty(e.target.value)}
                 inputMode="decimal"
               />
-              <TextInput
-                label="Unit price (whole cents, e.g. 250 = $2.50)"
+              <DollarInput
+                label="Unit price"
                 value={materialPrice}
-                onChange={(e) => setMaterialPrice(e.target.value)}
-                inputMode="numeric"
+                onChange={setMaterialPrice}
               />
               <Button type="submit" disabled={addLine.isPending}>
                 {addLine.isPending ? 'Adding.' : 'Add material'}

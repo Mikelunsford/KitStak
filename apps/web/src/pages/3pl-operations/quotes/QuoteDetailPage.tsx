@@ -12,6 +12,9 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
+import { PercentInput } from '@/components/forms/PercentInput';
+import { QuantityInput } from '@/components/forms/QuantityInput';
 import { ItemPicker } from '@/components/ui/pickers';
 import {
   useQuote, useSubmitQuote, useApproveQuote, useReviseQuote,
@@ -67,9 +70,11 @@ export function QuoteDetailPage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [lineName, setLineName] = useState('');
   const [lineSku, setLineSku] = useState('');
-  const [lineQty, setLineQty] = useState('1000');
-  const [linePrice, setLinePrice] = useState('0');
-  const [lineDiscountBps, setLineDiscountBps] = useState('0');
+  // PR A2: integer storage units via primitives. qty_e3 defaults to 1000
+  // (1 unit), price/discount default to 0.
+  const [lineQty, setLineQty] = useState<number | null>(1000);
+  const [linePrice, setLinePrice] = useState<number | null>(0);
+  const [lineDiscountBps, setLineDiscountBps] = useState<number | null>(0);
   const [lineTaxId, setLineTaxId] = useState('');
   const [lineIsTaxable, setLineIsTaxable] = useState(true);
   const [pdfPending, setPdfPending] = useState(false);
@@ -149,9 +154,9 @@ export function QuoteDetailPage() {
         sku: lineSku || null,
         item_id: selectedItemId,
         kind: 'item',
-        quantity_e3: lineQty,
-        unit_price_cents: linePrice,
-        discount_bps: Number(lineDiscountBps) || 0,
+        quantity_e3: lineQty ?? 0,
+        unit_price_cents: linePrice ?? 0,
+        discount_bps: lineDiscountBps ?? 0,
         tax_id: lineTaxId || null,
         is_taxable: lineIsTaxable,
       },
@@ -160,9 +165,9 @@ export function QuoteDetailPage() {
           setSelectedItemId(null);
           setLineName('');
           setLineSku('');
-          setLineQty('1000');
-          setLinePrice('0');
-          setLineDiscountBps('0');
+          setLineQty(1000);
+          setLinePrice(0);
+          setLineDiscountBps(0);
           setLineTaxId('');
           setLineIsTaxable(true);
         },
@@ -348,7 +353,10 @@ export function QuoteDetailPage() {
               if (!next) return;
               setLineName(next.name);
               setLineSku(next.sku);
-              setLinePrice(next.unit_price_cents);
+              // PR A2: linePrice is now integer cents; applyItemSelection
+              // emits a numeric string for backwards compatibility, so we
+              // parse it here.
+              setLinePrice(Number(next.unit_price_cents));
             }}
             label="Item (optional, pre-fills name and price)"
             filter={{ active: true }}
@@ -365,23 +373,20 @@ export function QuoteDetailPage() {
               value={lineSku}
               onChange={(e) => setLineSku(e.target.value)}
             />
-            <TextInput
-              label="Qty (e3)"
+            <QuantityInput
+              label="Quantity"
               value={lineQty}
-              onChange={(e) => setLineQty(e.target.value)}
-              inputMode="numeric"
+              onChange={setLineQty}
             />
-            <TextInput
-              label="Unit price (cents)"
+            <DollarInput
+              label="Unit price"
               value={linePrice}
-              onChange={(e) => setLinePrice(e.target.value)}
-              inputMode="numeric"
+              onChange={setLinePrice}
             />
-            <TextInput
-              label="Discount bps"
+            <PercentInput
+              label="Discount"
               value={lineDiscountBps}
-              onChange={(e) => setLineDiscountBps(e.target.value)}
-              inputMode="numeric"
+              onChange={setLineDiscountBps}
             />
             <TextInput
               label="Tax id (optional)"

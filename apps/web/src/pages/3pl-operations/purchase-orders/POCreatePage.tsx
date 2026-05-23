@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { DollarInput } from '@/components/forms/DollarInput';
+import { PercentInput } from '@/components/forms/PercentInput';
 import { VendorPicker, ItemPicker } from '@/components/ui/pickers';
 import { useCreatePurchaseOrder } from '@/lib/hooks/usePurchaseOrders';
 import { createPoLineItem } from '@/lib/services/poLineItemsService';
@@ -27,8 +29,10 @@ interface LineDraft {
   itemId: string | null;
   description: string;
   quantityOrdered: string;
-  unitPriceCents: string;
-  taxRateBps: string;
+  // PR A2: cents and bps now stored as integers via the primitives.
+  // null permitted while the operator clears the field mid-edit.
+  unitPriceCents: number | null;
+  taxRateBps: number | null;
 }
 
 function emptyLine(): LineDraft {
@@ -37,8 +41,8 @@ function emptyLine(): LineDraft {
     itemId: null,
     description: '',
     quantityOrdered: '1',
-    unitPriceCents: '0',
-    taxRateBps: '0',
+    unitPriceCents: 0,
+    taxRateBps: 0,
   };
 }
 
@@ -102,8 +106,8 @@ export function POCreatePage() {
             const body: Partial<PoLineItem> = {
               description: l.description || '',
               quantity_ordered: l.quantityOrdered,
-              unit_price_cents: l.unitPriceCents,
-              tax_rate_bps: Number(l.taxRateBps || '0'),
+              unit_price_cents: String(l.unitPriceCents ?? 0),
+              tax_rate_bps: l.taxRateBps ?? 0,
             };
             if (l.itemId) body.item_id = l.itemId;
             return createPoLineItem(out.id, body);
@@ -197,21 +201,15 @@ export function POCreatePage() {
                   }
                   inputMode="decimal"
                 />
-                <TextInput
-                  label="Unit price (cents)"
+                <DollarInput
+                  label="Unit price"
                   value={l.unitPriceCents}
-                  onChange={(e) =>
-                    updateLine(l.key, { unitPriceCents: e.target.value })
-                  }
-                  inputMode="numeric"
+                  onChange={(v) => updateLine(l.key, { unitPriceCents: v })}
                 />
-                <TextInput
-                  label="Tax rate (bps)"
+                <PercentInput
+                  label="Tax rate"
                   value={l.taxRateBps}
-                  onChange={(e) =>
-                    updateLine(l.key, { taxRateBps: e.target.value })
-                  }
-                  inputMode="numeric"
+                  onChange={(v) => updateLine(l.key, { taxRateBps: v })}
                 />
               </div>
               {lines.length > 1 && (
