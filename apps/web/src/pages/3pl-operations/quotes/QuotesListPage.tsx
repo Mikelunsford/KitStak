@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { useQuotesList } from '@/lib/hooks/useQuotes';
@@ -61,6 +62,8 @@ export function QuotesListPage() {
             <tr>
               <th className="px-4 py-2">Number</th>
               <th className="px-4 py-2">Title</th>
+              <th className="px-4 py-2">Customer</th>
+              <th className="px-4 py-2">Project</th>
               <th className="px-4 py-2">State</th>
               <th className="px-4 py-2">Total</th>
             </tr>
@@ -74,6 +77,20 @@ export function QuotesListPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-2">{q.title ?? '.'}</td>
+                <td className="px-4 py-2 text-ink-dim">
+                  {q.customer_id ? (
+                    <EntityLabel kind="customer" id={q.customer_id} />
+                  ) : (
+                    '.'
+                  )}
+                </td>
+                <td className="px-4 py-2 text-ink-dim">
+                  {q.converted_to_project_id ? (
+                    <EntityLabel kind="project" id={q.converted_to_project_id} />
+                  ) : (
+                    '.'
+                  )}
+                </td>
                 <td className="px-4 py-2">{q.state}</td>
                 <td className="px-4 py-2 font-mono text-sm">
                   {formatCents(q.total_cents, q.currency_code)}

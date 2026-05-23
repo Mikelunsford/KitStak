@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useInvoices } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
+
+import { formatInvoiceAging } from './invoiceAging';
 
 const ALLOWED_INVOICE_STATUSES = new Set<string>([
   'draft',
@@ -80,17 +83,20 @@ export function InvoicesListPage() {
         <table className="w-full text-sm font-sans border-collapse">
           <thead>
             <tr className="text-left text-ink-dim border-b border-line">
-              <th className="py-2">Number</th>
-              <th className="py-2">Status</th>
-              <th className="py-2">Issue date</th>
-              <th className="py-2 text-right">Total</th>
+              <th className="py-2 pr-3">Number</th>
+              <th className="py-2 pr-3">Customer</th>
+              <th className="py-2 pr-3">Project</th>
+              <th className="py-2 pr-3">Status</th>
+              <th className="py-2 pr-3">Issue date</th>
+              <th className="py-2 pr-3">Aging</th>
+              <th className="py-2 text-right pr-3">Total</th>
               <th className="py-2 text-right">Balance</th>
             </tr>
           </thead>
           <tbody>
             {(data ?? []).map((inv) => (
               <tr key={inv.id} className="border-b border-line">
-                <td className="py-2">
+                <td className="py-2 pr-3">
                   <Link
                     to={`/invoicing/invoices/${inv.id}`}
                     className="text-ink hover:text-accent"
@@ -98,9 +104,30 @@ export function InvoicesListPage() {
                     {inv.invoice_number}
                   </Link>
                 </td>
-                <td className="py-2 uppercase text-ink-dim">{inv.status}</td>
-                <td className="py-2 text-ink-dim">{inv.issue_date ?? '-'}</td>
-                <td className="py-2 text-right">
+                <td className="py-2 pr-3 text-ink-dim">
+                  {inv.customer_id ? (
+                    <EntityLabel kind="customer" id={inv.customer_id} />
+                  ) : (
+                    '.'
+                  )}
+                </td>
+                <td className="py-2 pr-3 text-ink-dim">
+                  {inv.project_id ? (
+                    <EntityLabel kind="project" id={inv.project_id} />
+                  ) : (
+                    '.'
+                  )}
+                </td>
+                <td className="py-2 pr-3 uppercase text-ink-dim">{inv.status}</td>
+                <td className="py-2 pr-3 text-ink-dim">{inv.issue_date ?? '.'}</td>
+                <td className="py-2 pr-3 text-ink-dim">
+                  {formatInvoiceAging({
+                    status: inv.status,
+                    issue_date: inv.issue_date,
+                    due_date: inv.due_date,
+                  })}
+                </td>
+                <td className="py-2 text-right pr-3">
                   {formatCents(inv.total_cents as number | string, inv.currency_code)}
                 </td>
                 <td className="py-2 text-right">

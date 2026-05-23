@@ -122,6 +122,7 @@ export function ManufacturingRunsListPage() {
           <tr>
             <th className="px-4 py-2">Run</th>
             <th className="px-4 py-2">Status</th>
+            <th className="px-4 py-2">Project</th>
             <th className="px-4 py-2">Warehouse</th>
             <th className="px-4 py-2">Planned start</th>
             <th className="px-4 py-2">Created</th>
@@ -131,7 +132,7 @@ export function ManufacturingRunsListPage() {
         <tbody>
           {(runs.data ?? []).length === 0 && !runs.isLoading ? (
             <tr>
-              <td colSpan={6} className="px-4 py-6 text-ink-dim text-sm">
+              <td colSpan={7} className="px-4 py-6 text-ink-dim text-sm">
                 No manufacturing runs match the current filters.
               </td>
             </tr>
@@ -147,6 +148,9 @@ export function ManufacturingRunsListPage() {
                   <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
                     {r.status}
                   </span>
+                </td>
+                <td className="px-4 py-2 text-ink-dim">
+                  {r.project_id ? <EntityLabel kind="project" id={r.project_id} /> : '.'}
                 </td>
                 <td className="px-4 py-2 text-ink-dim">
                   <EntityLabel kind="warehouse" id={r.warehouse_id} />
