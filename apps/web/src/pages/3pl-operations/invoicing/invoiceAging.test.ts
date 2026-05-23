@@ -1,5 +1,5 @@
-// Unit tests for the F-Wave9-AUDIT-V3-WAVE-D-01 invoice aging helper.
-// All cases pin "today" to a deterministic clock so the suite stays
+// Unit tests for the F-Wave9-SMOKE-2026-05-23-02 humanized invoice aging
+// helper. All cases pin "today" to a deterministic clock so the suite stays
 // timezone-agnostic and does not drift over time.
 
 import { describe, it, expect } from 'vitest';
@@ -28,93 +28,129 @@ describe('formatInvoiceAging', () => {
     ).toBe('.');
   });
 
-  it('returns "." when both issue_date and due_date are null', () => {
+  it('returns "." for draft invoices regardless of dates', () => {
     expect(
-      formatInvoiceAging({ status: 'draft', issue_date: null, due_date: null }, TODAY),
+      formatInvoiceAging(
+        { status: 'draft', issue_date: '2026-05-01', due_date: '2026-05-31' },
+        TODAY,
+      ),
+    ).toBe('.');
+    expect(
+      formatInvoiceAging(
+        { status: 'draft', issue_date: null, due_date: null },
+        TODAY,
+      ),
     ).toBe('.');
   });
 
-  it('uses due_date when present (days since due)', () => {
-    // due 2026-05-11, today 2026-05-23 -> 12 days overdue.
+  it('returns "N days late" when the invoice is past due (plural)', () => {
+    // due 2026-05-11, today 2026-05-23 -> 12 days late.
     expect(
       formatInvoiceAging(
         { status: 'sent', issue_date: '2026-04-11', due_date: '2026-05-11' },
         TODAY,
       ),
-    ).toBe('12 days');
+    ).toBe('12 days late');
   });
 
-  it('falls back to issue_date when due_date is null', () => {
-    // issued 2026-05-22, today 2026-05-23 -> 1 day.
-    expect(
-      formatInvoiceAging(
-        { status: 'draft', issue_date: '2026-05-22', due_date: null },
-        TODAY,
-      ),
-    ).toBe('1 day');
-  });
-
-  it('uses singular unit at exactly 1 day in either direction', () => {
+  it('returns "1 day late" at the singular past-due boundary', () => {
+    // due 2026-05-22, today 2026-05-23 -> 1 day late.
     expect(
       formatInvoiceAging(
         { status: 'sent', issue_date: null, due_date: '2026-05-22' },
         TODAY,
       ),
-    ).toBe('1 day');
-    expect(
-      formatInvoiceAging(
-        { status: 'sent', issue_date: null, due_date: '2026-05-24' },
-        TODAY,
-      ),
-    ).toBe('-1 day');
+    ).toBe('1 day late');
   });
 
-  it('returns "0 days" on the due date itself', () => {
+  it('returns "Due today" on the due date itself', () => {
     expect(
       formatInvoiceAging(
         { status: 'sent', issue_date: null, due_date: '2026-05-23' },
         TODAY,
       ),
-    ).toBe('0 days');
+    ).toBe('Due today');
   });
 
-  it('returns negative days when due_date is in the future (credit-side aging)', () => {
-    // due 2026-06-22, today 2026-05-23 -> -30 days (30 days until due).
+  it('returns "Due in N days" when the invoice is not yet due (plural)', () => {
+    // due 2026-06-22, today 2026-05-23 -> due in 30 days.
     expect(
       formatInvoiceAging(
         { status: 'sent', issue_date: '2026-05-23', due_date: '2026-06-22' },
         TODAY,
       ),
-    ).toBe('-30 days');
+    ).toBe('Due in 30 days');
   });
 
-  it('returns "." for an unparseable date string', () => {
+  it('returns "Due in 1 day" at the singular future boundary', () => {
+    // due 2026-05-24, today 2026-05-23 -> due in 1 day.
     expect(
       formatInvoiceAging(
-        { status: 'draft', issue_date: '2026/05/22', due_date: null },
+        { status: 'sent', issue_date: null, due_date: '2026-05-24' },
+        TODAY,
+      ),
+    ).toBe('Due in 1 day');
+  });
+
+  it('returns "." when status is sent/unpaid but due_date is null', () => {
+    expect(
+      formatInvoiceAging(
+        { status: 'sent', issue_date: '2026-05-22', due_date: null },
         TODAY,
       ),
     ).toBe('.');
     expect(
       formatInvoiceAging(
-        { status: 'draft', issue_date: 'not-a-date', due_date: null },
+        { status: 'partially_paid', issue_date: '2026-05-22', due_date: null },
+        TODAY,
+      ),
+    ).toBe('.');
+    expect(
+      formatInvoiceAging(
+        { status: 'overdue', issue_date: null, due_date: null },
         TODAY,
       ),
     ).toBe('.');
   });
 
-  it('does not use em-dashes or double-hyphens in any output (brand discipline)', () => {
+  it('returns "." for an unparseable due_date string', () => {
+    expect(
+      formatInvoiceAging(
+        { status: 'sent', issue_date: null, due_date: '2026/05/22' },
+        TODAY,
+      ),
+    ).toBe('.');
+    expect(
+      formatInvoiceAging(
+        { status: 'sent', issue_date: null, due_date: 'not-a-date' },
+        TODAY,
+      ),
+    ).toBe('.');
+  });
+
+  it('returns "." for null or undefined invoice input', () => {
+    expect(formatInvoiceAging(null, TODAY)).toBe('.');
+    expect(formatInvoiceAging(undefined, TODAY)).toBe('.');
+  });
+
+  it('does not use em-dashes, en-dashes, or double-hyphens in any output (brand discipline)', () => {
     const cases: Array<Parameters<typeof formatInvoiceAging>[0]> = [
       { status: 'paid', issue_date: '2026-05-01', due_date: '2026-05-31' },
       { status: 'cancelled', issue_date: '2026-05-01', due_date: '2026-05-31' },
-      { status: 'sent', issue_date: '2026-05-22', due_date: '2026-05-24' },
-      { status: 'draft', issue_date: null, due_date: null },
-      { status: 'sent', issue_date: null, due_date: 'invalid' },
+      { status: 'draft', issue_date: '2026-05-01', due_date: '2026-05-31' },
+      { status: 'sent', issue_date: null, due_date: '2026-05-11' }, // late
+      { status: 'sent', issue_date: null, due_date: '2026-05-23' }, // today
+      { status: 'sent', issue_date: null, due_date: '2026-05-24' }, // future
+      { status: 'sent', issue_date: null, due_date: null }, // inert
+      { status: 'sent', issue_date: null, due_date: 'invalid' }, // inert
     ];
     for (const inv of cases) {
       const out = formatInvoiceAging(inv, TODAY);
       expect(out).not.toMatch(/—|–/); // em-dash, en-dash
-      expect(out).not.toMatch(/--/);  // double-hyphen
+      expect(out).not.toMatch(/--/); // double-hyphen
+      // The string "-" alone should also never appear in aging copy; either
+      // we emit a positive integer or we emit "." as the inert placeholder.
+      expect(out).not.toMatch(/^-/);
     }
   });
 });
