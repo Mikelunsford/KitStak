@@ -31,6 +31,10 @@ import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
+import {
+  isPdfDisabledForDraft,
+  PDF_DRAFT_DISABLED_TOOLTIP,
+} from '@/lib/workflow/pdfGating';
 // PR-D / BNEW-3-INV: item-pick prefill helper extracted to
 // applyItemSelectionToInvoiceLine.ts for the same reason PR-C extracted the
 // quote-side helper — pure function, unit-testable, closes the async-stale
@@ -278,15 +282,27 @@ export function InvoiceDetailPage() {
               Send
             </Button>
           )}
-          {canRenderPdf && (
-            <Button
-              variant="secondary"
-              onClick={onDownloadPdf}
-              disabled={pdfPending}
-            >
-              {pdfPending ? 'Building.' : 'Download PDF'}
-            </Button>
-          )}
+          {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 4): gate the Download PDF
+              button to disabled while the invoice is in draft. Operators
+              should send or approve the document first; the customer-
+              facing artifact is only meaningful past draft. Tooltip on
+              the wrapping span (disabled buttons don't fire title
+              events on Chromium-via-aria-disabled patterns, so we
+              keep the native disabled attr + a span carrier). */}
+          {canRenderPdf && (() => {
+            const pdfDisabled = isPdfDisabledForDraft(inv.status);
+            return (
+              <span title={pdfDisabled ? PDF_DRAFT_DISABLED_TOOLTIP : undefined}>
+                <Button
+                  variant="secondary"
+                  onClick={onDownloadPdf}
+                  disabled={pdfPending || pdfDisabled}
+                >
+                  {pdfPending ? 'Building.' : 'Download PDF'}
+                </Button>
+              </span>
+            );
+          })()}
           {canCancel && (
             <Button
               variant="ghost"

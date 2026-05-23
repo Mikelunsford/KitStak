@@ -98,24 +98,44 @@ export function QuoteCreatePage() {
           value={expirationDate}
           onChange={(e) => setExpirationDate(e.target.value)}
         />
-        <TextInput
-          label="Default tax id"
-          value={defaultTaxId}
-          onChange={(e) => setDefaultTaxId(e.target.value)}
-          placeholder="optional uuid"
-        />
-        <TextInput
-          label="Payment method id"
-          value={paymentMethodId}
-          onChange={(e) => setPaymentMethodId(e.target.value)}
-          placeholder="optional uuid"
-        />
-        <TextInput
-          label="Pricing tier id"
-          value={pricingTierId}
-          onChange={(e) => setPricingTierId(e.target.value)}
-          placeholder="optional uuid"
-        />
+        {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 1): hide the three optional
+            raw-UUID inputs from the default view. The audit called out
+            that asking the operator to paste a raw UUID for an optional
+            FK is template-y and reads as developer-facing scaffolding.
+            B2 already replaced the source-quote uuid input with a
+            QuotePicker; default_tax_id / payment_method_id /
+            pricing_tier_id don't yet have a picker, so we keep them
+            available under a disclosure for the rare operator who has
+            an id in hand (admin workflows, data migration), but the
+            common path is "skip — defaults apply". Data model is
+            untouched; CreateQuoteRequest still accepts these nullable
+            fields and the body builder above still sends null when the
+            inputs are empty. */}
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <TextInput
+              label="Default tax id"
+              value={defaultTaxId}
+              onChange={(e) => setDefaultTaxId(e.target.value)}
+              placeholder="leave blank to use the org default"
+            />
+            <TextInput
+              label="Payment method id"
+              value={paymentMethodId}
+              onChange={(e) => setPaymentMethodId(e.target.value)}
+              placeholder="leave blank to use the org default"
+            />
+            <TextInput
+              label="Pricing tier id"
+              value={pricingTierId}
+              onChange={(e) => setPricingTierId(e.target.value)}
+              placeholder="leave blank to use the org default"
+            />
+          </div>
+        </details>
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Notes

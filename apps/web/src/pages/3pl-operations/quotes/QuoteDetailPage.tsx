@@ -27,6 +27,10 @@ import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { canTransition, QUOTE_FSM } from '@/lib/workflow/sales';
 import { shouldShowQuoteNextStepCTA } from '@/lib/workflow/nextStepCTA';
+import {
+  isPdfDisabledForDraft,
+  PDF_DRAFT_DISABLED_TOOLTIP,
+} from '@/lib/workflow/pdfGating';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import type { QuoteState } from '@/lib/types/sales';
@@ -275,15 +279,27 @@ export function QuoteDetailPage() {
         {state === 'approved' && id && (
           <Button variant="secondary" onClick={() => send.mutate(id)}>Send to customer</Button>
         )}
-        {canRenderPdf && (
-          <Button
-            variant="secondary"
-            onClick={onDownloadPdf}
-            disabled={pdfPending}
-          >
-            {pdfPending ? 'Building.' : 'Download PDF'}
-          </Button>
-        )}
+        {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 4): gate the Download PDF
+            button to disabled while the quote is draft or
+            revise_requested. Both are pre-customer states the operator
+            is still working in; rendering a PDF off them would leak
+            a half-baked document. Tooltip on the wrapping span (the
+            Button's native disabled attr swallows pointer events, so
+            title text rides on the carrier). */}
+        {canRenderPdf && (() => {
+          const pdfDisabled = isPdfDisabledForDraft(state);
+          return (
+            <span title={pdfDisabled ? PDF_DRAFT_DISABLED_TOOLTIP : undefined}>
+              <Button
+                variant="secondary"
+                onClick={onDownloadPdf}
+                disabled={pdfPending || pdfDisabled}
+              >
+                {pdfPending ? 'Building.' : 'Download PDF'}
+              </Button>
+            </span>
+          );
+        })()}
       </div>
       {pdfError && (
         <p className="text-accent font-sans text-sm">
