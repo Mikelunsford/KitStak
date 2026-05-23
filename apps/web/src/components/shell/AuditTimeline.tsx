@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { supabase } from '@/lib/supabase';
 import { AuditEntrySchema, type AuditEntry } from '@/lib/types';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 
 import { formatStateLabel } from './auditStateFormatters';
 
@@ -22,21 +23,6 @@ interface AuditTimelineProps {
   entityType: string;
   entityId: string | null;
   limit?: number;
-}
-
-function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diffMs = now - then;
-  const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  return new Date(iso).toLocaleDateString();
 }
 
 async function fetchAuditTimeline(
@@ -100,9 +86,11 @@ export function AuditTimeline({
                 </span>
               ) : null}
             </span>
-            <span className="text-xs text-ink-dim" title={row.triggered_at}>
-              {relativeTime(row.triggered_at)}
-            </span>
+            <RelativeTime
+              as="time"
+              value={row.triggered_at}
+              className="text-xs text-ink-dim"
+            />
           </div>
           {row.diff_json !== null && row.diff_json !== undefined ? (
             <details className="mt-1">

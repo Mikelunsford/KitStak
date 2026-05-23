@@ -34,7 +34,16 @@ export type AnalyticsEvent =
   | 'quote_sent'
   | 'project_converted'
   | 'invoice_sent'
-  | 'payment_received';
+  | 'payment_received'
+  // F-Wave9-AUDIT-V3-WAVE-F-01: time-to-send invoice funnel event.
+  // Emitted alongside `invoice_sent` when the SPA transitions a draft /
+  // pending invoice to sent. Properties: invoice_id (UUID), created_at
+  // (ISO), sent_at (ISO), seconds_to_send (integer). No monetary value;
+  // the existing `invoice_sent` event already carries the bucketed
+  // total. The duration signal answers "how fast does an operator
+  // close the create-to-send loop" and feeds the PostHog dashboard
+  // filed under F-Wave8-POSTHOG-FUNNEL-EXPANSION-01.
+  | 'time_to_send_invoice';
 
 export type AnalyticsPropValue = string | number | boolean | null;
 
