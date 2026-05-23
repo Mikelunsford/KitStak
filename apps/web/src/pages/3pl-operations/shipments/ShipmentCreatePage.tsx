@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import {
@@ -11,8 +11,11 @@ import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateShipment } from '@/lib/hooks/useOps';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
+import { useProject } from '@/lib/hooks/useProjects';
 import { createShipmentLineItem } from '@/lib/services/shipmentLineItemsService';
 import type { Shipment } from '@/lib/types/vendors_inventory_ops';
+
+import { deriveShipmentCustomerFromProject } from './deriveShipmentCustomerFromProject';
 
 /**
  * ShipmentCreatePage. Closes G-SHIP-FORM-01 plus G-SHIP-LINES-01 (the
@@ -57,6 +60,23 @@ export function ShipmentCreatePage() {
   const [submittingLines, setSubmittingLines] = useState(false);
 
   const warehouseOptions = useMemo(() => warehouses.data ?? [], [warehouses.data]);
+
+  // B4 (Wave B): when the operator selects a project, auto-derive the
+  // customer from that project's customer_id so the form stays
+  // consistent without forcing two picks. Operator can still override
+  // the CustomerPicker after; the effect only fires when the project
+  // changes, and the pure helper deduplicates against the current
+  // customer so a redundant setState does not loop.
+  const project = useProject(projectId ?? undefined);
+  useEffect(() => {
+    // getProject returns a { project, phases } envelope; the customer
+    // id lives on the inner row.
+    const derived = deriveShipmentCustomerFromProject(
+      project.data?.project,
+      customerId,
+    );
+    if (derived) setCustomerId(derived);
+  }, [project.data, customerId]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -135,6 +155,17 @@ export function ShipmentCreatePage() {
             ))}
           </select>
         </label>
+        {/* B4 (Wave B): Project sits above Customer so the natural flow
+            "pick the project this shipment is for, customer auto-fills"
+            mirrors the operator's mental model. The effect above derives
+            customer_id from the selected project; the operator can still
+            override via the CustomerPicker below. */}
+        <ProjectPicker
+          value={projectId}
+          onChange={setProjectId}
+          label="Project (optional)"
+          filter={customerId ? { customer_id: customerId } : undefined}
+        />
         <CustomerPicker
           value={customerId}
           onChange={(v) => {
@@ -142,12 +173,6 @@ export function ShipmentCreatePage() {
             if (v !== customerId) setProjectId(null);
           }}
           label="Customer (optional)"
-        />
-        <ProjectPicker
-          value={projectId}
-          onChange={setProjectId}
-          label="Project (optional)"
-          filter={customerId ? { customer_id: customerId } : undefined}
         />
         <TextInput
           label="Ship date"
