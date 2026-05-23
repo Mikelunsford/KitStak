@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -12,7 +12,7 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
-import { ItemPicker } from '@/components/ui/pickers';
+import { BillableLineItemsEditor } from '@/components/ui/BillableLineItemsEditor';
 import {
   useInvoice,
   useInvoiceLineItems,
@@ -40,6 +40,7 @@ import {
 // quote-side helper — pure function, unit-testable, closes the async-stale
 // race in the previous synchronous handler.
 import { applyItemSelectionToInvoiceLine } from './applyItemSelectionToInvoiceLine';
+import { ReceivePaymentModal } from './ReceivePaymentModal';
 
 /**
  * InvoiceDetailPage. Closes G-INV-DETAIL-01 and G-PAY-FLOW-01. Adds
@@ -50,7 +51,6 @@ import { applyItemSelectionToInvoiceLine } from './applyItemSelectionToInvoiceLi
 export function InvoiceDetailPage() {
   const { id } = useParams();
   const invoiceId = id ?? '';
-  const navigate = useNavigate();
   const invoice = useInvoice(invoiceId);
   const lines = useInvoiceLineItems(invoiceId);
   const addLine = useCreateInvoiceLineItem(invoiceId);
@@ -77,13 +77,20 @@ export function InvoiceDetailPage() {
     invoiceId ? { invoice_id: invoiceId } : {},
   );
 
+  // Add-line field state lives at the page level so the mutation
+  // onSuccess can clear it. The BillableLineItemsEditor owns the
+  // show/hide chrome and the ItemPicker, and pipes the chosen item
+  // back via `onItemPicked` so the page can apply its own prefill.
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [lineDesc, setLineDesc] = useState('');
   const [lineQty, setLineQty] = useState('1');
   const [linePrice, setLinePrice] = useState('0');
-  const [showAddLine, setShowAddLine] = useState(false);
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  // F-Wave9-AUDIT-V3-WAVE-F-01: inline Receive Payment modal. Replaces
+  // the navigate-to-PaymentCreatePage flow so the operator stays on
+  // the invoice detail page.
+  const [showReceivePayment, setShowReceivePayment] = useState(false);
 
   const me = useMe({ enabled: true });
   const canRenderPdf = me.data?.active_role
@@ -132,18 +139,16 @@ export function InvoiceDetailPage() {
           setLineDesc('');
           setLineQty('1');
           setLinePrice('0');
-          setShowAddLine(false);
         },
       },
     );
   };
 
-  const onReceivePayment = () => {
-    const params = new URLSearchParams();
-    if (customerId) params.set('customer_id', customerId);
-    params.set('invoice_id', invoiceId);
-    navigate(`/3pl-operations/payments/new?${params.toString()}`);
-  };
+  // F-Wave9-AUDIT-V3-WAVE-F-01: open the inline modal rather than
+  // navigating to PaymentCreatePage. The mutations the modal fires
+  // already invalidate the invoice + payments query trees on success,
+  // so the PAYMENTS section below refreshes automatically.
+  const onReceivePayment = () => setShowReceivePayment(true);
 
   // F-Wave2-CO-01. Build the invoice render payload from the loaded invoice
   // and its line items, call the pdf-worker, and trigger a download via a
@@ -335,6 +340,16 @@ export function InvoiceDetailPage() {
         />
       )}
 
+      <ReceivePaymentModal
+        open={showReceivePayment}
+        onClose={() => setShowReceivePayment(false)}
+        invoiceId={invoiceId}
+        customerId={customerId}
+        balanceCents={inv.balance_cents}
+        currencyCode={inv.currency_code}
+      />
+
+
       {(sendMutation.error || cancelMutation.error || pdfError) && (
         <p className="font-sans text-sm text-accent">
           {(sendMutation.error instanceof Error && sendMutation.error.message) ||
@@ -351,112 +366,82 @@ export function InvoiceDetailPage() {
         <Stat label="Balance" value={formatCents(inv.balance_cents, inv.currency_code)} />
       </div>
 
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-2xl font-display tracking-wide text-ink">LINE ITEMS</h2>
-          {canEditLines && !showAddLine && (
-            <Button variant="secondary" onClick={() => setShowAddLine(true)}>
-              Add line
-            </Button>
-          )}
-        </div>
-        {lines.isLoading ? (
-          <p className="text-ink-dim">Loading lines.</p>
-        ) : (
-          <table className="w-full text-sm font-sans border-collapse">
-            <thead>
-              <tr className="text-left text-ink-dim border-b border-line">
-                <th className="py-2">Description</th>
-                <th className="py-2 text-right">Qty</th>
-                <th className="py-2 text-right">Unit</th>
-                <th className="py-2 text-right">Tax rate</th>
-                <th className="py-2 text-right">Line total</th>
-                <th className="py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(lines.data ?? []).map((l) => (
-                <tr key={l.id} className="border-b border-line">
-                  <td className="py-2">{l.description}</td>
-                  <td className="py-2 text-right">{String(l.quantity)}</td>
-                  <td className="py-2 text-right">
-                    {formatCents(l.unit_price_cents, inv.currency_code)}
-                  </td>
-                  <td className="py-2 text-right">{String(l.tax_rate_snapshot)}</td>
-                  <td className="py-2 text-right">
-                    {formatCents(l.line_total_cents, inv.currency_code)}
-                  </td>
-                  <td className="py-2 text-right">
-                    {canEditLines && (
-                      <Button variant="ghost" onClick={() => deleteLine.mutate(l.id)}>
-                        Remove
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* F-Wave9-AUDIT-V3-WAVE-F-01: migrated to BillableLineItemsEditor.
+          Slot props plug in the entity-specific cells + add-line fields;
+          the shell (table chrome, Add-line button, picker, submit) lives
+          in the shared component. Quote + shipment migrate next via
+          F-Wave9-AUDIT-V3-WAVE-F-LINE-EDITOR-MIGRATIONS-01. */}
+      <BillableLineItemsEditor
+        canEdit={canEditLines}
+        loading={lines.isLoading}
+        lines={lines.data ?? []}
+        columns={[
+          { label: 'Description' },
+          { label: 'Qty', align: 'right' },
+          { label: 'Unit', align: 'right' },
+          { label: 'Tax rate', align: 'right' },
+          { label: 'Line total', align: 'right' },
+          { label: '' },
+        ]}
+        renderLine={(l) => (
+          <>
+            <td className="py-2">{l.description}</td>
+            <td className="py-2 text-right">{String(l.quantity)}</td>
+            <td className="py-2 text-right">
+              {formatCents(l.unit_price_cents, inv.currency_code)}
+            </td>
+            <td className="py-2 text-right">{String(l.tax_rate_snapshot)}</td>
+            <td className="py-2 text-right">
+              {formatCents(l.line_total_cents, inv.currency_code)}
+            </td>
+            <td className="py-2 text-right">
+              {canEditLines && (
+                <Button variant="ghost" onClick={() => deleteLine.mutate(l.id)}>
+                  Remove
+                </Button>
+              )}
+            </td>
+          </>
         )}
-
-        {canEditLines && showAddLine && (
-          <form
-            onSubmit={onAddLine}
-            className="flex flex-col gap-3 border border-line p-4 mt-4"
-          >
-            <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
-            <ItemPicker
-              value={selectedItemId}
-              onChange={(itemId, item) => {
-                setSelectedItemId(itemId);
-                const next = applyItemSelectionToInvoiceLine(item);
-                if (!next) return;
-                setLineDesc(next.description);
-                setLinePrice(next.unit_price_cents);
-              }}
-              label="Item (optional, pre-fills description and price)"
-              filter={{ active: true }}
+        onItemPicked={(itemId, item) => {
+          setSelectedItemId(itemId);
+          const next = applyItemSelectionToInvoiceLine(item);
+          if (!next) return;
+          setLineDesc(next.description);
+          setLinePrice(next.unit_price_cents);
+        }}
+        onSubmit={onAddLine}
+        addLinePending={addLine.isPending}
+        addLineError={
+          addLine.error instanceof Error
+            ? addLine.error.message
+            : addLine.error
+              ? 'Add line failed.'
+              : null
+        }
+        renderAddFields={() => (
+          <>
+            <TextInput
+              label="Description"
+              value={lineDesc}
+              onChange={(e) => setLineDesc(e.target.value)}
+              required
             />
-            <div className="flex gap-3 flex-wrap items-end">
-              <TextInput
-                label="Description"
-                value={lineDesc}
-                onChange={(e) => setLineDesc(e.target.value)}
-                required
-              />
-              <TextInput
-                label="Qty"
-                value={lineQty}
-                onChange={(e) => setLineQty(e.target.value)}
-                inputMode="decimal"
-              />
-              <TextInput
-                label="Unit price (cents)"
-                value={linePrice}
-                onChange={(e) => setLinePrice(e.target.value)}
-                inputMode="numeric"
-              />
-              <Button type="submit" disabled={addLine.isPending}>
-                {addLine.isPending ? 'Adding.' : 'Add'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowAddLine(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-            {addLine.error && (
-              <p className="font-sans text-sm text-accent">
-                {addLine.error instanceof Error
-                  ? addLine.error.message
-                  : 'Add line failed.'}
-              </p>
-            )}
-          </form>
+            <TextInput
+              label="Qty"
+              value={lineQty}
+              onChange={(e) => setLineQty(e.target.value)}
+              inputMode="decimal"
+            />
+            <TextInput
+              label="Unit price (cents)"
+              value={linePrice}
+              onChange={(e) => setLinePrice(e.target.value)}
+              inputMode="numeric"
+            />
+          </>
         )}
-      </section>
+      />
 
       <section>
         <h2 className="text-2xl font-display tracking-wide text-ink mb-3">PAYMENTS</h2>

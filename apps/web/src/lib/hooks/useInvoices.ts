@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { bucketCents, track } from '@/lib/analytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { invoiceKeys } from '@/lib/queryKeys/invoices';
+import { buildTimeToSendInvoiceProps } from './timeToSendInvoice';
 import {
   cancelInvoice,
   createInvoice,
@@ -101,6 +102,19 @@ export function useSendInvoice() {
         customer_id: invoice.customer_id ?? null,
         total_cents_bucket: bucketCents(invoice.total_cents),
       });
+      // F-Wave9-AUDIT-V3-WAVE-F-01: emit the time_to_send_invoice
+      // funnel event alongside invoice_sent. Properties: invoice_id,
+      // created_at, sent_at, seconds_to_send. The payload builder
+      // returns null seconds when either timestamp is missing or
+      // unparseable so the funnel filter can drop pre-fix rows.
+      track(
+        'time_to_send_invoice',
+        buildTimeToSendInvoiceProps(
+          invoice.id,
+          invoice.created_at ?? null,
+          invoice.sent_at ?? null,
+        ),
+      );
     },
   });
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { FormGrid } from '@/components/ui/FormGrid';
 import { CustomerPicker, ProjectPicker, QuotePicker } from '@/components/ui/pickers';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
 import { useItemsList } from '@/lib/hooks/useItems';
@@ -184,91 +185,109 @@ export function InvoiceCreatePage() {
   const pending = create.isPending || submittingLines;
 
   return (
-    <section className="px-8 py-8 max-w-2xl flex flex-col gap-6">
+    <section className="px-8 py-8 max-w-4xl flex flex-col gap-6">
       <h1 className="text-4xl font-display tracking-wide text-ink">NEW INVOICE</h1>
-      <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-        <CustomerPicker
-          value={customerId}
-          onChange={setCustomerId}
-          label="Customer"
-        />
-        <ProjectPicker
-          value={projectId}
-          onChange={setProjectId}
-          label="Project (optional)"
-          filter={customerId ? { customer_id: customerId } : undefined}
-        />
-        <QuotePicker
-          value={quoteId}
-          onChange={setQuoteId}
-          label="Source quote (optional)"
-          filter={customerId ? { customer_id: customerId } : undefined}
-        />
-        <Field label="Currency">
-          <input
-            type="text"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            required
-            maxLength={3}
-            className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
+      {/* F-Wave9-AUDIT-V3-WAVE-F-01: two-column form grid. The customer
+          / project / quote / currency / dates fan out side by side on
+          md and up; notes and the submit row span the full width via
+          FormGrid.Full. Mobile collapses to one column automatically. */}
+      <form onSubmit={onSubmit}>
+        <FormGrid columns={2}>
+          <FormGrid.Full>
+            <CustomerPicker
+              value={customerId}
+              onChange={setCustomerId}
+              label="Customer"
+            />
+          </FormGrid.Full>
+          <ProjectPicker
+            value={projectId}
+            onChange={setProjectId}
+            label="Project (optional)"
+            filter={customerId ? { customer_id: customerId } : undefined}
           />
-        </Field>
-        <Field label="Issue date">
-          <input
-            type="date"
-            value={issueDate}
-            onChange={(e) => setIssueDate(e.target.value)}
-            className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
+          <QuotePicker
+            value={quoteId}
+            onChange={setQuoteId}
+            label="Source quote (optional)"
+            filter={customerId ? { customer_id: customerId } : undefined}
           />
-        </Field>
-        <Field label="Due date">
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
-          />
-        </Field>
-        <Field label="Notes">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
-          />
-        </Field>
+          <Field label="Currency">
+            <input
+              type="text"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              required
+              maxLength={3}
+              className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
+            />
+          </Field>
+          <Field label="Issue date">
+            <input
+              type="date"
+              value={issueDate}
+              onChange={(e) => setIssueDate(e.target.value)}
+              className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
+            />
+          </Field>
+          <Field label="Due date">
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
+            />
+          </Field>
+          <FormGrid.Full>
+            <Field label="Notes">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
+              />
+            </Field>
+          </FormGrid.Full>
 
-        {derivedLineCount > 0 && (
-          <p className="text-ink-dim font-sans text-sm">
-            {derivedLineCount} line item{derivedLineCount === 1 ? '' : 's'} will
-            be pre-filled from the source{' '}
-            {prefilledShipmentId ? 'shipment' : 'project'}.
-          </p>
-        )}
+          {derivedLineCount > 0 && (
+            <FormGrid.Full>
+              <p className="text-ink-dim font-sans text-sm">
+                {derivedLineCount} line item{derivedLineCount === 1 ? '' : 's'} will
+                be pre-filled from the source{' '}
+                {prefilledShipmentId ? 'shipment' : 'project'}.
+              </p>
+            </FormGrid.Full>
+          )}
 
-        {linesError && (
-          <p className="text-accent font-sans text-sm">{linesError}</p>
-        )}
+          {linesError && (
+            <FormGrid.Full>
+              <p className="text-accent font-sans text-sm">{linesError}</p>
+            </FormGrid.Full>
+          )}
 
-        {create.error && (
-          <p className="text-accent font-sans text-sm">
-            {(create.error as Error).message}
-          </p>
-        )}
+          {create.error && (
+            <FormGrid.Full>
+              <p className="text-accent font-sans text-sm">
+                {(create.error as Error).message}
+              </p>
+            </FormGrid.Full>
+          )}
 
-        <div className="flex gap-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Saving.' : 'Create'}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate('/invoicing/invoices')}
-          >
-            Cancel
-          </Button>
-        </div>
+          <FormGrid.Full>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={pending}>
+                {pending ? 'Saving.' : 'Create'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate('/invoicing/invoices')}
+              >
+                Cancel
+              </Button>
+            </div>
+          </FormGrid.Full>
+        </FormGrid>
       </form>
     </section>
   );
