@@ -181,6 +181,10 @@ const TABLE: Route[] = [
           status: 'draft',
           run_number: runNumber,
           warehouse_id: body.warehouse_id ?? null,
+          // F-Wave9-AUDIT-V3-WAVE-C2-01: project linkage wired through
+          // from the body. Nullable column; absent / null both land as
+          // NULL in the DB.
+          project_id: body.project_id ?? null,
           planned_start_at: body.planned_start_at ?? null,
           planned_complete_at: body.planned_complete_at ?? null,
           notes: body.notes ?? null,
@@ -227,6 +231,11 @@ const TABLE: Route[] = [
         };
         if (body.run_number !== undefined) patch.run_number = body.run_number;
         if (body.warehouse_id !== undefined) patch.warehouse_id = body.warehouse_id;
+        // F-Wave9-AUDIT-V3-WAVE-C2-01: link / unlink supported on PATCH.
+        // Explicit undefined check preserves the partial-PATCH contract:
+        // unspecified fields are not touched; explicit null clears the
+        // linkage (ON DELETE SET NULL precedent).
+        if (body.project_id !== undefined) patch.project_id = body.project_id;
         if (body.planned_start_at !== undefined) patch.planned_start_at = body.planned_start_at;
         if (body.planned_complete_at !== undefined) patch.planned_complete_at = body.planned_complete_at;
         if (body.notes !== undefined) patch.notes = body.notes;
