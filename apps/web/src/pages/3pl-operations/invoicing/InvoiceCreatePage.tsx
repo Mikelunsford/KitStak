@@ -8,6 +8,8 @@ import { useItemsList } from '@/lib/hooks/useItems';
 import { useProjectLineItems, useProjectsList } from '@/lib/hooks/useProjects';
 import { useShipmentLineItems } from '@/lib/hooks/useOps';
 import { createInvoiceLineItem } from '@/lib/services/invoiceLineItemsService';
+import { useCustomer } from '@/lib/hooks/useCustomer';
+import { addDaysIso, todayIsoDate } from '@/lib/dates';
 
 import { deriveInvoiceProjectId } from './deriveInvoiceProjectId';
 import {
@@ -72,7 +74,12 @@ export function InvoiceCreatePage() {
     // the operator picks a project (or the form already has one) we stop.
   }, [projectId, customerId, projectsList.data]);
   const [currency, setCurrency] = useState('USD');
-  const [issueDate, setIssueDate] = useState('');
+  // B3 (Wave B): default issue_date to today so the operator does not
+  // retype the common case. dueDate defaults to empty and is only
+  // populated when the selected customer carries
+  // default_payment_terms_days (set in the effect below). Operator can
+  // edit either field after the auto-fill.
+  const [issueDate, setIssueDate] = useState(() => todayIsoDate());
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -94,6 +101,19 @@ export function InvoiceCreatePage() {
     if (projectId) return projectLines.data?.length ?? 0;
     return 0;
   }, [prefilledShipmentId, shipmentLines.data, projectId, projectLines.data]);
+  // B3 (Wave B): once the operator picks a customer, default the due
+  // date to issue_date + customer.default_payment_terms_days. We only
+  // fill when dueDate is still empty so a manual edit is never
+  // clobbered, and we re-run when either the customer or the issue
+  // date changes upstream.
+  const customer = useCustomer(customerId ?? undefined);
+  useEffect(() => {
+    if (dueDate !== '') return;
+    const terms = customer.data?.default_payment_terms_days;
+    if (terms === null || terms === undefined) return;
+    const derived = addDaysIso(issueDate, terms);
+    if (derived) setDueDate(derived);
+  }, [dueDate, issueDate, customer.data?.default_payment_terms_days]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

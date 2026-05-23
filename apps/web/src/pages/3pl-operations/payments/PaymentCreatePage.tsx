@@ -9,6 +9,7 @@ import { useCreatePayment, useApplyPayment } from '@/lib/hooks/usePayments';
 import { useInvoice } from '@/lib/hooks/useInvoices';
 
 import { resolveInvoiceBalancePrefill } from './resolveInvoiceBalancePrefill';
+import { todayIsoDate } from '@/lib/dates';
 
 /**
  * PaymentCreatePage. Closes G-PAY-FORM-01 and partially G-PAY-FLOW-01.
@@ -45,7 +46,10 @@ export function PaymentCreatePage() {
   const [amountCents, setAmountCents] = useState<number | null>(0);
   const [currency, setCurrency] = useState('USD');
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [receivedAt, setReceivedAt] = useState('');
+  // B3 (Wave B): default received_at to today. The operator can edit
+  // for back-dated entries (mailed checks, posted-the-next-day ACHs,
+  // etc.) but the common case is "received today, recording now".
+  const [receivedAt, setReceivedAt] = useState(() => todayIsoDate());
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
 
