@@ -9,11 +9,18 @@ export type { Shipment, ShipmentStatus };
 
 export type ListShipmentsFilters = {
   customer_id?: string;
+  // F-Wave9-AUDIT-V3-WAVE-C4-01: project_id filter so ProjectDetailPage
+  // can ask the server for only shipments bound to a given project
+  // instead of fetching the whole list and filtering client-side. Mirrors
+  // the receiving_orders project_id filter shape. Backed by
+  // shipments_project_id_idx (migration 0063 re-declaration of 0046).
+  project_id?: string;
 };
 
 function shipmentsQs(f: ListShipmentsFilters): string {
   const p = new URLSearchParams();
   if (f.customer_id) p.set('customer_id', f.customer_id);
+  if (f.project_id) p.set('project_id', f.project_id);
   const s = p.toString();
   return s ? `?${s}` : '';
 }

@@ -38,12 +38,18 @@ export type {
 export type ListManufacturingRunsFilters = {
   status?: ManufacturingRunStatus | 'all';
   warehouse_id?: string;
+  // F-Wave9-AUDIT-V3-WAVE-C4-01: project_id filter so ProjectDetailPage
+  // can ask the server for only manufacturing runs bound to a given
+  // project. Mirrors the receiving_orders / shipments project_id filter
+  // shape. Backed by manufacturing_runs_project_id_idx (migration 0063).
+  project_id?: string;
 };
 
 function runsQs(f: ListManufacturingRunsFilters): string {
   const p = new URLSearchParams();
   if (f.status && f.status !== 'all') p.set('status', f.status);
   if (f.warehouse_id) p.set('warehouse_id', f.warehouse_id);
+  if (f.project_id) p.set('project_id', f.project_id);
   const s = p.toString();
   return s ? `?${s}` : '';
 }
