@@ -1,13 +1,20 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
-import { useProjectsList } from '@/lib/hooks/useProjects';
+import { useItemsList } from '@/lib/hooks/useItems';
+import { useProjectLineItems, useProjectsList } from '@/lib/hooks/useProjects';
+import { useShipmentLineItems } from '@/lib/hooks/useOps';
+import { createInvoiceLineItem } from '@/lib/services/invoiceLineItemsService';
 
 import { deriveInvoiceProjectId } from './deriveInvoiceProjectId';
+import {
+  projectLineToInvoiceLineCreate,
+  shipmentLineToInvoiceLineCreate,
+} from './sourceLinePrefill';
 
 /**
  * InvoiceCreatePage. Captures the FK pivots that the handler already
@@ -16,6 +23,13 @@ import { deriveInvoiceProjectId } from './deriveInvoiceProjectId';
  * lines inline today. The source-quote linkage is captured as an optional
  * UUID input until the quote selection pattern (filtered by customer) is
  * added in a later wave.
+ *
+ * B1 (Wave B): when the caller deep-links with ?shipment_id= we read the
+ * shipment's line items and POST a derived invoice line per row after the
+ * header create succeeds (mirrors PR #104's two-stage create on the
+ * shipment / receiving forms). When only ?project_id= is supplied we fall
+ * back to project_line_items as the source. Operator can still edit lines
+ * on the detail page after create.
  */
 export function InvoiceCreatePage() {
   const navigate = useNavigate();
@@ -24,6 +38,7 @@ export function InvoiceCreatePage() {
 
   const prefilledCustomerId = searchParams.get('customer_id');
   const prefilledProjectId = searchParams.get('project_id');
+  const prefilledShipmentId = searchParams.get('shipment_id');
 
   // BNEW-4 (v2 smoke 2026-05-22): the invoicing-api handler now allocates
   // INV-YYYY-NNNNN via the numbering chassis when invoice_number is absent,
@@ -59,8 +74,28 @@ export function InvoiceCreatePage() {
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
 
+  // B1: when the caller deep-links from a shipment we need to know the
+  // shipment's lines (item_id + quantity + position) and the loaded
+  // items list (for name + unit_price_cents) to build the per-line POST
+  // payload. The shipment-id-less case falls back to project_line_items
+  // which already carries its own description + price.
+  const shipmentLines = useShipmentLineItems(prefilledShipmentId ?? undefined);
+  const items = useItemsList();
+  const projectLines = useProjectLineItems(
+    !prefilledShipmentId && projectId ? projectId : undefined,
+  );
+  const [linesError, setLinesError] = useState<string | null>(null);
+  const [submittingLines, setSubmittingLines] = useState(false);
+
+  const derivedLineCount = useMemo(() => {
+    if (prefilledShipmentId) return shipmentLines.data?.length ?? 0;
+    if (projectId) return projectLines.data?.length ?? 0;
+    return 0;
+  }, [prefilledShipmentId, shipmentLines.data, projectId, projectLines.data]);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setLinesError(null);
     try {
       const body: {
         currency_code: string;
@@ -80,11 +115,51 @@ export function InvoiceCreatePage() {
       if (dueDate) body.due_date = dueDate;
       if (notes) body.notes = notes;
       const inv = await create.mutateAsync(body);
+
+      // B1: stage 2 — pre-fill line items from the source document.
+      // Shipment wins when both are available because the shipment is
+      // the more downstream reality (what we actually shipped should
+      // be what we bill). project_line_items is the fallback when no
+      // shipment was selected.
+      const linesToCreate = (() => {
+        if (prefilledShipmentId && shipmentLines.data) {
+          return shipmentLines.data
+            .map((l) =>
+              shipmentLineToInvoiceLineCreate(l, items.data ?? undefined),
+            )
+            .filter((b): b is NonNullable<typeof b> => b !== null);
+        }
+        if (!prefilledShipmentId && projectLines.data) {
+          return projectLines.data.map(projectLineToInvoiceLineCreate);
+        }
+        return [];
+      })();
+
+      if (linesToCreate.length > 0) {
+        setSubmittingLines(true);
+        try {
+          for (const lineBody of linesToCreate) {
+            await createInvoiceLineItem(inv.id, lineBody);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'unknown error';
+          setLinesError(
+            `Invoice created but a line failed: ${msg}. Add the rest on the detail page.`,
+          );
+          setSubmittingLines(false);
+          navigate(`/invoicing/invoices/${inv.id}`);
+          return;
+        }
+        setSubmittingLines(false);
+      }
+
       navigate(`/invoicing/invoices/${inv.id}`);
     } catch {
       // surfaced via mutation state; banner below renders the message
     }
   }
+
+  const pending = create.isPending || submittingLines;
 
   return (
     <section className="px-8 py-8 max-w-2xl flex flex-col gap-6">
@@ -142,6 +217,18 @@ export function InvoiceCreatePage() {
           />
         </Field>
 
+        {derivedLineCount > 0 && (
+          <p className="text-ink-dim font-sans text-sm">
+            {derivedLineCount} line item{derivedLineCount === 1 ? '' : 's'} will
+            be pre-filled from the source{' '}
+            {prefilledShipmentId ? 'shipment' : 'project'}.
+          </p>
+        )}
+
+        {linesError && (
+          <p className="text-accent font-sans text-sm">{linesError}</p>
+        )}
+
         {create.error && (
           <p className="text-accent font-sans text-sm">
             {(create.error as Error).message}
@@ -149,8 +236,8 @@ export function InvoiceCreatePage() {
         )}
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? 'Saving.' : 'Create'}
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Saving.' : 'Create'}
           </Button>
           <Button
             type="button"

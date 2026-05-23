@@ -110,7 +110,7 @@ export function ShipmentDetailPage() {
       {shouldShowShipmentNextStepCTA(d.status) && d.customer_id && (
         <NextStepCTA
           label="Create invoice"
-          to={buildCreateInvoiceUrl(d.customer_id, getShipmentProjectId(d))}
+          to={buildCreateInvoiceUrl(d.customer_id, getShipmentProjectId(d), d.id)}
         />
       )}
 
