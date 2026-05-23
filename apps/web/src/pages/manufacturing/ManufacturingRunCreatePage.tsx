@@ -1,11 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { ProjectPicker } from '@/components/ui/pickers';
 import { useCreateManufacturingRun } from '@/lib/hooks/useManufacturing';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { parseProjectIdParam } from '@/lib/urlParams';
 import type { ManufacturingRunCreate } from '@/lib/types/vendors_inventory_ops';
 
 /**
@@ -17,6 +19,13 @@ import type { ManufacturingRunCreate } from '@/lib/types/vendors_inventory_ops';
  * datetime-local inputs return a "YYYY-MM-DDTHH:mm" string with no timezone
  * suffix. We coerce to ISO via new Date(value).toISOString() before posting
  * so the Iso zod schema on the wire accepts it.
+ *
+ * F-Wave9-AUDIT-V3-WAVE-C3-01: accepts `?project_id=` deep-link prefill.
+ * The picker pre-selects the project when the URL carries a canonical
+ * UUID; malformed values fall back to null via parseProjectIdParam so
+ * an operator pasting a bad URL does not poison the picker or generate
+ * a 422 on submit. The server side (C2, PR #133) already accepts
+ * project_id on ManufacturingRunCreate.
  */
 function localToIso(value: string): string | null {
   if (!value) return null;
@@ -27,12 +36,16 @@ function localToIso(value: string): string | null {
 
 export function ManufacturingRunCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const create = useCreateManufacturingRun();
   const warehouses = useWarehousesList();
   const caps = useVioCapabilities();
 
+  const prefilledProjectId = parseProjectIdParam(searchParams.get('project_id'));
+
   const [runNumber, setRunNumber] = useState('');
   const [warehouseId, setWarehouseId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string | null>(prefilledProjectId);
   const [plannedStart, setPlannedStart] = useState('');
   const [plannedComplete, setPlannedComplete] = useState('');
   const [notes, setNotes] = useState('');
@@ -48,6 +61,7 @@ export function ManufacturingRunCreatePage() {
     const body: ManufacturingRunCreate = {};
     if (runNumber.trim()) body.run_number = runNumber.trim();
     if (warehouseId) body.warehouse_id = warehouseId;
+    if (projectId) body.project_id = projectId;
     const startIso = localToIso(plannedStart);
     if (startIso) body.planned_start_at = startIso;
     const completeIso = localToIso(plannedComplete);
@@ -95,6 +109,11 @@ export function ManufacturingRunCreatePage() {
             ))}
           </select>
         </label>
+        <ProjectPicker
+          value={projectId}
+          onChange={setProjectId}
+          label="Project (optional)"
+        />
         <TextInput
           label="Planned start"
           type="datetime-local"
