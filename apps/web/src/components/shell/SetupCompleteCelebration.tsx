@@ -81,7 +81,7 @@ export function SetupCompleteCelebration({
           className="font-sans text-sm text-ink-dim"
           data-testid="setup-complete-celebration-body"
         >
-          Your dashboard is now showing today's work. Here is what is open.
+          Your dashboard is now showing today&apos;s work. Here is what is open.
         </p>
       </div>
       <button
