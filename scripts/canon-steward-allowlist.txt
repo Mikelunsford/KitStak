@@ -66,3 +66,19 @@ orphan-route|apps/web/src/routes.ts|/search
 # ---------------------------------------------------------------------------
 orphan-route|apps/web/src/routes.ts|/3pl-operations/production
 orphan-route|apps/web/src/routes.ts|/3pl-operations/production/new
+
+# ---------------------------------------------------------------------------
+# orphan-route: /account/security and /auth/recovery.
+# Both routes are intentional orphans by design and must not appear in the
+# sidebar.
+#   /account/security is accessed from the Topbar profile dropdown menu
+#     (under "Account security", above "Sign out"). Per-user surface, not
+#     part of the work navigation.
+#   /auth/recovery is a public landing page that consumes a Supabase
+#     recovery token from the URL hash. Reached only by clicking the link
+#     in the password-reset email. Should never be browsable.
+# Shipped in F-Wave9-INVITE-PASSWORD-SETUP-01 (PR #150).
+# No follow-up needed: both routes are stable orphan-by-design.
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/account/security
+orphan-route|apps/web/src/routes.ts|/auth/recovery
