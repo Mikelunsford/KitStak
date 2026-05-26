@@ -1,13 +1,16 @@
-// /admin/members. Staff invite surface.
+// /admin/members. Staff invite surface plus the team-members list.
 //
-// F-Wave9-STAFF-INVITE-CHASSIS-01 (SPA half). Two sections stacked:
+// F-Wave9-STAFF-INVITE-CHASSIS-01 shipped the invite half. F-Wave9-STAFF-
+// INVITE-MEMBERS-LIST-01 replaces the v1 stub with a real list backed by
+// GET /auth-api/members. Two sections stacked:
 //
 //   TEAM MEMBERS
-//     v1 stub showing the caller's own membership row, derived from /me.
-//     The list endpoint is being added in the backend PR; the stub keeps
-//     this page out of a dead-end state until then. data-testid hook on
-//     the stub container so the follow-up that wires the LIST endpoint
-//     can find and replace this surface.
+//     Live table from useOrgMembers(). Columns: Name (display_name fallback
+//     to email), Email, Role (role_display_name), Joined (relative). The
+//     caller's own row is marked "(you)" in the Name column. Loading and
+//     error states match the brand palette; empty state uses the shared
+//     ListEmptyState but with canAdd=false (the create flow is the invite
+//     section directly below, not a separate Add route).
 //
 //   INVITE A TEAMMATE
 //     Email + role dropdown + Send button. The dropdown offers the five
@@ -16,8 +19,10 @@
 //     the backend privilege-escalation guard that mirrors it. The Send
 //     button cycles through idle / pending / success / error states; on
 //     success the email field clears, the role resets to the default,
-//     and the dashboard summary query invalidates so the SetupChecklist
-//     step 8 (team_invited) ticks on the next dashboard visit.
+//     the members list query invalidates so the new row appears without a
+//     manual refresh, and the dashboard summary query invalidates so the
+//     SetupChecklist step 8 (team_invited) ticks on the next dashboard
+//     visit.
 //
 // Wraps in <AppShell> via the AdminProtectedRoute guard. Cap-gated at the
 // route layer (admin guard); no separate requireCap call here.
@@ -27,9 +32,12 @@ import { Users, UserPlus, Mail } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { RelativeTime } from '@/components/ui/RelativeTime';
+import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useMe } from '@/lib/hooks/useMe';
 import { useInviteStaffMember } from '@/lib/hooks/useMembers';
-import type { StaffRoleCode } from '@/lib/types/identity';
+import { useOrgMembers } from '@/lib/hooks/useOrgMembers';
+import type { OrgMemberRow, StaffRoleCode } from '@/lib/types/identity';
 import {
   INVITE_ROLE_OPTIONS,
   DEFAULT_INVITE_ROLE,
@@ -49,24 +57,25 @@ export function MembersPage() {
         </p>
       </header>
 
-      <TeamMembersStub />
+      <TeamMembersSection />
       <InviteTeammateSection />
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// TeamMembersStub. v1 list surface backed by /me only. Replaced by a real
-// LIST query when the backend ships GET /auth-api/members.
+// TeamMembersSection. Live members list backed by GET /auth-api/members.
 // ---------------------------------------------------------------------------
 
-function TeamMembersStub() {
+function TeamMembersSection() {
   const me = useMe({ enabled: true });
+  const orgId = me.data?.active_org_id ?? null;
+  const members = useOrgMembers({ orgId });
 
   return (
     <section
       className="flex flex-col gap-3"
-      data-testid="org-members-list-stub"
+      data-testid="org-members-list"
     >
       <header className="flex items-center gap-3">
         <Users
@@ -75,42 +84,115 @@ function TeamMembersStub() {
           className="text-ink-dim"
           aria-hidden="true"
         />
-        <h2 className="font-display text-2xl tracking-wide text-ink-dim">
+        <h2 className="font-display text-2xl tracking-wide text-ink">
           TEAM MEMBERS
         </h2>
       </header>
 
-      {me.isLoading ? (
-        <p className="font-sans text-sm text-ink-dim">Loading.</p>
-      ) : me.isError || !me.data ? (
-        <p className="font-sans text-sm text-accent">
-          Could not load your membership. Refresh the page.
+      {members.isLoading ? (
+        <p
+          className="font-sans text-sm text-ink-dim"
+          data-testid="org-members-loading"
+        >
+          Loading members.
         </p>
+      ) : members.isError ? (
+        <p
+          role="alert"
+          className="font-sans text-sm text-accent border-l-2 border-accent pl-3 py-2 bg-accent/5"
+          data-testid="org-members-error"
+        >
+          {members.error instanceof Error
+            ? members.error.message
+            : 'Could not load team members. Refresh the page.'}
+        </p>
+      ) : !members.data || members.data.length === 0 ? (
+        <ListEmptyState
+          entity="team member"
+          explainer="No teammates yet. Send an invite below to add the first one."
+          addLabel="Invite a teammate"
+          addTo="#invite-teammate"
+          canAdd={false}
+        />
       ) : (
-        <ul className="flex flex-col border border-line bg-bg-2 divide-y divide-line">
-          <li className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex flex-col gap-1 min-w-0">
-              <p className="font-sans text-base font-medium text-ink truncate">
-                {me.data.email}
-              </p>
-              <p className="font-mono text-xs uppercase text-ink-faint">
-                You
-              </p>
-            </div>
-            {me.data.active_role ? (
-              <span className="font-mono text-xs uppercase tracking-wide text-ink-dim border border-line px-2 py-1">
-                {me.data.active_role}
-              </span>
-            ) : null}
-          </li>
-        </ul>
+        <MembersTable rows={members.data} callerUserId={me.data?.user_id} />
       )}
-
-      <p className="font-sans text-xs text-ink-faint">
-        Full member list arrives with the backend list endpoint. For now,
-        invited teammates appear here after their first sign-in.
-      </p>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MembersTable. Brand-aligned card surface with one row per active member.
+// Caller's own row is marked "(you)" in the Name column.
+// ---------------------------------------------------------------------------
+
+interface MembersTableProps {
+  rows: OrgMemberRow[];
+  callerUserId: string | undefined;
+}
+
+function MembersTable({ rows, callerUserId }: MembersTableProps) {
+  return (
+    <div
+      className="border border-line bg-bg-2 overflow-x-auto"
+      data-testid="org-members-table-wrapper"
+    >
+      <table className="w-full text-left font-sans text-sm">
+        <thead>
+          <tr className="border-b border-line text-ink-faint">
+            <th className="px-5 py-3 font-mono text-xs uppercase tracking-wide">
+              Name
+            </th>
+            <th className="px-5 py-3 font-mono text-xs uppercase tracking-wide">
+              Email
+            </th>
+            <th className="px-5 py-3 font-mono text-xs uppercase tracking-wide">
+              Role
+            </th>
+            <th className="px-5 py-3 font-mono text-xs uppercase tracking-wide">
+              Joined
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const isSelf = row.user_id === callerUserId;
+            const nameLabel = row.display_name ?? row.email;
+            return (
+              <tr
+                key={row.user_id}
+                className="border-b border-line last:border-b-0"
+                data-testid="org-members-row"
+                data-user-id={row.user_id}
+              >
+                <td className="px-5 py-4 align-top text-ink">
+                  <span className="truncate">{nameLabel}</span>
+                  {isSelf ? (
+                    <span
+                      className="ml-2 font-mono text-xs uppercase text-ink-faint"
+                      data-testid="org-members-row-self-marker"
+                    >
+                      (you)
+                    </span>
+                  ) : null}
+                </td>
+                <td className="px-5 py-4 align-top text-ink-dim">
+                  <span className="truncate">{row.email}</span>
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <span className="font-mono text-xs uppercase tracking-wide text-ink-dim border border-line px-2 py-1">
+                    {row.role_display_name}
+                  </span>
+                </td>
+                <td className="px-5 py-4 align-top text-ink-dim">
+                  <RelativeTime value={row.created_at} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -147,6 +229,7 @@ function InviteTeammateSection() {
 
   return (
     <section
+      id="invite-teammate"
       className="border border-line bg-bg-2 p-5 flex flex-col gap-4"
       data-testid="invite-teammate-section"
     >

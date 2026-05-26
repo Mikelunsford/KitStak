@@ -44,8 +44,10 @@ import { ok, created, ApiError } from '../_shared/responses.ts';
 import {
   InviteStaffRequestSchema,
   MeResponseSchema,
+  OrgMembersListResponseSchema,
   SwitchOrgRequestSchema,
   type MembershipSummary,
+  type OrgMemberRow,
 } from '../_shared/types/identity.ts';
 import { CAPABILITIES_BY_ROLE } from '../_shared/capabilities.ts';
 
@@ -433,6 +435,150 @@ async function postRequestSignInLink(ctx: RouteCtx): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// GET /members
+//
+// List the staff memberships for the caller's active org. Closes
+// F-Wave9-STAFF-INVITE-MEMBERS-LIST-01 backend half. Replaces the v1 stub
+// on /admin/members that only showed the caller themselves.
+//
+// Flow:
+//   1. requireCap('org.member.list') gates the route. Granted to org_owner,
+//      org_admin, ops, accounting, viewer. Denied to sales, customer_user,
+//      vendor_user. Anyone who can see the dashboard should be able to see
+//      who else is on the team.
+//   2. Query org_memberships filtered by caller.orgId (RLS Pattern A
+//      inherits the constraint, but we filter defensively in case a future
+//      change relaxes the policy). Joins roles to project the role code +
+//      human label inline.
+//   3. Resolve email + display_name per user_id via a single profiles
+//      lookup; profiles is the public-schema mirror of auth.users that
+//      getMe already trusts. Members without a profile row fall back to
+//      a placeholder email derived from auth.users via admin.getUserById.
+//      In practice every staff user has a profile row because the
+//      first-signin trigger backfills it, so the fallback is defence in
+//      depth.
+//   4. Returns a flat array (NOT { items: ... }) per the F-Wave7-
+//      LISTENVELOPE-01 canon. No pagination for v1; orgs are expected to
+//      have well under 50 staff for the first year. Adding a cursor later
+//      is a non-breaking shape change (envelope stays a flat array, meta
+//      adds next_cursor).
+//
+// Capability: org.member.list. No idempotency wrapper required (GET).
+// Cross-tenant: RLS filters to caller.orgId; the explicit .eq is belt-and-
+// braces. A cross-tenant caller therefore receives 200 + the rows of their
+// own org, never 404, per the constitutional "RLS filters, never throws"
+// rule for read endpoints.
+// ---------------------------------------------------------------------------
+
+async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'org.member.list');
+
+  const sb = admin();
+
+  // Step 1: pull the active memberships in the caller's org, joining the
+  // role table so we can project both code and label without a second
+  // round-trip.
+  const membershipQ = await sb
+    .from('org_memberships')
+    .select(
+      `
+      user_id,
+      org_id,
+      is_active,
+      created_at,
+      role:roles!inner(code, label)
+    `,
+    )
+    .eq('org_id', caller.orgId)
+    .eq('is_active', true);
+
+  if (membershipQ.error) {
+    throw new ApiError(
+      'INTERNAL_ERROR',
+      500,
+      `membership lookup failed: ${membershipQ.error.message}`,
+    );
+  }
+
+  type MembershipJoinRow = {
+    user_id: string;
+    org_id: string;
+    is_active: boolean;
+    created_at: string;
+    role: { code: string; label: string } | { code: string; label: string }[] | null;
+  };
+
+  const rawRows = (membershipQ.data ?? []) as MembershipJoinRow[];
+  if (rawRows.length === 0) {
+    // Defensive: should never happen because the caller is themselves a
+    // member of the org and we filter on is_active. Returning early avoids
+    // a no-op profiles query.
+    return ok(OrgMembersListResponseSchema.parse([] as OrgMemberRow[]));
+  }
+
+  const userIds = rawRows.map((r) => r.user_id);
+
+  // Step 2: resolve email + display_name from public.profiles for every
+  // member in one batched query. profiles is keyed by user_id and is the
+  // canonical public-schema mirror of auth.users; getMe trusts the same
+  // source.
+  const profilesQ = await sb
+    .from('profiles')
+    .select('user_id, email, display_name')
+    .in('user_id', userIds);
+
+  if (profilesQ.error) {
+    throw new ApiError(
+      'INTERNAL_ERROR',
+      500,
+      `profiles lookup failed: ${profilesQ.error.message}`,
+    );
+  }
+
+  type ProfileRow = {
+    user_id: string;
+    email: string | null;
+    display_name: string | null;
+  };
+
+  const profilesById = new Map<string, ProfileRow>();
+  for (const p of (profilesQ.data ?? []) as ProfileRow[]) {
+    profilesById.set(p.user_id, p);
+  }
+
+  // Step 3: project the wire shape. Skip rows missing a role or a profile-
+  // resolvable email so the response always parses cleanly through the
+  // OrgMemberRowSchema (email is z.string().email()). A missing profile is
+  // logged because it indicates a backfill gap rather than expected state.
+  const out: OrgMemberRow[] = [];
+  for (const raw of rawRows) {
+    const role = Array.isArray(raw.role) ? raw.role[0] : raw.role;
+    if (!role) continue;
+    const profile = profilesById.get(raw.user_id);
+    if (!profile || !profile.email) {
+      console.warn('auth-api: org member missing profile row', {
+        org_id: caller.orgId,
+        user_id: raw.user_id,
+      });
+      continue;
+    }
+    out.push({
+      user_id: raw.user_id,
+      org_id: raw.org_id,
+      email: profile.email,
+      display_name: profile.display_name,
+      role_code: role.code as OrgMemberRow['role_code'],
+      role_display_name: role.label,
+      created_at: raw.created_at,
+      is_active: raw.is_active,
+    });
+  }
+
+  return ok(OrgMembersListResponseSchema.parse(out));
+}
+
+// ---------------------------------------------------------------------------
 // POST /members/invite
 //
 // Staff invite chassis. An org_owner or org_admin invites a teammate via
@@ -747,6 +893,7 @@ Deno.serve((req: Request) =>
       { method: 'GET',  path: '/me',                          handler: getMe },
       { method: 'GET',  path: '/me/capabilities',             handler: (ctx) => Promise.resolve(getMyCapabilities(ctx)) },
       { method: 'POST', path: '/sessions/switch-org',         handler: postSwitchOrg },
+      { method: 'GET',  path: '/members',                     handler: listOrgMembers },
       { method: 'POST', path: '/members/invite',              handler: postInviteStaffMember },
       { method: 'POST', path: '/portal/request-signin-link',  handler: postRequestSignInLink },
       { method: 'POST', path: '/auth/request-password-reset', handler: postRequestPasswordReset },

@@ -16,8 +16,10 @@
 import { apiRequest } from '@/lib/apiClient';
 import {
   InviteStaffResponseSchema,
+  OrgMembersListResponseSchema,
   type InviteStaffRequest,
   type InviteStaffResponse,
+  type OrgMemberRow,
 } from '@/lib/types/identity';
 
 export async function inviteStaffMember(
@@ -28,4 +30,19 @@ export async function inviteStaffMember(
     body,
   });
   return InviteStaffResponseSchema.parse(data);
+}
+
+/**
+ * GET /auth-api/members. Returns the active staff memberships in the
+ * caller's org. Flat array, no pagination (orgs are expected to have well
+ * under 50 staff for the first year). Cross-tenant queries return the
+ * caller's own org rows per the constitutional Pattern A read posture.
+ *
+ * F-Wave9-STAFF-INVITE-MEMBERS-LIST-01.
+ */
+export async function listOrgMembers(): Promise<OrgMemberRow[]> {
+  const data = await apiRequest<unknown>('/auth-api/members', {
+    method: 'GET',
+  });
+  return OrgMembersListResponseSchema.parse(data);
 }

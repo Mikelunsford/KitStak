@@ -23,12 +23,13 @@ export type RoleCode =
   | 'vendor_user';
 
 export type Capability =
-  // org.* (14)
+  // org.* (15)
   | 'org.organization.read'
   | 'org.organization.update'
   | 'org.organization.suspend'
   | 'org.organization.archive'
   | 'org.member.read'
+  | 'org.member.list'
   | 'org.member.invite'
   | 'org.member.update'
   | 'org.member.remove'
@@ -264,6 +265,7 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'org.organization.suspend',
   'org.organization.archive',
   'org.member.read',
+  'org.member.list',
   'org.member.invite',
   'org.member.update',
   'org.member.remove',
@@ -478,6 +480,7 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'org.organization.read',
   'org.organization.update',
   'org.member.read',
+  'org.member.list',
   'org.member.invite',
   'org.member.update',
   'org.member.remove',
@@ -798,6 +801,7 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   // org.* (read-only-internal)
   'org.organization.read',
   'org.member.read',
+  'org.member.list',
   'org.branding.read',
   'org.feature_flag.read',
   // crm OPS
@@ -912,6 +916,7 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   // org.* (read-only-internal)
   'org.organization.read',
   'org.member.read',
+  'org.member.list',
   'org.branding.read',
   'org.feature_flag.read',
   // crm ACCOUNTING
@@ -1037,6 +1042,7 @@ const VIEWER_CAPS: ReadonlyArray<Capability> = [
   // org.* (read-only-internal plus audit log)
   'org.organization.read',
   'org.member.read',
+  'org.member.list',
   'org.branding.read',
   'org.feature_flag.read',
   'org.audit_log.read',
