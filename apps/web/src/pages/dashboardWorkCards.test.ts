@@ -30,6 +30,16 @@ function summary(
     runs_in_production_count: 0,
     shipments_ready_to_ship_count: 0,
     unpaid_invoices_count: 0,
+    // Setup checklist booleans added in the SetupChecklist PR. Defaults to
+    // false so the existing tests' "every count zero" fixture continues to
+    // model a fresh org.
+    setup_warehouse_added: false,
+    setup_customer_added: false,
+    setup_item_added: false,
+    setup_quote_created: false,
+    setup_receiving_received: false,
+    setup_invoice_sent: false,
+    setup_payment_received: false,
     ...overrides,
   };
 }
