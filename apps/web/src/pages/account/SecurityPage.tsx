@@ -8,15 +8,26 @@
 // eight-character minimum and a confirmation match so the user gets
 // immediate feedback before round-tripping.
 //
+// F-Wave9-INVITE-PASSWORD-PROMPT-01: when navigated here with
+// `?welcome=1` (DashboardPage redirects first-time invitees there on
+// mount) we render a welcome banner above the password form and a
+// "Skip for now" secondary action under it. Both branches (skip and
+// successful password set) call markPasswordPromptSeen so the dashboard
+// stops redirecting on subsequent visits.
+//
 // Visible to any authenticated user (route guard: 'protected'). No cap
 // check: every user has the right to manage their own password.
 
 import { FormEvent, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { supabase } from '@/lib/supabase';
+import { useMe } from '@/lib/hooks/useMe';
+import { markPasswordPromptSeen } from '@/pages/firstSigninPromptState';
+import { FirstSigninWelcomeBanner } from './FirstSigninWelcomeBanner';
 import {
   MIN_PASSWORD_LENGTH,
   validatePasswordPair,
@@ -32,6 +43,12 @@ export function SecurityPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submit, setSubmit] = useState<SubmitState>({ status: 'idle' });
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const me = useMe({ enabled: true });
+
+  const isWelcome = searchParams.get('welcome') === '1';
+  const userId = me.data?.user_id ?? '';
 
   const validation = validatePasswordPair({ password, confirm });
   const canSubmit = validation === null && submit.status !== 'pending';
@@ -49,6 +66,20 @@ export function SecurityPage() {
     setPassword('');
     setConfirm('');
     setSubmit({ status: 'success' });
+    // Mark the welcome prompt as seen on every successful password set,
+    // not only when the user arrived via ?welcome=1. A user who comes
+    // here directly to change their password has clearly engaged with
+    // the surface and should not see the welcome redirect later.
+    if (userId) {
+      markPasswordPromptSeen(userId);
+    }
+  }
+
+  function onSkip() {
+    if (userId) {
+      markPasswordPromptSeen(userId);
+    }
+    navigate('/dashboard');
   }
 
   return (
@@ -63,6 +94,8 @@ export function SecurityPage() {
           next time.
         </p>
       </header>
+
+      {isWelcome ? <FirstSigninWelcomeBanner onSkip={onSkip} /> : null}
 
       <section
         className="border border-line bg-bg-2 p-5 flex flex-col gap-4"
@@ -155,4 +188,3 @@ export function SecurityPage() {
     </section>
   );
 }
-
