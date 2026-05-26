@@ -45,6 +45,11 @@ export function RecoveryPage() {
   const [recovery, setRecovery] = useState<RecoveryState>({ status: 'loading' });
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  // Email captured from the recovery session for the hidden username field
+  // (password-manager + a11y hint). The SDK has already signed the user in
+  // via the recovery token by the time getSession resolves; reading the
+  // email from session.user is safe and never trusts client-supplied data.
+  const [email, setEmail] = useState<string>('');
 
   useEffect(() => {
     // The Supabase SDK auto-parses the URL hash on construction when
@@ -56,6 +61,7 @@ export function RecoveryPage() {
     void supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
       if (data.session && data.session.user) {
+        setEmail(data.session.user.email ?? '');
         setRecovery({ status: 'ready' });
       } else {
         setRecovery({ status: 'no-token' });
@@ -140,6 +146,24 @@ export function RecoveryPage() {
               className="flex flex-col gap-4"
               data-testid="recovery-form"
             >
+              {/*
+                Hidden username field for accessibility and password-manager
+                association. Chrome / 1Password / Bitwarden need a `username`
+                field to bind the saved password to a specific account.
+                Read-only, hidden from layout, keyboard-skipped, screen-reader
+                hidden; exists purely as a machine-readable hint. Closes
+                F-Wave9-PASSWORD-FORM-USERNAME-A11Y-01.
+              */}
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={email}
+                readOnly
+                hidden
+                tabIndex={-1}
+                aria-hidden="true"
+              />
               <div className="flex items-center gap-3">
                 <Lock
                   size={20}
