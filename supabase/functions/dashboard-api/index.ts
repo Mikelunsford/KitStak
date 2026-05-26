@@ -55,6 +55,30 @@ async function countByStates(
   return count ?? 0;
 }
 
+// Setup checklist helper. Returns true if at least one row exists for the
+// org matching the optional filters. `head: true` keeps the round-trip
+// payload at zero bytes. Soft-delete aware via the deleted_at NULL guard.
+// Falls back to false on any error so the dashboard never 500s on a fresh
+// org missing an upstream table.
+async function existsRowForOrg(
+  client: ReturnType<typeof admin>,
+  table: string,
+  orgId: string,
+  applyFilters: (
+    q: ReturnType<ReturnType<typeof admin>['from']>,
+  ) => ReturnType<ReturnType<typeof admin>['from']> = (q) => q,
+): Promise<boolean> {
+  try {
+    let q = client.from(table).select('id', { count: 'exact', head: true }).eq('org_id', orgId);
+    q = applyFilters(q);
+    const { count, error } = await q;
+    if (error) return false;
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function sumColumn(
   client: ReturnType<typeof admin>,
   table: string,
@@ -113,6 +137,18 @@ const summary: Route = {
       runsInProduction,
       shipmentsReadyToShip,
       unpaidInvoices,
+      // Setup checklist signals. Each derived from EXISTS on the matching
+      // table. setup_warehouse_added is true from day one for any org
+      // provisioned after migration 0064 (seed_org_default_warehouse runs
+      // at provision); the SetupChecklist UI explains the default warehouse
+      // and points to Library to rename.
+      setupWarehouseAdded,
+      setupCustomerAdded,
+      setupItemAdded,
+      setupQuoteCreated,
+      setupReceivingReceived,
+      setupInvoiceSent,
+      setupPaymentReceived,
     ] = await Promise.all([
       countTable(client, 'invoices', orgId, [['status', 'open']]).catch(() => 0),
       countTable(client, 'invoices', orgId, [['status', 'overdue']]).catch(() => 0),
@@ -137,6 +173,25 @@ const summary: Route = {
         'partially_paid',
         'overdue',
       ]).catch(() => 0),
+      existsRowForOrg(client, 'warehouses', orgId, (q) =>
+        q.is('deleted_at', null),
+      ),
+      existsRowForOrg(client, 'customers', orgId, (q) =>
+        q.is('deleted_at', null),
+      ),
+      existsRowForOrg(client, 'items', orgId, (q) => q.is('deleted_at', null)),
+      existsRowForOrg(client, 'quotes', orgId, (q) =>
+        q.is('deleted_at', null),
+      ),
+      existsRowForOrg(client, 'receiving_orders', orgId, (q) =>
+        q.in('status', ['received', 'completed']).is('deleted_at', null),
+      ),
+      existsRowForOrg(client, 'invoices', orgId, (q) =>
+        q.not('sent_at', 'is', null).is('deleted_at', null),
+      ),
+      existsRowForOrg(client, 'payments', orgId, (q) =>
+        q.is('deleted_at', null),
+      ),
     ]);
 
     // Resolve currency from org default.
@@ -161,6 +216,14 @@ const summary: Route = {
       runs_in_production_count: runsInProduction,
       shipments_ready_to_ship_count: shipmentsReadyToShip,
       unpaid_invoices_count: unpaidInvoices,
+      // Setup checklist signals.
+      setup_warehouse_added: setupWarehouseAdded,
+      setup_customer_added: setupCustomerAdded,
+      setup_item_added: setupItemAdded,
+      setup_quote_created: setupQuoteCreated,
+      setup_receiving_received: setupReceivingReceived,
+      setup_invoice_sent: setupInvoiceSent,
+      setup_payment_received: setupPaymentReceived,
     };
     return ok(out);
   },

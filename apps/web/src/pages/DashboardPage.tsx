@@ -1,26 +1,30 @@
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useDashboardSummary } from '@/lib/hooks/useCrossCutting';
-import { EmptyWorkCard, WorkCard } from '@/components/shell/WorkCard';
+import { WorkCard } from '@/components/shell/WorkCard';
+import { SetupChecklist } from '@/components/shell/SetupChecklist';
 import { FEATURE_FLAGS } from '@/lib/constants';
 import {
   PILLAR_TILES,
   visiblePillarTiles,
   type PillarTileSpec,
 } from './dashboardTiles';
+import { buildWorkCards } from '@/pages/dashboardWorkCards';
 import {
-  buildOnboardingCards,
-  buildWorkCards,
-  isAllCountsZero,
-} from '@/pages/dashboardWorkCards';
+  buildSetupSteps,
+  countCompletedSetupSteps,
+  isSetupComplete,
+} from '@/pages/dashboardChecklistSteps';
 
 /**
  * DashboardPage. landing for authenticated staff sessions.
  *
- * UX-Q5: the surface is now work-card-first. The top row counts actionable
- * items per workflow stage and links each card to a pre-filtered list page.
- * When every work-card count is zero (a fresh org), the work cards switch
- * to four onboarding cards that nudge the operator into the first action.
+ * UX-Q5 + Setup Checklist (2026-05-25): the top surface discriminates on
+ * setup completeness. While any of the seven canonical setup steps is
+ * incomplete the dashboard renders the SetupChecklist (a guided 7-step
+ * progress surface with deep-link CTAs per row). Once every step is
+ * complete the work-card grid takes over with live actionable counts per
+ * workflow stage.
  *
  * UX-Q3: the five-pillar surface remains below as the branded
  * "what each pillar does" surface, gated by `plugins.<pillar>` flags so
@@ -123,25 +127,15 @@ function WorkCardGrid({ loading, errored, summary }: WorkCardGridProps) {
     );
   }
 
-  // Empty state: every count zero. Switch the grid to onboarding cards.
-  if (isAllCountsZero(summary)) {
-    const onboarding = buildOnboardingCards();
+  // Setup phase: any of the seven canonical setup steps still pending.
+  // Render the guided checklist instead of the work cards so the operator
+  // has a clear path forward instead of an empty board.
+  if (!isSetupComplete(summary)) {
     return (
-      <div className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl tracking-wide text-ink-dim">
-          GET STARTED
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {onboarding.map((card) => (
-            <EmptyWorkCard
-              key={card.key}
-              label={card.label}
-              to={card.to}
-              helperText={card.helperText}
-            />
-          ))}
-        </div>
-      </div>
+      <SetupChecklist
+        steps={buildSetupSteps(summary)}
+        completed={countCompletedSetupSteps(summary)}
+      />
     );
   }
 

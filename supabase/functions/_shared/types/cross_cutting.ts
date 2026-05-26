@@ -176,6 +176,20 @@ export const DashboardSummarySchema = z.object({
   runs_in_production_count: z.number().int().nonnegative().default(0),
   shipments_ready_to_ship_count: z.number().int().nonnegative().default(0),
   unpaid_invoices_count: z.number().int().nonnegative().default(0),
+  // Setup checklist booleans. Each is true once the matching entity exists
+  // for the org. setup_warehouse_added is true from day one because
+  // seed_org_default_warehouse runs at provisioning (migration 0064); the
+  // operator-facing copy on the SetupChecklist explains the default warehouse
+  // and points to Library where it can be renamed. Defaults to false so
+  // older clients that do not yet send these fields parse cleanly against a
+  // refreshed schema during deploy lag.
+  setup_warehouse_added: z.boolean().default(false),
+  setup_customer_added: z.boolean().default(false),
+  setup_item_added: z.boolean().default(false),
+  setup_quote_created: z.boolean().default(false),
+  setup_receiving_received: z.boolean().default(false),
+  setup_invoice_sent: z.boolean().default(false),
+  setup_payment_received: z.boolean().default(false),
 });
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;
 
