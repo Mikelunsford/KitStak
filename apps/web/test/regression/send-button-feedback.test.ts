@@ -1,4 +1,4 @@
-// Regression suite for F-Wave9-SEND-FEEDBACK-01 — the Send button on
+// Regression suite for F-Wave9-SEND-FEEDBACK-01. The Send button on
 // QuoteDetailPage and InvoiceDetailPage must render pending, success, and
 // error states inline so the operator never has to guess whether their
 // click landed. The 2026-05-21 prod smoke walk surfaced the operator
