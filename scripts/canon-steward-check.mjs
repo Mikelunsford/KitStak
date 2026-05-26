@@ -351,6 +351,63 @@ function main() {
   process.stdout.write(
     'in the form: <rule>|<file>|<snippet>\n',
   );
+
+  // F-Wave9-CANON-STEWARD-ROUTE-HINT-01: emit a targeted remediation block
+  // for orphan-route violations. Two agents (PR #150 and an earlier sibling)
+  // tripped this check by shipping an intentional deep-link-only route
+  // without remembering to add an allowlist entry. The hint below points
+  // them at the two valid resolutions and the exact allowlist line format,
+  // so the failure is self-healing without a chore re-push.
+  //
+  // Fires once per run regardless of how many orphan routes triggered, to
+  // keep CI logs short. The per-route violation lines above already enumerate
+  // every offending path.
+  const orphanRoutes = byRule.get('orphan-route') ?? [];
+  if (orphanRoutes.length > 0) {
+    process.stdout.write('\n');
+    process.stdout.write(
+      '[canon-steward] Orphan route(s) detected. To resolve:\n',
+    );
+    process.stdout.write('\n');
+    process.stdout.write(
+      '  Option A: Add a Sidebar entry for the route in\n',
+    );
+    process.stdout.write(
+      '            apps/web/src/components/shell/Sidebar.tsx (or\n',
+    );
+    process.stdout.write(
+      '            apps/web/src/components/shell/sidebarModes.ts if pillar-gated).\n',
+    );
+    process.stdout.write('\n');
+    process.stdout.write(
+      '  Option B: If the route is intentionally orphan (deep-link only,\n',
+    );
+    process.stdout.write(
+      '            accessed via profile dropdown / email link / etc), add a\n',
+    );
+    process.stdout.write(
+      '            line to scripts/canon-steward-allowlist.txt in this exact\n',
+    );
+    process.stdout.write('            format:\n');
+    process.stdout.write('\n');
+    process.stdout.write(
+      '              orphan-route|apps/web/src/routes.ts|<route-path>\n',
+    );
+    process.stdout.write('\n');
+    process.stdout.write(
+      '            Precede the entry with a comment block explaining why the\n',
+    );
+    process.stdout.write(
+      '            route is orphan-by-design and the follow-up that will close\n',
+    );
+    process.stdout.write(
+      '            it (or note "no follow-up needed" if it is stable by design).\n',
+    );
+    process.stdout.write(
+      '            Entries without a reason fail review.\n',
+    );
+  }
+
   process.exitCode = 1;
 }
 
