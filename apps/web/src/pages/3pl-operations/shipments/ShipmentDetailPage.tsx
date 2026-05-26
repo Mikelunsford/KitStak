@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
+import { Package } from 'lucide-react';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { DetailSectionEmptyCoaching } from '@/components/shell/DetailSectionEmptyCoaching';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { StateStepper } from '@/components/shell/StateStepper';
 import { EntityLabel } from '@/components/data/EntityLabel';
@@ -161,6 +163,12 @@ export function ShipmentDetailPage() {
           <p className="text-accent text-sm">
             {lineItems.error instanceof Error ? lineItems.error.message : 'Failed to load lines.'}
           </p>
+        ) : (lineItems.data ?? []).length === 0 ? (
+          <DetailSectionEmptyCoaching
+            entity="line"
+            explainer="Lines are the items packed onto this shipment. Add them so the warehouse knows what to pull and the customer sees the right manifest."
+            icon={Package}
+          />
         ) : (
           <table className="w-full border border-line">
             <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
@@ -174,14 +182,7 @@ export function ShipmentDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {(lineItems.data ?? []).length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-3 text-ink-dim text-sm">
-                    No lines yet.
-                  </td>
-                </tr>
-              ) : (
-                (lineItems.data ?? []).map((l) => (
+              {(lineItems.data ?? []).map((l) => (
                   <tr key={l.id} className="border-t border-line">
                     <td className="px-4 py-2">
                       <EntityLabel kind="item" id={l.item_id} />
@@ -208,8 +209,7 @@ export function ShipmentDetailPage() {
                       )}
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         )}
