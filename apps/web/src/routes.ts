@@ -499,6 +499,19 @@ const KitCostDashboardPage = lazy(() =>
 );
 // === End Path C2 ===
 
+// === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
+const SecurityPage = lazy(() =>
+  import('./pages/account/SecurityPage').then((m) => ({
+    default: m.SecurityPage,
+  })),
+);
+const RecoveryPage = lazy(() =>
+  import('./pages/auth/RecoveryPage').then((m) => ({
+    default: m.RecoveryPage,
+  })),
+);
+// === End F-Wave9-INVITE-PASSWORD-SETUP-01 ===
+
 export const ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/signin',
@@ -866,4 +879,11 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   // === Path C2: KitCost pillar routes ===
   { path: '/kitcost/dashboard',      element: KitCostDashboardPage,        guard: 'protected', layout: 'shell' },
   // === End Path C2 ===
+  // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
+  // /account/security: any signed-in user can set or change their password.
+  // /auth/recovery: public; the Supabase recovery token in the URL hash IS
+  // the credential. The Supabase SDK auto-parses the hash on mount.
+  { path: '/account/security',       element: SecurityPage,                guard: 'protected', layout: 'shell' },
+  { path: '/auth/recovery',          element: RecoveryPage,                guard: 'public',    layout: 'unauthenticated' },
+  // === End F-Wave9-INVITE-PASSWORD-SETUP-01 ===
 ] as const;

@@ -13,6 +13,14 @@
 //                                  notifications chassis. Always returns 200
 //                                  with the same envelope to prevent email-
 //                                  enumeration attacks.
+//   POST /auth/request-password-reset
+//                                  Public (no JWT). Anonymous callers POST an
+//                                  email; if it resolves to an auth.users row
+//                                  we generate a Supabase recovery link and
+//                                  ship it via the same Resend chassis. Always
+//                                  returns 200 with the same envelope for
+//                                  anti-enumeration. Closes
+//                                  F-Wave9-INVITE-PASSWORD-SETUP-01 backend.
 //
 // The /me family returns 200 with `active_org_id: null, active_role: null` if
 // the JWT lacks an org claim, so the SPA can route to the org-picker without
@@ -438,13 +446,19 @@ async function postRequestSignInLink(ctx: RouteCtx): Promise<Response> {
 //      first-time recipients and reuses the existing row otherwise.
 //   4. create_staff_membership RPC (migration 0065) atomically links the
 //      auth user to the org with the requested role. Idempotent.
-//   5. A branded invite email is queued through the notifications chassis;
+//   5. Stamp the org claim onto the invitee's app_metadata so the first JWT
+//      Supabase mints when they click the magic link already carries
+//      kitstak_org_id and kitstak_org_role. Without this every org-scoped
+//      Edge API 401s on the first sign-in. Closes
+//      F-Wave9-STAFF-INVITE-CLAIM-STAMP-01.
+//   6. A branded invite email is queued through the notifications chassis;
 //      the 5-minute drain cron ships it via Resend.
 //
 // Capability: org.member.invite (granted to org_owner and org_admin only).
 // Idempotency: respondWithIdempotency wraps the side-effecting block so a
 // re-click of the same Invite button (same key + same body) replays the
-// stored response without firing a second generateLink or RPC call.
+// stored response without firing a second generateLink, RPC call, claim
+// stamp, or notifications insert.
 // ---------------------------------------------------------------------------
 const STAFF_INVITE_REDIRECT_URL = 'https://www.kitstak.com/dashboard';
 
@@ -523,6 +537,34 @@ async function postInviteStaffMember(ctx: RouteCtx): Promise<Response> {
         );
       }
 
+      // Stamp the org claim onto the invitee's app_metadata so the very
+      // first JWT Supabase mints when they click the magic link already
+      // carries kitstak_org_id + kitstak_org_role. Without this every
+      // org-scoped Edge API 401s on first sign-in and the invitee is stuck
+      // until /sessions/switch-org fires the SPA fallback. Closes
+      // F-Wave9-STAFF-INVITE-CLAIM-STAMP-01.
+      //
+      // Failure is logged but does not unwind: the membership row already
+      // exists, the invitee can still self-heal via the SPA switch-org
+      // fallback, and the next invite click will retry the stamp (idempotent
+      // at the auth.admin layer).
+      const { error: stampErr } = await sb.auth.admin.updateUserById(
+        inviteeUserId,
+        {
+          app_metadata: {
+            kitstak_org_id: caller.orgId,
+            kitstak_org_role: body.role,
+          },
+        },
+      );
+      if (stampErr) {
+        console.error('auth-api: failed to stamp invitee app_metadata', {
+          org_id: caller.orgId,
+          user_id: inviteeUserId,
+          message: stampErr.message,
+        });
+      }
+
       // Resolve the org display_name for the invite email subject. Fall back
       // to 'Kitstak' when the org row is unexpectedly missing; the membership
       // already exists so the invitee can still sign in.
@@ -572,6 +614,132 @@ async function postInviteStaffMember(ctx: RouteCtx): Promise<Response> {
   );
 }
 
+// ---------------------------------------------------------------------------
+// POST /auth/request-password-reset
+//
+// Public route. An anonymous caller posts { email } and we ship a Supabase
+// recovery link via the same Resend chassis used by the staff invite and
+// portal sign-in emails. Closes F-Wave9-INVITE-PASSWORD-SETUP-01 backend.
+//
+// Anti-enumeration posture (constitutional, mirrors postRequestSignInLink):
+//   - Every code path returns the same envelope `{ accepted: true }` with
+//     status 200, regardless of whether the email resolves to an auth.users
+//     row, whether generateLink succeeds, or whether the notifications insert
+//     errors out. The only differentiator a probe could see is timing, which
+//     is bounded by the worker drain cadence on the email side.
+//   - Body validation failures also return 200 with the same envelope so a
+//     400/422 cannot be used to distinguish "no such email" from "bad shape".
+//
+// Idempotency:
+//   This is a pre-authentication endpoint. There is no caller user_id to
+//   scope the idempotency row to and each invocation MUST generate a fresh
+//   single-use recovery token (the prior token is invalidated server-side
+//   when a new one is minted), so respondWithIdempotency would not provide
+//   the intended "same key returns the same body" guarantee. We therefore
+//   skip the wrapper. Same divergence is documented on postRequestSignInLink.
+// ---------------------------------------------------------------------------
+const PASSWORD_RECOVERY_REDIRECT_URL = 'https://www.kitstak.com/auth/recovery';
+
+const PASSWORD_RESET_RESPONSE = { accepted: true as const };
+
+// Local normalising schema. The byte-mirrored RequestPasswordResetSchema
+// in _shared/types/identity.ts is the wire contract used by the SPA; the
+// handler decorates with a trim + lowercase transform before email
+// validation so callers that send leading/trailing whitespace or mixed
+// case still resolve to the canonical auth.users row. Mirrors the same
+// pattern as RequestSignInLinkSchema above.
+const RequestPasswordResetNormalisedSchema = z.object({
+  email: z
+    .string()
+    .transform((s) => s.trim().toLowerCase())
+    .pipe(z.string().email()),
+});
+
+async function postRequestPasswordReset(ctx: RouteCtx): Promise<Response> {
+  let body: { email: string };
+  try {
+    body = await parseBody(ctx.req, RequestPasswordResetNormalisedSchema);
+  } catch {
+    // Anti-enumeration: malformed body must not differentiate from a valid
+    // body whose email is not registered. Same posture as the portal
+    // signin endpoint.
+    return ok(PASSWORD_RESET_RESPONSE);
+  }
+
+  // The schema already normalised; use as-is.
+  const email = body.email;
+  const sb = admin();
+
+  // Look up the auth.users row via the admin listUsers helper. The
+  // service-role client can read auth.users directly but listUsers is the
+  // documented filter path; same pattern as postRequestSignInLink.
+  const { data: usersPage, error: usersErr } = await sb.auth.admin.listUsers({
+    page: 1,
+    perPage: 1,
+    filter: `email eq "${email.replace(/"/g, '')}"`,
+  } as unknown as { page: number; perPage: number });
+
+  if (usersErr) {
+    console.error('auth-api: listUsers failed during password-reset', {
+      message: usersErr.message,
+    });
+    return ok(PASSWORD_RESET_RESPONSE);
+  }
+
+  const user = usersPage?.users?.find((u) => u.email?.toLowerCase() === email);
+  if (!user) {
+    return ok(PASSWORD_RESET_RESPONSE);
+  }
+
+  const linkResult = await sb.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: PASSWORD_RECOVERY_REDIRECT_URL },
+  });
+
+  if (linkResult.error || !linkResult.data?.properties?.action_link) {
+    console.error('auth-api: generateLink failed during password-reset', {
+      message: linkResult.error?.message,
+    });
+    return ok(PASSWORD_RESET_RESPONSE);
+  }
+
+  const actionLink = linkResult.data.properties.action_link;
+
+  // Queue the branded recovery email. org_id is NULL because recovery is a
+  // user-scoped concern (a user belongs to many orgs but has one password).
+  // Migration 0066 drops the NOT NULL on notifications.org_id to support
+  // this. The drain cron picks it up and ships via Resend.
+  const subject = 'Reset your Kitstak password';
+  const emailBody =
+    'A password reset was requested for this email. ' +
+    'Click the link below to set a new password.\n\n' +
+    `${actionLink}\n\n` +
+    'This link expires in one hour. If you did not request a reset, ' +
+    'ignore this email and your password will stay the same.';
+
+  const { error: notifErr } = await sb.from('notifications').insert({
+    org_id: null,
+    recipient_user_id: user.id,
+    entity_type: 'auth',
+    entity_id: null,
+    channel: 'email',
+    subject,
+    body: emailBody,
+    payload: { to: email, kind: 'password_reset' },
+    created_by: user.id,
+    updated_by: user.id,
+  });
+  if (notifErr) {
+    console.error('auth-api: failed to queue password-reset email', {
+      user_id: user.id,
+      message: notifErr.message,
+    });
+  }
+
+  return ok(PASSWORD_RESET_RESPONSE);
+}
+
 Deno.serve((req: Request) =>
   route(
     req,
@@ -581,6 +749,7 @@ Deno.serve((req: Request) =>
       { method: 'POST', path: '/sessions/switch-org',         handler: postSwitchOrg },
       { method: 'POST', path: '/members/invite',              handler: postInviteStaffMember },
       { method: 'POST', path: '/portal/request-signin-link',  handler: postRequestSignInLink },
+      { method: 'POST', path: '/auth/request-password-reset', handler: postRequestPasswordReset },
     ],
     { bundle: BUNDLE },
   ),

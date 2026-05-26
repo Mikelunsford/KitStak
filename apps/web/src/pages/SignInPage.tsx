@@ -6,11 +6,24 @@ import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { useAuth } from '@/auth/AuthContext';
+import { requestPasswordReset } from '@/lib/services/authResetService';
 
 const SignInSchema = z.object({
   email: z.string().email('Enter a valid email'),
   password: z.string().min(8, 'Minimum 8 characters'),
 });
+
+const ResetEmailSchema = z.object({
+  email: z.string().email('Enter a valid email'),
+});
+
+// Anti-enumeration message rendered on both happy-path and network-error
+// branches of the forgot-password form. The wire endpoint never reveals
+// whether the email is registered; mirroring that posture in the UI keeps
+// the SPA from being a side channel.
+const RESET_CONFIRMATION =
+  'If an account exists for that email, a reset link has been sent. ' +
+  'Check your inbox in the next few minutes.';
 
 export function SignInPage() {
   const { state, signIn } = useAuth();
@@ -93,6 +106,8 @@ export function SignInPage() {
             </Button>
           </form>
 
+          <ForgotPasswordPanel />
+
           <p className="border-t border-line pt-5 text-sm text-ink-dim">
             Customer accessing your portal?{' '}
             <Link
@@ -105,5 +120,121 @@ export function SignInPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ForgotPasswordPanel.
+//
+// Toggle-revealed inline form below the sign-in form. Submitting POSTs to
+// /auth-api/auth/request-password-reset and renders the same anti-leak
+// confirmation message regardless of outcome (network error included).
+// ---------------------------------------------------------------------------
+function ForgotPasswordPanel() {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailError(null);
+    const parsed = ResetEmailSchema.safeParse({ email });
+    if (!parsed.success) {
+      setEmailError(parsed.error.issues[0]?.message ?? 'Invalid email');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await requestPasswordReset({ email: parsed.data.email });
+    } catch {
+      // Anti-enumeration: a network or server error must NOT differentiate
+      // from the success path. The user sees the same confirmation either
+      // way. We deliberately swallow the error here; Sentry capture upstream
+      // of fetch would surface a real outage to operators.
+    } finally {
+      setSubmitting(false);
+      setSubmitted(true);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div
+        className="border-t border-line pt-5 flex flex-col gap-3"
+        data-testid="forgot-password-confirmation"
+      >
+        <p className="font-sans text-sm text-ink">{RESET_CONFIRMATION}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setSubmitted(false);
+            setEmail('');
+            setOpen(false);
+          }}
+          className="self-start text-xs text-accent underline underline-offset-2"
+        >
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="border-t border-line pt-5">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-sm text-accent underline underline-offset-2"
+          data-testid="forgot-password-toggle"
+        >
+          Forgot password?
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="border-t border-line pt-5 flex flex-col gap-3"
+      data-testid="forgot-password-form"
+    >
+      <p className="font-sans text-sm text-ink-dim">
+        Enter your email. We will send you a reset link.
+      </p>
+      <TextInput
+        label="Email"
+        type="email"
+        name="reset_email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        {...(emailError ? { error: emailError } : {})}
+        data-testid="forgot-password-email"
+      />
+      <div className="flex items-center gap-3">
+        <Button
+          type="submit"
+          disabled={submitting}
+          data-testid="forgot-password-submit"
+        >
+          {submitting ? 'Sending...' : 'Send reset link'}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setEmail('');
+            setEmailError(null);
+          }}
+          className="text-xs text-ink-dim underline underline-offset-2"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

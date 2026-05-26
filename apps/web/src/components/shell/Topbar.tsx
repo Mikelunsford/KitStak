@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronDown, LogOut, Menu, UserCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronDown, KeyRound, LogOut, Menu, UserCircle2 } from 'lucide-react';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
@@ -149,6 +150,17 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
                   {state.status === 'authenticated' ? state.user.email : '.'}
                 </p>
               </div>
+              {/* F-Wave9-INVITE-PASSWORD-SETUP-01: account-security entry. */}
+              <Link
+                to="/account/security"
+                role="menuitem"
+                onClick={() => setProfileMenuOpen(false)}
+                className="mt-1 flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-bg-2"
+                data-testid="profile-menu-account-security"
+              >
+                <KeyRound className="h-4 w-4" />
+                Account security
+              </Link>
               <button
                 type="button"
                 role="menuitem"
@@ -156,7 +168,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
                   setProfileMenuOpen(false);
                   void signOut();
                 }}
-                className="mt-1 flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-bg-2"
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-bg-2"
               >
                 <LogOut className="h-4 w-4" />
                 Sign out

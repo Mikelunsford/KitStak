@@ -208,6 +208,22 @@ describe('auth-api POST /members/invite - staff invite chassis', () => {
       p_invited_by: OWNER_USER_ID,
     });
 
+    // F-Wave9-STAFF-INVITE-CLAIM-STAMP-01: the org claim must be stamped
+    // onto the invitee's app_metadata after the RPC succeeds and before
+    // the notifications insert. Without this the first JWT minted on
+    // magic-link click has no org context and every org-scoped Edge API
+    // 401s on the invitee.
+    expect(state.authAdminUpdateUserByIdCalls).toHaveLength(1);
+    expect(state.authAdminUpdateUserByIdCalls[0]).toMatchObject({
+      id: INVITEE_USER_ID,
+      attributes: {
+        app_metadata: {
+          kitstak_org_id: ORG_A,
+          kitstak_org_role: 'sales',
+        },
+      },
+    });
+
     // Notifications row queued with the resolved org name and action_link.
     const notifInsert = state.inserts.find((i) => i.table === 'notifications');
     expect(notifInsert).toBeDefined();
@@ -241,6 +257,27 @@ describe('auth-api POST /members/invite - staff invite chassis', () => {
       (c) => c.name === 'create_staff_membership',
     );
     expect(rpcCall?.args).toMatchObject({ p_invited_by: ADMIN_USER_ID });
+  });
+
+  it('claim stamp failure does not unwind the membership (still 201)', async () => {
+    // F-Wave9-STAFF-INVITE-CLAIM-STAMP-01: stamp failure is logged but the
+    // handler still returns 201. The invitee can self-heal via the SPA
+    // switch-org fallback the next time they sign in.
+    const state = withInviteDefaults(makeStateWithOrg());
+    state.authAdminUpdateUserByIdResult = {
+      data: { user: null },
+      error: { message: 'transient supabase auth error' },
+    };
+    setActiveMockState(state);
+
+    const res = await handler(
+      postInvite(OWNER, { email: 'teammate@example.test', role: 'sales' }),
+    );
+    expect(res.status).toBe(201);
+    expect(state.authAdminUpdateUserByIdCalls).toHaveLength(1);
+    // Notification is still queued: the membership exists so the invitee
+    // can still receive the magic-link email.
+    expect(state.inserts.find((i) => i.table === 'notifications')).toBeDefined();
   });
 
   it('idempotency-key required: missing header -> 400 IDEMPOTENCY_KEY_REQUIRED', async () => {
