@@ -10,6 +10,7 @@ import {
   Palette,
   Settings,
   Upload,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -56,6 +57,8 @@ const ADMIN_LINKS: ReadonlyArray<AdminLink> = [
   { to: '/admin/branding', label: 'Branding', icon: Palette },
   { to: '/admin/flags', label: 'Feature flags', icon: Flag },
   { to: '/admin/numbering', label: 'Numbering', icon: Hash },
+  // F-Wave9-STAFF-INVITE-CHASSIS-01: /admin/members staff invite surface.
+  { to: '/admin/members', label: 'Members', icon: Users },
   { to: '/imports', label: 'Imports', icon: Upload },
   { to: '/exports', label: 'Exports', icon: Download },
 ];
