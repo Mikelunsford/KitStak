@@ -114,6 +114,25 @@ export function SecurityPage() {
         </header>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {/*
+            Hidden username field for accessibility and password-manager
+            association. Chrome / 1Password / Bitwarden need a `username`
+            field to bind a saved password to a specific account, and
+            screen readers announce "password for {user}" via the same
+            field. The field is read-only, hidden from the visual layout,
+            and skipped by keyboard navigation; it exists purely as a
+            machine-readable hint. Closes F-Wave9-PASSWORD-FORM-USERNAME-A11Y-01.
+          */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value={me.data?.email ?? ''}
+            readOnly
+            hidden
+            tabIndex={-1}
+            aria-hidden="true"
+          />
           <TextInput
             label="New password"
             type="password"
