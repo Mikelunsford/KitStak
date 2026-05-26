@@ -1,8 +1,12 @@
+import { useState } from 'react';
+
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useDashboardSummary } from '@/lib/hooks/useCrossCutting';
+import { useMe } from '@/lib/hooks/useMe';
 import { WorkCard } from '@/components/shell/WorkCard';
 import { SetupChecklist } from '@/components/shell/SetupChecklist';
+import { SetupCompleteCelebration } from '@/components/shell/SetupCompleteCelebration';
 import { FEATURE_FLAGS } from '@/lib/constants';
 import {
   PILLAR_TILES,
@@ -15,6 +19,7 @@ import {
   countCompletedSetupSteps,
   isSetupComplete,
 } from '@/pages/dashboardChecklistSteps';
+import { hasSetupCelebrationBeenShown } from '@/pages/setupCelebrationState';
 
 /**
  * DashboardPage. landing for authenticated staff sessions.
@@ -39,8 +44,23 @@ export function DashboardPage() {
   const orgFlags = useOrgFlags();
   const appName = branding.branding?.app_name_override ?? 'Kitstak';
   const dashboard = useDashboardSummary();
+  const me = useMe({ enabled: true });
 
   const tiles = visiblePillarTiles(PILLAR_TILES, orgFlags.data);
+  const activeOrgId = me.data?.active_org_id ?? '';
+
+  // Celebration banner gating. The banner appears once, the first time the
+  // operator sees the work-card grid for a given org. The `dismissed`
+  // state lets the banner unmount immediately on click without waiting for
+  // a re-render cycle to observe the localStorage write.
+  const setupDone =
+    dashboard.data !== undefined && isSetupComplete(dashboard.data);
+  const [dismissed, setDismissed] = useState(false);
+  const showCelebration =
+    setupDone &&
+    Boolean(activeOrgId) &&
+    !dismissed &&
+    !hasSetupCelebrationBeenShown(activeOrgId);
 
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-12">
@@ -52,6 +72,13 @@ export function DashboardPage() {
           Signed in to {appName}. Your work for the day is below.
         </p>
       </header>
+
+      {showCelebration && (
+        <SetupCompleteCelebration
+          orgId={activeOrgId}
+          onDismiss={() => setDismissed(true)}
+        />
+      )}
 
       <WorkCardGrid
         loading={dashboard.isLoading}
