@@ -63,6 +63,14 @@ export interface MockState {
     data: { users: Array<{ id: string; email: string }> } | null;
     error: { message: string } | null;
   };
+  authAdminUpdateUserByIdCalls: Array<{
+    id: string;
+    attributes: { app_metadata?: Record<string, unknown> };
+  }>;
+  authAdminUpdateUserByIdResult: {
+    data: { user: { id: string } | null };
+    error: { message: string } | null;
+  };
 }
 
 export function makeState(rows: RowMap = {}): MockState {
@@ -98,6 +106,11 @@ export function makeState(rows: RowMap = {}): MockState {
     authAdminListUsersCalls: [],
     authAdminListUsersResult: {
       data: { users: [] },
+      error: null,
+    },
+    authAdminUpdateUserByIdCalls: [],
+    authAdminUpdateUserByIdResult: {
+      data: { user: { id: '00000000-0000-4000-8000-00000000aaaa' } },
       error: null,
     },
   };
@@ -299,6 +312,16 @@ export function makeSupabaseMock(state: MockState): {
         perPage?: number;
         page?: number;
       }) => Promise<MockState['authAdminListUsersResult']>;
+      updateUserById: (
+        id: string,
+        attributes: { app_metadata?: Record<string, unknown> },
+      ) => Promise<MockState['authAdminUpdateUserByIdResult']>;
+      getUserById: (
+        id: string,
+      ) => Promise<{
+        data: { user: { id: string; email: string } | null };
+        error: { message: string } | null;
+      }>;
     };
   };
 } {
@@ -326,6 +349,19 @@ export function makeSupabaseMock(state: MockState): {
             perPage: params?.perPage,
           });
           return state.authAdminListUsersResult;
+        },
+        updateUserById: async (id, attributes) => {
+          state.authAdminUpdateUserByIdCalls.push({ id, attributes });
+          return state.authAdminUpdateUserByIdResult;
+        },
+        getUserById: async (id) => {
+          // Best-effort stub: callers that exercise getMe will install a
+          // richer result via direct overwrite if needed. Default echoes
+          // the id so the route returns a 200 without erroring on null.
+          return {
+            data: { user: { id, email: 'mock-user@example.test' } },
+            error: null,
+          };
         },
       },
     },

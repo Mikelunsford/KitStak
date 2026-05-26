@@ -256,3 +256,20 @@ export const InviteStaffResponseSchema = z.object({
   email: z.string().email(),
 });
 export type InviteStaffResponse = z.infer<typeof InviteStaffResponseSchema>;
+
+// ----- password reset (F-Wave9-INVITE-PASSWORD-SETUP-01) -----
+// Public, anti-enumeration endpoint. The caller posts an email; the server
+// always replies with `accepted: true` regardless of whether the email
+// resolves to an auth.users row, so the response shape cannot be used to
+// probe membership. Same posture as RequestSignInLinkSchema in the portal
+// flow. See auth-api postRequestPasswordReset for the handler.
+
+export const RequestPasswordResetSchema = z.object({
+  email: z.string().email(),
+});
+export type RequestPasswordResetRequest = z.infer<typeof RequestPasswordResetSchema>;
+
+export const RequestPasswordResetResponseSchema = z.object({
+  accepted: z.literal(true),
+});
+export type RequestPasswordResetResponse = z.infer<typeof RequestPasswordResetResponseSchema>;
