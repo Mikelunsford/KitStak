@@ -20,11 +20,11 @@
 //   6. Invoice sent. First billing motion.
 //   7. Payment recorded. Closes the quote-to-cash loop and lights up the
 //      KitCost YTD Revenue KPI.
-//
-// Staff invite ("invite a teammate") deliberately omitted because the
-// staff invite chassis is not yet built (F-Wave9-STAFF-INVITE-CHASSIS-01).
-// Shipping a checklist row that dead-ends would feel worse than its
-// absence. Add as step 8 when that follow-up lands.
+//   8. Teammate invited. The staff invite chassis landed in
+//      F-Wave9-STAFF-INVITE-CHASSIS-01; this step routes to /admin/members
+//      where the operator can send a magic-link invite to their first
+//      teammate. Last in the order because the chain above is the operator
+//      proving the workflow alone before bringing anyone else in.
 
 import type { DashboardSummary } from '@/lib/types/cross_cutting';
 
@@ -43,10 +43,11 @@ export type SetupStepKey =
   | 'quote_created'
   | 'receiving_received'
   | 'invoice_sent'
-  | 'payment_received';
+  | 'payment_received'
+  | 'team_invited';
 
 /**
- * Builds the ordered 7-step setup checklist from the dashboard summary
+ * Builds the ordered 8-step setup checklist from the dashboard summary
  * payload. Helper copy on step 1 explains the default warehouse seeded at
  * provisioning so the first checkmark does not look like product magic.
  */
@@ -102,6 +103,14 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       to: '/3pl-operations/payments/new',
       isComplete: summary.setup_payment_received,
     },
+    {
+      key: 'team_invited',
+      label: 'Invite a teammate',
+      helperCopy:
+        'Add your first staff member. They will sign in with a magic link.',
+      to: '/admin/members',
+      isComplete: summary.setup_team_invited,
+    },
   ];
 }
 
@@ -118,7 +127,7 @@ export function countCompletedSetupSteps(summary: DashboardSummary): number {
  * constant so the SetupChecklist progress copy and the DashboardPage
  * "hide when complete" branch stay in sync without re-counting.
  */
-export const SETUP_STEPS_TOTAL = 7;
+export const SETUP_STEPS_TOTAL = 8;
 
 /**
  * True if every step in the checklist is complete. The DashboardPage uses

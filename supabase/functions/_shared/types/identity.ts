@@ -202,32 +202,6 @@ export const NumberingResetRequestSchema = z.object({
 });
 export type NumberingResetRequest = z.infer<typeof NumberingResetRequestSchema>;
 
-// ----- staff invite -----
-
-export const StaffRoleCodeSchema = z.enum([
-  'org_owner',
-  'org_admin',
-  'sales',
-  'ops',
-  'accounting',
-  'viewer',
-]);
-export type StaffRoleCode = z.infer<typeof StaffRoleCodeSchema>;
-
-export const InviteStaffRequestSchema = z.object({
-  email: z.string().email(),
-  role: StaffRoleCodeSchema,
-});
-export type InviteStaffRequest = z.infer<typeof InviteStaffRequestSchema>;
-
-export const InviteStaffResponseSchema = z.object({
-  user_id: UuidSchema,
-  membership_id: UuidSchema,
-  role: StaffRoleCodeSchema,
-  email: z.string().email(),
-});
-export type InviteStaffResponse = z.infer<typeof InviteStaffResponseSchema>;
-
 // ----- session switching -----
 
 export const SwitchOrgRequestSchema = z.object({
@@ -252,3 +226,33 @@ export const MeResponseSchema = z.object({
   memberships: z.array(MembershipSummarySchema),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+// ----- staff invite (F-Wave9-STAFF-INVITE-CHASSIS-01) -----
+// StaffRoleCodeSchema is RoleCodeSchema narrowed to the six staff codes
+// (excludes customer_user and vendor_user). The invite endpoint refuses
+// portal codes server-side; mirroring the narrow shape here lets the SPA
+// form bind a typed dropdown without a runtime branch on the wider enum.
+
+export const StaffRoleCodeSchema = z.enum([
+  'org_owner',
+  'org_admin',
+  'sales',
+  'ops',
+  'accounting',
+  'viewer',
+]);
+export type StaffRoleCode = z.infer<typeof StaffRoleCodeSchema>;
+
+export const InviteStaffRequestSchema = z.object({
+  email: z.string().email(),
+  role: StaffRoleCodeSchema,
+});
+export type InviteStaffRequest = z.infer<typeof InviteStaffRequestSchema>;
+
+export const InviteStaffResponseSchema = z.object({
+  user_id: UuidSchema,
+  membership_id: UuidSchema,
+  role: StaffRoleCodeSchema,
+  email: z.string().email(),
+});
+export type InviteStaffResponse = z.infer<typeof InviteStaffResponseSchema>;

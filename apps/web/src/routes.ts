@@ -58,6 +58,12 @@ const NumberingAdminPage = lazy(() =>
     default: m.NumberingAdminPage,
   })),
 );
+// F-Wave9-STAFF-INVITE-CHASSIS-01: /admin/members staff invite surface.
+const MembersPage = lazy(() =>
+  import('./pages/admin/MembersPage').then((m) => ({
+    default: m.MembersPage,
+  })),
+);
 // === End Agent A ===
 
 // === Agent B: CRM lazy imports ===
@@ -540,6 +546,13 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/admin/numbering',
     element: NumberingAdminPage,
+    guard: 'admin',
+    layout: 'shell',
+  },
+  // F-Wave9-STAFF-INVITE-CHASSIS-01: /admin/members staff invite surface.
+  {
+    path: '/admin/members',
+    element: MembersPage,
     guard: 'admin',
     layout: 'shell',
   },

@@ -149,7 +149,10 @@ describe('buildOnboardingCards', () => {
     expect(routes).toContain('/crm/customers/new');
     expect(routes).toContain('/3pl-operations/items/new');
     expect(routes).toContain('/3pl-operations/quotes/new');
-    expect(routes).toContain('/admin/settings');
+    // F-Wave9-STAFF-INVITE-CHASSIS-01: the invite_teammate card now routes
+    // to the dedicated /admin/members surface instead of dead-ending on
+    // /admin/settings.
+    expect(routes).toContain('/admin/members');
   });
 
   it('has helper text on every onboarding card', () => {

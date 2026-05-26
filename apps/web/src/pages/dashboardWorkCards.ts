@@ -124,8 +124,8 @@ export function buildOnboardingCards(): OnboardingCardSpec[] {
     {
       key: 'invite_teammate',
       label: 'Invite a teammate',
-      to: '/admin/settings',
-      helperText: 'Open workspace settings to add members.',
+      to: '/admin/members',
+      helperText: 'Send a magic-link invite to your first staff member.',
     },
   ];
 }
