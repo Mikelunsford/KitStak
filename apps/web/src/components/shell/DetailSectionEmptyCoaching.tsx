@@ -10,7 +10,7 @@
 //
 // Posture differs from `ListEmptyState` (PR #119): that surface is the
 // centered full-card empty state for a list PAGE. This component is the
-// inline variant for a SECTION within a detail page — smaller padding,
+// inline variant for a SECTION within a detail page. Smaller padding,
 // horizontal layout, sits flush inside the existing section card.
 //
 // Visual family: bg-2 subtle background, line border, lucide icon at

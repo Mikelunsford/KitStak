@@ -15,12 +15,12 @@ This surface closes that gap with a compact inline coaching block that sits wher
 
 ### New shell component
 
-`apps/web/src/components/shell/DetailSectionEmptyCoaching.tsx` (~95 lines) — a compact inline empty-state surface for detail-page child sections. Distinct from `ListEmptyState` (which is the centered full-card empty state for a list PAGE):
+`apps/web/src/components/shell/DetailSectionEmptyCoaching.tsx` (~95 lines): a compact inline empty-state surface for detail-page child sections. Distinct from `ListEmptyState` (which is the centered full-card empty state for a list PAGE):
 
-- `entity: string` (required) — singular noun, carried through as `data-entity` for tests
-- `explainer: string` (required) — sentence-cased one-line "what is this section for?"
-- `ctaLabel?: string` and `ctaTo?: string` (optional, mutually required) — when both present, an inline accent-hover link renders right of the explainer
-- `icon?: LucideIcon` (optional) — defaults to lucide `Info`, callers pass domain-relevant icons (Package, Truck, Factory, Inbox, Layers, Users, CreditCard, Receipt, FileText, Folder, Activity)
+- `entity: string` (required): singular noun, carried through as `data-entity` for tests
+- `explainer: string` (required): sentence-cased one-line "what is this section for?"
+- `ctaLabel?: string` and `ctaTo?: string` (optional, mutually required): when both present, an inline accent-hover link renders right of the explainer
+- `icon?: LucideIcon` (optional): defaults to lucide `Info`, callers pass domain-relevant icons (Package, Truck, Factory, Inbox, Layers, Users, CreditCard, Receipt, FileText, Folder, Activity)
 
 Visual: bg-2 subtle background, line border, 32px icon tile with 18px lucide icon at strokeWidth 1.5, flex-wrap row so the CTA drops below the explainer on narrow widths. Brand tokens only.
 
@@ -43,8 +43,8 @@ Each section authored an operator-readable explainer like:
 
 ### Tests
 
-- `DetailSectionEmptyCoaching.test.ts` — 9 unit tests: required-props render, entity data attribute, CTA renders when both label+to present, CTA hidden when either missing, CTA hidden when both absent, custom icon honoured, default icon fallback, plus a copy-discipline suite that scans all rendered strings for em dash, en dash, double hyphen, and emoji.
-- `DetailSectionEmptyCoaching.pages.test.ts` — 5 smoke render tests covering project receiving (with CTA), project materials (no CTA), project invoices (no CTA), customer quotes (with CTA), and shipment lines (no CTA).
+- `DetailSectionEmptyCoaching.test.ts`: 9 unit tests: required-props render, entity data attribute, CTA renders when both label+to present, CTA hidden when either missing, CTA hidden when both absent, custom icon honoured, default icon fallback, plus a copy-discipline suite that scans all rendered strings for em dash, en dash, double hyphen, and emoji.
+- `DetailSectionEmptyCoaching.pages.test.ts`: 5 smoke render tests covering project receiving (with CTA), project materials (no CTA), project invoices (no CTA), customer quotes (with CTA), and shipment lines (no CTA).
 - 14 new tests, 0 regressions. Full suite: 456 src tests + 176 regression tests + 20 contract tests, all green.
 
 ## Constitutional alignment
