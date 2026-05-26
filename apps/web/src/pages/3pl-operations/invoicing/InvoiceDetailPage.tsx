@@ -32,6 +32,10 @@ import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import {
+  computeSendButtonFeedback,
+  SEND_FEEDBACK_COPY,
+} from '@/lib/workflow/sendButtonFeedback';
+import {
   isPdfDisabledForDraft,
   PDF_DRAFT_DISABLED_TOOLTIP,
 } from '@/lib/workflow/pdfGating';
@@ -281,12 +285,45 @@ export function InvoiceDetailPage() {
             because it is itself a forward transition from draft / pending
             (the state before Receive payment becomes available), so the
             "next step" CTA below never co-exists with Send. */}
-        <div className="flex gap-2 flex-wrap">
-          {canSend && (
-            <Button onClick={() => sendMutation.mutate(invoiceId)} disabled={sendMutation.isPending}>
-              Send
-            </Button>
-          )}
+        <div className="flex gap-2 flex-wrap items-start">
+          {canSend && (() => {
+            // F-Wave9-SEND-FEEDBACK-01: inline pending/success/error
+            // feedback. The 2026-05-21 prod smoke walk caught the operator
+            // clicking Send 7 times in a row because the original wiring
+            // fired the mutation but rendered no feedback. Helper is
+            // shared with QuoteDetailPage so both pages drift together.
+            const feedback = computeSendButtonFeedback({
+              isPending: sendMutation.isPending,
+              isSuccess: sendMutation.isSuccess,
+              error: sendMutation.error,
+              sentAt: inv.sent_at,
+            });
+            return (
+              <div className="flex flex-col gap-1" data-testid="invoice-send-feedback">
+                <Button
+                  onClick={() => sendMutation.mutate(invoiceId)}
+                  disabled={feedback.disabled}
+                >
+                  {feedback.label}
+                </Button>
+                {feedback.helperText && (
+                  <p className="font-sans text-xs text-ink-dim">
+                    {feedback.helperText}
+                  </p>
+                )}
+                {feedback.showSuccess && (
+                  <p className="font-sans text-xs text-ink-dim">
+                    {SEND_FEEDBACK_COPY.successLine}
+                  </p>
+                )}
+                {feedback.errorMessage && (
+                  <p className="font-sans text-sm text-accent">
+                    {feedback.errorMessage}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
           {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 4): gate the Download PDF
               button to disabled while the invoice is in draft. Operators
               should send or approve the document first; the customer-
@@ -350,10 +387,12 @@ export function InvoiceDetailPage() {
       />
 
 
-      {(sendMutation.error || cancelMutation.error || pdfError) && (
+      {/* F-Wave9-SEND-FEEDBACK-01: sendMutation.error is now rendered
+          inline beneath the Send button via computeSendButtonFeedback, so
+          this combined error line covers only cancel + PDF download. */}
+      {(cancelMutation.error || pdfError) && (
         <p className="font-sans text-sm text-accent">
-          {(sendMutation.error instanceof Error && sendMutation.error.message) ||
-            (cancelMutation.error instanceof Error && cancelMutation.error.message) ||
+          {(cancelMutation.error instanceof Error && cancelMutation.error.message) ||
             pdfError ||
             'Action failed.'}
         </p>

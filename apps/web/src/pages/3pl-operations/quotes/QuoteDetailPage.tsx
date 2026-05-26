@@ -33,6 +33,10 @@ import {
 } from '@/lib/workflow/pdfGating';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import {
+  computeSendButtonFeedback,
+  SEND_FEEDBACK_COPY,
+} from '@/lib/workflow/sendButtonFeedback';
 import type { QuoteState } from '@/lib/types/sales';
 
 /**
@@ -276,9 +280,54 @@ export function QuoteDetailPage() {
             }}
           >Cancel</Button>
         )}
-        {state === 'approved' && id && (
-          <Button variant="secondary" onClick={() => send.mutate(id)}>Send to customer</Button>
-        )}
+        {state === 'approved' && id && (() => {
+          // F-Wave9-SEND-FEEDBACK-01: inline pending/success/error feedback
+          // on the Send button. The 2026-05-21 prod smoke walk caught the
+          // operator clicking Send 7 times in a row because the button
+          // fired the mutation but rendered no feedback at all. The label
+          // copy ("Sent to customer" -> "Send again" once already sent),
+          // the disabled flag, and the helper microcopy all flow out of
+          // computeSendButtonFeedback so QuoteDetailPage and
+          // InvoiceDetailPage drift together if at all.
+          const feedback = computeSendButtonFeedback({
+            isPending: send.isPending,
+            isSuccess: send.isSuccess,
+            error: send.error,
+            sentAt: quote.sent_at,
+          });
+          // Quote-side verb is "Send to customer" on first send; only
+          // override the idle label and keep helper-resolved copy for
+          // every other state (pending, success, resend, error).
+          const baseLabel = !send.isPending && !send.isSuccess && !send.error && !quote.sent_at
+            ? 'Send to customer'
+            : feedback.label;
+          return (
+            <div className="flex flex-col gap-1" data-testid="quote-send-feedback">
+              <Button
+                variant="secondary"
+                onClick={() => send.mutate(id)}
+                disabled={feedback.disabled}
+              >
+                {baseLabel}
+              </Button>
+              {feedback.helperText && (
+                <p className="font-sans text-xs text-ink-dim">
+                  {feedback.helperText}
+                </p>
+              )}
+              {feedback.showSuccess && (
+                <p className="font-sans text-xs text-ink-dim">
+                  {SEND_FEEDBACK_COPY.successLine}
+                </p>
+              )}
+              {feedback.errorMessage && (
+                <p className="font-sans text-sm text-accent">
+                  {feedback.errorMessage}
+                </p>
+              )}
+            </div>
+          );
+        })()}
         {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 4): gate the Download PDF
             button to disabled while the quote is draft or
             revise_requested. Both are pre-customer states the operator
