@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
@@ -20,6 +21,7 @@ import {
   isSetupComplete,
 } from '@/pages/dashboardChecklistSteps';
 import { hasSetupCelebrationBeenShown } from '@/pages/setupCelebrationState';
+import { hasSeenPasswordPrompt } from '@/pages/firstSigninPromptState';
 
 /**
  * DashboardPage. landing for authenticated staff sessions.
@@ -45,9 +47,28 @@ export function DashboardPage() {
   const appName = branding.branding?.app_name_override ?? 'Kitstak';
   const dashboard = useDashboardSummary();
   const me = useMe({ enabled: true });
+  const navigate = useNavigate();
 
   const tiles = visiblePillarTiles(PILLAR_TILES, orgFlags.data);
   const activeOrgId = me.data?.active_org_id ?? '';
+  const userId = me.data?.user_id ?? '';
+
+  // F-Wave9-INVITE-PASSWORD-PROMPT-01: nudge invitees who arrived via the
+  // magic link to set a password on their first dashboard mount. We
+  // strictly gate on `me.data` being resolved (not isLoading, payload
+  // present) so the effect never fires with an empty userId; otherwise
+  // hasSeenPasswordPrompt('') always returns false and the redirect would
+  // re-fire forever. `replace: true` removes /dashboard from history so
+  // the back button does not bounce the operator out of the welcome
+  // flow. Once the prompt is marked seen (either via "Skip for now" on
+  // SecurityPage or by successfully setting a password), this effect
+  // no-ops on every subsequent visit.
+  useEffect(() => {
+    if (me.isLoading) return;
+    if (!userId) return;
+    if (hasSeenPasswordPrompt(userId)) return;
+    navigate('/account/security?welcome=1', { replace: true });
+  }, [me.isLoading, userId, navigate]);
 
   // Celebration banner gating. The banner appears once, the first time the
   // operator sees the work-card grid for a given org. The `dismissed`
