@@ -1,8 +1,18 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
+import {
+  type LucideIcon,
+  Activity,
+  CreditCard,
+  FileText,
+  Folder,
+  Receipt,
+  Users,
+} from 'lucide-react';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { DetailSectionEmptyCoaching } from '@/components/shell/DetailSectionEmptyCoaching';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { useCustomer } from '@/lib/hooks/useCustomer';
@@ -119,10 +129,12 @@ export function CustomerDetailPage() {
 
       <RelatedSection
         title="QUOTES"
+        entity="quote"
         ctaLabel="New quote"
         ctaHref={`/3pl-operations/quotes/new?customer_id=${c.id}`}
         isLoading={quotesQuery.isLoading}
-        emptyMessage="No quotes for this customer."
+        emptyExplainer="Quotes are priced proposals you send to win the work. Approved quotes convert to projects."
+        emptyIcon={FileText}
         count={relatedQuotes.length}
       >
         {relatedQuotes.map((q) => (
@@ -138,10 +150,12 @@ export function CustomerDetailPage() {
 
       <RelatedSection
         title="PROJECTS"
+        entity="project"
         ctaLabel="New project"
         ctaHref={`/3pl-operations/projects/new?customer_id=${c.id}`}
         isLoading={projectsQuery.isLoading}
-        emptyMessage="No projects for this customer."
+        emptyExplainer="Projects are the units of work you deliver to this customer. Each one tracks materials, phases, and shipments."
+        emptyIcon={Folder}
         count={relatedProjects.length}
       >
         {relatedProjects.map((p) => (
@@ -157,10 +171,12 @@ export function CustomerDetailPage() {
 
       <RelatedSection
         title="INVOICES"
+        entity="invoice"
         ctaLabel="New invoice"
         ctaHref={`/invoicing/invoices/new?customer_id=${c.id}`}
         isLoading={invoicesQuery.isLoading}
-        emptyMessage="No invoices for this customer."
+        emptyExplainer="Invoices bill this customer for delivered work. Send one to start the receivable clock."
+        emptyIcon={Receipt}
         count={invoices.length}
       >
         {invoices.map((inv) => (
@@ -178,10 +194,12 @@ export function CustomerDetailPage() {
 
       <RelatedSection
         title="PAYMENTS"
+        entity="payment"
         ctaLabel="Receive payment"
         ctaHref={`/3pl-operations/payments/new?customer_id=${c.id}`}
         isLoading={paymentsQuery.isLoading}
-        emptyMessage="No payments received from this customer."
+        emptyExplainer="Payments record money received against this customer's invoices. Log them to close out receivables."
+        emptyIcon={CreditCard}
         count={payments.length}
       >
         {payments.map((p) => (
@@ -199,10 +217,12 @@ export function CustomerDetailPage() {
 
       <RelatedSection
         title="CONTACTS"
+        entity="contact"
         ctaLabel="New contact"
         ctaHref={`/crm/contacts/new?customer_id=${c.id}&return_to=${encodeURIComponent(`/crm/customers/${c.id}`)}`}
         isLoading={contactsQuery.isLoading}
-        emptyMessage="No contacts for this customer."
+        emptyExplainer="Contacts are the people at this customer you work with. Add buyers, AP clerks, and warehouse leads to keep the line of communication clear."
+        emptyIcon={Users}
         count={contacts.length}
       >
         {contacts.map((ct) => (
@@ -222,10 +242,12 @@ export function CustomerDetailPage() {
 
       <RelatedSection
         title="ACTIVITIES"
+        entity="activity"
         ctaLabel="New activity"
         ctaHref={`/crm/activities/new?entity_type=customer&entity_id=${c.id}`}
         isLoading={activitiesQuery.isLoading}
-        emptyMessage="No activities logged for this customer."
+        emptyExplainer="Activities log calls, emails, and meetings with this customer so the next handoff has the history."
+        emptyIcon={Activity}
         count={activities.length}
       >
         {activities.map((a) => (
@@ -246,20 +268,32 @@ export function CustomerDetailPage() {
 
 interface RelatedSectionProps {
   title: string;
+  /** Singular entity noun for the coaching surface, e.g. "quote". */
+  entity: string;
   ctaLabel: string;
   ctaHref: string;
   isLoading: boolean;
-  emptyMessage: string;
+  /**
+   * Sentence-cased explainer rendered by DetailSectionEmptyCoaching when
+   * the related list is empty. Should answer "what is this section for?".
+   * Authored per-section in the CustomerDetailPage caller so each list
+   * carries the right operator-readable context.
+   */
+  emptyExplainer: string;
+  /** Optional lucide icon for the coaching surface. */
+  emptyIcon?: LucideIcon;
   count: number;
   children: ReactNode;
 }
 
 function RelatedSection({
   title,
+  entity,
   ctaLabel,
   ctaHref,
   isLoading,
-  emptyMessage,
+  emptyExplainer,
+  emptyIcon,
   count,
   children,
 }: RelatedSectionProps) {
@@ -279,7 +313,13 @@ function RelatedSection({
       ) : count > 0 ? (
         <ul className="flex flex-col gap-1">{children}</ul>
       ) : (
-        <p className="font-sans text-sm text-ink-dim">{emptyMessage}</p>
+        <DetailSectionEmptyCoaching
+          entity={entity}
+          explainer={emptyExplainer}
+          ctaLabel={ctaLabel}
+          ctaTo={ctaHref}
+          icon={emptyIcon}
+        />
       )}
     </section>
   );

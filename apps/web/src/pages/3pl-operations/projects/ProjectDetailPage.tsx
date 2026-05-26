@@ -1,9 +1,12 @@
 import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { Package, Layers, Truck, Inbox, Factory, FileText } from 'lucide-react';
+
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
+import { DetailSectionEmptyCoaching } from '@/components/shell/DetailSectionEmptyCoaching';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { StateStepper } from '@/components/shell/StateStepper';
 import {
@@ -371,6 +374,12 @@ export function ProjectDetailPage() {
           <p className="text-ink-dim text-sm">Loading materials.</p>
         ) : lineItems.error ? (
           <p className="text-ink-dim text-sm">No materials yet.</p>
+        ) : (lineItems.data ?? []).length === 0 ? (
+          <DetailSectionEmptyCoaching
+            entity="material"
+            explainer="Materials are the parts and goods this project consumes. Add them to build a bill of materials and roll cost up to the project budget."
+            icon={Package}
+          />
         ) : (
           <table className="w-full border border-line">
             <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
@@ -383,19 +392,12 @@ export function ProjectDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {(lineItems.data ?? []).length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-ink-dim text-sm">
-                    No materials yet.
-                  </td>
-                </tr>
-              ) : (
-                (lineItems.data ?? []).map((l) => {
-                  const qty = Number(l.quantity);
-                  const unit = Number(l.unit_price_cents);
-                  const discount = Number(l.discount_percent);
-                  const subtotal = Math.round(qty * unit * (1 - discount / 100));
-                  return (
+              {(lineItems.data ?? []).map((l) => {
+                const qty = Number(l.quantity);
+                const unit = Number(l.unit_price_cents);
+                const discount = Number(l.discount_percent);
+                const subtotal = Math.round(qty * unit * (1 - discount / 100));
+                return (
                   <tr key={l.id} className="border-t border-line">
                     <td className="px-4 py-2">{l.name}</td>
                     <td className="px-4 py-2 font-mono text-sm">
@@ -418,9 +420,8 @@ export function ProjectDetailPage() {
                       )}
                     </td>
                   </tr>
-                  );
-                })
-              )}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -471,21 +472,29 @@ export function ProjectDetailPage() {
 
       <section>
         <h2 className="text-2xl font-display tracking-wider text-ink mb-3">PHASES</h2>
-        <Suspense
-          fallback={
-            <PhasesFallback
+        {phases.length === 0 ? (
+          <DetailSectionEmptyCoaching
+            entity="phase"
+            explainer="Phases break a project into trackable milestones. Use the form below to add the first one."
+            icon={Layers}
+          />
+        ) : (
+          <Suspense
+            fallback={
+              <PhasesFallback
+                phases={phases}
+                movePhase={movePhase}
+                transitionPhase={transitionPhase}
+              />
+            }
+          >
+            <PhasesSection
               phases={phases}
-              movePhase={movePhase}
+              reorder={reorder}
               transitionPhase={transitionPhase}
             />
-          }
-        >
-          <PhasesSection
-            phases={phases}
-            reorder={reorder}
-            transitionPhase={transitionPhase}
-          />
-        </Suspense>
+          </Suspense>
+        )}
 
         <form onSubmit={onAddPhase} className="flex flex-col gap-2 mt-4">
           <div className="flex gap-3 items-end">
@@ -520,7 +529,13 @@ export function ProjectDetailPage() {
           </Link>
         </div>
         {projectReceiving.length === 0 ? (
-          <p className="text-ink-dim text-sm">No receiving orders against this project.</p>
+          <DetailSectionEmptyCoaching
+            entity="receiving order"
+            explainer="Receiving orders track inbound stock for this project. Create one when materials are due to arrive at the warehouse."
+            ctaLabel="New receiving order"
+            ctaTo={`/3pl-operations/receiving/new?project_id=${projectId}`}
+            icon={Inbox}
+          />
         ) : (
           <ul className="flex flex-col gap-2">
             {projectReceiving.map((r) => (
@@ -556,9 +571,13 @@ export function ProjectDetailPage() {
           </Link>
         </div>
         {projectManufacturingRuns.length === 0 ? (
-          <p className="text-ink-dim text-sm">
-            No manufacturing runs linked to this project yet.
-          </p>
+          <DetailSectionEmptyCoaching
+            entity="manufacturing run"
+            explainer="Manufacturing runs convert raw materials into finished goods. Schedule one when the line is ready to start production."
+            ctaLabel="New manufacturing run"
+            ctaTo={buildNewManufacturingRunUrl(projectId)}
+            icon={Factory}
+          />
         ) : (
           <ul className="flex flex-col gap-2" data-testid="project-mfg-list">
             {projectManufacturingRuns.map((r) => (
@@ -593,9 +612,13 @@ export function ProjectDetailPage() {
           </Link>
         </div>
         {projectShipments.length === 0 ? (
-          <p className="text-ink-dim text-sm">
-            No shipments linked to this project yet.
-          </p>
+          <DetailSectionEmptyCoaching
+            entity="shipment"
+            explainer="Shipments move finished goods out to the customer. Create one when the project is packed and ready to leave the dock."
+            ctaLabel="New shipment"
+            ctaTo={buildNewShipmentUrl(projectId)}
+            icon={Truck}
+          />
         ) : (
           <ul className="flex flex-col gap-2" data-testid="project-shipment-list">
             {projectShipments.map((s) => (
@@ -635,7 +658,11 @@ export function ProjectDetailPage() {
           </p>
         )}
         {projectInvoices.length === 0 ? (
-          <p className="text-ink-dim text-sm">No invoices against this project.</p>
+          <DetailSectionEmptyCoaching
+            entity="invoice"
+            explainer="Invoices bill the customer for delivered work. Convert the project to an invoice once it reaches completed status."
+            icon={FileText}
+          />
         ) : (
           <ul className="flex flex-col gap-2">
             {projectInvoices.map((inv) => (
