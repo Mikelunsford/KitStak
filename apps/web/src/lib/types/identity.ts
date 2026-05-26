@@ -202,6 +202,32 @@ export const NumberingResetRequestSchema = z.object({
 });
 export type NumberingResetRequest = z.infer<typeof NumberingResetRequestSchema>;
 
+// ----- staff invite -----
+
+export const StaffRoleCodeSchema = z.enum([
+  'org_owner',
+  'org_admin',
+  'sales',
+  'ops',
+  'accounting',
+  'viewer',
+]);
+export type StaffRoleCode = z.infer<typeof StaffRoleCodeSchema>;
+
+export const InviteStaffRequestSchema = z.object({
+  email: z.string().email(),
+  role: StaffRoleCodeSchema,
+});
+export type InviteStaffRequest = z.infer<typeof InviteStaffRequestSchema>;
+
+export const InviteStaffResponseSchema = z.object({
+  user_id: UuidSchema,
+  membership_id: UuidSchema,
+  role: StaffRoleCodeSchema,
+  email: z.string().email(),
+});
+export type InviteStaffResponse = z.infer<typeof InviteStaffResponseSchema>;
+
 // ----- session switching -----
 
 export const SwitchOrgRequestSchema = z.object({

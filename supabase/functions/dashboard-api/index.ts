@@ -101,6 +101,34 @@ async function sumColumn(
   return total;
 }
 
+// Staff role codes that count as "invited a teammate". org_owner is
+// intentionally excluded because every org has exactly one org_owner
+// auto-created by provision_organization (migration 0064); counting that
+// row would make setup_team_invited true from day one, defeating the
+// purpose of the checklist signal.
+const STAFF_ROLE_CODES_EXCLUDING_OWNER: ReadonlyArray<string> = [
+  'org_admin',
+  'sales',
+  'ops',
+  'accounting',
+  'viewer',
+];
+
+// Resolve the role ids matching STAFF_ROLE_CODES_EXCLUDING_OWNER. Cached per
+// request, not per module: roles is a global table with stable ids, but the
+// edge function is stateless across requests and the lookup is six rows. The
+// cheap query keeps the dashboard handler readable.
+async function resolveStaffRoleIdsExcludingOwner(
+  client: ReturnType<typeof admin>,
+): Promise<string[]> {
+  const { data, error } = await client
+    .from('roles')
+    .select('id,code')
+    .in('code', STAFF_ROLE_CODES_EXCLUDING_OWNER);
+  if (error || !data) return [];
+  return (data as Array<{ id: string }>).map((r) => r.id);
+}
+
 const summary: Route = {
   method: 'GET',
   path: '/dashboard/summary',
@@ -109,6 +137,8 @@ const summary: Route = {
     requireCap(caller, 'dashboard.summary.read');
     const client = admin();
     const orgId = caller.orgId;
+    const staffRoleIdsExcludingOwner =
+      await resolveStaffRoleIdsExcludingOwner(client);
 
     // Each helper tolerates a missing parent table by returning 0; that
     // keeps the bundle deployable even when an upstream agent's migration
@@ -149,6 +179,7 @@ const summary: Route = {
       setupReceivingReceived,
       setupInvoiceSent,
       setupPaymentReceived,
+      setupTeamInvited,
     ] = await Promise.all([
       countTable(client, 'invoices', orgId, [['status', 'open']]).catch(() => 0),
       countTable(client, 'invoices', orgId, [['status', 'overdue']]).catch(() => 0),
@@ -192,6 +223,17 @@ const summary: Route = {
       existsRowForOrg(client, 'payments', orgId, (q) =>
         q.is('deleted_at', null),
       ),
+      // setup_team_invited: at least one active org_membership exists whose
+      // role_id is NOT org_owner. Every org has exactly one org_owner created
+      // at provisioning, so any membership with a non-owner role_id indicates
+      // the operator has invited a teammate. When the role lookup returns an
+      // empty list (test fixtures, transient failure), the call resolves
+      // false rather than 500ing the dashboard.
+      staffRoleIdsExcludingOwner.length === 0
+        ? Promise.resolve(false)
+        : existsRowForOrg(client, 'org_memberships', orgId, (q) =>
+            q.eq('is_active', true).in('role_id', staffRoleIdsExcludingOwner),
+          ),
     ]);
 
     // Resolve currency from org default.
@@ -224,6 +266,7 @@ const summary: Route = {
       setup_receiving_received: setupReceivingReceived,
       setup_invoice_sent: setupInvoiceSent,
       setup_payment_received: setupPaymentReceived,
+      setup_team_invited: setupTeamInvited,
     };
     return ok(out);
   },
