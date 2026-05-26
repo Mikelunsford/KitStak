@@ -38,18 +38,19 @@ function summary(
     setup_receiving_received: false,
     setup_invoice_sent: false,
     setup_payment_received: false,
+    setup_team_invited: false,
     ...overrides,
   };
 }
 
 describe('SETUP_STEPS_TOTAL', () => {
-  it('locks the canonical step count at 7', () => {
-    expect(SETUP_STEPS_TOTAL).toBe(7);
+  it('locks the canonical step count at 8', () => {
+    expect(SETUP_STEPS_TOTAL).toBe(8);
   });
 });
 
 describe('buildSetupSteps', () => {
-  it('emits seven steps in the canonical prerequisite order', () => {
+  it('emits eight steps in the canonical prerequisite order', () => {
     const steps = buildSetupSteps(summary());
     expect(steps.map((s) => s.key)).toEqual([
       'warehouse_added',
@@ -59,6 +60,7 @@ describe('buildSetupSteps', () => {
       'receiving_received',
       'invoice_sent',
       'payment_received',
+      'team_invited',
     ]);
   });
 
@@ -94,6 +96,7 @@ describe('buildSetupSteps', () => {
     );
     expect(byKey.get('invoice_sent')).toBe('/invoicing/invoices/new');
     expect(byKey.get('payment_received')).toBe('/3pl-operations/payments/new');
+    expect(byKey.get('team_invited')).toBe('/admin/members');
   });
 
   it('uses operator-readable copy (no em dash, no double hyphen, no emoji)', () => {
@@ -144,6 +147,7 @@ describe('countCompletedSetupSteps', () => {
           setup_receiving_received: true,
           setup_invoice_sent: true,
           setup_payment_received: true,
+          setup_team_invited: true,
         }),
       ),
     ).toBe(SETUP_STEPS_TOTAL);
@@ -162,7 +166,8 @@ describe('isSetupComplete', () => {
           setup_quote_created: true,
           setup_receiving_received: true,
           setup_invoice_sent: true,
-          // setup_payment_received still false
+          setup_payment_received: true,
+          // setup_team_invited still false
         }),
       ),
     ).toBe(false);
@@ -179,6 +184,7 @@ describe('isSetupComplete', () => {
           setup_receiving_received: true,
           setup_invoice_sent: true,
           setup_payment_received: true,
+          setup_team_invited: true,
         }),
       ),
     ).toBe(true);

@@ -190,6 +190,7 @@ export const DashboardSummarySchema = z.object({
   setup_receiving_received: z.boolean().default(false),
   setup_invoice_sent: z.boolean().default(false),
   setup_payment_received: z.boolean().default(false),
+  setup_team_invited: z.boolean().default(false),
 });
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;
 
