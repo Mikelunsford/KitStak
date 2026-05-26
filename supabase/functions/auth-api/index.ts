@@ -34,6 +34,7 @@ import {
 } from '../_shared/tenant.ts';
 import { ok, created, ApiError } from '../_shared/responses.ts';
 import {
+  InviteStaffRequestSchema,
   MeResponseSchema,
   SwitchOrgRequestSchema,
   type MembershipSummary,
@@ -423,6 +424,154 @@ async function postRequestSignInLink(ctx: RouteCtx): Promise<Response> {
   return ok(SIGNIN_LINK_RESPONSE);
 }
 
+// ---------------------------------------------------------------------------
+// POST /members/invite
+//
+// Staff invite chassis. An org_owner or org_admin invites a teammate via
+// email. Closes F-Wave9-STAFF-INVITE-CHASSIS-01 backend half.
+//
+// Flow mirrors the customer portal invite (crm-api inviteCustomerToPortal):
+//   1. requireCap('org.member.invite') gates the route.
+//   2. Privilege-escalation guard: org_admin cannot grant org_owner.
+//   3. supabase.auth.admin.generateLink({ type: 'magiclink' }) produces a
+//      single-use sign-in URL. The link creates auth.users on demand for
+//      first-time recipients and reuses the existing row otherwise.
+//   4. create_staff_membership RPC (migration 0065) atomically links the
+//      auth user to the org with the requested role. Idempotent.
+//   5. A branded invite email is queued through the notifications chassis;
+//      the 5-minute drain cron ships it via Resend.
+//
+// Capability: org.member.invite (granted to org_owner and org_admin only).
+// Idempotency: respondWithIdempotency wraps the side-effecting block so a
+// re-click of the same Invite button (same key + same body) replays the
+// stored response without firing a second generateLink or RPC call.
+// ---------------------------------------------------------------------------
+const STAFF_INVITE_REDIRECT_URL = 'https://www.kitstak.com/dashboard';
+
+async function postInviteStaffMember(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'org.member.invite');
+  const body = await parseBody(ctx.req, InviteStaffRequestSchema);
+
+  // Privilege-escalation guard. An org_admin can invite peers up to org_admin
+  // but cannot mint another org_owner; only an existing org_owner can do
+  // that. The capability matrix grants org.member.invite to both roles, so
+  // this is the second gate the role-specific power check rides on.
+  if (body.role === 'org_owner' && caller.role !== 'org_owner') {
+    throw new ApiError(
+      'FORBIDDEN',
+      403,
+      'Only an org owner can invite another org owner.',
+    );
+  }
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/members/invite',
+    body,
+    async () => {
+      const sb = admin();
+
+      // Generate the sign-in link. Creates an auth.users row on first invite
+      // for a new email, returns the existing row for a re-invite. The
+      // returned action_link is the user-facing magic link embedded in the
+      // notifications email body.
+      const linkResult = await sb.auth.admin.generateLink({
+        type: 'magiclink',
+        email: body.email,
+        options: { redirectTo: STAFF_INVITE_REDIRECT_URL },
+      });
+      if (linkResult.error) {
+        throw new ApiError(
+          'AUTH_ERROR',
+          422,
+          'Could not generate invite link.',
+          { detail: linkResult.error.message },
+        );
+      }
+      const inviteeUserId = linkResult.data.user?.id;
+      const actionLink = linkResult.data.properties?.action_link;
+      if (!inviteeUserId || !actionLink) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          'Auth magic-link generation returned no user id or action_link',
+        );
+      }
+
+      // Atomically bind the invitee to the caller's org with the requested
+      // role via the SECURITY DEFINER RPC. The RPC is idempotent on
+      // (org_id, user_id) so a re-invite returns the existing membership id
+      // without changing role or activation state.
+      const { data: membershipId, error: rpcError } = await sb.rpc(
+        'create_staff_membership',
+        {
+          p_org_id: caller.orgId,
+          p_user_id: inviteeUserId,
+          p_role_code: body.role,
+          p_invited_by: caller.userId,
+        },
+      );
+      if (rpcError) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `Staff membership creation failed: ${rpcError.message}`,
+          { detail: rpcError.message },
+        );
+      }
+
+      // Resolve the org display_name for the invite email subject. Fall back
+      // to 'Kitstak' when the org row is unexpectedly missing; the membership
+      // already exists so the invitee can still sign in.
+      let orgDisplayName = 'Kitstak';
+      const { data: orgRow } = await sb
+        .from('organizations')
+        .select('display_name')
+        .eq('id', caller.orgId)
+        .maybeSingle();
+      if (orgRow && typeof orgRow.display_name === 'string') {
+        orgDisplayName = orgRow.display_name;
+      }
+
+      // Queue the branded invite email through the notifications chassis.
+      // The 5-minute drain cron picks this up and ships via Resend. Failure
+      // to queue is logged but does not unwind the membership; the caller
+      // can re-click Invite to retry queuing.
+      const subject = `You have been invited to ${orgDisplayName} on Kitstak`;
+      const emailBody =
+        'Click the link below to sign in.\n\n' +
+        `${actionLink}\n\n` +
+        'This link expires in 24 hours.';
+      const { error: notifErr } = await sb.from('notifications').insert({
+        org_id: caller.orgId,
+        recipient_user_id: inviteeUserId,
+        channel: 'email',
+        subject,
+        body: emailBody,
+        payload: { to: body.email, type: 'staff_invite' },
+        created_by: caller.userId,
+        updated_by: caller.userId,
+      });
+      if (notifErr) {
+        console.error('auth-api: failed to queue staff-invite email', {
+          org_id: caller.orgId,
+          message: notifErr.message,
+        });
+      }
+
+      return created({
+        user_id: inviteeUserId,
+        membership_id: membershipId,
+        role: body.role,
+        email: body.email,
+      });
+    },
+  );
+}
+
 Deno.serve((req: Request) =>
   route(
     req,
@@ -430,6 +579,7 @@ Deno.serve((req: Request) =>
       { method: 'GET',  path: '/me',                          handler: getMe },
       { method: 'GET',  path: '/me/capabilities',             handler: (ctx) => Promise.resolve(getMyCapabilities(ctx)) },
       { method: 'POST', path: '/sessions/switch-org',         handler: postSwitchOrg },
+      { method: 'POST', path: '/members/invite',              handler: postInviteStaffMember },
       { method: 'POST', path: '/portal/request-signin-link',  handler: postRequestSignInLink },
     ],
     { bundle: BUNDLE },

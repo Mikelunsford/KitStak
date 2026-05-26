@@ -190,6 +190,11 @@ export const DashboardSummarySchema = z.object({
   setup_receiving_received: z.boolean().default(false),
   setup_invoice_sent: z.boolean().default(false),
   setup_payment_received: z.boolean().default(false),
+  // True once at least one staff teammate has been invited (any active
+  // org_membership beyond the provisioning org_owner). Backs the optional
+  // "Invite your team" step on the Setup Checklist. Defaults to false so
+  // older clients that do not yet send this field parse cleanly.
+  setup_team_invited: z.boolean().default(false),
 });
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;
 

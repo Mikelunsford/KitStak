@@ -38,6 +38,7 @@ function summary(
     setup_receiving_received: false,
     setup_invoice_sent: false,
     setup_payment_received: false,
+    setup_team_invited: false,
     ...overrides,
   };
 }
