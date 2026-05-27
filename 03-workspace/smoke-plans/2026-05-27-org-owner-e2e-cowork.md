@@ -44,14 +44,18 @@ DO NOT use the operator's live Kitstak org for testing — it has real productio
 Run via Supabase MCP `execute_sql` against `zmnvwhqjahwidprnjxrq`:
 
 ```sql
--- Provision a fresh org with org_owner = a test user
+-- Provision a fresh org with org_owner = a test user.
+-- Signature: provision_organization(p_slug text, p_display_name text, p_owner_user_id uuid, p_owner_email text)
+-- See supabase/migrations/0064_provision_organization_completeness.sql and 0069_provision_organization_claim_stamp.sql.
 select provision_organization(
-  'cowork_smoke_YYYYMMDD_HHmm',  -- replace with actual timestamp
-  'Cowork Smoke Test Co.',       -- display_name
-  'professional',                -- plan_code
-  '<test-user-uuid>'             -- a fresh auth.users.id that you create first
+  'cowork_smoke_YYYYMMDD_HHmm',  -- p_slug (replace with actual timestamp)
+  'Cowork Smoke Test Co.',       -- p_display_name
+  '<test-user-uuid>',            -- p_owner_user_id (a fresh auth.users.id that you create first)
+  'cowork+smoke@kitstak.test'    -- p_owner_email
 );
 ```
+
+NOTE: there is no `plan_code` parameter. Plans are surfaced via `org_feature_flags` + `plugins.*` flags, not as a column on `organizations`. Per migration 0069, `provision_organization` now also stamps `kitstak_org_id` + `kitstak_org_role` on the owner's `auth.users.raw_app_meta_data` so the first JWT carries org context.
 
 To create the test user first:
 ```sql
@@ -226,7 +230,7 @@ select count(*) from customers where org_id != '<test-org-id>';
 
 ### 3.1 Items (sales catalog)
 
-1. Sidebar → Library → Items → `/sales/items`
+1. Sidebar → Library → Items → `/3pl-operations/items`
 2. Create item: sku `SKU-COWORK-01`, display_name `Cowork Test Widget`, unit_price_cents `2500` (will read as $25.00 via DollarInput), category `general`
 3. Verify dashboard checklist step 3 (Item) goes green
 4. Create a second item for use in later quotes/POs
@@ -242,7 +246,7 @@ select count(*) from customers where org_id != '<test-org-id>';
 
 ### 3.3 VAS + Job types
 
-1. Sidebar → Library → VAS (`/sales/vas`)
+1. Sidebar → Library → VAS (`/3pl-operations/vas`)
 2. Verify the page renders (intentional orphan per F-Wave7-SIDEBAR-IA-01 allowlist)
 3. Sidebar → Library → Job types
 4. Create a job type, edit it, delete it
@@ -261,7 +265,7 @@ This is the canonical Kitstak quote-to-cash flow. It exercises the most surface 
 
 ### 4.1 Quote create
 
-1. Sidebar → Sell → Quotes → New quote
+1. Sidebar → Sell → Quotes → New quote (`/3pl-operations/quotes`)
 2. Pick the test customer from CustomerPicker (verify typeahead works)
 3. Add 2 line items using ItemPicker (verify pickers populate name + sku + price synchronously per PR-F)
 4. Verify quote auto-numbers as `Q-YYYY-NNNNN`
@@ -271,7 +275,7 @@ This is the canonical Kitstak quote-to-cash flow. It exercises the most surface 
 
 ### 4.2 Quote state machine
 
-Walk: draft → submitted → approved → sent → converted
+Walk the 6-state FSM happy path: `draft → submitted → approved → project_pending` (UI labels: DRAFT → SENT FOR APPROVAL → APPROVED → PROJECT PENDING). The other two states are `revise_requested` (off the happy path) and `cancelled` (terminal). Source: `supabase/migrations/0014_sales_quotes.sql`. `sent` and `converted` are not states; `sent` is a side-effect that stamps `quotes.sent_at`, and converting writes `converted_to_project_id` plus transitions state to `project_pending`.
 
 For each transition:
 1. Click the next-step CTA
@@ -342,7 +346,7 @@ Same as 4.4 but for invoice. Verify the PDF renders the invoice template.
 
 1. From the invoice, click "Receive payment"
 2. Verify `ReceivePaymentModal` opens (per BNEW-12 + SMOKE-01 fixes)
-3. Verify payment method dropdown lists check / ach / wire / credit_card
+3. Verify payment method dropdown lists the full enum: Unspecified / ACH / Wire / Check / Card / Cash / Other
 4. Submit payment for full balance
 5. Verify invoice transitions to `paid` (per migration 0058)
 6. Verify dashboard checklist step 7 (Payment) goes green
