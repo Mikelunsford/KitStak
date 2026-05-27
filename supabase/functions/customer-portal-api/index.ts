@@ -178,6 +178,126 @@ const projects: Route = {
 };
 
 // ---------------------------------------------------------------------------
+// GET /portal/invoices/:id
+//
+// F-Wave9-PORTAL-NO-ACTION-WIRING-01: backs the customer-side "Download
+// PDF" action. Returns the invoice header, the customer's display name,
+// and the full line item list so the SPA can hand the bundle to
+// pdf-worker's existing /pdf/render endpoint (the SPA cannot trust
+// client-side state to drive PDF generation — see comment in
+// pdf-worker/index.ts; the cap-gate prevents another tenant from rendering
+// arbitrary data only because the data they pass in came from THIS
+// endpoint, which is itself Pattern-B scoped).
+//
+// Pattern B: a cross-customer or cross-org lookup returns 404, never 403,
+// per the constitution's "hide existence" rule.
+// ---------------------------------------------------------------------------
+const invoiceDetail: Route = {
+  method: 'GET',
+  path: '/portal/invoices/:id',
+  async handler({ req, params }) {
+    const caller = requireCaller(req);
+    gatePortal(caller);
+    if (!hasCap(caller.role, 'portal.invoice.read')) {
+      throw new ApiError('NOT_FOUND', 404);
+    }
+    const customerId = await resolveCustomerId(caller);
+    const client = admin();
+
+    const { data: invoice, error: invErr } = await client
+      .from('invoices')
+      .select(
+        'id, invoice_number, status, issue_date, due_date, subtotal_cents, tax_total_cents, total_cents, balance_cents, currency_code, customer_id, org_id',
+      )
+      .eq('org_id', caller.orgId)
+      .eq('customer_id', customerId)
+      .eq('id', params.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (invErr) throw new ApiError('INTERNAL_ERROR', 500, invErr.message);
+    if (!invoice) throw new ApiError('NOT_FOUND', 404);
+
+    const { data: lines, error: linesErr } = await client
+      .from('invoice_line_items')
+      .select('id, description, quantity, unit_price_cents, line_total_cents')
+      .eq('invoice_id', params.id)
+      .order('position', { ascending: true });
+    if (linesErr) throw new ApiError('INTERNAL_ERROR', 500, linesErr.message);
+
+    const { data: customer, error: custErr } = await client
+      .from('customers')
+      .select('display_name')
+      .eq('org_id', caller.orgId)
+      .eq('id', customerId)
+      .maybeSingle();
+    if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+
+    return ok({
+      invoice,
+      line_items: lines ?? [],
+      customer_display_name:
+        (customer as { display_name?: string } | null)?.display_name ?? '',
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// GET /portal/quotes/:id
+//
+// Mirrors /portal/invoices/:id for the quote-side Download PDF action.
+// quote_line_items uses quantity_e3 (thousandths) per the operator-side
+// quote schema; the SPA converts before handing to pdf-worker.
+// ---------------------------------------------------------------------------
+const quoteDetail: Route = {
+  method: 'GET',
+  path: '/portal/quotes/:id',
+  async handler({ req, params }) {
+    const caller = requireCaller(req);
+    gatePortal(caller);
+    if (!hasCap(caller.role, 'portal.quote.read')) {
+      throw new ApiError('NOT_FOUND', 404);
+    }
+    const customerId = await resolveCustomerId(caller);
+    const client = admin();
+
+    const { data: quote, error: qErr } = await client
+      .from('quotes')
+      .select(
+        'id, number, state, sent_at, submitted_at, expiration_date, subtotal_cents, tax_cents, total_cents, currency_code, customer_id, org_id',
+      )
+      .eq('org_id', caller.orgId)
+      .eq('customer_id', customerId)
+      .eq('id', params.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (qErr) throw new ApiError('INTERNAL_ERROR', 500, qErr.message);
+    if (!quote) throw new ApiError('NOT_FOUND', 404);
+
+    const { data: lines, error: linesErr } = await client
+      .from('quote_line_items')
+      .select('id, name, quantity_e3, unit_price_cents, line_total_cents')
+      .eq('quote_id', params.id)
+      .order('position', { ascending: true });
+    if (linesErr) throw new ApiError('INTERNAL_ERROR', 500, linesErr.message);
+
+    const { data: customer, error: custErr } = await client
+      .from('customers')
+      .select('display_name')
+      .eq('org_id', caller.orgId)
+      .eq('id', customerId)
+      .maybeSingle();
+    if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+
+    return ok({
+      quote,
+      line_items: lines ?? [],
+      customer_display_name:
+        (customer as { display_name?: string } | null)?.display_name ?? '',
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
 // GET /portal/attachments?entity_type=invoice&entity_id=...
 // ---------------------------------------------------------------------------
 const attachments: Route = {
@@ -242,7 +362,15 @@ const attachments: Route = {
   },
 };
 
-const TABLE: Route[] = [me, invoices, quotes, projects, attachments];
+const TABLE: Route[] = [
+  me,
+  invoices,
+  invoiceDetail,
+  quotes,
+  quoteDetail,
+  projects,
+  attachments,
+];
 
 Deno.serve((req) => route(req, TABLE, { bundle: BUNDLE }));
 

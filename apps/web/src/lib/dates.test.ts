@@ -4,7 +4,13 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { addDaysIso, todayIsoDate } from './dates';
+import {
+  addDaysIso,
+  formatDateMedium,
+  formatDateShort,
+  NULL_DATE_PLACEHOLDER,
+  todayIsoDate,
+} from './dates';
 
 describe('todayIsoDate', () => {
   it('formats a date in YYYY-MM-DD with zero-padded month and day', () => {
@@ -59,5 +65,53 @@ describe('addDaysIso', () => {
     expect(addDaysIso('2026/05/22', 30)).toBeNull();
     expect(addDaysIso('not-a-date', 30)).toBeNull();
     expect(addDaysIso('2026-5-22', 30)).toBeNull();
+  });
+});
+
+// F-Wave9-PORTAL-NULL-PLACEHOLDER-01: the customer portal smoke walk caught
+// empty dates rendering as a literal period (".") because the formatters
+// returned "." for null. The replacement placeholder is the centered dot
+// `·` (U+00B7) — visually distinct from a period, and constitutional (em
+// dashes and double hyphens are banned on disk).
+describe('formatDateMedium null handling', () => {
+  it('renders the NULL_DATE_PLACEHOLDER for null', () => {
+    expect(formatDateMedium(null)).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('renders the NULL_DATE_PLACEHOLDER for undefined', () => {
+    expect(formatDateMedium(undefined)).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('renders the NULL_DATE_PLACEHOLDER for the empty string', () => {
+    expect(formatDateMedium('')).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('renders the NULL_DATE_PLACEHOLDER for an unparseable date string', () => {
+    expect(formatDateMedium('not-a-real-date')).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('does not return a literal period', () => {
+    // Regression: the old implementation returned "." which was visually
+    // mistaken for stray punctuation in the customer portal data tables.
+    expect(formatDateMedium(null)).not.toBe('.');
+    expect(formatDateMedium(null)).not.toBe('');
+  });
+
+  it('formats a valid date in the medium en-US form', () => {
+    // The exact rendering depends on the runtime ICU build. Assert the
+    // shape (contains the 4-digit year) rather than a brittle equality.
+    const out = formatDateMedium('2026-05-26T12:00:00Z');
+    expect(out).toMatch(/2026/);
+    expect(out).not.toBe(NULL_DATE_PLACEHOLDER);
+  });
+});
+
+describe('formatDateShort null handling', () => {
+  it('renders the NULL_DATE_PLACEHOLDER for null', () => {
+    expect(formatDateShort(null)).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('renders the NULL_DATE_PLACEHOLDER for an unparseable date string', () => {
+    expect(formatDateShort('whatever')).toBe(NULL_DATE_PLACEHOLDER);
   });
 });
