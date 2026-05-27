@@ -106,24 +106,47 @@ function makePortalState() {
         org_id: ORG_A,
         customer_id: CUSTOMER_A,
         number: 'INV-001',
+        invoice_number: 'INV-001',
         status: 'sent',
         issued_at: '2026-04-15',
+        issue_date: '2026-04-15',
         due_at: '2026-05-15',
+        due_date: '2026-05-15',
+        subtotal_cents: 75000,
+        tax_total_cents: 0,
         total_cents: 75000,
         balance_cents: 75000,
         currency_code: 'USD',
+        deleted_at: null,
       },
       {
         id: 'inv-b1',
         org_id: ORG_A,
         customer_id: CUSTOMER_B,
         number: 'INV-OTHER',
+        invoice_number: 'INV-OTHER',
         status: 'sent',
         issued_at: '2026-04-15',
+        issue_date: '2026-04-15',
         due_at: '2026-05-15',
+        due_date: '2026-05-15',
+        subtotal_cents: 99999,
+        tax_total_cents: 0,
         total_cents: 99999,
         balance_cents: 99999,
         currency_code: 'USD',
+        deleted_at: null,
+      },
+    ],
+    invoice_line_items: [
+      {
+        id: 'line-a1',
+        invoice_id: 'inv-a1',
+        description: 'Pallet receiving',
+        quantity: 1,
+        unit_price_cents: 75000,
+        line_total_cents: 75000,
+        position: 0,
       },
     ],
     quotes: [
@@ -133,10 +156,46 @@ function makePortalState() {
         customer_id: CUSTOMER_A,
         number: 'Q-001',
         status: 'sent',
+        state: 'sent',
         issued_at: '2026-05-10',
+        sent_at: '2026-05-10',
+        submitted_at: '2026-05-10',
         expires_at: '2026-06-10',
+        expiration_date: '2026-06-10',
+        subtotal_cents: 284000,
+        tax_cents: 0,
         total_cents: 284000,
         currency_code: 'USD',
+        deleted_at: null,
+      },
+      {
+        id: 'q-b1',
+        org_id: ORG_A,
+        customer_id: CUSTOMER_B,
+        number: 'Q-OTHER',
+        status: 'sent',
+        state: 'sent',
+        issued_at: '2026-05-10',
+        sent_at: '2026-05-10',
+        submitted_at: '2026-05-10',
+        expires_at: '2026-06-10',
+        expiration_date: '2026-06-10',
+        subtotal_cents: 100000,
+        tax_cents: 0,
+        total_cents: 100000,
+        currency_code: 'USD',
+        deleted_at: null,
+      },
+    ],
+    quote_line_items: [
+      {
+        id: 'qline-a1',
+        quote_id: 'q-a1',
+        name: 'Setup fee',
+        quantity_e3: 1000,
+        unit_price_cents: 284000,
+        line_total_cents: 284000,
+        position: 0,
       },
     ],
     projects: [
@@ -246,6 +305,76 @@ describe('customer-portal-api list endpoints - Path B3', () => {
   it('Pattern B: staff role gets 404 on /portal/projects', async () => {
     setActiveMockState(makePortalState());
     const res = await handler(get('/portal/projects', STAFF_CALLER));
+    const { status } = await readJsonStatus(res);
+    expect(status).toBe(404);
+  });
+
+  // ---------------------------------------------------------------------
+  // F-Wave9-PORTAL-NO-ACTION-WIRING-01: detail endpoints back the
+  // Download PDF action. Lock down ownership scoping and the Pattern B
+  // 404-on-cross-customer rule.
+  // ---------------------------------------------------------------------
+  it('GET /portal/invoices/:id returns the invoice when caller owns it', async () => {
+    setActiveMockState(makePortalState());
+    const res = await handler(
+      get('/portal/invoices/inv-a1', PORTAL_CALLER),
+    );
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(200);
+    const body = json.data as {
+      invoice: { invoice_number: string };
+      line_items: Array<{ description: string }>;
+      customer_display_name: string;
+    };
+    expect(body.invoice.invoice_number).toBe('INV-001');
+    expect(body.line_items).toHaveLength(1);
+    expect(body.customer_display_name).toBe('Acme Co.');
+  });
+
+  it('GET /portal/invoices/:id returns 404 for another customer s invoice', async () => {
+    setActiveMockState(makePortalState());
+    const res = await handler(
+      get('/portal/invoices/inv-b1', PORTAL_CALLER),
+    );
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(404);
+    expect(json.error?.code).toBe('NOT_FOUND');
+  });
+
+  it('GET /portal/invoices/:id returns 404 for staff role (Pattern B)', async () => {
+    setActiveMockState(makePortalState());
+    const res = await handler(
+      get('/portal/invoices/inv-a1', STAFF_CALLER),
+    );
+    const { status } = await readJsonStatus(res);
+    expect(status).toBe(404);
+  });
+
+  it('GET /portal/quotes/:id returns the quote when caller owns it', async () => {
+    setActiveMockState(makePortalState());
+    const res = await handler(get('/portal/quotes/q-a1', PORTAL_CALLER));
+    const { status, json } = await readJsonStatus(res);
+    expect(status).toBe(200);
+    const body = json.data as {
+      quote: { number: string };
+      line_items: Array<{ name: string }>;
+      customer_display_name: string;
+    };
+    expect(body.quote.number).toBe('Q-001');
+    expect(body.line_items).toHaveLength(1);
+    expect(body.customer_display_name).toBe('Acme Co.');
+  });
+
+  it('GET /portal/quotes/:id returns 404 for another customer s quote', async () => {
+    setActiveMockState(makePortalState());
+    const res = await handler(get('/portal/quotes/q-b1', PORTAL_CALLER));
+    const { status } = await readJsonStatus(res);
+    expect(status).toBe(404);
+  });
+
+  it('GET /portal/quotes/:id returns 404 for staff role (Pattern B)', async () => {
+    setActiveMockState(makePortalState());
+    const res = await handler(get('/portal/quotes/q-a1', STAFF_CALLER));
     const { status } = await readJsonStatus(res);
     expect(status).toBe(404);
   });

@@ -1,13 +1,30 @@
 // Date and date-string formatters used across the SPA.
 //
-// All formatters accept either a Date or an ISO-8601 string. Returns "." for
-// null / undefined / invalid input so callers can drop the result inline
-// without conditional rendering.
+// All formatters accept either a Date or an ISO-8601 string. Returns the
+// `NULL_DATE_PLACEHOLDER` constant for null / undefined / invalid input so
+// callers can drop the result inline without conditional rendering.
+//
+// F-Wave9-PORTAL-NULL-PLACEHOLDER-01: the empty-date marker was previously
+// "." (a literal period) which the operator-side smoke walk surfaced as
+// visually ambiguous in the customer portal data tables (a quote with no
+// issue date rendered as a single dot in the Issued column). Per the
+// Kitstak constitution, em dashes are banned on disk, so the replacement
+// is the centered dot character `·` (U+00B7). The character renders as a
+// small, vertically-centered mark that reads as "empty" in tabular
+// layouts without looking like an accidental period stuck in the column.
+
+/**
+ * Marker rendered in place of a null / missing / invalid date. Exported
+ * so callers that build composite strings (e.g. "Due {date}") can reuse
+ * the exact same value, and tests can assert against the constant rather
+ * than a brittle string literal.
+ */
+export const NULL_DATE_PLACEHOLDER = '·';
 
 export function formatDateMedium(input: Date | string | null | undefined): string {
-  if (input === null || input === undefined || input === '') return '.';
+  if (input === null || input === undefined || input === '') return NULL_DATE_PLACEHOLDER;
   const d = typeof input === 'string' ? new Date(input) : input;
-  if (Number.isNaN(d.getTime())) return '.';
+  if (Number.isNaN(d.getTime())) return NULL_DATE_PLACEHOLDER;
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -55,9 +72,9 @@ export function addDaysIso(isoDate: string, days: number): string | null {
 }
 
 export function formatDateShort(input: Date | string | null | undefined): string {
-  if (input === null || input === undefined || input === '') return '.';
+  if (input === null || input === undefined || input === '') return NULL_DATE_PLACEHOLDER;
   const d = typeof input === 'string' ? new Date(input) : input;
-  if (Number.isNaN(d.getTime())) return '.';
+  if (Number.isNaN(d.getTime())) return NULL_DATE_PLACEHOLDER;
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
