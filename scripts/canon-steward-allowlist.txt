@@ -82,3 +82,14 @@ orphan-route|apps/web/src/routes.ts|/3pl-operations/production/new
 # ---------------------------------------------------------------------------
 orphan-route|apps/web/src/routes.ts|/account/security
 orphan-route|apps/web/src/routes.ts|/auth/recovery
+
+# ---------------------------------------------------------------------------
+# orphan-route: /no-active-org.
+# F-Wave9-COWORK-SMOKE-03 hard-error surface for authenticated sessions
+# whose JWT lacks the kitstak_org_id claim. ProtectedRoute renders this
+# page inline when the claim is missing; the standalone route exists so
+# the surface is deep-linkable for support flows. No sidebar entry by
+# design: callers never browse here, they land here from the guard.
+# Shipped in F-Wave9-COWORK-SMOKE-03.
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/no-active-org
