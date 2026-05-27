@@ -42,6 +42,15 @@ const supabaseStubPath = path.resolve(
   './test/regression/_helpers/supabase-stub.ts',
 );
 
+// billing-api edge bundle imports `stripe` (mapped to npm:stripe@^17 by
+// supabase/functions/deno.json). The Stripe package is Deno-runtime only in
+// this repo; under Vitest we rewrite the bare specifier to a local in-memory
+// fake so tests can assert calls without a real Stripe HTTP round trip.
+const stripeStubPath = path.resolve(
+  __dirname,
+  './test/regression/_helpers/stripe-stub.ts',
+);
+
 export default defineConfig({
   plugins: [
     {
@@ -53,6 +62,9 @@ export default defineConfig({
         }
         if (source === '@supabase/supabase-js' || denoSupabasePattern.test(source)) {
           return { id: supabaseStubPath, external: false };
+        }
+        if (source === 'stripe') {
+          return { id: stripeStubPath, external: false };
         }
         return null;
       },

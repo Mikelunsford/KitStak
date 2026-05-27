@@ -22,6 +22,7 @@ const FAKE_ENV: Record<string, string> = {
   SUPABASE_URL: 'http://localhost:54321',
   SUPABASE_SERVICE_ROLE_KEY: 'fake-service-role-key',
   WORKER_SECRET: 'test-worker-secret',
+  STRIPE_SECRET_KEY: 'sk_test_fake_stripe_secret_for_tests',
 };
 
 interface DenoLike {
