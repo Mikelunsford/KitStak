@@ -23,7 +23,7 @@ export type RoleCode =
   | 'vendor_user';
 
 export type Capability =
-  // org.* (15)
+  // org.* (18)
   | 'org.organization.read'
   | 'org.organization.update'
   | 'org.organization.suspend'
@@ -40,6 +40,8 @@ export type Capability =
   | 'org.sso.write'
   | 'org.feature_flag.read'
   | 'org.audit_log.read'
+  | 'org.billing.read'
+  | 'org.billing.manage'
   // crm.* (18)
   | 'crm.customers.read'
   | 'crm.customers.write'
@@ -277,6 +279,8 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'org.sso.write',
   'org.feature_flag.read',
   'org.audit_log.read',
+  'org.billing.read',
+  'org.billing.manage',
   // crm.* (full)
   'crm.customers.read',
   'crm.customers.write',
@@ -493,6 +497,7 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'org.sso.write',
   'org.feature_flag.read',
   'org.audit_log.read',
+  'org.billing.read',
   // crm.* (full)
   'crm.customers.read',
   'crm.customers.write',
