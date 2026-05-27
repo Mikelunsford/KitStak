@@ -26,6 +26,7 @@ import { useProject } from '@/lib/hooks/useProjects';
 import { useQuote } from '@/lib/hooks/useQuotes';
 import { usePayments } from '@/lib/hooks/usePayments';
 import { useMe } from '@/lib/hooks/useMe';
+import { useEntityAuditStates } from '@/lib/hooks/useEntityAuditStates';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents } from '@/lib/money';
@@ -80,6 +81,13 @@ export function InvoiceDetailPage() {
   const payments = usePayments(
     invoiceId ? { invoice_id: invoiceId } : {},
   );
+  // F-Wave9-COWORK-SMOKE-07: visited-states feed for the stepper. Reads
+  // audit_log so steps before the current one only render as past if the
+  // entity actually transitioned through them. The invoice FSM allows
+  // `draft -> sent` directly (skipping pending), so without this feed the
+  // stepper coloured PENDING as completed even though audit_log only
+  // recorded the direct edge.
+  const auditStates = useEntityAuditStates('invoice', invoiceId || null);
 
   // Add-line field state lives at the page level so the mutation
   // onSuccess can clear it. The BillableLineItemsEditor owns the
@@ -225,7 +233,9 @@ export function InvoiceDetailPage() {
       />
       {/* UX-Q7: display-only horizontal progress stepper. Replaces the
           "Status: <status>" line below the title. partially_paid is on
-          the happy path between sent and paid per PR #99's B2 fix. */}
+          the happy path between sent and paid per PR #99's B2 fix.
+          F-Wave9-COWORK-SMOKE-07: pass visitedStates from audit_log so a
+          skip transition (draft -> sent) does not paint PENDING as past. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.invoice.path]}
         current={inv.status}
@@ -237,6 +247,7 @@ export function InvoiceDetailPage() {
               }
             : undefined
         }
+        visitedStates={auditStates.data?.visited}
       />
       <header className="flex items-center justify-between">
         <div>
