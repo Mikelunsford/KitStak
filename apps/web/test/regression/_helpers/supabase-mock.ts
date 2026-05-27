@@ -89,6 +89,12 @@ export interface MockState {
     }
   >;
   authAdminGetUserByIdCalls: string[];
+  // Optional per-table unique-key constraints. When set, an insert whose row
+  // value at the named column already exists in `state.rows[table]` returns
+  // a Postgres 23505 unique-violation error. Used by regression suites that
+  // need to exercise duplicate-key short-circuit paths (e.g. stripe-webhook
+  // event_id replay).
+  insertConstraints?: Record<string, { column: string }>;
 }
 
 export function makeState(rows: RowMap = {}): MockState {
@@ -203,7 +209,28 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
 
     if (mode === 'insert') {
       if (toInsert) {
+        const constraint = state.insertConstraints?.[table];
+        if (constraint) {
+          const newVal = toInsert[constraint.column];
+          const exists = tableRows.some(
+            (row) => row[constraint.column] === newVal,
+          );
+          if (exists) {
+            return {
+              data: null,
+              error: {
+                code: '23505',
+                message: `duplicate key value violates unique constraint on "${table}"`,
+              },
+            };
+          }
+        }
         state.inserts.push({ table, row: toInsert });
+        if (state.rows[table]) {
+          state.rows[table].push(toInsert);
+        } else {
+          state.rows[table] = [toInsert];
+        }
         return { data: toInsert, error: null };
       }
       return { data: null, error: null };

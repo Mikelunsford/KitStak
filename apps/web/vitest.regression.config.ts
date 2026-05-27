@@ -42,6 +42,16 @@ const supabaseStubPath = path.resolve(
   './test/regression/_helpers/supabase-stub.ts',
 );
 
+const stripeStubPath = path.resolve(
+  __dirname,
+  './test/regression/_helpers/stripe-stub.ts',
+);
+
+// Match the Deno-style `npm:stripe` specifier (with or without semver
+// range). The stripe-webhook bundle imports `npm:stripe@^17`; older code
+// might use `npm:stripe`. Both route to the in-memory stub.
+const denoStripePattern = /^npm:stripe(?:@[^\s]+)?$/;
+
 export default defineConfig({
   plugins: [
     {
@@ -53,6 +63,9 @@ export default defineConfig({
         }
         if (source === '@supabase/supabase-js' || denoSupabasePattern.test(source)) {
           return { id: supabaseStubPath, external: false };
+        }
+        if (denoStripePattern.test(source)) {
+          return { id: stripeStubPath, external: false };
         }
         return null;
       },
