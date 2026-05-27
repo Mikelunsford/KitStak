@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
+  CreditCard,
   Download,
   Flag,
   Hash,
@@ -59,6 +60,11 @@ const ADMIN_LINKS: ReadonlyArray<AdminLink> = [
   { to: '/admin/numbering', label: 'Numbering', icon: Hash },
   // F-Wave9-STAFF-INVITE-CHASSIS-01: /admin/members staff invite surface.
   { to: '/admin/members', label: 'Members', icon: Users },
+  // Stripe wiring (item 9): /admin/billing. AdminProtectedRoute already
+  // restricts to org_owner / org_admin; the upcoming caps PR refines this
+  // via org.billing.read (owner + admin). No SPA-side cap check needed --
+  // the route guard is authoritative.
+  { to: '/admin/billing', label: 'Billing', icon: CreditCard },
   { to: '/imports', label: 'Imports', icon: Upload },
   { to: '/exports', label: 'Exports', icon: Download },
 ];

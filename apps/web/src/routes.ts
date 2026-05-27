@@ -87,6 +87,13 @@ const MembersPage = lazy(() =>
     default: m.MembersPage,
   })),
 );
+// Stripe wiring (item 9): /admin/billing. Lazy so the page lands in its
+// own chunk and the SPA index chunk stays under the 40 kB gzip budget.
+const BillingPage = lazy(() =>
+  import('./pages/admin/billing/BillingPage').then((m) => ({
+    default: m.BillingPage,
+  })),
+);
 // === End Agent A ===
 
 // === Agent B: CRM lazy imports ===
@@ -600,6 +607,13 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/admin/members',
     element: MembersPage,
+    guard: 'admin',
+    layout: 'shell',
+  },
+  // Stripe wiring (item 9): /admin/billing.
+  {
+    path: '/admin/billing',
+    element: BillingPage,
     guard: 'admin',
     layout: 'shell',
   },

@@ -1,4 +1,4 @@
-import { Suspense, type ReactElement } from 'react';
+import { Suspense, type ReactElement, type ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { ROUTES, type RouteSpec } from './routes';
@@ -8,6 +8,7 @@ import { PortalRoute } from './auth/PortalRoute';
 import { IndexRoute } from './auth/IndexRoute';
 import { RequirePlugin } from './auth/RequirePlugin';
 import { BrandingProvider } from './whitelabel/BrandingProvider';
+import { SubscriptionGate } from './lib/hooks/useSubscriptionGate';
 
 /**
  * App. consumes the flat ROUTES table and wraps each route in the
@@ -28,6 +29,17 @@ import { BrandingProvider } from './whitelabel/BrandingProvider';
  * resolve before reading the flag.
  */
 
+/**
+ * Subscription gate wraps every authenticated leaf (staff `protected` and
+ * admin `admin` guards). Portal and public routes bypass the gate so a
+ * customer-portal session, sign-in, and recovery still resolve when the
+ * staff org's trial has lapsed. The gate itself allowlists /admin/billing,
+ * /account/*, /signin, and /signout so the operator can recover.
+ */
+function gateAuthenticated(leaf: ReactNode): ReactElement {
+  return <SubscriptionGate>{leaf}</SubscriptionGate>;
+}
+
 function wrapWithGuard(spec: RouteSpec): ReactElement {
   const ElementCmp = spec.element;
   const leaf = spec.requiresPlugin ? (
@@ -39,9 +51,9 @@ function wrapWithGuard(spec: RouteSpec): ReactElement {
   );
   switch (spec.guard) {
     case 'protected':
-      return <ProtectedRoute>{leaf}</ProtectedRoute>;
+      return <ProtectedRoute>{gateAuthenticated(leaf)}</ProtectedRoute>;
     case 'admin':
-      return <AdminProtectedRoute>{leaf}</AdminProtectedRoute>;
+      return <AdminProtectedRoute>{gateAuthenticated(leaf)}</AdminProtectedRoute>;
     case 'portal':
       return <PortalRoute>{leaf}</PortalRoute>;
     case 'public':
