@@ -1,5 +1,7 @@
 import { lazy, type LazyExoticComponent, type ComponentType } from 'react';
 
+import { FEATURE_FLAGS } from '@/lib/constants';
+
 /**
  * Flat ROUTES table. Per 00-canon/01-architecture.md "Routing". react-router-dom
  * v6 with a flat ROUTES table and lazy code splits. No nested JSX <Route> trees.
@@ -7,6 +9,13 @@ import { lazy, type LazyExoticComponent, type ComponentType } from 'react';
  * `guard` decides which auth wrapper wraps the element at render time. `layout`
  * is informational; ProtectedRoute / AdminProtectedRoute wrap in <AppShell>
  * themselves, public/portal routes render bare.
+ *
+ * `requiresPlugin` enforces the SPA mirror of the Edge bundle-level plugin
+ * gate from supabase/functions/_shared/bundleGate.ts. When the flag is off
+ * for the active org the route renders the NotFound surface instead of the
+ * element. Constitutional rule: plugin bundle gates return 404, not 403
+ * FEATURE_DISABLED (that envelope is for per-route flags). See
+ * auth/RequirePlugin.tsx and F-Wave9-COWORK-SMOKE-06.
  */
 
 export type RouteGuard = 'protected' | 'admin' | 'portal' | 'public';
@@ -17,6 +26,12 @@ export interface RouteSpec {
   element: LazyExoticComponent<ComponentType<unknown>>;
   guard: RouteGuard;
   layout: RouteLayout;
+  /**
+   * Pillar plugin flag, e.g. FEATURE_FLAGS.PLUGINS_THREE_PL. When set,
+   * RequirePlugin renders the NotFoundPage when the flag is off for the
+   * active org. Distinct from per-route feature flag gating.
+   */
+  requiresPlugin?: string;
 }
 
 // Lazy code splits. keep imports inside the lazy() callback so each route
@@ -512,7 +527,12 @@ const RecoveryPage = lazy(() =>
 );
 // === End F-Wave9-INVITE-PASSWORD-SETUP-01 ===
 
-export const ROUTES: ReadonlyArray<RouteSpec> = [
+// Raw route registrations. ROUTES (exported below) is this list with
+// pillar plugin gating injected at module evaluation by `withPluginGate`.
+// Keeping the raw list separate lets us add `requiresPlugin` to every
+// /3pl-operations/* and /manufacturing/* route in one place instead of
+// scattering the same literal across ~30 entries.
+const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/signin',
     element: SignInPage,
@@ -887,3 +907,50 @@ export const ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/auth/recovery',          element: RecoveryPage,                guard: 'public',    layout: 'unauthenticated' },
   // === End F-Wave9-INVITE-PASSWORD-SETUP-01 ===
 ] as const;
+
+/**
+ * Resolve the pillar plugin flag a given path belongs to, or null if the
+ * path is plugin-agnostic. The mapping mirrors the URL pillar surface
+ * declared in 00-canon/01-architecture.md: /3pl-operations/* is the 3PL
+ * pillar; /manufacturing/* is the Manufacturing pillar; /kitcost/* is
+ * the KitCost pillar (already gated by capability + per-route render in
+ * KitCostDashboardPage, retained here for completeness).
+ *
+ * Returns the pre-existing `requiresPlugin` value when explicitly set so
+ * a route can opt out of auto-gating by declaring its own value.
+ */
+function inferPluginForPath(spec: RouteSpec): string | undefined {
+  if (spec.requiresPlugin !== undefined) return spec.requiresPlugin;
+  if (spec.path.startsWith('/3pl-operations/')) {
+    return FEATURE_FLAGS.PLUGINS_THREE_PL;
+  }
+  if (spec.path.startsWith('/manufacturing/')) {
+    return FEATURE_FLAGS.PLUGINS_MANUFACTURING;
+  }
+  if (spec.path.startsWith('/kitcost/')) {
+    return FEATURE_FLAGS.PLUGINS_KITCOST;
+  }
+  return undefined;
+}
+
+/**
+ * Inject the pillar plugin flag into every pillar-scoped route so the
+ * SPA-side RequirePlugin guard renders NotFoundPage when the org lacks
+ * the plugin. Routes outside the three pillar URL spaces pass through
+ * untouched.
+ *
+ * Constitutional rule: plugin bundle gates return 404. The Edge gates
+ * in supabase/functions/_shared/bundleGate.ts already enforce this for
+ * state-changing handlers; this SPA layer mirrors the gate so org
+ * members on a sub-plan never see the surface render at all.
+ */
+function withPluginGate(spec: RouteSpec): RouteSpec {
+  const flag = inferPluginForPath(spec);
+  if (flag === undefined) return spec;
+  return { ...spec, requiresPlugin: flag };
+}
+
+export const ROUTES: ReadonlyArray<RouteSpec> = RAW_ROUTES.map(withPluginGate);
+
+// Test hooks (named exports, no runtime cost outside tests).
+export const __internals = { inferPluginForPath, withPluginGate, RAW_ROUTES };

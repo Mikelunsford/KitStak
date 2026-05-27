@@ -44,6 +44,7 @@ import {
   setActiveMockState,
   clearActiveMockState,
 } from './_helpers/supabase-stub.ts';
+import { invalidateFlagCache } from '../../../../supabase/functions/_shared/feature-flags.ts';
 
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
 const USER_A = '00000000-0000-4000-8000-0000000000b1';
@@ -84,7 +85,18 @@ describe('inventory-api list endpoints — pagination regression (R-Wave6-PERF-0
     handler = capturedHandler();
   });
 
-  afterEach(() => clearActiveMockState());
+  afterEach(() => {
+    clearActiveMockState();
+    // inventory-api is bundle-gated on plugins.three_pl
+    // (F-Wave9-COWORK-SMOKE-06); clear the per-org cache between tests.
+    invalidateFlagCache(ORG_A);
+  });
+
+  // plugins.three_pl flag rows reused across each list endpoint. The
+  // inventory-api bundle returns 404 NOT_FOUND when the gate is off.
+  const THREE_PL_ON: Array<Record<string, unknown>> = [
+    { org_id: ORG_A, flag_key: 'plugins.three_pl', is_enabled: true, config: {} },
+  ];
 
   it('GET /warehouses returns {items, next_cursor} and never exceeds default limit', async () => {
     const N = DEFAULT_LIMIT + 10;
@@ -106,7 +118,7 @@ describe('inventory-api list endpoints — pagination regression (R-Wave6-PERF-0
       updated_at: iso(N - i),
       deleted_at: null,
     }));
-    setActiveMockState(makeState({ warehouses: rows }));
+    setActiveMockState(makeState({ warehouses: rows, org_feature_flags: THREE_PL_ON }));
 
     const req = new Request('https://example.test/warehouses', {
       method: 'GET',
@@ -137,7 +149,7 @@ describe('inventory-api list endpoints — pagination regression (R-Wave6-PERF-0
       updated_at: iso(N - i),
       created_at: iso(N - i),
     }));
-    setActiveMockState(makeState({ stock_levels: rows }));
+    setActiveMockState(makeState({ stock_levels: rows, org_feature_flags: THREE_PL_ON }));
 
     const req = new Request('https://example.test/stock-levels', {
       method: 'GET',
@@ -167,7 +179,7 @@ describe('inventory-api list endpoints — pagination regression (R-Wave6-PERF-0
       created_at: iso(N - i),
       updated_at: iso(N - i),
     }));
-    setActiveMockState(makeState({ bom_items: rows }));
+    setActiveMockState(makeState({ bom_items: rows, org_feature_flags: THREE_PL_ON }));
 
     const req = new Request('https://example.test/bom-items', {
       method: 'GET',

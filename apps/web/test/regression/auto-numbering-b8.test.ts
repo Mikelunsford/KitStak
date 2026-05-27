@@ -39,6 +39,7 @@ import {
   setActiveMockState,
   clearActiveMockState,
 } from './_helpers/supabase-stub.ts';
+import { invalidateFlagCache } from '../../../../supabase/functions/_shared/feature-flags.ts';
 
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
 const USER_A = '00000000-0000-4000-8000-0000000000b1';
@@ -82,10 +83,16 @@ describe('quotes-api — auto-numbering (B8)', () => {
     handler = capturedHandler();
   });
 
-  afterEach(() => clearActiveMockState());
+  afterEach(() => {
+    clearActiveMockState();
+    // quotes-api is now bundle-gated on plugins.three_pl
+    // (F-Wave9-COWORK-SMOKE-06). The flag reader caches per-org for 5
+    // minutes; flipping the gate between tests requires invalidation.
+    invalidateFlagCache(ORG_A);
+  });
 
   it('POST /quotes calls next_doc_number when number is absent', async () => {
-    const state = makeState({ quotes: [] });
+    const state = withThreePlFlag({ quotes: [] });
     state.rpcResults['next_doc_number'] = {
       data: 'Q-2026-00001',
       error: null,
@@ -110,7 +117,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
   });
 
   it('POST /quotes uses operator-supplied number verbatim and skips next_doc_number', async () => {
-    const state = makeState({ quotes: [] });
+    const state = withThreePlFlag({ quotes: [] });
     state.rpcResults['next_doc_number'] = {
       data: 'Q-AUTO-SHOULD-NOT-APPEAR',
       error: null,
@@ -132,7 +139,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
   });
 
   it('POST /quotes treats whitespace-only number as absent', async () => {
-    const state = makeState({ quotes: [] });
+    const state = withThreePlFlag({ quotes: [] });
     state.rpcResults['next_doc_number'] = {
       data: 'Q-2026-00002',
       error: null,
@@ -168,7 +175,10 @@ describe('ops-api — auto-numbering (B8)', () => {
     handler = capturedHandler();
   });
 
-  afterEach(() => clearActiveMockState());
+  afterEach(() => {
+    clearActiveMockState();
+    invalidateFlagCache(ORG_A);
+  });
 
   // ---- receiving_orders ----
 

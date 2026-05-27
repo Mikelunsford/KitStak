@@ -1,18 +1,28 @@
 // quotes-api: CRUD for quotes + quote_line_items, state transitions, version
 // snapshots, conversion to project, and the (stub) PDF endpoint.
 //
+// BUNDLE GATE: plugins.three_pl. The entire bundle returns 404 NOT_FOUND
+// when the pillar plugin flag is off for the caller's org. Implementation
+// lives in _shared/bundleGate.ts; quotes-api, projects-api, inventory-api,
+// and ops-api all share the same gate. Per constitutional rule (CLAUDE.md):
+// plugin bundle gates return 404, per-route feature flags return 403.
+//
 // Routing: flat `Route[]` dispatched via `_shared/route.ts`. Every non-GET
 // goes through `respondWithIdempotency` + `requireCap` + the workflow check.
+// Cap-gate runs inside each handler (after the bundle gate) so the caller
+// must hold the cap BEFORE we tell them the route exists.
 
 import { z } from 'zod';
 
-import { route, type Route, type RouteCtx } from '../_shared/route.ts';
+import { type Route, type RouteCtx } from '../_shared/route.ts';
 import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
   requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { serveBundleWithGate } from '../_shared/bundleGate.ts';
+import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   CreateQuoteRequestSchema, UpdateQuoteRequestSchema,
   CreateQuoteLineRequestSchema, ConvertQuoteToProjectRequestSchema,
@@ -557,4 +567,8 @@ const ROUTES: Route[] = [
   { method: 'PATCH',  path: '/quotes/:id/approvals/:approvalId',    handler: decideApproval },
 ];
 
-Deno.serve((req: Request) => route(req, ROUTES, { bundle: BUNDLE }));
+serveBundleWithGate({
+  flagKey: FEATURE_FLAGS.PLUGINS_THREE_PL,
+  routes: ROUTES,
+  bundle: BUNDLE,
+});
