@@ -711,16 +711,25 @@ async function postInviteStaffMember(ctx: RouteCtx): Promise<Response> {
         });
       }
 
-      // Resolve the org display_name for the invite email subject. Fall back
-      // to 'Kitstak' when the org row is unexpectedly missing; the membership
-      // already exists so the invitee can still sign in.
+      // Resolve the org display_name for the invite email subject + body.
+      // Fall back to 'Kitstak' when the org row lookup fails or is unexpectedly
+      // missing; the membership already exists so the invitee can still sign
+      // in. Closes F-Wave9-INVITE-EMAIL-SUBJECT-COPY-01: prior copy read
+      // "You have been invited to Kitstak on Kitstak" when the inviting org's
+      // display_name IS Kitstak. Rephrased to drop the "on Kitstak" suffix
+      // from the subject so the org name carries the message cleanly.
       let orgDisplayName = 'Kitstak';
-      const { data: orgRow } = await sb
+      const { data: orgRow, error: orgLookupErr } = await sb
         .from('organizations')
         .select('display_name')
         .eq('id', caller.orgId)
         .maybeSingle();
-      if (orgRow && typeof orgRow.display_name === 'string') {
+      if (orgLookupErr) {
+        console.error('auth-api: failed to resolve org display_name for invite', {
+          org_id: caller.orgId,
+          message: orgLookupErr.message,
+        });
+      } else if (orgRow && typeof orgRow.display_name === 'string') {
         orgDisplayName = orgRow.display_name;
       }
 
@@ -728,8 +737,9 @@ async function postInviteStaffMember(ctx: RouteCtx): Promise<Response> {
       // The 5-minute drain cron picks this up and ships via Resend. Failure
       // to queue is logged but does not unwind the membership; the caller
       // can re-click Invite to retry queuing.
-      const subject = `You have been invited to ${orgDisplayName} on Kitstak`;
+      const subject = `You have been invited to join ${orgDisplayName}`;
       const emailBody =
+        `You have been invited to join ${orgDisplayName} on Kitstak.\n\n` +
         'Click the link below to sign in.\n\n' +
         `${actionLink}\n\n` +
         'This link expires in 24 hours.';
