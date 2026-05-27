@@ -257,6 +257,31 @@ export const InviteStaffResponseSchema = z.object({
 });
 export type InviteStaffResponse = z.infer<typeof InviteStaffResponseSchema>;
 
+// ----- staff list (F-Wave9-STAFF-INVITE-MEMBERS-LIST-01) -----
+// Flat row returned by GET /auth-api/members. Joins org_memberships to
+// auth.users (for email + display_name) and roles (for the role code and
+// human label) on the server; the SPA receives the projected shape directly
+// and renders it without a second round-trip.
+//
+// Envelope: standard ok(data) flat array (NOT { items: ... }). Pagination is
+// deferred per the spec; for the first year orgs are expected to have well
+// under 50 members.
+
+export const OrgMemberRowSchema = z.object({
+  user_id: UuidSchema,
+  org_id: UuidSchema,
+  email: z.string().email(),
+  display_name: z.string().nullable(),
+  role_code: RoleCodeSchema,
+  role_display_name: NonEmptyStringSchema,
+  created_at: z.string(),
+  is_active: z.boolean(),
+});
+export type OrgMemberRow = z.infer<typeof OrgMemberRowSchema>;
+
+export const OrgMembersListResponseSchema = z.array(OrgMemberRowSchema);
+export type OrgMembersListResponse = z.infer<typeof OrgMembersListResponseSchema>;
+
 // ----- password reset (F-Wave9-INVITE-PASSWORD-SETUP-01) -----
 // Public, anti-enumeration endpoint. The caller posts an email; the server
 // always replies with `accepted: true` regardless of whether the email
