@@ -42,14 +42,19 @@ const supabaseStubPath = path.resolve(
   './test/regression/_helpers/supabase-stub.ts',
 );
 
+// billing-api and stripe-webhook edge bundles both import Stripe. billing-api
+// uses the bare specifier `stripe` (mapped to npm:stripe@^17 by
+// supabase/functions/deno.json); stripe-webhook uses the Deno-style
+// `npm:stripe@^17` directly. The Stripe package is Deno-runtime only in this
+// repo; under Vitest we rewrite both forms to a local in-memory fake so tests
+// can assert calls without a real Stripe HTTP round trip.
 const stripeStubPath = path.resolve(
   __dirname,
   './test/regression/_helpers/stripe-stub.ts',
 );
 
-// Match the Deno-style `npm:stripe` specifier (with or without semver
-// range). The stripe-webhook bundle imports `npm:stripe@^17`; older code
-// might use `npm:stripe`. Both route to the in-memory stub.
+// Match the Deno-style `npm:stripe` specifier (with or without semver range)
+// alongside the bare `stripe` specifier. Both route to the in-memory stub.
 const denoStripePattern = /^npm:stripe(?:@[^\s]+)?$/;
 
 export default defineConfig({
@@ -64,7 +69,7 @@ export default defineConfig({
         if (source === '@supabase/supabase-js' || denoSupabasePattern.test(source)) {
           return { id: supabaseStubPath, external: false };
         }
-        if (denoStripePattern.test(source)) {
+        if (source === 'stripe' || denoStripePattern.test(source)) {
           return { id: stripeStubPath, external: false };
         }
         return null;

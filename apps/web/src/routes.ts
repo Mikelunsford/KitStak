@@ -51,6 +51,14 @@ const FeatureUnavailablePage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
+// F-Wave9-COWORK-SMOKE-03: hard-error surface for the NO_ACTIVE_ORG state.
+// ProtectedRoute renders this inline when the JWT lacks the claim; the
+// standalone route keeps the surface deep-linkable for support flows.
+const NoActiveOrgPage = lazy(() =>
+  import('./pages/NoActiveOrgPage').then((m) => ({
+    default: m.NoActiveOrgPage,
+  })),
+);
 
 // === Agent A: Admin routes ===
 const SettingsPage = lazy(() =>
@@ -548,6 +556,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/feature-unavailable',
     element: FeatureUnavailablePage,
+    guard: 'public',
+    layout: 'unauthenticated',
+  },
+  {
+    path: '/no-active-org',
+    element: NoActiveOrgPage,
     guard: 'public',
     layout: 'unauthenticated',
   },

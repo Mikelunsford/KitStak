@@ -230,4 +230,127 @@ describe('StateStepper (UX-Q7)', () => {
     expect(props['data-testid']).toBe('state-stepper');
     expect(props['aria-label']).toBe('Workflow progress');
   });
+
+  // -----------------------------------------------------------------------
+  // F-Wave9-COWORK-SMOKE-07: visitedStates feed.
+  //
+  // Background: the invoice FSM allows draft -> sent directly (skipping
+  // pending). Without visitedStates the stepper paints every step before
+  // current as past, so PENDING reads as completed even though audit_log
+  // only recorded draft -> sent. The fix takes the audit_log to_state set
+  // and marks before-current steps that were not actually visited as
+  // "skipped" instead of "past".
+  // -----------------------------------------------------------------------
+  const INVOICE_STEPS: StateStepperStep[] = [
+    { state: 'draft',          label: 'Draft' },
+    { state: 'pending',        label: 'Pending' },
+    { state: 'sent',           label: 'Sent' },
+    { state: 'partially_paid', label: 'Partially Paid' },
+    { state: 'paid',           label: 'Paid', isTerminal: true },
+  ];
+
+  it('marks a before-current step as "skipped" when visitedStates excludes it', () => {
+    // Audit log recorded draft -> sent. Pending was skipped.
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'sent',
+      visitedStates: ['draft', 'sent'],
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const pending = steps.find((s) => s.props['data-state'] === 'pending')!;
+    expect(pending.props['data-phase']).toBe('skipped');
+  });
+
+  it('still marks visited before-current steps as "past" when visitedStates is supplied', () => {
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'sent',
+      visitedStates: ['draft', 'sent'],
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const draft = steps.find((s) => s.props['data-state'] === 'draft')!;
+    expect(draft.props['data-phase']).toBe('past');
+  });
+
+  it('paid invoice that walked the full chain marks every prior step as past', () => {
+    // Walk the canonical happy path end-to-end.
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'paid',
+      visitedStates: ['draft', 'pending', 'sent', 'partially_paid', 'paid'],
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const past = steps.filter((s) => s.props['data-phase'] === 'past');
+    expect(past.map((s) => s.props['data-state'])).toEqual([
+      'draft',
+      'pending',
+      'sent',
+      'partially_paid',
+    ]);
+    const current = steps.find((s) => s.props['data-state'] === 'paid')!;
+    expect(current.props['data-phase']).toBe('current');
+  });
+
+  it('paid invoice that skipped pending and partially_paid marks them as skipped', () => {
+    // Common real-world chain: draft -> sent -> paid (paid in full on first
+    // receipt). The stepper should NOT paint pending or partially_paid as
+    // past because the audit_log will only have draft, sent, paid.
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'paid',
+      visitedStates: ['draft', 'sent', 'paid'],
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const phases = steps.map((s) => ({
+      state: s.props['data-state'],
+      phase: s.props['data-phase'],
+    }));
+    expect(phases).toEqual([
+      { state: 'draft',          phase: 'past' },
+      { state: 'pending',        phase: 'skipped' },
+      { state: 'sent',           phase: 'past' },
+      { state: 'partially_paid', phase: 'skipped' },
+      { state: 'paid',           phase: 'current' },
+    ]);
+  });
+
+  it('falls back to linear past/current/future when visitedStates is omitted', () => {
+    // Backward compatibility: existing detail pages that have not yet wired
+    // the audit_log feed keep the prior behaviour. data-phase remains one
+    // of past / current / future; no step is "skipped".
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'sent',
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const phases = steps.map((s) => s.props['data-phase']);
+    expect(phases).toEqual(['past', 'past', 'current', 'future', 'future']);
+  });
+
+  it('skipped step dot uses ink-faint (not the past-accent fill)', () => {
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'sent',
+      visitedStates: ['draft', 'sent'],
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const pending = steps.find((s) => s.props['data-state'] === 'pending')!;
+    const dot = collectByTestId(pending, 'state-stepper-dot')[0]!;
+    const cls = dot.props.className ?? '';
+    expect(cls).toContain('border-ink-faint');
+    expect(cls).not.toContain('bg-accent');
+  });
+
+  it('skipped step connector uses ink-faint (not the past-ink fill)', () => {
+    const result = StateStepper({
+      steps: INVOICE_STEPS,
+      current: 'sent',
+      visitedStates: ['draft', 'sent'],
+    });
+    const steps = collectByTestId(result, 'state-stepper-step');
+    const pending = steps.find((s) => s.props['data-state'] === 'pending')!;
+    const connector = collectByTestId(pending, 'state-stepper-connector')[0]!;
+    const cls = connector.props.className ?? '';
+    expect(cls).toContain('bg-ink-faint');
+  });
 });
