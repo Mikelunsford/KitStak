@@ -276,11 +276,51 @@ export const OrgMemberRowSchema = z.object({
   role_display_name: NonEmptyStringSchema,
   created_at: z.string(),
   is_active: z.boolean(),
+  // claimed is true once the invitee has accepted the magic link (auth.users
+  // email_confirmed_at is set). The SPA uses this to gate the per-row Resend
+  // button: only unclaimed members can be re-invited because a re-issued
+  // magic link does nothing useful for an account that already signed in.
+  // F-Wave9-STAFF-INVITE-RESEND-01.
+  claimed: z.boolean(),
 });
 export type OrgMemberRow = z.infer<typeof OrgMemberRowSchema>;
 
 export const OrgMembersListResponseSchema = z.array(OrgMemberRowSchema);
 export type OrgMembersListResponse = z.infer<typeof OrgMembersListResponseSchema>;
+
+// ----- staff PATCH (F-Wave9-STAFF-INVITE-PATCH-01) -----
+// PATCH /auth-api/members/:user_id body. At least one of role or is_active
+// must be supplied; an empty body is a 422. The schema is intentionally
+// narrow: role is the staff-role enum (org_owner included so an existing
+// org_owner can promote a peer; the handler refuses owner-mints-owner from
+// an org_admin caller via a privilege-escalation guard mirroring the invite
+// path). is_active is a plain boolean; the handler refuses self-deactivation
+// with 422 CANNOT_DEACTIVATE_SELF so an operator cannot lock themselves out.
+
+export const PatchOrgMemberRequestSchema = z
+  .object({
+    role: StaffRoleCodeSchema.optional(),
+    is_active: z.boolean().optional(),
+  })
+  .refine(
+    (v) => v.role !== undefined || v.is_active !== undefined,
+    { message: 'At least one of role or is_active must be provided' },
+  );
+export type PatchOrgMemberRequest = z.infer<typeof PatchOrgMemberRequestSchema>;
+
+// ----- staff RESEND (F-Wave9-STAFF-INVITE-RESEND-01) -----
+// POST /auth-api/members/:user_id/resend response. The handler never echoes
+// the magic link itself; the caller only learns that the link was generated
+// and the notifications row queued. Already-claimed members get a 422
+// MEMBER_ALREADY_CLAIMED. Cross-tenant members get a 404 per Pattern A.
+
+export const ResendOrgMemberInviteResponseSchema = z.object({
+  status: z.literal('sent'),
+  resent_at: z.string(),
+});
+export type ResendOrgMemberInviteResponse = z.infer<
+  typeof ResendOrgMemberInviteResponseSchema
+>;
 
 // ----- password reset (F-Wave9-INVITE-PASSWORD-SETUP-01) -----
 // Public, anti-enumeration endpoint. The caller posts an email; the server

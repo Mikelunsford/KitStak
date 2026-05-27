@@ -71,6 +71,24 @@ export interface MockState {
     data: { user: { id: string } | null };
     error: { message: string } | null;
   };
+  // Per-user override map for getUserById. Lets tests specify a richer
+  // auth.users payload (notably email_confirmed_at) so the staff members
+  // list endpoint can compute the `claimed` field per row. Missing entries
+  // fall back to the default echo behaviour below.
+  authAdminGetUserByIdResults: Record<
+    string,
+    {
+      data: {
+        user: {
+          id: string;
+          email: string;
+          email_confirmed_at: string | null;
+        } | null;
+      };
+      error: { message: string } | null;
+    }
+  >;
+  authAdminGetUserByIdCalls: string[];
 }
 
 export function makeState(rows: RowMap = {}): MockState {
@@ -113,6 +131,8 @@ export function makeState(rows: RowMap = {}): MockState {
       data: { user: { id: '00000000-0000-4000-8000-00000000aaaa' } },
       error: null,
     },
+    authAdminGetUserByIdResults: {},
+    authAdminGetUserByIdCalls: [],
   };
 }
 
@@ -319,7 +339,15 @@ export function makeSupabaseMock(state: MockState): {
       getUserById: (
         id: string,
       ) => Promise<{
-        data: { user: { id: string; email: string } | null };
+        data: {
+          user:
+            | {
+                id: string;
+                email: string;
+                email_confirmed_at?: string | null;
+              }
+            | null;
+        };
         error: { message: string } | null;
       }>;
     };
@@ -355,11 +383,22 @@ export function makeSupabaseMock(state: MockState): {
           return state.authAdminUpdateUserByIdResult;
         },
         getUserById: async (id) => {
-          // Best-effort stub: callers that exercise getMe will install a
-          // richer result via direct overwrite if needed. Default echoes
-          // the id so the route returns a 200 without erroring on null.
+          state.authAdminGetUserByIdCalls.push(id);
+          // Per-user override map. Tests that exercise the claimed/unclaimed
+          // gate on the staff members list or the resend endpoint can
+          // install a richer record (notably email_confirmed_at) keyed by
+          // user id. Missing entries fall back to the default echo so other
+          // tests stay green.
+          const override = state.authAdminGetUserByIdResults[id];
+          if (override) return override;
           return {
-            data: { user: { id, email: 'mock-user@example.test' } },
+            data: {
+              user: {
+                id,
+                email: 'mock-user@example.test',
+                email_confirmed_at: '2026-01-01T00:00:00Z',
+              },
+            },
             error: null,
           };
         },

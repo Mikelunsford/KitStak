@@ -16,10 +16,14 @@
 import { apiRequest } from '@/lib/apiClient';
 import {
   InviteStaffResponseSchema,
+  OrgMemberRowSchema,
   OrgMembersListResponseSchema,
+  ResendOrgMemberInviteResponseSchema,
   type InviteStaffRequest,
   type InviteStaffResponse,
   type OrgMemberRow,
+  type PatchOrgMemberRequest,
+  type ResendOrgMemberInviteResponse,
 } from '@/lib/types/identity';
 
 export async function inviteStaffMember(
@@ -45,4 +49,46 @@ export async function listOrgMembers(): Promise<OrgMemberRow[]> {
     method: 'GET',
   });
   return OrgMembersListResponseSchema.parse(data);
+}
+
+/**
+ * PATCH /auth-api/members/:user_id. Per-row role change + deactivate or
+ * reactivate. The caller's own row is excluded by the SPA action menu so
+ * the self-deactivate 422 from the backend only fires on a misuse path.
+ *
+ * F-Wave9-STAFF-INVITE-PATCH-01.
+ */
+export async function patchOrgMember(
+  userId: string,
+  body: PatchOrgMemberRequest,
+): Promise<OrgMemberRow> {
+  const data = await apiRequest<unknown>(
+    `/auth-api/members/${encodeURIComponent(userId)}`,
+    {
+      method: 'PATCH',
+      body,
+    },
+  );
+  return OrgMemberRowSchema.parse(data);
+}
+
+/**
+ * POST /auth-api/members/:user_id/resend. Re-issue a fresh magic link to a
+ * teammate who never claimed the original. The backend refuses already-
+ * claimed accounts with 422 MEMBER_ALREADY_CLAIMED so the SPA only renders
+ * the Resend button on rows where claimed=false.
+ *
+ * F-Wave9-STAFF-INVITE-RESEND-01.
+ */
+export async function resendOrgMemberInvite(
+  userId: string,
+): Promise<ResendOrgMemberInviteResponse> {
+  const data = await apiRequest<unknown>(
+    `/auth-api/members/${encodeURIComponent(userId)}/resend`,
+    {
+      method: 'POST',
+      body: {},
+    },
+  );
+  return ResendOrgMemberInviteResponseSchema.parse(data);
 }
