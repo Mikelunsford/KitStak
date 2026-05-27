@@ -62,16 +62,35 @@ export interface StateStepperProps {
    * exactOptionalPropertyTypes flag.
    */
   offPath?: StateStepperOffPath | undefined;
+  /**
+   * Optional. When supplied, a step before the current index is rendered as
+   * `past` (filled accent dot, ink connector) only if its state value also
+   * appears in `visitedStates`. Steps before current that are NOT in
+   * `visitedStates` are rendered as `skipped`: the canonical path keeps the
+   * step visible but the dot, connector, and label stay muted so the
+   * operator does not infer a transition that never happened.
+   *
+   * Closes F-Wave9-COWORK-SMOKE-07: the invoice FSM allows
+   * `draft -> sent` directly (skipping `pending`). Without this prop, the
+   * stepper coloured PENDING as past even though audit_log only recorded
+   * `draft -> sent`.
+   *
+   * When this prop is omitted, the stepper falls back to its prior linear-
+   * traversal behaviour for backward compatibility with consumers that
+   * have not yet wired the audit_log read.
+   */
+  visitedStates?: readonly string[] | undefined;
 }
 
 export function StateStepper(props: StateStepperProps) {
-  const { steps, current, offPath } = props;
+  const { steps, current, offPath, visitedStates } = props;
 
   // Resolve the current index. If the current state is not on the happy path,
   // the index is -1 and we render the whole path as muted plus the off-path
   // badge (if supplied).
   const currentIndex = steps.findIndex((s) => s.state === current);
   const isOffPath = currentIndex === -1;
+  const visitedSet = visitedStates ? new Set(visitedStates) : null;
 
   return (
     <div
@@ -84,12 +103,30 @@ export function StateStepper(props: StateStepperProps) {
         data-testid="state-stepper-list"
       >
         {steps.map((step, index) => {
-          const isPast = !isOffPath && index < currentIndex;
+          const isBeforeCurrent = !isOffPath && index < currentIndex;
           const isCurrent = !isOffPath && index === currentIndex;
           const isLast = index === steps.length - 1;
+          // F-Wave9-COWORK-SMOKE-07: when visitedStates is supplied, a step
+          // before the current index only counts as "past" if it was actually
+          // recorded in audit_log. Steps before current but absent from
+          // visitedStates are "skipped" (the FSM transitioned around them,
+          // e.g. invoice draft -> sent skipping pending). Skipped steps stay
+          // visible on the canonical path but render muted so the operator
+          // does not infer a transition the audit_log never recorded.
+          let isPast = false;
+          let isSkipped = false;
+          if (isBeforeCurrent) {
+            if (visitedSet === null || visitedSet.has(step.state)) {
+              isPast = true;
+            } else {
+              isSkipped = true;
+            }
+          }
 
           // Dot styling per phase. Past uses filled accent; current uses an
-          // outlined accent ring with a small inner; future uses ink-dim.
+          // outlined accent ring with a small inner; future and skipped both
+          // use ink-faint so a not-actually-visited step before current does
+          // not read as completed.
           let dotClass: string;
           if (isPast) {
             dotClass = 'bg-accent border-2 border-accent';
@@ -100,14 +137,15 @@ export function StateStepper(props: StateStepperProps) {
           }
 
           // Connector line between this step and the next. Past steps get an
-          // ink-strength line; current and future use ink-dim. Hidden after
-          // the last step (no segment beyond the terminal node).
+          // ink-strength line; current, future, and skipped use ink-dim.
+          // Hidden after the last step (no segment beyond the terminal node).
           const connectorClass = isPast
             ? 'bg-ink'
             : 'bg-ink-faint';
 
           // Label posture: current step uses the brand ink + accent emphasis;
-          // past steps use a slightly subdued ink; future steps stay ink-dim.
+          // past steps use a slightly subdued ink; future and skipped stay
+          // ink-dim with reduced opacity.
           let labelClass: string;
           if (isCurrent) {
             labelClass = 'text-ink font-medium';
@@ -117,13 +155,19 @@ export function StateStepper(props: StateStepperProps) {
             labelClass = 'text-ink-dim opacity-70';
           }
 
+          let phase: 'past' | 'current' | 'future' | 'skipped';
+          if (isCurrent) phase = 'current';
+          else if (isPast) phase = 'past';
+          else if (isSkipped) phase = 'skipped';
+          else phase = 'future';
+
           return (
             <li
               key={step.state}
               className="flex items-center gap-2"
               data-testid="state-stepper-step"
               data-state={step.state}
-              data-phase={isPast ? 'past' : isCurrent ? 'current' : 'future'}
+              data-phase={phase}
               aria-current={isCurrent ? 'step' : undefined}
             >
               <div className="flex items-center gap-2">

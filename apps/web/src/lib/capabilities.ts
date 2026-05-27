@@ -23,7 +23,7 @@ export type RoleCode =
   | 'vendor_user';
 
 export type Capability =
-  // org.* (17)
+  // org.* (18)
   | 'org.organization.read'
   | 'org.organization.update'
   | 'org.organization.suspend'
@@ -498,7 +498,6 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'org.feature_flag.read',
   'org.audit_log.read',
   'org.billing.read',
-  'org.billing.manage',
   // crm.* (full)
   'crm.customers.read',
   'crm.customers.write',

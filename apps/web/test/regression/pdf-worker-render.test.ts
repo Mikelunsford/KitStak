@@ -90,6 +90,7 @@ describe('pdf-worker — POST /pdf/render (F-Wave2-CO-01)', () => {
       headers: {
         authorization: bearer(OWNER),
         'content-type': 'application/json',
+        'idempotency-key': crypto.randomUUID(),
       },
       body: JSON.stringify({
         template: 'invoice',
@@ -116,6 +117,7 @@ describe('pdf-worker — POST /pdf/render (F-Wave2-CO-01)', () => {
       headers: {
         authorization: bearer(OWNER),
         'content-type': 'application/json',
+        'idempotency-key': crypto.randomUUID(),
       },
       body: JSON.stringify({
         template: 'invoice',
@@ -149,6 +151,7 @@ describe('pdf-worker — POST /pdf/render (F-Wave2-CO-01)', () => {
       headers: {
         authorization: bearer(OWNER),
         'content-type': 'application/json',
+        'idempotency-key': crypto.randomUUID(),
       },
       body: JSON.stringify({
         template: 'invoice',

@@ -19,7 +19,7 @@ import { getFlag } from '../_shared/feature-flags.ts';
 import { readCallerContext } from '../_shared/tenant.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireMfaVerified } from '../_shared/mfa.ts';
-import { requireCap } from '../_shared/handler-helpers.ts';
+import { requireCap, respondWithIdempotency } from '../_shared/handler-helpers.ts';
 import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
 import type { Caller } from '../_shared/tenant.ts';
 
@@ -57,13 +57,27 @@ async function impersonateOrg(ctx: RouteCtx): Promise<Response> {
   const caller = await assertBundleEnabled(ctx.req);
   requireCap(caller, 'admin.orgs.impersonate');
   await requireMfaVerified(caller, ctx.req);
-  // Wave 2 stub: schema lands later. Echoing back NOT_IMPLEMENTED is the
-  // honest signal; the SPA never reaches here unless an operator manually
-  // crafts the request.
-  throw new ApiError(
-    'NOT_IMPLEMENTED',
-    501,
-    'Platform-admin impersonation is not yet wired.',
+  // D-IDEMP-02: wrap the stub now so the constitutional invariant (every
+  // non-GET handler enforces Idempotency-Key) holds even before the real
+  // impersonation wiring lands. When that wave ships, the wrapper is
+  // already in place and no one has to remember to add it. Body is `null`
+  // because POST /orgs/impersonate carries no body today.
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/orgs/impersonate',
+    null,
+    async () => {
+      // Wave 2 stub: schema lands later. Echoing back NOT_IMPLEMENTED is the
+      // honest signal; the SPA never reaches here unless an operator manually
+      // crafts the request.
+      throw new ApiError(
+        'NOT_IMPLEMENTED',
+        501,
+        'Platform-admin impersonation is not yet wired.',
+      );
+    },
   );
 }
 

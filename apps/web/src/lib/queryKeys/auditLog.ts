@@ -12,4 +12,12 @@ export const auditLogKeys = {
   all: ['audit_log'] as const,
   byEntity: (entityType: string, entityId: string) =>
     ['audit_log', entityType, entityId] as const,
+  /**
+   * Visited-states projection used by `<StateStepper>` consumers
+   * (F-Wave9-COWORK-SMOKE-07). Distinct cache key so the timeline
+   * query and the visited-states query don't collide despite both
+   * reading from `audit_log` for the same entity.
+   */
+  visitedStates: (entityType: string, entityId: string) =>
+    ['audit_log', entityType, entityId, 'visited_states'] as const,
 };
