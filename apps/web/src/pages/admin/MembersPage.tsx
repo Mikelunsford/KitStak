@@ -42,6 +42,7 @@ import {
   useUpdateOrgMember,
 } from '@/lib/hooks/useOrgMembers';
 import type { OrgMemberRow, StaffRoleCode } from '@/lib/types/identity';
+import { memberDisplayLabel } from './memberDisplayLabel';
 import {
   INVITE_ROLE_OPTIONS,
   DEFAULT_INVITE_ROLE,
@@ -170,7 +171,10 @@ function MembersTable({ rows, callerUserId, callerRole }: MembersTableProps) {
         <tbody>
           {rows.map((row) => {
             const isSelf = row.user_id === callerUserId;
-            const nameLabel = row.display_name ?? row.email;
+            // F-Wave9-COWORK-SMOKE-08: render the member's own name (or a
+            // safe fallback chain), never the org name. See migration 0072
+            // and memberDisplayLabel.ts for the backend + helper rationale.
+            const nameLabel = memberDisplayLabel(row);
             return (
               <tr
                 key={row.user_id}
@@ -273,7 +277,7 @@ function MemberRowActions({ row, callerRole }: MemberRowActionsProps) {
 
   function handleDeactivate() {
     const confirmed = window.confirm(
-      `Deactivate ${row.display_name ?? row.email}? They will lose access immediately. You can reactivate them later.`,
+      `Deactivate ${memberDisplayLabel(row)}? They will lose access immediately. You can reactivate them later.`,
     );
     if (!confirmed) return;
     update.mutate({ is_active: false });
