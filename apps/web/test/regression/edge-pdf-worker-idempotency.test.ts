@@ -34,6 +34,12 @@ import {
 import { respondWithIdempotency } from '../../../../supabase/functions/_shared/idempotency.ts';
 import { ok } from '../../../../supabase/functions/_shared/responses.ts';
 
+// SupabaseLike client shape the wrapper actually consumes. We cast the
+// in-memory mock through this alias to satisfy ESLint's no-explicit-any
+// without dragging the full SupabaseClient type surface into a regression
+// test.
+type IdempotencyClient = Parameters<typeof respondWithIdempotency>[0]['client'];
+
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
 const USER_A = '00000000-0000-4000-8000-0000000000b1';
 const OWNER = { userId: USER_A, orgId: ORG_A, role: 'org_owner' as const };
@@ -185,8 +191,7 @@ describe('pdf-worker — POST /pdf/render idempotency (D-IDEMP-01)', () => {
         bundle: 'pdf-worker',
         route: '/pdf/render',
         body,
-        // deno-lint-ignore no-explicit-any
-        client: makeIdempotencyClient(rows) as any,
+        client: makeIdempotencyClient(rows) as unknown as IdempotencyClient,
       },
       fakeHandler,
     );
@@ -201,8 +206,7 @@ describe('pdf-worker — POST /pdf/render idempotency (D-IDEMP-01)', () => {
         bundle: 'pdf-worker',
         route: '/pdf/render',
         body,
-        // deno-lint-ignore no-explicit-any
-        client: makeIdempotencyClient(rows) as any,
+        client: makeIdempotencyClient(rows) as unknown as IdempotencyClient,
       },
       fakeHandler,
     );
@@ -239,8 +243,7 @@ describe('pdf-worker — POST /pdf/render idempotency (D-IDEMP-01)', () => {
         bundle: 'pdf-worker',
         route: '/pdf/render',
         body: bodyOne,
-        // deno-lint-ignore no-explicit-any
-        client: makeIdempotencyClient(rows) as any,
+        client: makeIdempotencyClient(rows) as unknown as IdempotencyClient,
       },
       fakeHandler,
     );
@@ -260,8 +263,7 @@ describe('pdf-worker — POST /pdf/render idempotency (D-IDEMP-01)', () => {
           bundle: 'pdf-worker',
           route: '/pdf/render',
           body: bodyTwo,
-          // deno-lint-ignore no-explicit-any
-          client: makeIdempotencyClient(rows) as any,
+          client: makeIdempotencyClient(rows) as unknown as IdempotencyClient,
         },
         fakeHandler,
       );
