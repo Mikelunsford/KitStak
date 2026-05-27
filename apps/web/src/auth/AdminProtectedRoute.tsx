@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { AppShell } from '@/components/shell/AppShell';
+import { NoActiveOrgPage } from '@/pages/NoActiveOrgPage';
 import { useMe } from '@/lib/hooks/useMe';
+import { hasActiveOrgClaim } from './activeOrgClaim';
 import { useAuth } from './AuthContext';
 
 /**
@@ -32,6 +34,14 @@ export function AdminProtectedRoute({ children }: { children: ReactNode }) {
     return (
       <Navigate to="/signin" replace state={{ from: location.pathname }} />
     );
+  }
+
+  // F-Wave9-COWORK-SMOKE-03: mirror the ProtectedRoute claim gate. An
+  // authenticated session without `kitstak_org_id` cannot resolve a
+  // role, so the admin check below would loop on me.isLoading or fall
+  // through to /dashboard which would itself bounce back here.
+  if (!hasActiveOrgClaim(state.user)) {
+    return <NoActiveOrgPage />;
   }
 
   if (me.isLoading) {

@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { AppShell } from '@/components/shell/AppShell';
+import { NoActiveOrgPage } from '@/pages/NoActiveOrgPage';
+import { hasActiveOrgClaim } from './activeOrgClaim';
 import { useAuth } from './AuthContext';
 
 /**
@@ -9,9 +11,14 @@ import { useAuth } from './AuthContext';
  * redirected to /signin with the originating pathname preserved in
  * location.state so the SignInPage can route them back after login.
  *
- * Wave 1 wraps children in <AppShell>. Wave 2 will add wrong-org and
- * wrong-role redirects driven by useMe(); for now any authenticated caller
- * lands inside the shell.
+ * F-Wave9-COWORK-SMOKE-03: authenticated callers whose JWT lacks the
+ * `kitstak_org_id` claim render the NoActiveOrgPage surface instead of
+ * falling through to the requested element. The Edge dispatcher in
+ * supabase/functions/_shared/tenant.ts already throws
+ * `401 NO_ACTIVE_ORG` for the same condition; this is the SPA-side
+ * mirror so a fresh user never sees a silently empty dashboard. The
+ * claim check is synchronous and reads `session.user.app_metadata`, so
+ * no API round-trip fires before the hard error renders.
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { state } = useAuth();
@@ -29,6 +36,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     return (
       <Navigate to="/signin" replace state={{ from: location.pathname }} />
     );
+  }
+
+  // F-Wave9-COWORK-SMOKE-03: hard-fail when the active-org claim is
+  // missing instead of rendering the requested surface with empty data.
+  if (!hasActiveOrgClaim(state.user)) {
+    return <NoActiveOrgPage />;
   }
 
   return <AppShell>{children}</AppShell>;
