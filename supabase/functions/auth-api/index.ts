@@ -34,6 +34,7 @@ import {
   admin,
   respondWithIdempotency,
   parseBody,
+  parseUuidParam,
   requireCap,
 } from '../_shared/handler-helpers.ts';
 import {
@@ -44,7 +45,10 @@ import { ok, created, ApiError } from '../_shared/responses.ts';
 import {
   InviteStaffRequestSchema,
   MeResponseSchema,
+  OrgMemberRowSchema,
   OrgMembersListResponseSchema,
+  PatchOrgMemberRequestSchema,
+  ResendOrgMemberInviteResponseSchema,
   SwitchOrgRequestSchema,
   type MembershipSummary,
   type OrgMemberRow,
@@ -547,7 +551,36 @@ async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
     profilesById.set(p.user_id, p);
   }
 
-  // Step 3: project the wire shape. Skip rows missing a role or a profile-
+  // Step 3: resolve auth.users.email_confirmed_at per member so the SPA can
+  // gate the per-row Resend button. The Resend button only fires for rows
+  // that have not yet claimed (no completed sign-in). admin.getUserById is
+  // the documented per-user accessor; supabase-js does not expose a batched
+  // get-many-by-ids surface, so we issue one call per member. Org member
+  // counts are bounded (<50 for the first operator year) so the round-trip
+  // cost is acceptable. A getUserById failure is treated as "claimed"
+  // (defaults to hiding the Resend button) so a transient auth error never
+  // produces a stuck "send the invite again" affordance.
+  // F-Wave9-STAFF-INVITE-RESEND-01.
+  const claimedById = new Map<string, boolean>();
+  for (const userId of userIds) {
+    const { data: authData, error: authErr } =
+      await sb.auth.admin.getUserById(userId);
+    if (authErr) {
+      console.warn('auth-api: getUserById failed during members list', {
+        org_id: caller.orgId,
+        user_id: userId,
+        message: authErr.message,
+      });
+      claimedById.set(userId, true);
+      continue;
+    }
+    const confirmed =
+      (authData?.user as { email_confirmed_at?: string | null } | undefined)
+        ?.email_confirmed_at ?? null;
+    claimedById.set(userId, confirmed !== null);
+  }
+
+  // Step 4: project the wire shape. Skip rows missing a role or a profile-
   // resolvable email so the response always parses cleanly through the
   // OrgMemberRowSchema (email is z.string().email()). A missing profile is
   // logged because it indicates a backfill gap rather than expected state.
@@ -572,6 +605,7 @@ async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
       role_display_name: role.label,
       created_at: raw.created_at,
       is_active: raw.is_active,
+      claimed: claimedById.get(raw.user_id) ?? true,
     });
   }
 
@@ -896,17 +930,450 @@ async function postRequestPasswordReset(ctx: RouteCtx): Promise<Response> {
   return ok(PASSWORD_RESET_RESPONSE);
 }
 
+// ---------------------------------------------------------------------------
+// PATCH /members/:user_id
+//
+// Per-row role change + deactivate / reactivate on the team-members list.
+// Closes F-Wave9-STAFF-INVITE-PATCH-01 backend.
+//
+// Flow:
+//   1. requireCap('org.member.update') gates the route. Granted to org_owner
+//      and org_admin only.
+//   2. Zod parse the body. At least one of role or is_active must be present
+//      (refine on the schema). Empty body returns 422.
+//   3. Resolve the target membership row scoped to caller.orgId. Cross-tenant
+//      and unknown user_id both surface as 404 per the constitutional
+//      Pattern A workflow-POST rule (we hide non-membership existence).
+//   4. Self-deactivate guard: if caller is patching their own row to
+//      is_active=false, return 422 CANNOT_DEACTIVATE_SELF. An operator who
+//      wants to leave their own org must use a different surface (out of
+//      scope for v1).
+//   5. Privilege-escalation guard: if caller's role is org_admin AND the
+//      requested role is org_owner, return 403 FORBIDDEN_ROLE_ESCALATION.
+//      Only an existing org_owner can mint another org_owner. Mirrors the
+//      guard in postInviteStaffMember.
+//   6. Resolve the requested role's id (when role is part of the body) so
+//      we can update the foreign key. Unknown role_code -> 500 (the Zod
+//      schema already restricted the surface to staff codes, so an unknown
+//      code here means roles seed drift, not a client bug).
+//   7. UPDATE org_memberships and return the projected row in the same shape
+//      listOrgMembers emits. The audit trigger extended in migration 0068
+//      fires AFTER UPDATE inside the same transaction and emits an
+//      action='updated' audit row with from_state/to_state set to the
+//      is_active transition (or both equal when only role changed).
+//
+// Idempotency: respondWithIdempotency wraps the side-effecting block so a
+// re-clicked button (same key + same body) replays without firing another
+// UPDATE.
+// ---------------------------------------------------------------------------
+
+async function patchOrgMember(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'org.member.update');
+  parseUuidParam(ctx.params.user_id, 'user_id');
+  const targetUserId = ctx.params.user_id;
+  const body = await parseBody(ctx.req, PatchOrgMemberRequestSchema);
+
+  // Self-deactivate guard. The caller can change their own role (e.g. an
+  // org_owner stepping themselves down to org_admin) but cannot mark their
+  // own row inactive; doing so would lock them out of the org. Surfaced
+  // as 422 with a domain-specific code so the SPA can render a precise
+  // toast rather than a generic FORBIDDEN.
+  if (body.is_active === false && targetUserId === caller.userId) {
+    throw new ApiError(
+      'CANNOT_DEACTIVATE_SELF',
+      422,
+      'You cannot deactivate your own membership.',
+    );
+  }
+
+  // Privilege-escalation guard. An org_admin cannot promote a peer to
+  // org_owner; only an existing org_owner can mint another owner. Same
+  // posture as postInviteStaffMember above.
+  if (body.role === 'org_owner' && caller.role !== 'org_owner') {
+    throw new ApiError(
+      'FORBIDDEN_ROLE_ESCALATION',
+      403,
+      'Only an org owner can promote another member to org owner.',
+    );
+  }
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/members/:user_id',
+    body,
+    async () => {
+      const sb = admin();
+
+      // Resolve the target membership scoped to caller.orgId. Missing row
+      // (cross-tenant or unknown user_id) surfaces as 404 per Pattern A so
+      // we never leak whether a user_id exists in another org.
+      const targetQ = await sb
+        .from('org_memberships')
+        .select('id, user_id, org_id, role_id, is_active')
+        .eq('user_id', targetUserId)
+        .eq('org_id', caller.orgId)
+        .maybeSingle();
+      if (targetQ.error) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `membership lookup failed: ${targetQ.error.message}`,
+        );
+      }
+      if (!targetQ.data) {
+        throw new ApiError('NOT_FOUND', 404, 'Member not found.');
+      }
+
+      // Resolve role_id when role was supplied. The Zod schema already
+      // restricted the value to a staff code; an unresolved id here means
+      // the roles seed has drifted and is a 500 condition.
+      const patch: Record<string, unknown> = {
+        updated_by: caller.userId,
+        updated_at: new Date().toISOString(),
+      };
+      if (body.role !== undefined) {
+        const roleQ = await sb
+          .from('roles')
+          .select('id, code')
+          .eq('code', body.role)
+          .maybeSingle();
+        if (roleQ.error) {
+          throw new ApiError(
+            'INTERNAL_ERROR',
+            500,
+            `role lookup failed: ${roleQ.error.message}`,
+          );
+        }
+        const roleRow = roleQ.data as { id: string; code: string } | null;
+        if (!roleRow) {
+          throw new ApiError(
+            'INTERNAL_ERROR',
+            500,
+            `role ${body.role} missing from roles table`,
+          );
+        }
+        patch.role_id = roleRow.id;
+      }
+      if (body.is_active !== undefined) {
+        patch.is_active = body.is_active;
+      }
+
+      const updateQ = await sb
+        .from('org_memberships')
+        .update(patch)
+        .eq('user_id', targetUserId)
+        .eq('org_id', caller.orgId);
+      if (updateQ.error) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `membership update failed: ${updateQ.error.message}`,
+        );
+      }
+
+      // Re-read so the response carries the same shape listOrgMembers emits.
+      // Joins roles for code + label; pulls email + display_name from
+      // profiles; resolves email_confirmed_at via auth.admin.getUserById so
+      // the SPA Resend button gate stays consistent across list and patch
+      // responses.
+      const reReadQ = await sb
+        .from('org_memberships')
+        .select(
+          `
+          user_id,
+          org_id,
+          is_active,
+          created_at,
+          role:roles!inner(code, label)
+        `,
+        )
+        .eq('user_id', targetUserId)
+        .eq('org_id', caller.orgId)
+        .maybeSingle();
+      if (reReadQ.error || !reReadQ.data) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `post-update re-read failed: ${reReadQ.error?.message ?? 'no row'}`,
+        );
+      }
+      type ReRead = {
+        user_id: string;
+        org_id: string;
+        is_active: boolean;
+        created_at: string;
+        role:
+          | { code: string; label: string }
+          | { code: string; label: string }[]
+          | null;
+      };
+      const row = reReadQ.data as ReRead;
+      const role = Array.isArray(row.role) ? row.role[0] : row.role;
+      if (!role) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          'role missing from post-update re-read',
+        );
+      }
+
+      const profileQ = await sb
+        .from('profiles')
+        .select('email, display_name')
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+      if (profileQ.error || !profileQ.data) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `profile lookup failed: ${profileQ.error?.message ?? 'no row'}`,
+        );
+      }
+      const profile = profileQ.data as {
+        email: string | null;
+        display_name: string | null;
+      };
+      if (!profile.email) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          'profile email missing for updated member',
+        );
+      }
+
+      let claimed = true;
+      const { data: authData, error: authErr } =
+        await sb.auth.admin.getUserById(targetUserId);
+      if (authErr) {
+        console.warn('auth-api: getUserById failed during patch re-read', {
+          org_id: caller.orgId,
+          user_id: targetUserId,
+          message: authErr.message,
+        });
+      } else {
+        const confirmed =
+          (authData?.user as { email_confirmed_at?: string | null } | undefined)
+            ?.email_confirmed_at ?? null;
+        claimed = confirmed !== null;
+      }
+
+      const out: OrgMemberRow = {
+        user_id: row.user_id,
+        org_id: row.org_id,
+        email: profile.email,
+        display_name: profile.display_name,
+        role_code: role.code as OrgMemberRow['role_code'],
+        role_display_name: role.label,
+        created_at: row.created_at,
+        is_active: row.is_active,
+        claimed,
+      };
+      return ok(OrgMemberRowSchema.parse(out));
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// POST /members/:user_id/resend
+//
+// Re-issues a fresh magic link to an invited teammate who never claimed the
+// original. Closes F-Wave9-STAFF-INVITE-RESEND-01 backend.
+//
+// Flow:
+//   1. requireCap('org.member.resend') gates the route. Granted to org_owner
+//      and org_admin only.
+//   2. Resolve the target membership scoped to caller.orgId. Cross-tenant or
+//      unknown user_id -> 404 (Pattern A).
+//   3. Resolve target email via auth.admin.getUserById. If the auth row is
+//      missing -> 500 (it should always exist when the membership row does).
+//   4. If email_confirmed_at is set, return 422 MEMBER_ALREADY_CLAIMED.
+//      Re-issuing a magic link to a fully signed-in account does nothing
+//      useful and risks misleading the operator into thinking a stuck
+//      teammate just needs another email.
+//   5. supabase.auth.admin.generateLink({ type: 'magiclink' }) produces a
+//      fresh single-use sign-in URL. Mirrors the customer portal invite
+//      pattern from crm-api inviteCustomerToPortal (PR #91) and the initial
+//      staff invite (postInviteStaffMember above).
+//   6. Queue a branded resend email through the notifications chassis. The
+//      5-minute drain cron ships it via Resend. Notification queue failure
+//      is LOGGED but does not unwind the resend (mirrors the invite
+//      handler's posture); the operator can re-click Resend to retry.
+//   7. Response: { status: 'sent', resent_at: <iso8601> }. The action_link
+//      is intentionally NOT echoed to the caller; it goes to the invitee's
+//      inbox only.
+//
+// Idempotency: respondWithIdempotency wraps the side-effecting block so a
+// re-clicked button (same key) replays without re-generating the link or
+// re-queueing the email.
+// ---------------------------------------------------------------------------
+
+async function resendOrgMemberInvite(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'org.member.resend');
+  parseUuidParam(ctx.params.user_id, 'user_id');
+  const targetUserId = ctx.params.user_id;
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/members/:user_id/resend',
+    null,
+    async () => {
+      const sb = admin();
+
+      // Resolve the target membership scoped to caller.orgId. Pattern A.
+      const targetQ = await sb
+        .from('org_memberships')
+        .select('id, user_id, org_id, role:roles!inner(code)')
+        .eq('user_id', targetUserId)
+        .eq('org_id', caller.orgId)
+        .maybeSingle();
+      if (targetQ.error) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `membership lookup failed: ${targetQ.error.message}`,
+        );
+      }
+      if (!targetQ.data) {
+        throw new ApiError('NOT_FOUND', 404, 'Member not found.');
+      }
+      type TargetRow = {
+        id: string;
+        user_id: string;
+        org_id: string;
+        role: { code: string } | { code: string }[] | null;
+      };
+      const target = targetQ.data as TargetRow;
+      const roleObj = Array.isArray(target.role) ? target.role[0] : target.role;
+      const targetRoleCode = roleObj?.code ?? 'viewer';
+
+      // Resolve the invitee's auth.users row. We need email + the
+      // email_confirmed_at signal so we can refuse a resend to an already-
+      // claimed account.
+      const { data: authData, error: authErr } =
+        await sb.auth.admin.getUserById(targetUserId);
+      if (authErr || !authData?.user) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `auth user lookup failed: ${authErr?.message ?? 'no user'}`,
+        );
+      }
+      const authUser = authData.user as {
+        id: string;
+        email: string;
+        email_confirmed_at?: string | null;
+      };
+      if (!authUser.email) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          'auth user has no email; cannot resend invite',
+        );
+      }
+      if (authUser.email_confirmed_at) {
+        throw new ApiError(
+          'MEMBER_ALREADY_CLAIMED',
+          422,
+          'This member has already claimed their invite and signed in.',
+        );
+      }
+
+      // Generate a fresh magic link. Same redirect as the initial invite
+      // so the recipient lands on the dashboard after sign-in.
+      const linkResult = await sb.auth.admin.generateLink({
+        type: 'magiclink',
+        email: authUser.email,
+        options: { redirectTo: STAFF_INVITE_REDIRECT_URL },
+      });
+      if (linkResult.error || !linkResult.data?.properties?.action_link) {
+        throw new ApiError(
+          'AUTH_ERROR',
+          422,
+          'Could not generate invite link.',
+          { detail: linkResult.error?.message },
+        );
+      }
+      const actionLink = linkResult.data.properties.action_link;
+
+      // Resolve the org display name for the resend email subject + body.
+      // Fall back to 'Kitstak' if the lookup fails so a transient error
+      // does not block the resend.
+      let orgDisplayName = 'Kitstak';
+      const { data: orgRow, error: orgLookupErr } = await sb
+        .from('organizations')
+        .select('display_name')
+        .eq('id', caller.orgId)
+        .maybeSingle();
+      if (orgLookupErr) {
+        console.error('auth-api: failed to resolve org display_name for resend', {
+          org_id: caller.orgId,
+          message: orgLookupErr.message,
+        });
+      } else if (orgRow && typeof orgRow.display_name === 'string') {
+        orgDisplayName = orgRow.display_name;
+      }
+
+      // Queue the branded resend email through the notifications chassis.
+      // Copy is intentionally close to the original invite so the recipient
+      // recognises it as a reminder rather than a separate workflow.
+      const subject = `Reminder: your invitation to join ${orgDisplayName}`;
+      const emailBody =
+        `You were invited to join ${orgDisplayName} on Kitstak ` +
+        'and have not signed in yet.\n\n' +
+        'Click the link below to accept the invitation and sign in.\n\n' +
+        `${actionLink}\n\n` +
+        'This link expires in 24 hours.';
+      const { error: notifErr } = await sb.from('notifications').insert({
+        org_id: caller.orgId,
+        recipient_user_id: targetUserId,
+        channel: 'email',
+        subject,
+        body: emailBody,
+        payload: {
+          to: authUser.email,
+          type: 'staff_invite_resend',
+          role: targetRoleCode,
+        },
+        created_by: caller.userId,
+        updated_by: caller.userId,
+      });
+      if (notifErr) {
+        console.error('auth-api: failed to queue staff-invite resend email', {
+          org_id: caller.orgId,
+          message: notifErr.message,
+        });
+      }
+
+      const resentAt = new Date().toISOString();
+      return ok(
+        ResendOrgMemberInviteResponseSchema.parse({
+          status: 'sent' as const,
+          resent_at: resentAt,
+        }),
+      );
+    },
+  );
+}
+
 Deno.serve((req: Request) =>
   route(
     req,
     [
-      { method: 'GET',  path: '/me',                          handler: getMe },
-      { method: 'GET',  path: '/me/capabilities',             handler: (ctx) => Promise.resolve(getMyCapabilities(ctx)) },
-      { method: 'POST', path: '/sessions/switch-org',         handler: postSwitchOrg },
-      { method: 'GET',  path: '/members',                     handler: listOrgMembers },
-      { method: 'POST', path: '/members/invite',              handler: postInviteStaffMember },
-      { method: 'POST', path: '/portal/request-signin-link',  handler: postRequestSignInLink },
-      { method: 'POST', path: '/auth/request-password-reset', handler: postRequestPasswordReset },
+      { method: 'GET',   path: '/me',                              handler: getMe },
+      { method: 'GET',   path: '/me/capabilities',                 handler: (ctx) => Promise.resolve(getMyCapabilities(ctx)) },
+      { method: 'POST',  path: '/sessions/switch-org',             handler: postSwitchOrg },
+      { method: 'GET',   path: '/members',                         handler: listOrgMembers },
+      { method: 'POST',  path: '/members/invite',                  handler: postInviteStaffMember },
+      { method: 'PATCH', path: '/members/:user_id',                handler: patchOrgMember },
+      { method: 'POST',  path: '/members/:user_id/resend',         handler: resendOrgMemberInvite },
+      { method: 'POST',  path: '/portal/request-signin-link',      handler: postRequestSignInLink },
+      { method: 'POST',  path: '/auth/request-password-reset',     handler: postRequestPasswordReset },
     ],
     { bundle: BUNDLE },
   ),

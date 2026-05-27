@@ -32,6 +32,7 @@ export type Capability =
   | 'org.member.list'
   | 'org.member.invite'
   | 'org.member.update'
+  | 'org.member.resend'
   | 'org.member.remove'
   | 'org.branding.read'
   | 'org.branding.update'
@@ -268,6 +269,7 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'org.member.list',
   'org.member.invite',
   'org.member.update',
+  'org.member.resend',
   'org.member.remove',
   'org.branding.read',
   'org.branding.update',
@@ -483,6 +485,7 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'org.member.list',
   'org.member.invite',
   'org.member.update',
+  'org.member.resend',
   'org.member.remove',
   'org.branding.read',
   'org.branding.update',

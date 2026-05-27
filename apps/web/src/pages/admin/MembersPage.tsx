@@ -28,7 +28,7 @@
 // route layer (admin guard); no separate requireCap call here.
 
 import { useState } from 'react';
-import { Users, UserPlus, Mail } from 'lucide-react';
+import { Users, UserPlus, Mail, Send } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -36,7 +36,11 @@ import { RelativeTime } from '@/components/ui/RelativeTime';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useMe } from '@/lib/hooks/useMe';
 import { useInviteStaffMember } from '@/lib/hooks/useMembers';
-import { useOrgMembers } from '@/lib/hooks/useOrgMembers';
+import {
+  useOrgMembers,
+  useResendOrgMemberInvite,
+  useUpdateOrgMember,
+} from '@/lib/hooks/useOrgMembers';
 import type { OrgMemberRow, StaffRoleCode } from '@/lib/types/identity';
 import {
   INVITE_ROLE_OPTIONS,
@@ -115,7 +119,11 @@ function TeamMembersSection() {
           canAdd={false}
         />
       ) : (
-        <MembersTable rows={members.data} callerUserId={me.data?.user_id} />
+        <MembersTable
+          rows={members.data}
+          callerUserId={me.data?.user_id}
+          callerRole={me.data?.active_role ?? null}
+        />
       )}
     </section>
   );
@@ -123,15 +131,17 @@ function TeamMembersSection() {
 
 // ---------------------------------------------------------------------------
 // MembersTable. Brand-aligned card surface with one row per active member.
-// Caller's own row is marked "(you)" in the Name column.
+// Caller's own row is marked "(you)" in the Name column and is the only row
+// without an action menu (a caller cannot deactivate or re-invite themselves).
 // ---------------------------------------------------------------------------
 
 interface MembersTableProps {
   rows: OrgMemberRow[];
   callerUserId: string | undefined;
+  callerRole: string | null;
 }
 
-function MembersTable({ rows, callerUserId }: MembersTableProps) {
+function MembersTable({ rows, callerUserId, callerRole }: MembersTableProps) {
   return (
     <div
       className="border border-line bg-bg-2 overflow-x-auto"
@@ -152,6 +162,9 @@ function MembersTable({ rows, callerUserId }: MembersTableProps) {
             <th className="px-5 py-3 font-mono text-xs uppercase tracking-wide">
               Joined
             </th>
+            <th className="px-5 py-3 font-mono text-xs uppercase tracking-wide">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -161,7 +174,10 @@ function MembersTable({ rows, callerUserId }: MembersTableProps) {
             return (
               <tr
                 key={row.user_id}
-                className="border-b border-line last:border-b-0"
+                className={
+                  'border-b border-line last:border-b-0' +
+                  (row.is_active ? '' : ' opacity-60')
+                }
                 data-testid="org-members-row"
                 data-user-id={row.user_id}
               >
@@ -173,6 +189,14 @@ function MembersTable({ rows, callerUserId }: MembersTableProps) {
                       data-testid="org-members-row-self-marker"
                     >
                       (you)
+                    </span>
+                  ) : null}
+                  {!row.is_active ? (
+                    <span
+                      className="ml-2 font-mono text-xs uppercase text-ink-faint"
+                      data-testid="org-members-row-inactive-marker"
+                    >
+                      (deactivated)
                     </span>
                   ) : null}
                 </td>
@@ -187,11 +211,180 @@ function MembersTable({ rows, callerUserId }: MembersTableProps) {
                 <td className="px-5 py-4 align-top text-ink-dim">
                   <RelativeTime value={row.created_at} />
                 </td>
+                <td className="px-5 py-4 align-top">
+                  {isSelf ? (
+                    <span className="font-sans text-xs text-ink-faint">
+                      No actions on your own row.
+                    </span>
+                  ) : (
+                    <MemberRowActions row={row} callerRole={callerRole} />
+                  )}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MemberRowActions. Per-row controls: change role, deactivate or reactivate,
+// and resend (only on rows that have not yet claimed the magic link). Hidden
+// on the caller's own row at the table level.
+//
+// Role options come from INVITE_ROLE_OPTIONS (the five non-owner staff
+// codes). org_owner is only surfaced when the caller is themselves an
+// org_owner; an org_admin cannot mint another owner per the backend
+// FORBIDDEN_ROLE_ESCALATION guard, and hiding the option prevents a confusing
+// 403 error path.
+//
+// Inline feedback mirrors the InviteTeammateSection pattern: success and
+// error chips render under the controls with the brand palette. The
+// destructive deactivate confirms via window.confirm — chassis-light by
+// design; a full modal is deferred to follow-up if operators ask for it.
+// ---------------------------------------------------------------------------
+
+interface MemberRowActionsProps {
+  row: OrgMemberRow;
+  callerRole: string | null;
+}
+
+function MemberRowActions({ row, callerRole }: MemberRowActionsProps) {
+  const update = useUpdateOrgMember(row.user_id);
+  const resend = useResendOrgMemberInvite(row.user_id);
+  const [pendingRole, setPendingRole] = useState<StaffRoleCode>(
+    row.role_code as StaffRoleCode,
+  );
+
+  const isOwnerCaller = callerRole === 'org_owner';
+  // Owners see every staff role including the org_owner option (so they can
+  // promote another member). Admins see the five non-owner roles only.
+  const roleOptions = isOwnerCaller
+    ? [{ value: 'org_owner' as StaffRoleCode, label: 'Owner' }, ...INVITE_ROLE_OPTIONS]
+    : INVITE_ROLE_OPTIONS;
+
+  function handleRoleChange(next: StaffRoleCode) {
+    setPendingRole(next);
+    if (next === row.role_code) return;
+    update.mutate({ role: next });
+  }
+
+  function handleDeactivate() {
+    const confirmed = window.confirm(
+      `Deactivate ${row.display_name ?? row.email}? They will lose access immediately. You can reactivate them later.`,
+    );
+    if (!confirmed) return;
+    update.mutate({ is_active: false });
+  }
+
+  function handleReactivate() {
+    update.mutate({ is_active: true });
+  }
+
+  function handleResend() {
+    resend.mutate();
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-2"
+      data-testid="member-row-actions"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="sr-only">Role</span>
+          <select
+            value={pendingRole}
+            onChange={(e) => handleRoleChange(e.target.value as StaffRoleCode)}
+            disabled={update.isPending}
+            className="bg-bg-2 border border-line text-ink px-2 py-1 font-sans text-xs focus:outline-none focus:border-accent"
+            data-testid="member-row-role-select"
+          >
+            {roleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {row.is_active ? (
+          <Button
+            onClick={handleDeactivate}
+            disabled={update.isPending}
+            data-testid="member-row-deactivate-button"
+          >
+            {update.isPending ? 'Working...' : 'Deactivate'}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleReactivate}
+            disabled={update.isPending}
+            data-testid="member-row-reactivate-button"
+          >
+            {update.isPending ? 'Working...' : 'Reactivate'}
+          </Button>
+        )}
+
+        {!row.claimed ? (
+          <Button
+            onClick={handleResend}
+            disabled={resend.isPending}
+            data-testid="member-row-resend-button"
+          >
+            <Send
+              size={14}
+              strokeWidth={2}
+              className="mr-1 inline"
+              aria-hidden="true"
+            />
+            {resend.isPending ? 'Sending...' : 'Resend invite'}
+          </Button>
+        ) : null}
+      </div>
+
+      {update.isSuccess ? (
+        <p
+          role="status"
+          className="font-sans text-xs text-success"
+          data-testid="member-row-update-success"
+        >
+          Saved.
+        </p>
+      ) : null}
+      {update.isError ? (
+        <p
+          role="alert"
+          className="font-sans text-xs text-accent"
+          data-testid="member-row-update-error"
+        >
+          {update.error instanceof Error
+            ? update.error.message
+            : 'Could not save.'}
+        </p>
+      ) : null}
+      {resend.isSuccess ? (
+        <p
+          role="status"
+          className="font-sans text-xs text-success"
+          data-testid="member-row-resend-success"
+        >
+          Invite resent.
+        </p>
+      ) : null}
+      {resend.isError ? (
+        <p
+          role="alert"
+          className="font-sans text-xs text-accent"
+          data-testid="member-row-resend-error"
+        >
+          {resend.error instanceof Error
+            ? resend.error.message
+            : 'Could not resend.'}
+        </p>
+      ) : null}
     </div>
   );
 }
