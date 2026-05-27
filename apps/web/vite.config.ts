@@ -92,6 +92,11 @@ export default defineConfig({
           // lazy chunk is recognisable in dist; tree-shaken entirely
           // when VITE_SENTRY_DSN is absent at build time.
           sentry: ['@sentry/react'],
+          // Stripe wiring (item 9): sonner is dynamic-imported in
+          // main.tsx and used by BillingPage. Named so the lazy chunk
+          // does not land with an `index-*.js` filename that would
+          // collide with the size-limit glob for the SPA index chunk.
+          sonner: ['sonner'],
         },
       },
     },

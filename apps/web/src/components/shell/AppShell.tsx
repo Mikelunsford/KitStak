@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { TrialBanner } from './TrialBanner';
 
 /**
  * Authenticated app chrome. Topbar across the top, Sidebar on the left,
@@ -25,6 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen flex-col bg-bg text-ink">
+      <TrialBanner />
       <Topbar onMenuClick={() => setMobileNavOpen(true)} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar

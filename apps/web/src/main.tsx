@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,6 +9,14 @@ import { ErrorBoundary } from './components/shell/ErrorBoundary';
 import { initAnalytics } from './lib/analytics';
 import { initSentry } from './lib/sentry';
 import './styles.css';
+
+// Lazy-load sonner so the ~10 kB gzip toast library lands in its own
+// chunk instead of bloating the SPA index chunk past the 40 kB budget.
+// The Toaster mounts in the React tree but renders nothing until the
+// first toast() call, so the suspense boundary never flashes.
+const Toaster = lazy(() =>
+  import('sonner').then((m) => ({ default: m.Toaster })),
+);
 
 // F-Wave5-CO-01 / F-Wave3-OBS-01 (SPA portion): fire Sentry init BEFORE
 // React renders so any render-time error during the very first paint is
@@ -42,6 +50,9 @@ ReactDOM.createRoot(rootEl).render(
         <AuthProvider>
           <ErrorBoundary>
             <App />
+            <Suspense fallback={null}>
+              <Toaster position="top-right" richColors closeButton />
+            </Suspense>
           </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
