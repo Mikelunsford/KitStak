@@ -24,11 +24,19 @@ const bannedImports = {
     { name: 'uuid', message: 'Banned. Use crypto.randomUUID().' },
     { name: 'next', message: 'Banned. SPA only.' },
     { name: 'gatsby', message: 'Banned. SPA only.' },
+    { name: 'swr', message: 'Banned. Use TanStack Query.' },
+    { name: 'react-dnd', message: 'Banned. Use @dnd-kit/*.' },
+    { name: 'react-beautiful-dnd', message: 'Banned. Use @dnd-kit/*.' },
+    { name: 'sortablejs', message: 'Banned. Use @dnd-kit/*.' },
+    { name: 'react-hot-toast', message: 'Banned. Use sonner.' },
   ],
   patterns: [
     { group: ['@ant-design/*'], message: 'Banned.' },
     { group: ['@radix-ui/*'], message: 'Banned.' },
     { group: ['@remix-run/*'], message: 'Banned. SPA only.' },
+    { group: ['@tanstack/router-*', '@tanstack/react-router*'], message: 'Banned. Use react-router-dom v6.' },
+    { group: ['@mui/*'], message: 'Banned. Use components/ui/ primitives.' },
+    { group: ['@chakra-ui/*'], message: 'Banned. Use components/ui/ primitives.' },
   ],
 };
 
