@@ -41,14 +41,14 @@
 
 import { z } from 'zod';
 
-import { route, type Route } from '../_shared/route.ts';
-import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
+import { type Route } from '../_shared/route.ts';
+import { ApiError, ok } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
-import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
-import { getFlag } from '../_shared/feature-flags.ts';
-import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
+import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { serveBundleWithGate } from '../_shared/bundleGate.ts';
+import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ReceivingOrderSchema, ReceivingOrderStatusSchema,
   ProductionRunSchema, ProductionRunStatusSchema,
@@ -817,21 +817,12 @@ const TABLE: Route[] = [
 
 // ---------------------------------------------------------------------------
 // Bundle-level dispatcher: gate on plugins.three_pl before any route runs.
+// Implementation lives in _shared/bundleGate.ts so quotes-api, projects-api,
+// inventory-api, and manufacturing-api share one tested gate.
 // ---------------------------------------------------------------------------
 
-Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return route(req, [], { bundle: 'ops-api' });
-  }
-  // Resolve org claim leniently. If absent, fall through to the standard
-  // route() error envelope (UNAUTHORIZED / NO_ACTIVE_ORG via requireCaller).
-  const ctx = readCallerContext(req);
-  if (ctx.orgId) {
-    const flag = await getFlag(ctx.orgId, FEATURE_FLAGS.PLUGINS_THREE_PL);
-    if (!flag.enabled) {
-      // Hide the entire bundle: every method, every path -> 404.
-      return fromApiError(new ApiError(ERROR_CODES.NOT_FOUND, 404));
-    }
-  }
-  return route(req, TABLE, { bundle: 'ops-api' });
+serveBundleWithGate({
+  flagKey: FEATURE_FLAGS.PLUGINS_THREE_PL,
+  routes: TABLE,
+  bundle: 'ops-api',
 });

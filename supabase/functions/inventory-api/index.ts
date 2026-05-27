@@ -1,5 +1,12 @@
 // inventory-api bundle.
 //
+// BUNDLE GATE: plugins.three_pl. The entire bundle returns 404 NOT_FOUND
+// when the pillar plugin flag is off for the caller's org. Warehouses,
+// stock levels, stock movements, and BOM items are all 3PL pillar
+// surfaces. Per constitutional rule (CLAUDE.md): plugin bundle gates
+// return 404, per-route feature flags return 403. Implementation lives
+// in _shared/bundleGate.ts.
+//
 // Routes:
 //   GET    /warehouses                list
 //   POST   /warehouses                create
@@ -19,7 +26,9 @@
 // movements are emitted by triggers in 0030/0032. No POST exposed.
 
 import { z } from 'zod';
-import { route, type Route } from '../_shared/route.ts';
+import { type Route } from '../_shared/route.ts';
+import { serveBundleWithGate } from '../_shared/bundleGate.ts';
+import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,
   parseUuidParam, respondWithIdempotency, created,
@@ -257,4 +266,8 @@ const TABLE: Route[] = [
   },
 ];
 
-Deno.serve((req: Request) => route(req, TABLE, { bundle: 'inventory-api' }));
+serveBundleWithGate({
+  flagKey: FEATURE_FLAGS.PLUGINS_THREE_PL,
+  routes: TABLE,
+  bundle: 'inventory-api',
+});

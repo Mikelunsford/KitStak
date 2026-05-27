@@ -39,8 +39,14 @@ import {
   setActiveMockState,
   clearActiveMockState,
 } from './_helpers/supabase-stub.ts';
+import { invalidateFlagCache } from '../../../../supabase/functions/_shared/feature-flags.ts';
 
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
+// inventory-api bundle gate (F-Wave9-COWORK-SMOKE-06); without this row
+// the dispatcher 404s before the UUID guard fires.
+const THREE_PL_ON: Array<Record<string, unknown>> = [
+  { org_id: ORG_A, flag_key: 'plugins.three_pl', is_enabled: true, config: {} },
+];
 const USER_A = '00000000-0000-4000-8000-0000000000b1';
 const OWNER = { userId: USER_A, orgId: ORG_A, role: 'org_owner' as const };
 
@@ -61,10 +67,13 @@ describe('F-Wave7-UUID-GUARD-01 — handler-boundary UUID guard', () => {
       handler = capturedHandler();
     });
 
-    afterEach(() => clearActiveMockState());
+    afterEach(() => {
+      clearActiveMockState();
+      invalidateFlagCache(ORG_A);
+    });
 
     it('rejects non-UUID :id with 400 BAD_REQUEST + structured details', async () => {
-      setActiveMockState(makeState({ warehouses: [] }));
+      setActiveMockState(makeState({ warehouses: [], org_feature_flags: THREE_PL_ON }));
 
       const req = new Request('https://example.test/warehouses/new', {
         method: 'GET',
@@ -80,7 +89,7 @@ describe('F-Wave7-UUID-GUARD-01 — handler-boundary UUID guard', () => {
     });
 
     it('accepts a valid UUID and proceeds past the guard (404 because empty fixture, not 400)', async () => {
-      setActiveMockState(makeState({ warehouses: [] }));
+      setActiveMockState(makeState({ warehouses: [], org_feature_flags: THREE_PL_ON }));
 
       const req = new Request(
         `https://example.test/warehouses/${ORG_A}`,

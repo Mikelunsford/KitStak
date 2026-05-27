@@ -47,8 +47,15 @@ import {
   setActiveMockState,
   clearActiveMockState,
 } from './_helpers/supabase-stub.ts';
+import { invalidateFlagCache } from '../../../../supabase/functions/_shared/feature-flags.ts';
 
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
+// quotes-api, projects-api are bundle-gated on plugins.three_pl
+// (F-Wave9-COWORK-SMOKE-06). Tests must seed the flag row or the
+// dispatcher returns 404 NOT_FOUND before any handler runs.
+const THREE_PL_ON: Array<Record<string, unknown>> = [
+  { org_id: ORG_A, flag_key: 'plugins.three_pl', is_enabled: true, config: {} },
+];
 const USER_A = '00000000-0000-4000-8000-0000000000b1';
 const OWNER = { userId: USER_A, orgId: ORG_A, role: 'org_owner' as const };
 
@@ -81,6 +88,7 @@ describe('quotes-api GET /quotes — cursor regression (R-Wave6-PERF-02)', () =>
 
   afterEach(() => {
     clearActiveMockState();
+    invalidateFlagCache(ORG_A);
   });
 
   it('emits a non-null next_cursor when more rows exist than the limit', async () => {
@@ -93,7 +101,7 @@ describe('quotes-api GET /quotes — cursor regression (R-Wave6-PERF-02)', () =>
       created_at: isoMinusMinutes(N - i), // older rows first; newest sorted last
       deleted_at: null,
     }));
-    const state: MockState = makeState({ quotes: rows });
+    const state: MockState = makeState({ quotes: rows, org_feature_flags: THREE_PL_ON });
     setActiveMockState(state);
 
     const req = new Request(`https://example.test/quotes?limit=${LIMIT}`, {
@@ -129,6 +137,7 @@ describe('projects-api GET /projects — cursor regression (R-Wave6-PERF-02)', (
 
   afterEach(() => {
     clearActiveMockState();
+    invalidateFlagCache(ORG_A);
   });
 
   it('emits a non-null next_cursor when more projects exist than the limit', async () => {
@@ -141,7 +150,7 @@ describe('projects-api GET /projects — cursor regression (R-Wave6-PERF-02)', (
       created_at: isoMinusMinutes(N - i),
       deleted_at: null,
     }));
-    setActiveMockState(makeState({ projects: rows }));
+    setActiveMockState(makeState({ projects: rows, org_feature_flags: THREE_PL_ON }));
 
     const req = new Request(`https://example.test/projects?limit=${LIMIT}`, {
       method: 'GET',
@@ -180,6 +189,7 @@ describe('sales-config-api — cursor regression (R-Wave6-PERF-02)', () => {
 
   afterEach(() => {
     clearActiveMockState();
+    invalidateFlagCache(ORG_A);
   });
 
   // TODO(F-Wave6-PERF-02-followup): sales-config-api responds 403 before

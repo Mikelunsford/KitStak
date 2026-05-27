@@ -46,15 +46,15 @@
 //   PATCH  /manufacturing-runs/:id/produced/:lineId      update
 //   DELETE /manufacturing-runs/:id/produced/:lineId      delete
 
-import { route, type Route } from '../_shared/route.ts';
-import { ApiError, ok, fromApiError } from '../_shared/responses.ts';
+import { type Route } from '../_shared/route.ts';
+import { ApiError, ok } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
-import { readCallerContext, requireCaller, type Caller } from '../_shared/tenant.ts';
-import { getFlag } from '../_shared/feature-flags.ts';
+import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { nextDocNumber } from '../_shared/numbering.ts';
-import { ERROR_CODES, FEATURE_FLAGS } from '../_shared/constants.ts';
+import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ManufacturingRunSchema,
   ManufacturingRunCreateSchema,
@@ -599,18 +599,12 @@ const TABLE: Route[] = [
 
 // ---------------------------------------------------------------------------
 // Bundle-level dispatcher: gate on plugins.manufacturing before any route runs.
+// Shared with ops-api, quotes-api, projects-api, inventory-api via
+// _shared/bundleGate.ts.
 // ---------------------------------------------------------------------------
 
-Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return route(req, [], { bundle: BUNDLE });
-  }
-  const ctx = readCallerContext(req);
-  if (ctx.orgId) {
-    const flag = await getFlag(ctx.orgId, FEATURE_FLAGS.PLUGINS_MANUFACTURING);
-    if (!flag.enabled) {
-      return fromApiError(new ApiError(ERROR_CODES.NOT_FOUND, 404));
-    }
-  }
-  return route(req, TABLE, { bundle: BUNDLE });
+serveBundleWithGate({
+  flagKey: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
+  routes: TABLE,
+  bundle: BUNDLE,
 });

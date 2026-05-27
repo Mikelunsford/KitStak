@@ -6,6 +6,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminProtectedRoute } from './auth/AdminProtectedRoute';
 import { PortalRoute } from './auth/PortalRoute';
 import { IndexRoute } from './auth/IndexRoute';
+import { RequirePlugin } from './auth/RequirePlugin';
 import { BrandingProvider } from './whitelabel/BrandingProvider';
 
 /**
@@ -17,11 +18,25 @@ import { BrandingProvider } from './whitelabel/BrandingProvider';
  * tree. We map RouteSpec.guard -> guard component at the leaf, not via
  * nested JSX <Route> structure, so the flat table remains the source of
  * truth.
+ *
+ * Plugin gating order: RequirePlugin sits BETWEEN the auth guard and the
+ * route element. The auth guard runs first so an unauthenticated caller
+ * is redirected to /signin before any org_feature_flags fetch fires; the
+ * plugin gate runs second so an authenticated caller without the pillar
+ * plugin sees NotFoundPage. The order matches the Edge dispatcher in
+ * supabase/functions/_shared/bundleGate.ts which also runs the auth
+ * resolve before reading the flag.
  */
 
 function wrapWithGuard(spec: RouteSpec): ReactElement {
   const ElementCmp = spec.element;
-  const leaf = <ElementCmp />;
+  const leaf = spec.requiresPlugin ? (
+    <RequirePlugin flag={spec.requiresPlugin}>
+      <ElementCmp />
+    </RequirePlugin>
+  ) : (
+    <ElementCmp />
+  );
   switch (spec.guard) {
     case 'protected':
       return <ProtectedRoute>{leaf}</ProtectedRoute>;
