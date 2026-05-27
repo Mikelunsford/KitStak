@@ -59,3 +59,10 @@ verify_jwt = false
 # correct setting. Closes F-Wave5-API-03.
 [functions.admin-console-api]
 verify_jwt = false
+
+# stripe-webhook is called by Stripe, not by an authenticated Supabase
+# session. Authentication is the HMAC signature in the Stripe-Signature
+# header, verified against STRIPE_WEBHOOK_SECRET. Idempotency is the Stripe
+# event_id, persisted in public.stripe_webhook_events. Stripe wiring block.
+[functions.stripe-webhook]
+verify_jwt = false

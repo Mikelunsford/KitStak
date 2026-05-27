@@ -58,6 +58,8 @@ env:
     imports-api
     notifications-worker
     pdf-worker
+    billing-api
+    stripe-webhook
 
 jobs:
   deploy:

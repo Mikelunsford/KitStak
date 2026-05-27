@@ -6,6 +6,13 @@
 // Tests set the active mock via setActiveStripeMock(...) before invoking
 // the handler. The default export is a constructor that returns the active
 // mock, mirroring the `new Stripe(secret)` call shape.
+//
+// Surfaces covered:
+//   - customers.create               (billing-api: provision customer)
+//   - checkout.sessions.create       (billing-api: checkout link)
+//   - billingPortal.sessions.create  (billing-api: portal link)
+//   - webhooks.constructEventAsync   (stripe-webhook: verify signature)
+//   - subscriptions.retrieve         (stripe-webhook: hydrate subscription)
 
 export interface StripeCustomersCreateArgs {
   email?: string;
@@ -43,6 +50,20 @@ export interface StripeBillingPortalSession {
   url: string | null;
 }
 
+export interface StripeSubscriptionItemPrice {
+  id: string;
+}
+export interface StripeSubscriptionItem {
+  price: StripeSubscriptionItemPrice;
+}
+export interface StripeSubscriptionLike {
+  id: string;
+  status: string;
+  customer: string;
+  current_period_end: number;
+  items: { data: StripeSubscriptionItem[] };
+}
+
 export interface StripeMockState {
   customersCreateCalls: StripeCustomersCreateArgs[];
   customersCreateResult: StripeCustomer;
@@ -50,6 +71,11 @@ export interface StripeMockState {
   checkoutSessionResult: StripeCheckoutSession;
   billingPortalCalls: StripeBillingPortalSessionArgs[];
   billingPortalResult: StripeBillingPortalSession;
+  // Webhook surface (stripe-webhook bundle).
+  webhookVerifyOk: boolean;
+  webhookEvent: Record<string, unknown> | null;
+  subscriptions: Record<string, StripeSubscriptionLike>;
+  subscriptionsRetrieveCalls: string[];
 }
 
 export function makeStripeMockState(
@@ -68,6 +94,10 @@ export function makeStripeMockState(
       id: 'bps_test_default',
       url: 'https://billing.stripe.test/bps_test_default',
     },
+    webhookVerifyOk: true,
+    webhookEvent: null,
+    subscriptions: {},
+    subscriptionsRetrieveCalls: [],
     ...overrides,
   };
 }
@@ -91,10 +121,38 @@ function requireActive(): StripeMockState {
   return active;
 }
 
+// Convenience setters for stripe-webhook tests. Webhook tests do not always
+// call setActiveStripeMock explicitly (the webhook surface predates the
+// per-test state pattern); these auto-install a default state on first use so
+// the calling test keeps working.
+function activeOrInit(): StripeMockState {
+  if (!active) active = makeStripeMockState();
+  return active;
+}
+export function setStripeStubVerifyOk(ok: boolean): void {
+  activeOrInit().webhookVerifyOk = ok;
+}
+export function setStripeStubEvent(event: Record<string, unknown>): void {
+  activeOrInit().webhookEvent = event;
+}
+export function setStripeStubSubscription(sub: StripeSubscriptionLike): void {
+  activeOrInit().subscriptions[sub.id] = sub;
+}
+export function stripeStubRetrieveCalls(): readonly string[] {
+  return activeOrInit().subscriptionsRetrieveCalls;
+}
+
+// Webhook-side reset hook. Clears active state so the next test's
+// setActiveStripeMock starts fresh. Safe no-op when no active mock is
+// installed.
+export function resetStripeStub(): void {
+  active = null;
+}
+
 class FakeStripe {
   // The handler reads `Deno.env.get('STRIPE_SECRET_KEY')` first; the
   // constructor only needs to accept the arg.
-  constructor(_secret: string) {
+  constructor(_secret: string, _opts?: { apiVersion?: string }) {
     /* no-op */
   }
 
@@ -129,6 +187,33 @@ class FakeStripe {
         state.billingPortalCalls.push(args);
         return state.billingPortalResult;
       },
+    },
+  };
+
+  webhooks = {
+    constructEventAsync: async (
+      _rawBody: string,
+      _signature: string,
+      _secret: string,
+    ): Promise<Record<string, unknown>> => {
+      const state = requireActive();
+      if (!state.webhookVerifyOk) {
+        throw new Error('Signature verification stub: invalid');
+      }
+      if (!state.webhookEvent) {
+        throw new Error('Stripe stub event not set');
+      }
+      return state.webhookEvent;
+    },
+  };
+
+  subscriptions = {
+    retrieve: async (id: string): Promise<StripeSubscriptionLike> => {
+      const state = requireActive();
+      state.subscriptionsRetrieveCalls.push(id);
+      const sub = state.subscriptions[id];
+      if (!sub) throw new Error(`Stripe stub subscription not set: ${id}`);
+      return sub;
     },
   };
 }
