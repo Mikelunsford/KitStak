@@ -18,7 +18,11 @@
 // Closes: F-Wave8-PDF-FONT-EMBED-01.
 
 import { route, type Route } from '../_shared/route.ts';
-import { parseBody, requireCap } from '../_shared/handler-helpers.ts';
+import {
+  parseBody,
+  requireCap,
+  respondWithIdempotency,
+} from '../_shared/handler-helpers.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { formatCents } from '../_shared/money.ts';
@@ -426,18 +430,27 @@ const render: Route = {
     requireCap(caller, 'pdf.document.render');
     const body = await parseBody(req, RenderRequestSchema);
 
-    let doc: jsPDF;
-    if (body.template === 'invoice') {
-      doc = renderInvoice(body.data);
-    } else if (body.template === 'quote') {
-      doc = renderQuote(body.data);
-    } else {
-      doc = renderPurchaseOrder(body.data);
-    }
+    return respondWithIdempotency(
+      req,
+      caller,
+      BUNDLE,
+      '/pdf/render',
+      body,
+      async () => {
+        let doc: jsPDF;
+        if (body.template === 'invoice') {
+          doc = renderInvoice(body.data);
+        } else if (body.template === 'quote') {
+          doc = renderQuote(body.data);
+        } else {
+          doc = renderPurchaseOrder(body.data);
+        }
 
-    const buf = doc.output('arraybuffer');
-    const base64 = toBase64(new Uint8Array(buf));
-    return ok({ url: `data:application/pdf;base64,${base64}` });
+        const buf = doc.output('arraybuffer');
+        const base64 = toBase64(new Uint8Array(buf));
+        return ok({ url: `data:application/pdf;base64,${base64}` });
+      },
+    );
   },
 };
 
