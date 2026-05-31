@@ -8,6 +8,7 @@ import {
   addDaysIso,
   formatDateMedium,
   formatDateShort,
+  formatDateTimeMedium,
   NULL_DATE_PLACEHOLDER,
   todayIsoDate,
 } from './dates';
@@ -113,5 +114,36 @@ describe('formatDateShort null handling', () => {
 
   it('renders the NULL_DATE_PLACEHOLDER for an unparseable date string', () => {
     expect(formatDateShort('whatever')).toBe(NULL_DATE_PLACEHOLDER);
+  });
+});
+
+// R-W10-AUDIT-01 smoke follow-up: detail pages used to render raw ISO strings
+// (e.g. "2026-05-31T22:39:28.58+00:00") for actual event timestamps.
+// formatDateTimeMedium converts to a readable local date+time.
+describe('formatDateTimeMedium', () => {
+  it('renders the NULL_DATE_PLACEHOLDER for null / undefined / empty', () => {
+    expect(formatDateTimeMedium(null)).toBe(NULL_DATE_PLACEHOLDER);
+    expect(formatDateTimeMedium(undefined)).toBe(NULL_DATE_PLACEHOLDER);
+    expect(formatDateTimeMedium('')).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('renders the NULL_DATE_PLACEHOLDER for an unparseable date string', () => {
+    expect(formatDateTimeMedium('2026-05-31T99:99')).toBe(NULL_DATE_PLACEHOLDER);
+  });
+
+  it('does not leak the raw ISO string', () => {
+    const iso = '2026-05-31T22:39:28.58+00:00';
+    const out = formatDateTimeMedium(iso);
+    expect(out).not.toBe(iso);
+    expect(out).not.toMatch(/T\d{2}:\d{2}/);
+    expect(out).not.toMatch(/\+00:00/);
+  });
+
+  it('includes the year and a time component for a valid timestamp', () => {
+    // ICU build governs exact output, so assert shape: year present plus an
+    // AM/PM marker from the en-US numeric hour.
+    const out = formatDateTimeMedium('2026-05-31T22:39:28Z');
+    expect(out).toMatch(/2026/);
+    expect(out).toMatch(/\b(AM|PM)\b/);
   });
 });

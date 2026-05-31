@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -13,6 +13,8 @@ import {
 } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
+import { formatDateTimeMedium } from '@/lib/dates';
 
 /**
  * AssignmentDetailPage. Pillar 4. Mirrors FulfillmentDetailPage shape.
@@ -37,6 +39,12 @@ export function AssignmentDetailPage() {
   const cancel = useCancelAssignment(assignmentId);
 
   const caps = useVioCapabilities();
+
+  // When an assignment was created Unassigned, the operator must pick a member
+  // before the Assign transition can advance. The server requires a member_id
+  // (or an existing one on the row); without this picker an Unassigned
+  // assignment could never leave the open state from its detail page.
+  const [assignMemberId, setAssignMemberId] = useState('');
 
   const memberName = useMemo(() => {
     const map: Record<string, string> = {};
@@ -84,19 +92,42 @@ export function AssignmentDetailPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">{d.title}</h1>
         <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {d.status}
+          {defaultStateLabel(d.status)}
         </span>
       </header>
 
       <div className="flex gap-2 flex-wrap">
         {isOpen && caps.can('kitforce.assignment.assign') && (
-          <button
-            onClick={() => assign.mutate({})}
-            disabled={assign.isPending}
-            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-          >
-            Assign
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {!d.member_id && (
+              <select
+                value={assignMemberId}
+                onChange={(e) => setAssignMemberId(e.target.value)}
+                disabled={members.isLoading}
+                className="bg-bg-2 border border-line text-ink px-3 py-1 text-xs font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+              >
+                <option value="">Select a member</option>
+                {(members.data ?? [])
+                  .filter((m) => m.status === 'active')
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.display_name}
+                    </option>
+                  ))}
+              </select>
+            )}
+            <button
+              onClick={() =>
+                assign.mutate(
+                  d.member_id ? {} : { member_id: assignMemberId },
+                )
+              }
+              disabled={assign.isPending || (!d.member_id && !assignMemberId)}
+              className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2 disabled:opacity-50"
+            >
+              Assign
+            </button>
+          </div>
         )}
         {isAssigned && caps.can('kitforce.assignment.start') && (
           <button
@@ -163,11 +194,11 @@ export function AssignmentDetailPage() {
         <dt className="text-ink-dim">Planned minutes</dt>
         <dd className="text-ink font-mono">{d.planned_minutes ?? 'None'}</dd>
         <dt className="text-ink-dim">Started</dt>
-        <dd className="text-ink">{d.started_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.started_at)}</dd>
         <dt className="text-ink-dim">Completed</dt>
-        <dd className="text-ink">{d.completed_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.completed_at)}</dd>
         <dt className="text-ink-dim">Cancelled</dt>
-        <dd className="text-ink">{d.cancelled_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.cancelled_at)}</dd>
         <dt className="text-ink-dim">Notes</dt>
         <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
       </dl>

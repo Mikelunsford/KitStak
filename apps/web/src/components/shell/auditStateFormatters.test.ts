@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   defaultStateLabel,
+  formatAuditAction,
   formatStateLabel,
 } from './auditStateFormatters';
 
@@ -52,6 +53,28 @@ describe('auditStateFormatters', () => {
       const before = 'submitted';
       formatStateLabel('quote', before);
       expect(before).toBe('submitted');
+    });
+  });
+
+  // R-W10-AUDIT-01 smoke follow-up: AuditTimeline used to render the raw
+  // audit_log `action` verb (`status_change`, `insert`) straight into the UI.
+  describe('formatAuditAction', () => {
+    it('maps known machine verbs to operator-facing copy', () => {
+      expect(formatAuditAction('status_change')).toBe('Status change');
+      expect(formatAuditAction('insert')).toBe('Created');
+      expect(formatAuditAction('invited')).toBe('Invited');
+      expect(formatAuditAction('update')).toBe('Updated');
+      expect(formatAuditAction('delete')).toBe('Deleted');
+    });
+
+    it('Title-Cases an unknown verb instead of leaking it raw', () => {
+      expect(formatAuditAction('recompute_totals')).toBe('Recompute Totals');
+    });
+
+    it('falls back to a neutral label for null / empty', () => {
+      expect(formatAuditAction(null)).toBe('Change');
+      expect(formatAuditAction(undefined)).toBe('Change');
+      expect(formatAuditAction('')).toBe('Change');
     });
   });
 });

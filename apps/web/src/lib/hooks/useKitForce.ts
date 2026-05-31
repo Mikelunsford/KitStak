@@ -314,7 +314,7 @@ export function useUpdateAssignment(id: string) {
 export function useAssignAssignment(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: KitForceTransitionRequest = {}) => assignAssignment(id, input),
+    mutationFn: (input: WorkAssignmentPatch = {}) => assignAssignment(id, input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: assignmentsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('work_assignment', id) });

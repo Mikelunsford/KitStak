@@ -254,7 +254,10 @@ export async function updateAssignment(id: string, input: WorkAssignmentPatch): 
   return WorkAssignmentSchema.parse(data);
 }
 
-export async function assignAssignment(id: string, input: KitForceTransitionRequest = {}): Promise<WorkAssignment> {
+// The assign transition may carry the member being assigned, so its body is a
+// WorkAssignmentPatch (member_id optional), not the bare transition request the
+// other transitions use. The server validates with WorkAssignmentPatchSchema.
+export async function assignAssignment(id: string, input: WorkAssignmentPatch = {}): Promise<WorkAssignment> {
   const data = await apiRequest<unknown>(`${BASE}/assignments/${id}/assign`, { method: 'POST', body: input });
   return WorkAssignmentSchema.parse(data);
 }

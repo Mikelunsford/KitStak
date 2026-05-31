@@ -23,6 +23,8 @@ import {
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
+import { formatDateTimeMedium } from '@/lib/dates';
 
 /**
  * KittingJobDetailPage. Pillar 3. Mirrors ManufacturingRunDetailPage.
@@ -117,6 +119,22 @@ export function KittingJobDetailPage() {
     );
   }
 
+  function onRemoveConsumed(lineId: string) {
+    if (!destructiveConfirm({
+      action: 'Remove this consumed component',
+      consequence: 'The component line will be deleted from the job.',
+    })) return;
+    removeConsumed.mutate(lineId);
+  }
+
+  function onRemoveProduced(lineId: string) {
+    if (!destructiveConfirm({
+      action: 'Remove this produced kit',
+      consequence: 'The kit line will be deleted from the job.',
+    })) return;
+    removeProduced.mutate(lineId);
+  }
+
   function onComplete() {
     if (!destructiveConfirm({
       action: 'Complete this kitting job',
@@ -159,7 +177,7 @@ export function KittingJobDetailPage() {
           KITTING JOB {d.job_number ?? d.id.slice(0, 8)}
         </h1>
         <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {d.status}
+          {defaultStateLabel(d.status)}
         </span>
       </header>
 
@@ -226,9 +244,7 @@ export function KittingJobDetailPage() {
         <dt className="text-ink-dim">Sales order</dt>
         <dd className="text-ink">
           {d.sales_order_id ? (
-            <a href={`/copack/orders/${d.sales_order_id}`} className="underline">
-              {d.sales_order_id.slice(0, 8)}
-            </a>
+            <EntityLabel kind="sales_order" id={d.sales_order_id} />
           ) : 'None'}
         </dd>
         <dt className="text-ink-dim">Warehouse</dt>
@@ -236,15 +252,15 @@ export function KittingJobDetailPage() {
           {d.warehouse_id ? <EntityLabel kind="warehouse" id={d.warehouse_id} /> : 'None'}
         </dd>
         <dt className="text-ink-dim">Planned start</dt>
-        <dd className="text-ink">{d.planned_start_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.planned_start_at)}</dd>
         <dt className="text-ink-dim">Planned complete</dt>
-        <dd className="text-ink">{d.planned_complete_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.planned_complete_at)}</dd>
         <dt className="text-ink-dim">Started</dt>
-        <dd className="text-ink">{d.started_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.started_at)}</dd>
         <dt className="text-ink-dim">Completed</dt>
-        <dd className="text-ink">{d.completed_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.completed_at)}</dd>
         <dt className="text-ink-dim">Cancelled</dt>
-        <dd className="text-ink">{d.cancelled_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.cancelled_at)}</dd>
         <dt className="text-ink-dim">Notes</dt>
         <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
       </dl>
@@ -291,7 +307,7 @@ export function KittingJobDetailPage() {
                       {linesEditable && caps.can('copack.kitting_job.line_item.delete') && (
                         <Button
                           variant="ghost"
-                          onClick={() => removeConsumed.mutate(l.id)}
+                          onClick={() => onRemoveConsumed(l.id)}
                           disabled={removeConsumed.isPending}
                         >
                           Remove
@@ -399,7 +415,7 @@ export function KittingJobDetailPage() {
                       {linesEditable && caps.can('copack.kitting_job.line_item.delete') && (
                         <Button
                           variant="ghost"
-                          onClick={() => removeProduced.mutate(l.id)}
+                          onClick={() => onRemoveProduced(l.id)}
                           disabled={removeProduced.isPending}
                         >
                           Remove

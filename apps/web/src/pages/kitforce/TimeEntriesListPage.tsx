@@ -42,6 +42,18 @@ function localToIso(value: string): string | null {
 }
 
 /**
+ * Minutes come off the wire as a numeric(18,4) value (e.g. "0.5667"). The raw
+ * four-decimal float reads as a machine value in a labor table, so we round to
+ * one decimal for display. Whole-minute durations render without a decimal.
+ */
+function formatMinutes(min: number | string | null | undefined): string {
+  if (min === null || min === undefined || min === '') return '·';
+  const n = typeof min === 'string' ? Number(min) : min;
+  if (Number.isNaN(n)) return '·';
+  return (Math.round(n * 10) / 10).toString();
+}
+
+/**
  * Inline clock-out control. Each open entry owns its own mutation hook (hooks
  * cannot be called in a loop), so the row is extracted into its own component.
  */
@@ -49,13 +61,20 @@ function ClockOutButton({ entryId, canClockOut }: { entryId: string; canClockOut
   const clockOut = useClockOutTimeEntry(entryId);
   if (!canClockOut) return null;
   return (
-    <button
-      onClick={() => clockOut.mutate({ clock_out_at: new Date().toISOString() })}
-      disabled={clockOut.isPending}
-      className="text-ink underline text-xs"
-    >
-      {clockOut.isPending ? 'Saving.' : 'Clock out'}
-    </button>
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={() => clockOut.mutate({ clock_out_at: new Date().toISOString() })}
+        disabled={clockOut.isPending}
+        className="text-ink underline text-xs text-left"
+      >
+        {clockOut.isPending ? 'Saving.' : 'Clock out'}
+      </button>
+      {clockOut.error ? (
+        <span className="text-accent text-xs">
+          {clockOut.error instanceof Error ? clockOut.error.message : 'Clock-out failed.'}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -241,7 +260,7 @@ export function TimeEntriesListPage() {
                   <td className="px-4 py-2 text-ink-dim font-mono">
                     {t.clock_out_at ? t.clock_out_at.slice(0, 16).replace('T', ' ') : 'Open'}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim font-mono">{t.minutes ?? ''}</td>
+                  <td className="px-4 py-2 text-ink-dim font-mono">{formatMinutes(t.minutes)}</td>
                   {canReadRate ? (
                     <td className="px-4 py-2 text-ink-dim font-mono">
                       {`${formatCents(t.hourly_rate_cents, 'USD')}/hr`}

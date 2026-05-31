@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { AuditEntrySchema, type AuditEntry } from '@/lib/types';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 
-import { formatStateLabel } from './auditStateFormatters';
+import { formatAuditAction, formatStateLabel } from './auditStateFormatters';
 
 /**
  * AuditTimeline. per-entity audit_log timeline.
@@ -78,7 +78,7 @@ export function AuditTimeline({
         <li key={row.id} className="border border-line p-2 text-sm">
           <div className="flex items-baseline justify-between">
             <span className="font-medium text-ink">
-              {row.action ?? 'change'}
+              {formatAuditAction(row.action)}
               {row.from_state && row.to_state ? (
                 <span className="ml-2 text-ink-dim">
                   {formatStateLabel(entityType, row.from_state)} to{' '}
