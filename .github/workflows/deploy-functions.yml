@@ -50,6 +50,8 @@ env:
     inventory-api
     ops-api
     manufacturing-api
+    copack-api
+    kitforce-api
     collaboration-api
     search-api
     customer-portal-api
