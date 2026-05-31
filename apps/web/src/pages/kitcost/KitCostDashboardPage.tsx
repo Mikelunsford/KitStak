@@ -17,6 +17,12 @@ import { formatCents } from '@/lib/money';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useKitCostSummary } from '@/lib/hooks/useKitCost';
 import {
+  blendedMargin,
+  customerConcentration,
+  marginsByHealth,
+  revenueGrowth,
+} from './kitcostDerived';
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -157,6 +163,12 @@ export function KitCostDashboardPage() {
     pct: p.margin_pct,
   }));
 
+  // Derived report views over the same payload. No new round-trip.
+  const blended = blendedMargin(project_margins);
+  const growth = revenueGrowth(revenue_trend);
+  const concentration = customerConcentration(top_customers);
+  const marginRows = marginsByHealth(project_margins);
+
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-8">
       <header className="flex flex-col gap-1">
@@ -183,6 +195,32 @@ export function KitCostDashboardPage() {
           label="Inventory value"
           value={formatCents(asNum(kpis.inventory_value_cents))}
         />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="font-display text-xl tracking-wide text-ink-dim">INSIGHTS</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <KpiTile
+            label="Blended margin"
+            value={`${blended.margin_pct.toFixed(1)}%`}
+            sub={`${formatCents(blended.margin_cents)} on ${formatCents(blended.revenue_cents)}`}
+          />
+          <KpiTile
+            label="Revenue MoM"
+            value={growth.mom_pct === null ? 'n/a' : `${growth.mom_pct.toFixed(1)}%`}
+            sub="Latest month vs prior"
+          />
+          <KpiTile
+            label="Trailing 3mo avg"
+            value={formatCents(growth.trailing3_avg_cents)}
+            sub="Mean monthly revenue"
+          />
+          <KpiTile
+            label="Customer concentration"
+            value={`${concentration.toFixed(1)}%`}
+            sub="Largest customer share"
+          />
+        </div>
       </div>
 
       <ChartCard title="Revenue trend">
@@ -292,6 +330,58 @@ export function KitCostDashboardPage() {
           </ResponsiveContainer>
         )}
       </ChartCard>
+
+      {marginRows.length > 0 ? (
+        <div className="border border-line bg-bg-2 p-4 flex flex-col gap-3">
+          <h2 className="font-display text-xl tracking-wide text-ink">
+            Project margin detail
+          </h2>
+          <p className="text-xs text-ink-dim">
+            Sorted by margin health. Thinnest and negative margins first.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-dim">
+                  <th className="py-2 pr-4 font-sans font-normal">Project</th>
+                  <th className="py-2 pr-4 text-right font-sans font-normal">Revenue</th>
+                  <th className="py-2 pr-4 text-right font-sans font-normal">Cost</th>
+                  <th className="py-2 pr-4 text-right font-sans font-normal">Margin</th>
+                  <th className="py-2 text-right font-sans font-normal">Margin %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {marginRows.map((row) => {
+                  const thin = row.margin_pct < 15;
+                  return (
+                    <tr key={row.project_id} className="border-b border-line/40">
+                      <td className="py-2 pr-4 text-ink">
+                        {row.project_name || row.project_id.slice(0, 8)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-ink-dim">
+                        {formatCents(row.revenue_cents)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-ink-dim">
+                        {formatCents(row.cost_cents)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-ink-dim">
+                        {formatCents(row.margin_cents)}
+                      </td>
+                      <td
+                        className={`py-2 text-right font-display tracking-wide ${
+                          thin ? 'text-accent' : 'text-ink'
+                        }`}
+                      >
+                        {row.margin_pct.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
