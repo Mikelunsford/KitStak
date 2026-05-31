@@ -18,9 +18,14 @@ import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useKitCostSummary } from '@/lib/hooks/useKitCost';
 import {
   blendedMargin,
+  costStructure,
   customerConcentration,
+  customerContribution,
+  marginDistribution,
   marginsByHealth,
+  marginsToCsv,
   revenueGrowth,
+  revenueRunRate,
 } from './kitcostDerived';
 import {
   Bar,
@@ -168,6 +173,23 @@ export function KitCostDashboardPage() {
   const growth = revenueGrowth(revenue_trend);
   const concentration = customerConcentration(top_customers);
   const marginRows = marginsByHealth(project_margins);
+  const structure = costStructure(project_margins);
+  const runRate = revenueRunRate(revenue_trend);
+  const distribution = marginDistribution(project_margins);
+  const contribution = customerContribution(top_customers);
+
+  function downloadMarginsCsv() {
+    const csv = marginsToCsv(marginRows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'kitcost-project-margins.csv';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-8">
@@ -220,6 +242,44 @@ export function KitCostDashboardPage() {
             value={`${concentration.toFixed(1)}%`}
             sub="Largest customer share"
           />
+          <KpiTile
+            label="Cost share"
+            value={`${structure.cost_pct.toFixed(1)}%`}
+            sub={`${formatCents(structure.cost_cents)} of revenue`}
+          />
+          <KpiTile
+            label="Annualized run rate"
+            value={formatCents(runRate.annualized_cents)}
+            sub="Trailing 3mo average times 12"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="font-display text-xl tracking-wide text-ink-dim">
+          MARGIN HEALTH
+        </h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {distribution.map((band) => (
+            <div
+              key={band.key}
+              className={`border bg-bg-2 p-4 ${
+                band.key === 'negative' && band.count > 0
+                  ? 'border-accent'
+                  : 'border-line'
+              }`}
+            >
+              <p className="text-xs uppercase tracking-wider text-ink-dim">
+                {band.label}
+              </p>
+              <p className="mt-1 font-display text-3xl tracking-wide text-ink">
+                {band.count}
+              </p>
+              <p className="mt-1 text-xs text-ink-dim">
+                {formatCents(band.revenue_cents)} revenue
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -291,6 +351,47 @@ export function KitCostDashboardPage() {
         )}
       </ChartCard>
 
+      {contribution.length > 0 ? (
+        <div className="border border-line bg-bg-2 p-4 flex flex-col gap-3">
+          <h2 className="font-display text-xl tracking-wide text-ink">
+            Customer contribution
+          </h2>
+          <p className="text-xs text-ink-dim">
+            Revenue share of each top customer, with a running cumulative total.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-dim">
+                  <th className="py-2 pr-4 font-sans font-normal">Customer</th>
+                  <th className="py-2 pr-4 text-right font-sans font-normal">Revenue</th>
+                  <th className="py-2 pr-4 text-right font-sans font-normal">Share</th>
+                  <th className="py-2 text-right font-sans font-normal">Cumulative</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contribution.map((row) => (
+                  <tr key={row.customer_id} className="border-b border-line/40">
+                    <td className="py-2 pr-4 text-ink">
+                      {row.customer_name || row.customer_id.slice(0, 8)}
+                    </td>
+                    <td className="py-2 pr-4 text-right text-ink-dim">
+                      {formatCents(row.revenue_cents)}
+                    </td>
+                    <td className="py-2 pr-4 text-right text-ink-dim">
+                      {row.share_pct.toFixed(1)}%
+                    </td>
+                    <td className="py-2 text-right font-display tracking-wide text-ink">
+                      {row.cumulative_pct.toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
       <ChartCard title="Project margins">
         {marginsData.length === 0 ? (
           <p className="text-sm text-ink-dim">No project revenue yet.</p>
@@ -333,12 +434,23 @@ export function KitCostDashboardPage() {
 
       {marginRows.length > 0 ? (
         <div className="border border-line bg-bg-2 p-4 flex flex-col gap-3">
-          <h2 className="font-display text-xl tracking-wide text-ink">
-            Project margin detail
-          </h2>
-          <p className="text-xs text-ink-dim">
-            Sorted by margin health. Thinnest and negative margins first.
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="font-display text-xl tracking-wide text-ink">
+                Project margin detail
+              </h2>
+              <p className="text-xs text-ink-dim">
+                Sorted by margin health. Thinnest and negative margins first.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadMarginsCsv}
+              className="shrink-0 border border-line px-3 py-2 text-xs uppercase tracking-wider text-ink-dim transition-colors hover:border-accent hover:text-ink"
+            >
+              Download CSV
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
