@@ -59,12 +59,22 @@ export function ManufacturingRunsListPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">MANUFACTURING RUNS</h1>
         {caps.can('manufacturing.run.create') ? (
-          <Link
-            to="/manufacturing/runs/new"
-            className="px-4 py-2 bg-accent text-on-primary font-sans text-sm"
-          >
-            New manufacturing run
-          </Link>
+          <div className="flex gap-2">
+            {caps.can('manufacturing.run.line_item.create') ? (
+              <Link
+                to="/manufacturing/runs/from-bom"
+                className="px-4 py-2 border border-line text-ink font-sans text-sm"
+              >
+                Build from BOM
+              </Link>
+            ) : null}
+            <Link
+              to="/manufacturing/runs/new"
+              className="px-4 py-2 bg-accent text-on-primary font-sans text-sm"
+            >
+              New manufacturing run
+            </Link>
+          </div>
         ) : null}
       </header>
 
