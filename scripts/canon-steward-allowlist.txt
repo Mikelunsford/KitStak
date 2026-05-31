@@ -93,3 +93,33 @@ orphan-route|apps/web/src/routes.ts|/auth/recovery
 # Shipped in F-Wave9-COWORK-SMOKE-03.
 # ---------------------------------------------------------------------------
 orphan-route|apps/web/src/routes.ts|/no-active-org
+
+# ---------------------------------------------------------------------------
+# orphan-route: pillar landing pages (/manufacturing, /copack, /kitforce).
+# Each pillar exposes a landing surface that orients the operator with live
+# counts and entry-point tiles into that pillar's sub-routes. The Sidebar IA
+# (UX-Q1 job-mode nav) surfaces the workflow-stage sub-routes (e.g.
+# /kitforce/members, /copack/orders, /manufacturing/runs), not the pillar
+# root, because the root competes with the workflow grouping without adding
+# discoverability. Operators reach the landing pages from dashboard pillar
+# tiles and from in-pillar breadcrumbs, not from the sidebar. Each root is
+# plugin-gated (requiresPlugin) so orgs without the pillar flag never render
+# it. Orphan-by-design, mirroring the existing pillar-home pattern.
+# Follow-up: F-Wave9-SIDEBAR-PILLAR-ROOT-01 (decide whether pillar landing
+# pages should get a sidebar "home" affordance once the job-mode IA settles).
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/manufacturing
+orphan-route|apps/web/src/routes.ts|/copack
+orphan-route|apps/web/src/routes.ts|/kitforce
+
+# ---------------------------------------------------------------------------
+# orphan-route: /manufacturing/runs/from-bom.
+# Deep-link-only run-create surface that pre-fills a manufacturing run from a
+# selected BOM (M2). Reached from the BOM detail page's "Start run from BOM"
+# action and from the manufacturing-runs list, not from the sidebar. The
+# canonical sidebar entry is /manufacturing/runs; this is a specialized
+# create flow layered on it.
+# Follow-up: F-Wave9-MFG-FROM-BOM-IA-01 (fold into the runs create surface
+# once the BOM-to-run flow is validated with the first operator).
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/manufacturing/runs/from-bom

@@ -2,8 +2,8 @@
 //
 // Locks in the SPA mirror of the Edge bundle-level plugin gate. The
 // ROUTES export must carry `requiresPlugin` for every /3pl-operations/*,
-// /manufacturing/*, and /kitcost/* route so RequirePlugin renders the
-// NotFoundPage when the pillar plugin flag is off.
+// /manufacturing/*, /kitcost/*, and /copack/* route so RequirePlugin
+// renders the NotFoundPage when the pillar plugin flag is off.
 
 import { describe, expect, it } from 'vitest';
 
@@ -37,7 +37,10 @@ describe('inferPluginForPath', () => {
     );
   });
 
-  it('returns PLUGINS_MANUFACTURING for /manufacturing/* routes', () => {
+  it('returns PLUGINS_MANUFACTURING for the /manufacturing pillar root and its routes', () => {
+    expect(inferPluginForPath(specFor('/manufacturing'))).toBe(
+      FEATURE_FLAGS.PLUGINS_MANUFACTURING,
+    );
     expect(inferPluginForPath(specFor('/manufacturing/runs'))).toBe(
       FEATURE_FLAGS.PLUGINS_MANUFACTURING,
     );
@@ -49,6 +52,33 @@ describe('inferPluginForPath', () => {
   it('returns PLUGINS_KITCOST for /kitcost/* routes', () => {
     expect(inferPluginForPath(specFor('/kitcost/dashboard'))).toBe(
       FEATURE_FLAGS.PLUGINS_KITCOST,
+    );
+  });
+
+  it('returns PLUGINS_COPACK_ECOM for the /copack pillar root and its routes', () => {
+    expect(inferPluginForPath(specFor('/copack'))).toBe(
+      FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+    );
+    expect(inferPluginForPath(specFor('/copack/orders'))).toBe(
+      FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+    );
+    expect(inferPluginForPath(specFor('/copack/fulfillments/new'))).toBe(
+      FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+    );
+  });
+
+  it('returns PLUGINS_KITFORCE for the /kitforce pillar root and its routes', () => {
+    expect(inferPluginForPath(specFor('/kitforce'))).toBe(
+      FEATURE_FLAGS.PLUGINS_KITFORCE,
+    );
+    expect(inferPluginForPath(specFor('/kitforce/members'))).toBe(
+      FEATURE_FLAGS.PLUGINS_KITFORCE,
+    );
+    expect(inferPluginForPath(specFor('/kitforce/members/new'))).toBe(
+      FEATURE_FLAGS.PLUGINS_KITFORCE,
+    );
+    expect(inferPluginForPath(specFor('/kitforce/time-entries'))).toBe(
+      FEATURE_FLAGS.PLUGINS_KITFORCE,
     );
   });
 
@@ -116,6 +146,34 @@ describe('ROUTES — pillar gating coverage', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('every /copack/* route carries requiresPlugin = PLUGINS_COPACK_ECOM', () => {
+    const offenders = ROUTES.filter(
+      (r) =>
+        r.path.startsWith('/copack/') &&
+        r.requiresPlugin !== FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('every /kitforce/* route carries requiresPlugin = PLUGINS_KITFORCE', () => {
+    const offenders = ROUTES.filter(
+      (r) =>
+        r.path.startsWith('/kitforce/') &&
+        r.requiresPlugin !== FEATURE_FLAGS.PLUGINS_KITFORCE,
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('the /copack pillar root carries requiresPlugin = PLUGINS_COPACK_ECOM', () => {
+    const root = ROUTES.find((r) => r.path === '/copack');
+    expect(root?.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_COPACK_ECOM);
+  });
+
+  it('the /kitforce pillar root carries requiresPlugin = PLUGINS_KITFORCE', () => {
+    const root = ROUTES.find((r) => r.path === '/kitforce');
+    expect(root?.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_KITFORCE);
+  });
+
   it('RAW_ROUTES still contains the raw entries without auto-injected plugin gates', () => {
     // Sanity check: ROUTES is derived; RAW_ROUTES is the human-authored
     // list. They must contain the same number of entries, and ROUTES
@@ -124,12 +182,16 @@ describe('ROUTES — pillar gating coverage', () => {
   });
 
   it('non-pillar routes are not accidentally gated', () => {
+    const inPillar = (path: string, root: string): boolean =>
+      path === root || path.startsWith(`${root}/`);
     const accidentallyGated = ROUTES.filter(
       (r) =>
         r.requiresPlugin !== undefined &&
-        !r.path.startsWith('/3pl-operations/') &&
-        !r.path.startsWith('/manufacturing/') &&
-        !r.path.startsWith('/kitcost/'),
+        !inPillar(r.path, '/3pl-operations') &&
+        !inPillar(r.path, '/manufacturing') &&
+        !inPillar(r.path, '/kitcost') &&
+        !inPillar(r.path, '/copack') &&
+        !inPillar(r.path, '/kitforce'),
     );
     expect(accidentallyGated).toEqual([]);
   });
