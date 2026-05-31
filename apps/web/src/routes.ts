@@ -341,6 +341,15 @@ const WarehouseDetailPage = lazy(() =>
 const WarehouseCreatePage = lazy(() =>
   import('./pages/3pl-operations/warehouses/WarehouseCreatePage').then((m) => ({ default: m.WarehouseCreatePage })),
 );
+const BomsListPage = lazy(() =>
+  import('./pages/3pl-operations/boms/BomsListPage').then((m) => ({ default: m.BomsListPage })),
+);
+const BomCreatePage = lazy(() =>
+  import('./pages/3pl-operations/boms/BomCreatePage').then((m) => ({ default: m.BomCreatePage })),
+);
+const BomDetailPage = lazy(() =>
+  import('./pages/3pl-operations/boms/BomDetailPage').then((m) => ({ default: m.BomDetailPage })),
+);
 const StockLevelsPage = lazy(() =>
   import('./pages/3pl-operations/stock/StockLevelsPage').then((m) => ({ default: m.StockLevelsPage })),
 );
@@ -504,6 +513,11 @@ const VendorBillCreatePage = lazy(() =>
 // === End Agent 6.5-C ===
 
 // === Path A5: Manufacturing pillar routes ===
+const ManufacturingHomePage = lazy(() =>
+  import('./pages/manufacturing/ManufacturingHomePage').then((m) => ({
+    default: m.ManufacturingHomePage,
+  })),
+);
 const ManufacturingRunsListPage = lazy(() =>
   import('./pages/manufacturing/ManufacturingRunsListPage').then((m) => ({
     default: m.ManufacturingRunsListPage,
@@ -512,6 +526,11 @@ const ManufacturingRunsListPage = lazy(() =>
 const ManufacturingRunCreatePage = lazy(() =>
   import('./pages/manufacturing/ManufacturingRunCreatePage').then((m) => ({
     default: m.ManufacturingRunCreatePage,
+  })),
+);
+const ManufacturingRunFromBomPage = lazy(() =>
+  import('./pages/manufacturing/ManufacturingRunFromBomPage').then((m) => ({
+    default: m.ManufacturingRunFromBomPage,
   })),
 );
 const ManufacturingRunDetailPage = lazy(() =>
@@ -528,6 +547,122 @@ const KitCostDashboardPage = lazy(() =>
   })),
 );
 // === End Path C2 ===
+
+// === Co-Pack and Ecom pillar routes ===
+const CoPackHomePage = lazy(() =>
+  import('./pages/copack/CoPackHomePage').then((m) => ({
+    default: m.CoPackHomePage,
+  })),
+);
+const SalesOrdersListPage = lazy(() =>
+  import('./pages/copack/SalesOrdersListPage').then((m) => ({
+    default: m.SalesOrdersListPage,
+  })),
+);
+const SalesOrderCreatePage = lazy(() =>
+  import('./pages/copack/SalesOrderCreatePage').then((m) => ({
+    default: m.SalesOrderCreatePage,
+  })),
+);
+const SalesOrderDetailPage = lazy(() =>
+  import('./pages/copack/SalesOrderDetailPage').then((m) => ({
+    default: m.SalesOrderDetailPage,
+  })),
+);
+const KittingJobsListPage = lazy(() =>
+  import('./pages/copack/KittingJobsListPage').then((m) => ({
+    default: m.KittingJobsListPage,
+  })),
+);
+const KittingJobCreatePage = lazy(() =>
+  import('./pages/copack/KittingJobCreatePage').then((m) => ({
+    default: m.KittingJobCreatePage,
+  })),
+);
+const KittingJobDetailPage = lazy(() =>
+  import('./pages/copack/KittingJobDetailPage').then((m) => ({
+    default: m.KittingJobDetailPage,
+  })),
+);
+const ChannelsListPage = lazy(() =>
+  import('./pages/copack/ChannelsListPage').then((m) => ({
+    default: m.ChannelsListPage,
+  })),
+);
+const FulfillmentsListPage = lazy(() =>
+  import('./pages/copack/FulfillmentsListPage').then((m) => ({
+    default: m.FulfillmentsListPage,
+  })),
+);
+const FulfillmentCreatePage = lazy(() =>
+  import('./pages/copack/FulfillmentCreatePage').then((m) => ({
+    default: m.FulfillmentCreatePage,
+  })),
+);
+const FulfillmentDetailPage = lazy(() =>
+  import('./pages/copack/FulfillmentDetailPage').then((m) => ({
+    default: m.FulfillmentDetailPage,
+  })),
+);
+// === End Co-Pack and Ecom ===
+
+// === KitForce pillar routes (Pillar 4, labor / workforce) ===
+const KitForceHomePage = lazy(() =>
+  import('./pages/kitforce/KitForceHomePage').then((m) => ({
+    default: m.KitForceHomePage,
+  })),
+);
+const MembersListPage = lazy(() =>
+  import('./pages/kitforce/MembersListPage').then((m) => ({
+    default: m.MembersListPage,
+  })),
+);
+const MemberCreatePage = lazy(() =>
+  import('./pages/kitforce/MemberCreatePage').then((m) => ({
+    default: m.MemberCreatePage,
+  })),
+);
+const MemberDetailPage = lazy(() =>
+  import('./pages/kitforce/MemberDetailPage').then((m) => ({
+    default: m.MemberDetailPage,
+  })),
+);
+const TeamsListPage = lazy(() =>
+  import('./pages/kitforce/TeamsListPage').then((m) => ({
+    default: m.TeamsListPage,
+  })),
+);
+const TeamDetailPage = lazy(() =>
+  import('./pages/kitforce/TeamDetailPage').then((m) => ({
+    default: m.TeamDetailPage,
+  })),
+);
+const ShiftsListPage = lazy(() =>
+  import('./pages/kitforce/ShiftsListPage').then((m) => ({
+    default: m.ShiftsListPage,
+  })),
+);
+const ShiftDetailPage = lazy(() =>
+  import('./pages/kitforce/ShiftDetailPage').then((m) => ({
+    default: m.ShiftDetailPage,
+  })),
+);
+const AssignmentsListPage = lazy(() =>
+  import('./pages/kitforce/AssignmentsListPage').then((m) => ({
+    default: m.AssignmentsListPage,
+  })),
+);
+const AssignmentDetailPage = lazy(() =>
+  import('./pages/kitforce/AssignmentDetailPage').then((m) => ({
+    default: m.AssignmentDetailPage,
+  })),
+);
+const TimeEntriesListPage = lazy(() =>
+  import('./pages/kitforce/TimeEntriesListPage').then((m) => ({
+    default: m.TimeEntriesListPage,
+  })),
+);
+// === End KitForce ===
 
 // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
 const SecurityPage = lazy(() =>
@@ -873,6 +1008,9 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/warehouses',             element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses/new',         element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses/:id',         element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/boms',                   element: BomsListPage,              guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/boms/new',               element: BomCreatePage,             guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/boms/:id',               element: BomDetailPage,             guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/stock/levels',           element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/stock/movements',        element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving',              element: ReceivingOrdersListPage,   guard: 'protected', layout: 'shell' },
@@ -920,13 +1058,48 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   // matches the first hit, and a literal segment beats a param, but routing
   // pages also need to be registered in this order for clarity and to mirror
   // the warehouses/production_runs precedent set by 6.5-C).
+  { path: '/manufacturing',          element: ManufacturingHomePage,       guard: 'protected', layout: 'shell' },
   { path: '/manufacturing/runs',     element: ManufacturingRunsListPage,   guard: 'protected', layout: 'shell' },
   { path: '/manufacturing/runs/new', element: ManufacturingRunCreatePage,  guard: 'protected', layout: 'shell' },
+  { path: '/manufacturing/runs/from-bom', element: ManufacturingRunFromBomPage, guard: 'protected', layout: 'shell' },
   { path: '/manufacturing/runs/:id', element: ManufacturingRunDetailPage,  guard: 'protected', layout: 'shell' },
   // === End Path A5 ===
   // === Path C2: KitCost pillar routes ===
   { path: '/kitcost/dashboard',      element: KitCostDashboardPage,        guard: 'protected', layout: 'shell' },
   // === End Path C2 ===
+  // === Co-Pack and Ecom pillar routes ===
+  // /new MUST precede /:id: react-router v6 matches the first hit and a literal
+  // segment beats a param, but registering /new first keeps the order honest and
+  // mirrors the Manufacturing precedent above.
+  { path: '/copack',                   element: CoPackHomePage,          guard: 'protected', layout: 'shell' },
+  { path: '/copack/orders',            element: SalesOrdersListPage,     guard: 'protected', layout: 'shell' },
+  { path: '/copack/orders/new',        element: SalesOrderCreatePage,    guard: 'protected', layout: 'shell' },
+  { path: '/copack/orders/:id',        element: SalesOrderDetailPage,    guard: 'protected', layout: 'shell' },
+  { path: '/copack/kitting',           element: KittingJobsListPage,     guard: 'protected', layout: 'shell' },
+  { path: '/copack/kitting/new',       element: KittingJobCreatePage,    guard: 'protected', layout: 'shell' },
+  { path: '/copack/kitting/:id',       element: KittingJobDetailPage,    guard: 'protected', layout: 'shell' },
+  { path: '/copack/channels',          element: ChannelsListPage,        guard: 'protected', layout: 'shell' },
+  { path: '/copack/fulfillments',      element: FulfillmentsListPage,    guard: 'protected', layout: 'shell' },
+  { path: '/copack/fulfillments/new',  element: FulfillmentCreatePage,   guard: 'protected', layout: 'shell' },
+  { path: '/copack/fulfillments/:id',  element: FulfillmentDetailPage,   guard: 'protected', layout: 'shell' },
+  // === End Co-Pack and Ecom ===
+  // === KitForce pillar routes (Pillar 4, labor / workforce) ===
+  // /new and literal segments MUST precede /:id: react-router v6 matches the
+  // first hit and a literal segment beats a param, but registering the literals
+  // first keeps the order honest and mirrors the Manufacturing / Co-Pack
+  // precedent above. Gated on plugins.kitforce via inferPluginForPath below.
+  { path: '/kitforce',                 element: KitForceHomePage,        guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/members',         element: MembersListPage,         guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/members/new',     element: MemberCreatePage,        guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/members/:id',     element: MemberDetailPage,        guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/teams',           element: TeamsListPage,           guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/teams/:id',       element: TeamDetailPage,          guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/shifts',          element: ShiftsListPage,          guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/shifts/:id',      element: ShiftDetailPage,         guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/assignments',     element: AssignmentsListPage,     guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/assignments/:id', element: AssignmentDetailPage,    guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/time-entries',    element: TimeEntriesListPage,     guard: 'protected', layout: 'shell' },
+  // === End KitForce ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.
   // /auth/recovery: public; the Supabase recovery token in the URL hash IS
@@ -942,21 +1115,32 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
  * declared in 00-canon/01-architecture.md: /3pl-operations/* is the 3PL
  * pillar; /manufacturing/* is the Manufacturing pillar; /kitcost/* is
  * the KitCost pillar (already gated by capability + per-route render in
- * KitCostDashboardPage, retained here for completeness).
+ * KitCostDashboardPage, retained here for completeness); /copack/* is
+ * the Co-Pack and Ecom pillar.
  *
  * Returns the pre-existing `requiresPlugin` value when explicitly set so
  * a route can opt out of auto-gating by declaring its own value.
  */
+function inPillar(path: string, root: string): boolean {
+  return path === root || path.startsWith(`${root}/`);
+}
+
 function inferPluginForPath(spec: RouteSpec): string | undefined {
   if (spec.requiresPlugin !== undefined) return spec.requiresPlugin;
-  if (spec.path.startsWith('/3pl-operations/')) {
+  if (inPillar(spec.path, '/3pl-operations')) {
     return FEATURE_FLAGS.PLUGINS_THREE_PL;
   }
-  if (spec.path.startsWith('/manufacturing/')) {
+  if (inPillar(spec.path, '/manufacturing')) {
     return FEATURE_FLAGS.PLUGINS_MANUFACTURING;
   }
-  if (spec.path.startsWith('/kitcost/')) {
+  if (inPillar(spec.path, '/kitcost')) {
     return FEATURE_FLAGS.PLUGINS_KITCOST;
+  }
+  if (inPillar(spec.path, '/copack')) {
+    return FEATURE_FLAGS.PLUGINS_COPACK_ECOM;
+  }
+  if (inPillar(spec.path, '/kitforce')) {
+    return FEATURE_FLAGS.PLUGINS_KITFORCE;
   }
   return undefined;
 }

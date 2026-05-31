@@ -240,6 +240,26 @@ export type Capability =
   | 'manufacturing.run.line_item.create'
   | 'manufacturing.run.line_item.update'
   | 'manufacturing.run.line_item.delete'
+  | 'copack.channel.write'
+  | 'copack.order.create'
+  | 'copack.order.update'
+  | 'copack.order.confirm'
+  | 'copack.order.cancel'
+  | 'copack.order.line_item.create'
+  | 'copack.order.line_item.update'
+  | 'copack.order.line_item.delete'
+  | 'copack.kitting_job.create'
+  | 'copack.kitting_job.update'
+  | 'copack.kitting_job.delete'
+  | 'copack.kitting_job.start'
+  | 'copack.kitting_job.complete'
+  | 'copack.kitting_job.cancel'
+  | 'copack.kitting_job.line_item.create'
+  | 'copack.kitting_job.line_item.update'
+  | 'copack.kitting_job.line_item.delete'
+  | 'copack.fulfillment.pick'
+  | 'copack.fulfillment.pack'
+  | 'copack.fulfillment.ship'
   | 'shipments.shipment.read'
   | 'shipments.shipment.create'
   | 'shipments.shipment.update'
@@ -247,7 +267,35 @@ export type Capability =
   | 'shipment.line_item.read'
   | 'shipment.line_item.create'
   | 'shipment.line_item.update'
-  | 'shipment.line_item.delete';
+  | 'shipment.line_item.delete'
+  // kitforce.* (27)
+  | 'kitforce.member.read'
+  | 'kitforce.member.read_rate'
+  | 'kitforce.member.create'
+  | 'kitforce.member.update'
+  | 'kitforce.member.deactivate'
+  | 'kitforce.team.read'
+  | 'kitforce.team.write'
+  | 'kitforce.team.member.add'
+  | 'kitforce.team.member.remove'
+  | 'kitforce.shift.read'
+  | 'kitforce.shift.create'
+  | 'kitforce.shift.update'
+  | 'kitforce.shift.start'
+  | 'kitforce.shift.complete'
+  | 'kitforce.shift.cancel'
+  | 'kitforce.assignment.read'
+  | 'kitforce.assignment.create'
+  | 'kitforce.assignment.update'
+  | 'kitforce.assignment.assign'
+  | 'kitforce.assignment.start'
+  | 'kitforce.assignment.complete'
+  | 'kitforce.assignment.cancel'
+  | 'kitforce.time_entry.read'
+  | 'kitforce.time_entry.clock_in'
+  | 'kitforce.time_entry.clock_out'
+  | 'kitforce.time_entry.update'
+  | 'kitforce.time_entry.delete';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -479,6 +527,54 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'shipment.line_item.create',
   'shipment.line_item.update',
   'shipment.line_item.delete',
+  'copack.channel.write',
+  'copack.order.create',
+  'copack.order.update',
+  'copack.order.confirm',
+  'copack.order.cancel',
+  'copack.order.line_item.create',
+  'copack.order.line_item.update',
+  'copack.order.line_item.delete',
+  'copack.kitting_job.create',
+  'copack.kitting_job.update',
+  'copack.kitting_job.delete',
+  'copack.kitting_job.start',
+  'copack.kitting_job.complete',
+  'copack.kitting_job.cancel',
+  'copack.kitting_job.line_item.create',
+  'copack.kitting_job.line_item.update',
+  'copack.kitting_job.line_item.delete',
+  'copack.fulfillment.pick',
+  'copack.fulfillment.pack',
+  'copack.fulfillment.ship',
+  // kitforce.* (full: org_owner, org_admin)
+  'kitforce.member.read',
+  'kitforce.member.read_rate',
+  'kitforce.member.create',
+  'kitforce.member.update',
+  'kitforce.member.deactivate',
+  'kitforce.team.read',
+  'kitforce.team.write',
+  'kitforce.team.member.add',
+  'kitforce.team.member.remove',
+  'kitforce.shift.read',
+  'kitforce.shift.create',
+  'kitforce.shift.update',
+  'kitforce.shift.start',
+  'kitforce.shift.complete',
+  'kitforce.shift.cancel',
+  'kitforce.assignment.read',
+  'kitforce.assignment.create',
+  'kitforce.assignment.update',
+  'kitforce.assignment.assign',
+  'kitforce.assignment.start',
+  'kitforce.assignment.complete',
+  'kitforce.assignment.cancel',
+  'kitforce.time_entry.read',
+  'kitforce.time_entry.clock_in',
+  'kitforce.time_entry.clock_out',
+  'kitforce.time_entry.update',
+  'kitforce.time_entry.delete',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -695,6 +791,54 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'shipment.line_item.create',
   'shipment.line_item.update',
   'shipment.line_item.delete',
+  'copack.channel.write',
+  'copack.order.create',
+  'copack.order.update',
+  'copack.order.confirm',
+  'copack.order.cancel',
+  'copack.order.line_item.create',
+  'copack.order.line_item.update',
+  'copack.order.line_item.delete',
+  'copack.kitting_job.create',
+  'copack.kitting_job.update',
+  'copack.kitting_job.delete',
+  'copack.kitting_job.start',
+  'copack.kitting_job.complete',
+  'copack.kitting_job.cancel',
+  'copack.kitting_job.line_item.create',
+  'copack.kitting_job.line_item.update',
+  'copack.kitting_job.line_item.delete',
+  'copack.fulfillment.pick',
+  'copack.fulfillment.pack',
+  'copack.fulfillment.ship',
+  // kitforce.* (full: org_owner, org_admin)
+  'kitforce.member.read',
+  'kitforce.member.read_rate',
+  'kitforce.member.create',
+  'kitforce.member.update',
+  'kitforce.member.deactivate',
+  'kitforce.team.read',
+  'kitforce.team.write',
+  'kitforce.team.member.add',
+  'kitforce.team.member.remove',
+  'kitforce.shift.read',
+  'kitforce.shift.create',
+  'kitforce.shift.update',
+  'kitforce.shift.start',
+  'kitforce.shift.complete',
+  'kitforce.shift.cancel',
+  'kitforce.assignment.read',
+  'kitforce.assignment.create',
+  'kitforce.assignment.update',
+  'kitforce.assignment.assign',
+  'kitforce.assignment.start',
+  'kitforce.assignment.complete',
+  'kitforce.assignment.cancel',
+  'kitforce.time_entry.read',
+  'kitforce.time_entry.clock_in',
+  'kitforce.time_entry.clock_out',
+  'kitforce.time_entry.update',
+  'kitforce.time_entry.delete',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -803,6 +947,15 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'warehouses.warehouse.read',
   'stock.level.read',
   'shipments.shipment.read',
+  // copack channel + order (sales writes orders; not kitting/fulfillment)
+  'copack.channel.write',
+  'copack.order.create',
+  'copack.order.update',
+  'copack.order.confirm',
+  'copack.order.cancel',
+  'copack.order.line_item.create',
+  'copack.order.line_item.update',
+  'copack.order.line_item.delete',
 ];
 
 const OPS_CAPS: ReadonlyArray<Capability> = [
@@ -918,6 +1071,53 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'shipment.line_item.create',
   'shipment.line_item.update',
   'shipment.line_item.delete',
+  'copack.channel.write',
+  'copack.order.create',
+  'copack.order.update',
+  'copack.order.confirm',
+  'copack.order.cancel',
+  'copack.order.line_item.create',
+  'copack.order.line_item.update',
+  'copack.order.line_item.delete',
+  'copack.kitting_job.create',
+  'copack.kitting_job.update',
+  'copack.kitting_job.delete',
+  'copack.kitting_job.start',
+  'copack.kitting_job.complete',
+  'copack.kitting_job.cancel',
+  'copack.kitting_job.line_item.create',
+  'copack.kitting_job.line_item.update',
+  'copack.kitting_job.line_item.delete',
+  'copack.fulfillment.pick',
+  'copack.fulfillment.pack',
+  'copack.fulfillment.ship',
+  // kitforce.* (ops: all except read_rate)
+  'kitforce.member.read',
+  'kitforce.member.create',
+  'kitforce.member.update',
+  'kitforce.member.deactivate',
+  'kitforce.team.read',
+  'kitforce.team.write',
+  'kitforce.team.member.add',
+  'kitforce.team.member.remove',
+  'kitforce.shift.read',
+  'kitforce.shift.create',
+  'kitforce.shift.update',
+  'kitforce.shift.start',
+  'kitforce.shift.complete',
+  'kitforce.shift.cancel',
+  'kitforce.assignment.read',
+  'kitforce.assignment.create',
+  'kitforce.assignment.update',
+  'kitforce.assignment.assign',
+  'kitforce.assignment.start',
+  'kitforce.assignment.complete',
+  'kitforce.assignment.cancel',
+  'kitforce.time_entry.read',
+  'kitforce.time_entry.clock_in',
+  'kitforce.time_entry.clock_out',
+  'kitforce.time_entry.update',
+  'kitforce.time_entry.delete',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
@@ -1044,6 +1244,9 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   'production.run.read',
   'shipments.shipment.read',
   'shipment.line_item.read',
+  // kitforce.* (accounting: member read + rate gate for labor costing)
+  'kitforce.member.read',
+  'kitforce.member.read_rate',
 ];
 
 const VIEWER_CAPS: ReadonlyArray<Capability> = [

@@ -13,12 +13,24 @@
 // Only the nav grouping changes; the flat ROUTES table is untouched
 // (per the constitutional "flat ROUTES table" rule in CLAUDE.md).
 //
-// Five modes, in workflow order:
-//   1. SELL     — quote, qualify, and close work
-//   2. MAKE     — build it. track the lines.
-//   3. SHIP     — outbound and stock movements
-//   4. GET PAID — invoice, collect, reconcile
-//   5. LIBRARY  — reference data and procurement
+// Six modes, in workflow order:
+//   1. SELL      — quote, qualify, and close work
+//   2. MAKE      — build it. track the lines.
+//   3. SHIP      — outbound and stock movements
+//   4. GET PAID  — invoice, collect, reconcile
+//   5. LIBRARY   — reference data and procurement
+//   6. WORKFORCE — people, schedules, and labor
+//
+// WORKFORCE (KitForce, Pillar 4) is the people-and-labor surface:
+// members, teams, the shift schedule, work assignments, and time
+// entries. Operator decision S1 (2026-05-31): the mode is
+// default-visible and non-blocking, but each route carries
+// requiresFlag: plugins.kitforce so the links only render once the
+// org enables the KitForce plugin. The server-side per-route
+// FEATURE_DISABLED / 404 plugin-bundle gates are unaffected; this is
+// a pure SPA-render gate, identical to the Co-Pack and Manufacturing
+// pattern above. It sits last because it cuts across every pillar
+// rather than sequencing within the sell-to-collect flow.
 //
 // Where AP routes live: the spec's 5-mode constraint has no Buy mode,
 // so purchase orders, vendor bills, and expenses sit in LIBRARY along
@@ -32,9 +44,12 @@
 
 import {
   ArrowLeftRight,
+  Boxes,
   Briefcase,
   Building2,
   CalendarCheck,
+  ClipboardList,
+  Clock,
   Contact,
   CreditCard,
   DollarSign,
@@ -42,13 +57,20 @@ import {
   FileMinus,
   FileSpreadsheet,
   FileText,
+  HardHat,
+  Layers,
   Package,
+  PackageCheck,
   PackageOpen,
   Receipt,
+  ShoppingCart,
+  Store,
   Target,
   TrendingUp,
   Truck,
+  UserCog,
   Users,
+  UsersRound,
   Wallet,
   Warehouse,
   type LucideIcon,
@@ -56,7 +78,13 @@ import {
 
 import { FEATURE_FLAGS } from '@/lib/constants';
 
-export type ModeKey = 'sell' | 'make' | 'ship' | 'get_paid' | 'library';
+export type ModeKey =
+  | 'sell'
+  | 'make'
+  | 'ship'
+  | 'get_paid'
+  | 'library'
+  | 'workforce';
 
 export interface ModeRoute {
   path: string;
@@ -98,6 +126,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/crm/opportunities', label: 'Opportunities', icon: Target },
       { path: '/crm/activities', label: 'Activities', icon: CalendarCheck },
       { path: '/3pl-operations/quotes', label: 'Quotes', icon: FileText },
+      {
+        path: '/copack/orders',
+        label: 'Sales orders',
+        icon: ShoppingCart,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
     ],
   },
   {
@@ -107,6 +141,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     icon: Factory,
     routes: [
       { path: '/3pl-operations/projects', label: 'Projects', icon: Briefcase },
+      { path: '/3pl-operations/boms', label: 'Bills of materials', icon: Layers },
       {
         path: '/manufacturing/runs',
         label: 'Manufacturing runs',
@@ -121,6 +156,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       // routes.ts so deep links and bookmarks land on the new surface.
       // Follow-up: F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01.
       {
+        path: '/copack/kitting',
+        label: 'Kitting jobs',
+        icon: Boxes,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
+      {
         path: '/3pl-operations/receiving',
         label: 'Receiving',
         icon: PackageOpen,
@@ -134,6 +175,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     icon: Truck,
     routes: [
       { path: '/3pl-operations/shipments', label: 'Shipments', icon: Truck },
+      {
+        path: '/copack/fulfillments',
+        label: 'Fulfillments',
+        icon: PackageCheck,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
       {
         path: '/3pl-operations/stock/levels',
         label: 'Stock levels',
@@ -174,6 +221,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     routes: [
       { path: '/crm/customers', label: 'Customers', icon: Users },
       { path: '/crm/contacts', label: 'Contacts', icon: Contact },
+      {
+        path: '/copack/channels',
+        label: 'Sales channels',
+        icon: Store,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
       { path: '/3pl-operations/items', label: 'Items', icon: Package },
       { path: '/3pl-operations/warehouses', label: 'Warehouses', icon: Warehouse },
       { path: '/3pl-operations/vendors', label: 'Vendors', icon: Building2 },
@@ -188,6 +241,44 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Receipt,
       },
       { path: '/3pl-operations/expenses', label: 'Expenses', icon: CreditCard },
+    ],
+  },
+  {
+    key: 'workforce',
+    label: 'WORKFORCE',
+    subtitle: 'People, schedules, and labor.',
+    icon: HardHat,
+    routes: [
+      {
+        path: '/kitforce/members',
+        label: 'Members',
+        icon: UsersRound,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+      },
+      {
+        path: '/kitforce/teams',
+        label: 'Teams',
+        icon: UserCog,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+      },
+      {
+        path: '/kitforce/shifts',
+        label: 'Schedule',
+        icon: CalendarCheck,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+      },
+      {
+        path: '/kitforce/assignments',
+        label: 'Assignments',
+        icon: ClipboardList,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+      },
+      {
+        path: '/kitforce/time-entries',
+        label: 'Time entries',
+        icon: Clock,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+      },
     ],
   },
 ] as const;

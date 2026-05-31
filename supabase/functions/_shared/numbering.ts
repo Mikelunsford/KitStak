@@ -29,7 +29,13 @@ export type DocType =
   | 'receiving_order'
   | 'production_run'
   | 'shipment'
-  | 'manufacturing_run';
+  | 'manufacturing_run'
+  | 'sales_order'
+  | 'kitting_job'
+  | 'fulfillment'
+  | 'workforce_member'
+  | 'shift'
+  | 'work_assignment';
 
 /**
  * Allocate the next document number for (org, docType). Returns the

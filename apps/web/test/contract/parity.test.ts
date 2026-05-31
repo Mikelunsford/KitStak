@@ -63,6 +63,24 @@ const SIDE_CAR_PAIRS: ReadonlyArray<Pair> = DOMAINS.flatMap((domain) =>
   })),
 );
 
+// Bespoke side-cars: pillar type canons that ship a types-only file with no
+// workflow companion. Registered by hand so they are NOT folded into DOMAINS
+// (which would force a workflow side-car on both sides). Pillar 3 Co-Pack and
+// Ecom keeps its FSM transition rules in the copack-api handler, not a workflow
+// canon, so only types/copack.ts is byte-paired here.
+const BESPOKE_PAIRS: ReadonlyArray<Pair> = [
+  {
+    name: 'types/copack',
+    spa: 'src/lib/types/copack.ts',
+    shared: '../../supabase/functions/_shared/types/copack.ts',
+  },
+  {
+    name: 'types/kitforce',
+    spa: 'src/lib/types/kitforce.ts',
+    shared: '../../supabase/functions/_shared/types/kitforce.ts',
+  },
+];
+
 const here = dirname(fileURLToPath(import.meta.url));
 const appsWebRoot = resolve(here, '..', '..');
 
@@ -77,7 +95,7 @@ describe('contract canon byte parity (singular)', () => {
 });
 
 describe('contract canon byte parity (side-cars)', () => {
-  for (const pair of SIDE_CAR_PAIRS) {
+  for (const pair of [...SIDE_CAR_PAIRS, ...BESPOKE_PAIRS]) {
     it(`${pair.name}: SPA and _shared copies are byte-identical`, () => {
       const spaBytes    = readFileSync(resolve(appsWebRoot, pair.spa));
       const sharedBytes = readFileSync(resolve(appsWebRoot, pair.shared));

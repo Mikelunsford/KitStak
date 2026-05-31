@@ -18,11 +18,11 @@ import {
 import { FEATURE_FLAGS } from '@/lib/constants';
 
 describe('SIDEBAR_MODES shape (UX-Q1)', () => {
-  it('contains exactly five modes', () => {
-    expect(SIDEBAR_MODES).toHaveLength(5);
+  it('contains exactly six modes', () => {
+    expect(SIDEBAR_MODES).toHaveLength(6);
   });
 
-  it('modes are SELL / MAKE / SHIP / GET PAID / LIBRARY in workflow order', () => {
+  it('modes are SELL / MAKE / SHIP / GET PAID / LIBRARY / WORKFORCE in workflow order', () => {
     const keys = SIDEBAR_MODES.map((m) => m.key);
     expect(keys).toEqual<ModeKey[]>([
       'sell',
@@ -30,6 +30,7 @@ describe('SIDEBAR_MODES shape (UX-Q1)', () => {
       'ship',
       'get_paid',
       'library',
+      'workforce',
     ]);
   });
 
@@ -131,6 +132,24 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(mfg?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_MANUFACTURING);
   });
 
+  it('Co-Pack surfaces sit in their workflow modes and are gated behind plugins.copack_ecom', () => {
+    const expectations: ReadonlyArray<[ModeKey, string]> = [
+      ['sell', '/copack/orders'],
+      ['make', '/copack/kitting'],
+      ['ship', '/copack/fulfillments'],
+      ['library', '/copack/channels'],
+    ];
+    for (const [key, path] of expectations) {
+      const mode = SIDEBAR_MODES.find((m) => m.key === key);
+      expect(mode, `mode ${key}`).toBeDefined();
+      const route = mode!.routes.find((r) => r.path === path);
+      expect(route, `route ${path} in ${key}`).toBeDefined();
+      expect(route?.requiresFlag, `flag on ${path}`).toBe(
+        FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      );
+    }
+  });
+
   it('Journal entries route is gated behind finance.journal_entries.enabled', () => {
     const gp = SIDEBAR_MODES.find((m) => m.key === 'get_paid');
     expect(gp).toBeDefined();
@@ -138,6 +157,25 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(je?.requiresFlag).toBe(
       FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
     );
+  });
+
+  it('WORKFORCE groups the KitForce people-and-labor surfaces (S1, 2026-05-31)', () => {
+    const paths = pathsFor('workforce');
+    expect(paths).toContain('/kitforce/members');
+    expect(paths).toContain('/kitforce/teams');
+    expect(paths).toContain('/kitforce/shifts');
+    expect(paths).toContain('/kitforce/assignments');
+    expect(paths).toContain('/kitforce/time-entries');
+  });
+
+  it('every WORKFORCE route is gated behind plugins.kitforce (S1 SPA-render gate)', () => {
+    const wf = SIDEBAR_MODES.find((m) => m.key === 'workforce');
+    expect(wf).toBeDefined();
+    for (const route of wf!.routes) {
+      expect(route.requiresFlag, `flag on ${route.path}`).toBe(
+        FEATURE_FLAGS.PLUGINS_KITFORCE,
+      );
+    }
   });
 });
 
@@ -220,9 +258,41 @@ describe('visibleRoutesForMode (UX-Q1)', () => {
     expect(visible.map((r) => r.path)).not.toContain('/finance/journal-entries');
   });
 
-  it('keeps all routes in modes that have no flag-gated routes', () => {
+  it('keeps every route when all gating flags for the mode are satisfied', () => {
     const ship = SIDEBAR_MODES.find((m) => m.key === 'ship')!;
-    expect(visibleRoutesForMode(ship, {}).length).toBe(ship.routes.length);
+    const allFlagsOn = {
+      [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: true,
+    };
+    expect(visibleRoutesForMode(ship, allFlagsOn).length).toBe(
+      ship.routes.length,
+    );
+  });
+
+  it('filters out the copack fulfillments route when plugins.copack_ecom is off', () => {
+    const ship = SIDEBAR_MODES.find((m) => m.key === 'ship')!;
+    const visible = visibleRoutesForMode(ship, {
+      [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: false,
+    });
+    const paths = visible.map((r) => r.path);
+    expect(paths).not.toContain('/copack/fulfillments');
+    // Unflagged routes stay.
+    expect(paths).toContain('/3pl-operations/shipments');
+  });
+
+  it('hides every WORKFORCE route when plugins.kitforce is off', () => {
+    const wf = SIDEBAR_MODES.find((m) => m.key === 'workforce')!;
+    const visible = visibleRoutesForMode(wf, {
+      [FEATURE_FLAGS.PLUGINS_KITFORCE]: false,
+    });
+    expect(visible).toHaveLength(0);
+  });
+
+  it('shows every WORKFORCE route when plugins.kitforce is on', () => {
+    const wf = SIDEBAR_MODES.find((m) => m.key === 'workforce')!;
+    const visible = visibleRoutesForMode(wf, {
+      [FEATURE_FLAGS.PLUGINS_KITFORCE]: true,
+    });
+    expect(visible.length).toBe(wf.routes.length);
   });
 });
 
@@ -238,6 +308,8 @@ describe('findActiveMode (UX-Q1)', () => {
     expect(findActiveMode('/3pl-operations/shipments')).toBe('ship');
     expect(findActiveMode('/invoicing/invoices')).toBe('get_paid');
     expect(findActiveMode('/crm/customers')).toBe('library');
+    expect(findActiveMode('/kitforce/members')).toBe('workforce');
+    expect(findActiveMode('/kitforce/time-entries')).toBe('workforce');
   });
 
   it('matches detail/subpath URLs via prefix-with-slash', () => {
@@ -245,6 +317,8 @@ describe('findActiveMode (UX-Q1)', () => {
     expect(findActiveMode('/3pl-operations/quotes/xyz/send')).toBe('sell');
     expect(findActiveMode('/invoicing/invoices/i_1/send')).toBe('get_paid');
     expect(findActiveMode('/3pl-operations/items/new')).toBe('library');
+    expect(findActiveMode('/kitforce/members/new')).toBe('workforce');
+    expect(findActiveMode('/kitforce/assignments/a_1')).toBe('workforce');
   });
 
   it('does NOT confuse prefix-without-slash matches', () => {
