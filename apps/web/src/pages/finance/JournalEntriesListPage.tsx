@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useJournalEntries } from '@/lib/hooks/useJournalEntries';
+
+const PAGE_SIZE = 50;
 
 /**
  * JournalEntriesListPage. Reverse-chronological list. The per-route
@@ -8,7 +11,13 @@ import { useJournalEntries } from '@/lib/hooks/useJournalEntries';
  * the 403 message inline when the flag is off.
  */
 export function JournalEntriesListPage() {
+  const [page, setPage] = useState(0);
   const { data, isLoading, error } = useJournalEntries();
+
+  const totalCount = data?.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const pageStart = page * PAGE_SIZE;
+  const pageRows = (data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
 
   return (
     <section className="px-8 py-8 flex flex-col gap-6">
@@ -36,7 +45,7 @@ export function JournalEntriesListPage() {
             </tr>
           </thead>
           <tbody>
-            {(data ?? []).map((je) => (
+            {pageRows.map((je) => (
               <tr key={je.id} className="border-b border-line">
                 <td className="py-2">
                   <Link
@@ -57,6 +66,29 @@ export function JournalEntriesListPage() {
           </tbody>
         </table>
       )}
+      {totalCount > PAGE_SIZE ? (
+        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <span className="text-ink-dim">
+            {page + 1} of {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
+          >
+            Next
+          </button>
+        </nav>
+      ) : null}
     </section>
   );
 }

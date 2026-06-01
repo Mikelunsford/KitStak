@@ -6,10 +6,13 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { listContacts } from '@/lib/services/contactsService';
 
+const PAGE_SIZE = 50;
+
 export function ContactsListPage() {
   const [search] = useSearchParams();
   const customerId = search.get('customer_id') ?? undefined;
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(0);
   const filters = {
     ...(customerId ? { customer_id: customerId } : {}),
     ...(q ? { q } : {}),
@@ -19,6 +22,11 @@ export function ContactsListPage() {
     queryFn: () => listContacts(filters),
     staleTime: 30_000,
   });
+
+  const totalCount = query.data?.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const pageStart = page * PAGE_SIZE;
+  const pageRows = (query.data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
 
   return (
     <section className="px-8 py-10 max-w-6xl mx-auto flex flex-col gap-6">
@@ -30,7 +38,7 @@ export function ContactsListPage() {
         type="text"
         placeholder="Search by first name"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => { setQ(e.target.value); setPage(0); }}
         className="bg-bg-2 border border-line px-3 py-2 font-sans"
       />
       {query.isLoading ? (
@@ -53,7 +61,7 @@ export function ContactsListPage() {
             </tr>
           </thead>
           <tbody>
-            {(query.data ?? []).map((c) => (
+            {pageRows.map((c) => (
               <tr key={c.id} className="border-t border-line">
                 <td className="px-4 py-2 font-sans">
                   <Link to={`/crm/contacts/${c.id}`} className="underline">
@@ -68,6 +76,29 @@ export function ContactsListPage() {
           </tbody>
         </table>
       )}
+      {totalCount > PAGE_SIZE ? (
+        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <span className="text-ink-dim">
+            {page + 1} of {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
+          >
+            Next
+          </button>
+        </nav>
+      ) : null}
     </section>
   );
 }

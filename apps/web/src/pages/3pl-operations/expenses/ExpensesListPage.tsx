@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useExpensesList } from '@/lib/hooks/useExpenses';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { formatCents } from '@/lib/money';
 
 export function ExpensesListPage() {
   const { data, isLoading } = useExpensesList();
@@ -34,7 +35,7 @@ export function ExpensesListPage() {
               <td className="px-4 py-2"><Link to={`/3pl-operations/expenses/${e.id}`} className="text-ink underline">{e.expense_number ?? e.id.slice(0, 8)}</Link></td>
               <td className="px-4 py-2"><span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{e.status}</span></td>
               <td className="px-4 py-2 text-ink-dim">{e.expense_date}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(e.total_cents)}</td>
+              <td className="px-4 py-2 text-ink-dim">{formatCents(e.total_cents as number | string, e.currency_code)}</td>
             </tr>
           ))}
         </tbody>

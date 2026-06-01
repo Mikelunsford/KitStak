@@ -8,6 +8,8 @@ import { formatCents } from '@/lib/money';
 
 import { formatInvoiceAging } from './invoiceAging';
 
+const PAGE_SIZE = 50;
+
 const ALLOWED_INVOICE_STATUSES = new Set<string>([
   'draft',
   'sent',
@@ -36,7 +38,13 @@ export function InvoicesListPage() {
   const [status, setStatus] = useState<string | undefined>(() =>
     parseInvoiceStatusParam(searchParams.get('status')),
   );
+  const [page, setPage] = useState(0);
   const { data, isLoading, error } = useInvoices(status ? { status } : {});
+
+  const totalCount = data?.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const pageStart = page * PAGE_SIZE;
+  const pageRows = (data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
 
   return (
     <section className="px-8 py-8 flex flex-col gap-6">
@@ -60,7 +68,7 @@ export function InvoicesListPage() {
                 'px-3 py-1 border border-line text-xs font-sans uppercase ' +
                 (status === s ? 'bg-ink text-bg' : 'bg-bg-2 text-ink')
               }
-              onClick={() => setStatus(s)}
+              onClick={() => { setStatus(s); setPage(0); }}
             >
               {s ?? 'all'}
             </button>
@@ -94,7 +102,7 @@ export function InvoicesListPage() {
             </tr>
           </thead>
           <tbody>
-            {(data ?? []).map((inv) => (
+            {pageRows.map((inv) => (
               <tr key={inv.id} className="border-b border-line">
                 <td className="py-2 pr-3">
                   <Link
@@ -138,6 +146,29 @@ export function InvoicesListPage() {
           </tbody>
         </table>
       )}
+      {totalCount > PAGE_SIZE ? (
+        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <span className="text-ink-dim">
+            {page + 1} of {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
+          >
+            Next
+          </button>
+        </nav>
+      ) : null}
     </section>
   );
 }

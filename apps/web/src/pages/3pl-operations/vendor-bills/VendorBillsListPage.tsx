@@ -3,6 +3,7 @@ import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useVendorBillsList } from '@/lib/hooks/useVendorBills';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { formatCents } from '@/lib/money';
 
 export function VendorBillsListPage() {
   const { data, isLoading, error } = useVendorBillsList();
@@ -43,8 +44,8 @@ export function VendorBillsListPage() {
               <td className="px-4 py-2"><Link to={`/3pl-operations/vendor-bills/${b.id}`} className="text-ink underline">{b.bill_number ?? b.id.slice(0, 8)}</Link></td>
               <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="vendor" id={b.vendor_id} /></td>
               <td className="px-4 py-2"><span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">{b.status}</span></td>
-              <td className="px-4 py-2 text-ink-dim">{String(b.total_cents)}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(b.balance_cents)}</td>
+              <td className="px-4 py-2 text-ink-dim">{formatCents(b.total_cents as number | string, b.currency_code)}</td>
+              <td className="px-4 py-2 text-ink-dim">{formatCents(b.balance_cents as number | string, b.currency_code)}</td>
               <td className="px-4 py-2 text-ink-dim">{b.due_date ?? ''}</td>
             </tr>
           ))}
