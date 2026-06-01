@@ -14,6 +14,12 @@
 //      readable by every authenticated caller.
 //   5. Unauthenticated callers hit 401 UNAUTHORIZED on guarded routes.
 //   6. customer-portal-api 404s any non-customer_user role.
+//   7. Newer-pillar tenant-scoped tables (Manufacturing, Co-Pack, KitForce;
+//      migrations 0052+) honour the same Pattern A cross-tenant read
+//      contract. These probes self-skip with a named reason when the target
+//      DB lags prod, so the matrix is honest about what it did not cover
+//      rather than silently blind. See Category 11 and
+//      F-Wave8-NIGHTLY-RLS-PROBE-INVESTIGATE-01.
 //
 // Fixture strategy: a test.beforeAll creates two ephemeral orgs (A and B)
 // plus one user per org via the supabase-js auth admin client. Org A is
@@ -1020,4 +1026,82 @@ test.describe('@rls cross-tenant probe matrix', () => {
       expect(r.org_id).toBe(orgB!.id);
     }
   });
+
+  // --- Category 11: newer-pillar cross-tenant read RLS -------------------
+  //
+  // F-Wave8-NIGHTLY-RLS-PROBE-INVESTIGATE-01. The probe historically only
+  // covered entities that existed at the 0051 schema level (CRM, sales,
+  // invoicing, vendors, ops, finance). Manufacturing runs, Co-Pack
+  // (sales_channels / sales_orders / kitting_jobs / fulfillments), and
+  // KitForce (workforce_members / workforce_teams / workforce_team_members /
+  // shifts / time_entries) were added in migrations 0052 onward and were
+  // never in the cross-tenant matrix. A constitutional drift detector that
+  // never touches half the tenant-scoped tables is silently blind: an RLS
+  // mistake on any of these would ship green.
+  //
+  // Each table is Pattern A (org_id = current_org_id()) from creation, so the
+  // cross-tenant read contract is identical to Category 1: userB reading
+  // orgA's org_id MUST return 200 + []. RLS filters, never throws. These
+  // probes need no per-table seed: an org-scoped read scoped to a foreign
+  // org_id returns [] whether or not that org has rows, so the assertion is
+  // valid even on an empty fixture.
+  //
+  // Coverage-honesty guard: the nightly probe runs against a Supabase preview
+  // branch (D-009) that can lag prod by several migrations. When a table is
+  // absent on the target DB, PostgREST answers PGRST205 (relation not in the
+  // schema cache). Rather than fail red on an environment-lag the probe does
+  // not own, OR pass green while silently skipping the table, each probe
+  // skips with a precise message naming the missing table and the drift. The
+  // moment the preview branch catches up to prod the probe activates and
+  // enforces the contract with zero further changes.
+
+  const newerPillarReadCases: Array<[string, string]> = [
+    ['manufacturing_runs', 'Manufacturing'],
+    ['sales_channels', 'Co-Pack'],
+    ['sales_orders', 'Co-Pack'],
+    ['kitting_jobs', 'Co-Pack'],
+    ['fulfillments', 'Co-Pack'],
+    ['workforce_members', 'KitForce'],
+    ['workforce_teams', 'KitForce'],
+    ['workforce_team_members', 'KitForce'],
+    ['shifts', 'KitForce'],
+    ['time_entries', 'KitForce'],
+  ];
+
+  // PostgREST returns PGRST205 with HTTP 404 when a relation is not in the
+  // schema cache. Any other outcome (data present, or RLS filtering to [])
+  // means the table exists on the target DB.
+  const TABLE_ABSENT_CODE = 'PGRST205';
+
+  async function tableExistsOnTarget(table: string): Promise<boolean> {
+    const sb = admin();
+    const { error } = await sb.from(table).select('id').limit(1);
+    return error?.code !== TABLE_ABSENT_CODE;
+  }
+
+  for (const [table, pillar] of newerPillarReadCases) {
+    test(`@rls ${pillar} ${table} cross-tenant read returns empty array`, async () => {
+      if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+      const present = await tableExistsOnTarget(table);
+      test.skip(
+        !present,
+        `${pillar} table ${table} absent on target DB (preview-branch migration drift); cross-tenant RLS for this table is UNPROBED until the staging branch catches up to prod`,
+      );
+      const sb = anonForJwt(orgB!.ownerJwt);
+      const { data, error } = await sb
+        .from(table)
+        .select('*')
+        .eq('org_id', orgA!.id)
+        .limit(50);
+      expect(
+        error,
+        `read ${table} should not error: ${error?.message}`,
+      ).toBeNull();
+      expect(Array.isArray(data)).toBe(true);
+      expect(
+        data,
+        `RLS leak: cross-tenant ${table} read returned rows`,
+      ).toEqual([]);
+    });
+  }
 });
