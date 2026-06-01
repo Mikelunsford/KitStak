@@ -1,11 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/TextInput';
 import {
   useShift,
   useMembersList,
+  useTeamsList,
+  useUpdateShift,
   useStartShift,
   useCompleteShift,
   useCancelShift,
@@ -14,6 +18,22 @@ import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
 import { formatDateTimeMedium } from '@/lib/dates';
+import type { ShiftPatch } from '@/lib/types/kitforce';
+
+function localToIso(value: string): string | null {
+  if (!value) return null;
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
+// ISO -> "YYYY-MM-DDTHH:mm" in local time for a datetime-local input.
+function isoToLocalInput(iso: string): string {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
 
 /**
  * ShiftDetailPage. Pillar 4. Mirrors FulfillmentDetailPage shape.
@@ -29,11 +49,19 @@ export function ShiftDetailPage() {
 
   const shift = useShift(id);
   const members = useMembersList();
+  const teams = useTeamsList();
+  const updateShift = useUpdateShift(shiftId);
   const start = useStartShift(shiftId);
   const complete = useCompleteShift(shiftId);
   const cancel = useCancelShift(shiftId);
 
   const caps = useVioCapabilities();
+  const canUpdate = caps.can('kitforce.shift.update');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editStart, setEditStart] = useState<string | null>(null);
+  const [editEnd, setEditEnd] = useState<string | null>(null);
+  const [editTeam, setEditTeam] = useState<string | null>(null);
 
   const memberName = useMemo(() => {
     const map: Record<string, string> = {};
@@ -50,6 +78,25 @@ export function ShiftDetailPage() {
   const isScheduled = d.status === 'scheduled';
   const isStarted = d.status === 'started';
   const canCancel = isScheduled || isStarted;
+
+  // Shifts are editable only while scheduled (the spec's "edit only while
+  // scheduled" rule). Effective form values fall back to the loaded row.
+  const vStart = editStart ?? isoToLocalInput(d.scheduled_start_at);
+  const vEnd = editEnd ?? isoToLocalInput(d.scheduled_end_at);
+  const vTeam = editTeam ?? (d.team_id ?? '');
+
+  function onSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    const startIso = localToIso(vStart);
+    const endIso = localToIso(vEnd);
+    if (!startIso || !endIso) return;
+    const body: ShiftPatch = {
+      scheduled_start_at: startIso,
+      scheduled_end_at: endIso,
+      team_id: vTeam ? vTeam : null,
+    };
+    updateShift.mutate(body, { onSuccess: () => setIsEditing(false) });
+  }
 
   async function onComplete() {
     if (!(await destructiveConfirm({
@@ -114,7 +161,73 @@ export function ShiftDetailPage() {
             Cancel shift
           </button>
         )}
+        {isScheduled && canUpdate && !isEditing && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
+          >
+            Edit
+          </button>
+        )}
       </div>
+
+      {isEditing ? (
+        <form onSubmit={onSaveEdit} className="flex flex-col gap-4 border border-line bg-bg-2 p-4">
+          <h2 className="font-display tracking-wider text-ink">EDIT SHIFT</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <TextInput
+              label="Scheduled start"
+              type="datetime-local"
+              value={vStart}
+              onChange={(e) => setEditStart(e.target.value)}
+            />
+            <TextInput
+              label="Scheduled end"
+              type="datetime-local"
+              value={vEnd}
+              onChange={(e) => setEditEnd(e.target.value)}
+            />
+            <label className="flex flex-col gap-1">
+              <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Team (optional)</span>
+              <select
+                value={vTeam}
+                onChange={(e) => setEditTeam(e.target.value)}
+                disabled={teams.isLoading}
+                className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+              >
+                <option value="">No team</option>
+                {(teams.data ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {updateShift.error ? (
+            <p className="text-accent font-sans text-sm">
+              {updateShift.error instanceof Error ? updateShift.error.message : 'Save failed.'}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!vStart || !vEnd || updateShift.isPending}>
+              {updateShift.isPending ? 'Saving.' : 'Save changes'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsEditing(false);
+                setEditStart(null);
+                setEditEnd(null);
+                setEditTeam(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : null}
       {start.error ? (
         <p className="font-sans text-sm text-accent">
           {start.error instanceof Error ? start.error.message : 'Start failed.'}
