@@ -118,12 +118,12 @@ export function VendorBillDetailPage() {
           {next.map((to) => (
             <button
               key={to}
-              onClick={() => {
+              onClick={async () => {
                 // UX-Q8: cancelling reverses an AP obligation.
-                if (to === 'cancelled' && !destructiveConfirm({
+                if (to === 'cancelled' && !(await destructiveConfirm({
                   action: 'Cancel this vendor bill',
                   consequence: 'The bill will move to cancelled and the payable obligation will be reversed.',
-                })) return;
+                }))) return;
                 transition.mutate(to as VendorBillStatus);
               }}
               disabled={transition.isPending}

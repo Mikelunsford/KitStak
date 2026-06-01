@@ -119,45 +119,45 @@ export function KittingJobDetailPage() {
     );
   }
 
-  function onRemoveConsumed(lineId: string) {
-    if (!destructiveConfirm({
+  async function onRemoveConsumed(lineId: string) {
+    if (!(await destructiveConfirm({
       action: 'Remove this consumed component',
       consequence: 'The component line will be deleted from the job.',
-    })) return;
+    }))) return;
     removeConsumed.mutate(lineId);
   }
 
-  function onRemoveProduced(lineId: string) {
-    if (!destructiveConfirm({
+  async function onRemoveProduced(lineId: string) {
+    if (!(await destructiveConfirm({
       action: 'Remove this produced kit',
       consequence: 'The kit line will be deleted from the job.',
-    })) return;
+    }))) return;
     removeProduced.mutate(lineId);
   }
 
-  function onComplete() {
-    if (!destructiveConfirm({
+  async function onComplete() {
+    if (!(await destructiveConfirm({
       action: 'Complete this kitting job',
       consequence: 'The job moves to completed and its lines are locked.',
       irreversible: true,
-    })) return;
+    }))) return;
     complete.mutate();
   }
 
-  function onCancel() {
-    if (!destructiveConfirm({
+  async function onCancel() {
+    if (!(await destructiveConfirm({
       action: 'Cancel this kitting job',
       consequence: 'The job will move to cancelled and stop appearing in active job lists.',
-    })) return;
+    }))) return;
     cancel.mutate();
   }
 
-  function onDelete() {
-    if (!destructiveConfirm({
+  async function onDelete() {
+    if (!(await destructiveConfirm({
       action: 'Delete this draft kitting job',
       consequence: 'The draft will be removed permanently.',
       irreversible: true,
-    })) return;
+    }))) return;
     remove.mutate(undefined, {
       onSuccess: () => navigate('/copack/kitting'),
     });

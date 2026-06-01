@@ -71,11 +71,11 @@ export function TeamDetailPage() {
     });
   }
 
-  function onRemove(removeMemberId: string) {
-    if (!destructiveConfirm({
+  async function onRemove(removeMemberId: string) {
+    if (!(await destructiveConfirm({
       action: 'Remove this member from the team',
       consequence: 'The member is removed from the team roster. Time entries already recorded are kept.',
-    })) return;
+    }))) return;
     remove.mutate(removeMemberId);
   }
 

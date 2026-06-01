@@ -48,20 +48,20 @@ export function FulfillmentDetailPage() {
   const isPacked = d.status === 'packed';
   const canCancel = isPending || isPicking || isPacked;
 
-  function onShip() {
-    if (!destructiveConfirm({
+  async function onShip() {
+    if (!(await destructiveConfirm({
       action: 'Ship this fulfillment',
       consequence: 'The fulfillment moves to shipped and can no longer be edited.',
       irreversible: true,
-    })) return;
+    }))) return;
     ship.mutate();
   }
 
-  function onCancel() {
-    if (!destructiveConfirm({
+  async function onCancel() {
+    if (!(await destructiveConfirm({
       action: 'Cancel this fulfillment',
       consequence: 'The fulfillment will move to cancelled and stop appearing in active lists.',
-    })) return;
+    }))) return;
     cancel.mutate();
   }
 

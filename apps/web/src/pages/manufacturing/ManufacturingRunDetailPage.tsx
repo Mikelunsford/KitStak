@@ -170,33 +170,33 @@ export function ManufacturingRunDetailPage() {
     );
   }
 
-  function onComplete() {
+  async function onComplete() {
     // UX-Q8: Complete is the original precedent for destructive confirm.
     // Route through destructiveConfirm so the copy stays in sync with the
     // other irreversible transitions across the SPA.
-    if (!destructiveConfirm({
+    if (!(await destructiveConfirm({
       action: 'Complete this manufacturing run',
       consequence: 'This writes production_consumed and production_produced stock movements.',
       irreversible: true,
-    })) return;
+    }))) return;
     complete.mutate();
   }
 
-  function onCancel() {
+  async function onCancel() {
     // UX-Q8: cancelling an in-flight build reverses the work commitment.
-    if (!destructiveConfirm({
+    if (!(await destructiveConfirm({
       action: 'Cancel this manufacturing run',
       consequence: 'The run will move to cancelled and stop appearing in active build lists.',
-    })) return;
+    }))) return;
     cancel.mutate();
   }
 
-  function onDelete() {
-    if (!destructiveConfirm({
+  async function onDelete() {
+    if (!(await destructiveConfirm({
       action: 'Delete this draft manufacturing run',
       consequence: 'The draft will be removed permanently.',
       irreversible: true,
-    })) return;
+    }))) return;
     remove.mutate(undefined, {
       onSuccess: () => navigate('/manufacturing/runs'),
     });

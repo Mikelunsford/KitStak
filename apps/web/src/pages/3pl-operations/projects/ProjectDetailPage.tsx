@@ -343,15 +343,15 @@ export function ProjectDetailPage() {
             <Button
               key={to}
               variant="secondary"
-              onClick={() => {
+              onClick={async () => {
                 // UX-Q8: only the cancelled transition is destructive.
                 // Other targets ('pending', 'ready_to_build',
                 // 'in_production', 'ready_to_ship', 'completed') are
                 // forward movements through the project lifecycle.
-                if (to === 'cancelled' && !destructiveConfirm({
+                if (to === 'cancelled' && !(await destructiveConfirm({
                   action: 'Cancel this project',
                   consequence: 'The project will move to cancelled and stop appearing in active work lists.',
-                })) return;
+                }))) return;
                 transition.mutate({ to });
               }}
             >

@@ -124,12 +124,12 @@ export function ShipmentDetailPage() {
           ? next.map((to) => (
             <button
               key={to}
-              onClick={() => {
+              onClick={async () => {
                 // UX-Q8: cancelling reverses an outbound commitment.
-                if (to === 'cancelled' && !destructiveConfirm({
+                if (to === 'cancelled' && !(await destructiveConfirm({
                   action: 'Cancel this shipment',
                   consequence: 'The shipment will move to cancelled and the outbound commitment to the customer will be reversed.',
-                })) return;
+                }))) return;
                 transition.mutate(to as ShipmentStatus);
               }}
               disabled={transition.isPending}

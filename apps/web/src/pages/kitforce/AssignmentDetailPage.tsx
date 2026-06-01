@@ -63,20 +63,20 @@ export function AssignmentDetailPage() {
   const isInProgress = d.status === 'in_progress';
   const canCancel = isOpen || isAssigned || isInProgress;
 
-  function onComplete() {
-    if (!destructiveConfirm({
+  async function onComplete() {
+    if (!(await destructiveConfirm({
       action: 'Complete this assignment',
       consequence: 'The assignment moves to done and can no longer be started or edited.',
       irreversible: true,
-    })) return;
+    }))) return;
     complete.mutate({});
   }
 
-  function onCancel() {
-    if (!destructiveConfirm({
+  async function onCancel() {
+    if (!(await destructiveConfirm({
       action: 'Cancel this assignment',
       consequence: 'The assignment will move to cancelled and stop appearing in the active work queue.',
-    })) return;
+    }))) return;
     cancel.mutate({});
   }
 

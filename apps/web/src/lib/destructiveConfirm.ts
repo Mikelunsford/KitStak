@@ -1,25 +1,25 @@
-// UX-Q8: opinionated confirm wrapper. Returns true if the operator
-// confirmed, false if cancelled. Centralised so the copy stays
-// consistent across the SPA and the future swap to a styled
-// Dialog component is a one-file change.
+// UX-Q8 / F-Wave10-SMOKE-CONFIRM-MODAL-01: opinionated confirm gate for
+// destructive state-machine transitions. Returns a promise that resolves
+// true if the operator confirmed, false if they cancelled.
 //
-// The constitutional posture here is deliberate:
-//   - window.confirm is browser-native, so no new top-level dependency.
-//   - The destructive action itself still goes through the existing FSM
-//     mutation; this helper is only the confirmation gate.
-//   - Copy follows the Kitstak brand rules: no em dashes, no double
-//     hyphens, no emojis. Verb-first action lines, one-sentence
-//     consequence in plain English.
+// Originally this called window.confirm (browser-native, zero deps). The
+// 2026-06-01 Co-Pack/KitForce smoke flagged the native dialog as off-brand
+// and as a blocker for automated E2E (a native confirm freezes the runner).
+// It is now backed by an in-app modal: a single ConfirmDialogHost mounted at
+// the app root registers an opener via setConfirmOpener, and destructiveConfirm
+// drives it. No new top-level dependency; the modal is hand-rolled on the
+// existing primitives.
 //
-// The message-formatting is split out (`formatDestructiveMessage`) so it
-// can be unit tested in a node environment without jsdom. The
-// `destructiveConfirm` entrypoint is the side-effectful wrapper that
-// actually calls `window.confirm`.
+// Call-site contract is unchanged except for async:
+//   if (!(await destructiveConfirm({ action, consequence }))) return;
+//   mutation();
 //
-// Reference: the manufacturing-run Complete button at
-// apps/web/src/pages/manufacturing/ManufacturingRunDetailPage.tsx was
-// the existing precedent and is now routed through this helper with
-// irreversible: true.
+// Copy still follows the Kitstak brand rules: no em dashes, no double
+// hyphens, no emojis. Verb-first action lines, one-sentence consequence.
+//
+// formatDestructiveMessage stays a pure function so it can be unit tested in
+// a node environment without jsdom, and so a plain-text fallback message is
+// available if ever needed.
 
 export interface DestructiveConfirmOptions {
   /** Verb-first action description without trailing punctuation. */
@@ -47,21 +47,27 @@ export function formatDestructiveMessage(opts: DestructiveConfirmOptions): strin
   return lines.join('\n');
 }
 
+export type ConfirmOpener = (opts: DestructiveConfirmOptions) => Promise<boolean>;
+
+// Module-level registration slot. The ConfirmDialogHost (mounted once at the
+// app root) registers its opener here on mount and clears it on unmount.
+let opener: ConfirmOpener | null = null;
+
+export function setConfirmOpener(fn: ConfirmOpener | null): void {
+  opener = fn;
+}
+
 /**
- * Show a confirmation dialog for a destructive state-machine transition.
+ * Show the in-app confirmation modal for a destructive transition.
  *
- * Returns true if the operator confirmed, false if they cancelled.
- * The caller is responsible for short-circuiting the mutation when this
- * returns false.
+ * Resolves true if the operator confirmed, false if they cancelled. The
+ * caller short-circuits the mutation when this resolves false.
  *
- * Falls back to `false` when `window` is not present (e.g. SSR / node
- * test environments) so the destructive action is never triggered
- * silently. Browser-side, `window.confirm` is the SPA-default.
+ * When no host is mounted (SSR, node test env, or before first paint) this
+ * resolves false so a destructive action is never triggered silently. That
+ * preserves the original window.confirm posture.
  */
-export function destructiveConfirm(opts: DestructiveConfirmOptions): boolean {
-  const message = formatDestructiveMessage(opts);
-  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
-    return false;
-  }
-  return window.confirm(message);
+export function destructiveConfirm(opts: DestructiveConfirmOptions): Promise<boolean> {
+  if (!opener) return Promise.resolve(false);
+  return opener(opts);
 }

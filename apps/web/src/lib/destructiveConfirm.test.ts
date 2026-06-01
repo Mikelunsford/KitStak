@@ -1,14 +1,14 @@
-// UX-Q8: regression tests for the destructive-transition confirm
-// wrapper. Pure-logic, no React imports, no Supabase singleton, no
-// jsdom dependency. The `window` global is stubbed manually via
-// vi.stubGlobal so the test suite runs in the project's default node
-// vitest environment (matches the convention used by money.test.ts and
-// safePath.test.ts).
+// UX-Q8 / F-Wave10-SMOKE-CONFIRM-MODAL-01: regression tests for the
+// destructive-transition confirm helper. Pure-logic, no React imports, no
+// Supabase singleton, no jsdom dependency. destructiveConfirm is now backed by
+// the in-app modal via a registered opener (setConfirmOpener); the tests drive
+// it with a fake opener instead of stubbing window.confirm.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import {
   destructiveConfirm,
   formatDestructiveMessage,
+  setConfirmOpener,
 } from './destructiveConfirm';
 
 describe('formatDestructiveMessage', () => {
@@ -40,55 +40,47 @@ describe('formatDestructiveMessage', () => {
 
 describe('destructiveConfirm', () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    setConfirmOpener(null);
   });
 
-  it('returns true when window.confirm returns true', () => {
-    const confirmStub = vi.fn().mockReturnValue(true);
-    vi.stubGlobal('window', { confirm: confirmStub });
-    const result = destructiveConfirm({
+  it('resolves true when the modal host confirms', async () => {
+    const opener = vi.fn().mockResolvedValue(true);
+    setConfirmOpener(opener);
+    const result = await destructiveConfirm({
       action: 'Cancel this quote',
       consequence: 'The quote will move to cancelled.',
     });
     expect(result).toBe(true);
-    expect(confirmStub).toHaveBeenCalledTimes(1);
+    expect(opener).toHaveBeenCalledTimes(1);
   });
 
-  it('returns false when window.confirm returns false', () => {
-    const confirmStub = vi.fn().mockReturnValue(false);
-    vi.stubGlobal('window', { confirm: confirmStub });
-    const result = destructiveConfirm({
+  it('resolves false when the modal host cancels', async () => {
+    setConfirmOpener(vi.fn().mockResolvedValue(false));
+    const result = await destructiveConfirm({
       action: 'Cancel this quote',
       consequence: 'The quote will move to cancelled.',
     });
     expect(result).toBe(false);
   });
 
-  it('passes the formatted message including the irreversible footer to window.confirm', () => {
-    const confirmStub = vi.fn().mockReturnValue(true);
-    vi.stubGlobal('window', { confirm: confirmStub });
-    destructiveConfirm({
+  it('passes the options through to the registered opener', async () => {
+    const opener = vi.fn().mockResolvedValue(true);
+    setConfirmOpener(opener);
+    const opts = {
       action: 'Complete this manufacturing run',
       consequence: 'This writes production stock movements.',
       irreversible: true,
-    });
-    expect(confirmStub).toHaveBeenCalledTimes(1);
-    const message = confirmStub.mock.calls[0]?.[0];
-    expect(message).toBeDefined();
-    expect(message).toContain('Complete this manufacturing run?');
-    expect(message).toContain('This writes production stock movements.');
-    expect(message).toContain('This action cannot be undone.');
+    };
+    await destructiveConfirm(opts);
+    expect(opener).toHaveBeenCalledWith(opts);
   });
 
-  it('passes the formatted message without the footer when irreversible is missing', () => {
-    const confirmStub = vi.fn().mockReturnValue(true);
-    vi.stubGlobal('window', { confirm: confirmStub });
-    destructiveConfirm({
+  it('resolves false (never destructive) when no host is registered', async () => {
+    setConfirmOpener(null);
+    const result = await destructiveConfirm({
       action: 'Cancel this quote',
       consequence: 'The quote will move to cancelled.',
     });
-    const message = confirmStub.mock.calls[0]?.[0];
-    expect(message).toBeDefined();
-    expect(message).not.toContain('cannot be undone');
+    expect(result).toBe(false);
   });
 });
