@@ -38,6 +38,15 @@ export const ExchangeRateSchema = z.object({
 });
 export type ExchangeRate = z.infer<typeof ExchangeRateSchema>;
 
+export const ExchangeRateCreateSchema = z.object({
+  base_currency_code: z.string().length(3),
+  quote_currency_code: z.string().length(3),
+  rate_e9: z.union([z.number().int().positive(), z.string().regex(/^\d+$/)]),
+  effective_date: z.string(),
+  source: z.string().optional(),
+});
+export type ExchangeRateCreate = z.infer<typeof ExchangeRateCreateSchema>;
+
 // ---------------------------------------------------------------------------
 // taxes + payment_methods + pricing_tiers + customer_pricing_overrides
 // ---------------------------------------------------------------------------
@@ -54,6 +63,20 @@ export const TaxSchema = z.object({
   notes: z.string().nullable(),
 });
 export type Tax = z.infer<typeof TaxSchema>;
+
+export const TaxCreateSchema = z.object({
+  code: z.string().min(1),
+  name: z.string().min(1),
+  rate_bps: BpsSchema,
+  is_compound: z.boolean().optional(),
+  is_active: z.boolean().optional(),
+  default_for_org: z.boolean().optional(),
+  notes: z.string().nullable().optional(),
+});
+export type TaxCreate = z.infer<typeof TaxCreateSchema>;
+
+export const TaxPatchSchema = TaxCreateSchema.partial();
+export type TaxPatch = z.infer<typeof TaxPatchSchema>;
 
 export const PaymentMethodKindSchema = z.enum([
   'manual', 'ach', 'wire', 'card', 'check', 'other',
@@ -72,6 +95,19 @@ export const PaymentMethodSchema = z.object({
 });
 export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 
+export const PaymentMethodCreateSchema = z.object({
+  code: z.string().min(1),
+  label: z.string().min(1),
+  kind: PaymentMethodKindSchema.optional(),
+  is_active: z.boolean().optional(),
+  default_for_org: z.boolean().optional(),
+  notes: z.string().nullable().optional(),
+});
+export type PaymentMethodCreate = z.infer<typeof PaymentMethodCreateSchema>;
+
+export const PaymentMethodPatchSchema = PaymentMethodCreateSchema.partial();
+export type PaymentMethodPatch = z.infer<typeof PaymentMethodPatchSchema>;
+
 export const PricingTierSchema = z.object({
   id: UuidSchema,
   org_id: UuidSchema,
@@ -82,6 +118,18 @@ export const PricingTierSchema = z.object({
   sort_order: z.number().int(),
 });
 export type PricingTier = z.infer<typeof PricingTierSchema>;
+
+export const PricingTierCreateSchema = z.object({
+  code: z.string().min(1),
+  name: z.string().min(1),
+  discount_bps: BpsSchema.optional(),
+  is_active: z.boolean().optional(),
+  sort_order: z.number().int().optional(),
+});
+export type PricingTierCreate = z.infer<typeof PricingTierCreateSchema>;
+
+export const PricingTierPatchSchema = PricingTierCreateSchema.partial();
+export type PricingTierPatch = z.infer<typeof PricingTierPatchSchema>;
 
 export const CustomerPricingOverrideSchema = z.object({
   id: UuidSchema,
@@ -185,6 +233,21 @@ export const ValueAddedServiceSchema = z.object({
   is_active: z.boolean(),
 });
 export type ValueAddedService = z.infer<typeof ValueAddedServiceSchema>;
+
+export const ValueAddedServiceCreateSchema = z.object({
+  code: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  kind: VasKindSchema.optional(),
+  base_price_cents: CentsSchema.optional(),
+  currency_code: z.string().length(3).optional(),
+  default_tax_id: UuidSchema.nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+export type ValueAddedServiceCreate = z.infer<typeof ValueAddedServiceCreateSchema>;
+
+export const ValueAddedServicePatchSchema = ValueAddedServiceCreateSchema.partial();
+export type ValueAddedServicePatch = z.infer<typeof ValueAddedServicePatchSchema>;
 
 export const JobTypeSchema = z.object({
   id: UuidSchema,

@@ -1,5 +1,12 @@
 import { apiRequest } from '@/lib/apiClient';
-import { ValueAddedServiceSchema, type ValueAddedService } from '@/lib/types/sales';
+import {
+  ValueAddedServiceSchema,
+  ValueAddedServiceCreateSchema,
+  ValueAddedServicePatchSchema,
+  type ValueAddedService,
+  type ValueAddedServiceCreate,
+  type ValueAddedServicePatch,
+} from '@/lib/types/sales';
 import { z } from 'zod';
 
 const ListEnvelope = z.object({
@@ -12,9 +19,23 @@ export async function listValueAddedServices(): Promise<ValueAddedService[]> {
   return ListEnvelope.parse(raw).items;
 }
 
-export async function createValueAddedService(payload: Partial<ValueAddedService>): Promise<ValueAddedService> {
+export async function createValueAddedService(payload: ValueAddedServiceCreate): Promise<ValueAddedService> {
+  const body = ValueAddedServiceCreateSchema.parse(payload);
   const raw = await apiRequest<unknown>('/sales-config-api/value-added-services', {
-    method: 'POST', body: payload,
+    method: 'POST', body,
+  });
+  return ValueAddedServiceSchema.parse(raw);
+}
+
+export async function getValueAddedService(id: string): Promise<ValueAddedService> {
+  const raw = await apiRequest<unknown>(`/sales-config-api/value-added-services/${id}`, { method: 'GET' });
+  return ValueAddedServiceSchema.parse(raw);
+}
+
+export async function updateValueAddedService(id: string, payload: ValueAddedServicePatch): Promise<ValueAddedService> {
+  const body = ValueAddedServicePatchSchema.parse(payload);
+  const raw = await apiRequest<unknown>(`/sales-config-api/value-added-services/${id}`, {
+    method: 'PATCH', body,
   });
   return ValueAddedServiceSchema.parse(raw);
 }

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { exchangeRatesKeys } from '@/lib/queryKeys/exchangeRates';
@@ -10,7 +11,15 @@ export function ExchangeRatesPage() {
   });
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EXCHANGE RATES</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-4xl font-display tracking-wide text-ink">EXCHANGE RATES</h1>
+        <Link
+          to="/3pl-operations/sales-config/exchange-rates/new"
+          className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider text-sm"
+        >
+          ADD RATE
+        </Link>
+      </div>
       {isLoading && <p className="text-ink-dim">Loading.</p>}
       {data && (
         <table className="w-full border border-line">

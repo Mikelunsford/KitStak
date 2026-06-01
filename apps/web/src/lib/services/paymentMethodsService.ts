@@ -1,5 +1,12 @@
 import { apiRequest } from '@/lib/apiClient';
-import { PaymentMethodSchema, type PaymentMethod } from '@/lib/types/sales';
+import {
+  PaymentMethodSchema,
+  PaymentMethodCreateSchema,
+  PaymentMethodPatchSchema,
+  type PaymentMethod,
+  type PaymentMethodCreate,
+  type PaymentMethodPatch,
+} from '@/lib/types/sales';
 import { z } from 'zod';
 
 const ListEnvelope = z.object({
@@ -12,9 +19,23 @@ export async function listPaymentMethods(): Promise<PaymentMethod[]> {
   return ListEnvelope.parse(raw).items;
 }
 
-export async function createPaymentMethod(payload: Partial<PaymentMethod>): Promise<PaymentMethod> {
+export async function createPaymentMethod(payload: PaymentMethodCreate): Promise<PaymentMethod> {
+  const body = PaymentMethodCreateSchema.parse(payload);
   const raw = await apiRequest<unknown>('/sales-config-api/payment-methods', {
-    method: 'POST', body: payload,
+    method: 'POST', body,
+  });
+  return PaymentMethodSchema.parse(raw);
+}
+
+export async function getPaymentMethod(id: string): Promise<PaymentMethod> {
+  const raw = await apiRequest<unknown>(`/sales-config-api/payment-methods/${id}`, { method: 'GET' });
+  return PaymentMethodSchema.parse(raw);
+}
+
+export async function updatePaymentMethod(id: string, payload: PaymentMethodPatch): Promise<PaymentMethod> {
+  const body = PaymentMethodPatchSchema.parse(payload);
+  const raw = await apiRequest<unknown>(`/sales-config-api/payment-methods/${id}`, {
+    method: 'PATCH', body,
   });
   return PaymentMethodSchema.parse(raw);
 }
