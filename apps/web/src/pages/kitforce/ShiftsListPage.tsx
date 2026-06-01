@@ -217,6 +217,7 @@ export function ShiftsListPage() {
         <table className="w-full border border-line text-sm font-sans">
           <thead className="bg-bg-2 text-left text-ink-dim">
             <tr>
+              <th className="px-4 py-2">Shift</th>
               <th className="px-4 py-2">Member</th>
               <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Start</th>
@@ -227,17 +228,20 @@ export function ShiftsListPage() {
           <tbody>
             {(shifts.data ?? []).length === 0 && !shifts.isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-ink-dim text-sm">
+                <td colSpan={6} className="px-4 py-6 text-ink-dim text-sm">
                   No shifts match the current filters.
                 </td>
               </tr>
             ) : (
               (shifts.data ?? []).map((s) => (
                 <tr key={s.id} className="border-t border-line">
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 font-mono">
                     <Link to={`/kitforce/shifts/${s.id}`} className="text-ink underline">
-                      {memberName[s.member_id] ?? s.member_id.slice(0, 8)}
+                      {s.shift_number ?? '·'}
                     </Link>
+                  </td>
+                  <td className="px-4 py-2 text-ink">
+                    {memberName[s.member_id] ?? s.member_id.slice(0, 8)}
                   </td>
                   <td className="px-4 py-2">
                     <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">

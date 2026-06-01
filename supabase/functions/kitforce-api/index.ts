@@ -693,24 +693,25 @@ const TABLE: Route[] = [
         // The rostered member must exist in-org; a missing member resolves to
         // NOT_FOUND 404 before any insert.
         await assertMemberParent(caller, body.member_id);
-        // Numbering: allocate the next SHF- string (Decision N1, seeded 0082).
-        // The shifts table (migration 0079) carries no shift_number column and
-        // the canon ShiftSchema has no such field, so the allocated number is
-        // stashed in payload.shift_number rather than a dedicated column. This
-        // honors N1 without editing the numbered migration (forward-only rule)
-        // and survives ShiftSchema.parse since payload is z.record(z.unknown()).
-        const shiftNumber = await nextDocNumber(caller.orgId, 'shift');
-        const payload = { ...(body.payload ?? {}), shift_number: shiftNumber };
+        // Numbering: the operator may pass a shift_number override; otherwise
+        // allocate the next SHF- string (Decision N1, seeded 0082). Written to
+        // the dedicated shift_number column added in migration 0084 (mirrors
+        // workforce_members.member_number). Pre-0084 rows kept the number in
+        // payload.shift_number; that value was backfilled into the column.
+        const shiftNumber = body.shift_number?.trim()
+          ? body.shift_number.trim()
+          : await nextDocNumber(caller.orgId, 'shift');
         const insert: Record<string, unknown> = {
           org_id: caller.orgId,
           status: 'scheduled',
+          shift_number: shiftNumber,
           member_id: body.member_id,
           team_id: body.team_id ?? null,
           warehouse_id: body.warehouse_id ?? null,
           scheduled_start_at: body.scheduled_start_at,
           scheduled_end_at: body.scheduled_end_at,
           notes: body.notes ?? null,
-          payload,
+          payload: body.payload ?? {},
           created_by: caller.userId,
           updated_by: caller.userId,
         };
