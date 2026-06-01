@@ -231,6 +231,11 @@ const ItemCreatePage = lazy(() =>
     default: m.ItemCreatePage,
   })),
 );
+const ItemEditPage = lazy(() =>
+  import('./pages/3pl-operations/items/ItemEditPage').then((m) => ({
+    default: m.ItemEditPage,
+  })),
+);
 const TaxesPage = lazy(() =>
   import('./pages/3pl-operations/sales-config/TaxesPage').then((m) => ({
     default: m.TaxesPage,
@@ -308,6 +313,9 @@ const VendorDetailPage = lazy(() =>
 const VendorCreatePage = lazy(() =>
   import('./pages/3pl-operations/vendors/VendorCreatePage').then((m) => ({ default: m.VendorCreatePage })),
 );
+const VendorEditPage = lazy(() =>
+  import('./pages/3pl-operations/vendors/VendorEditPage').then((m) => ({ default: m.VendorEditPage })),
+);
 const POsListPage = lazy(() =>
   import('./pages/3pl-operations/purchase-orders/POsListPage').then((m) => ({ default: m.POsListPage })),
 );
@@ -323,6 +331,9 @@ const VendorBillsListPage = lazy(() =>
 const VendorBillDetailPage = lazy(() =>
   import('./pages/3pl-operations/vendor-bills/VendorBillDetailPage').then((m) => ({ default: m.VendorBillDetailPage })),
 );
+const VendorBillEditPage = lazy(() =>
+  import('./pages/3pl-operations/vendor-bills/VendorBillEditPage').then((m) => ({ default: m.VendorBillEditPage })),
+);
 const ExpensesListPage = lazy(() =>
   import('./pages/3pl-operations/expenses/ExpensesListPage').then((m) => ({ default: m.ExpensesListPage })),
 );
@@ -332,6 +343,9 @@ const ExpenseDetailPage = lazy(() =>
 const ExpenseCreatePage = lazy(() =>
   import('./pages/3pl-operations/expenses/ExpenseCreatePage').then((m) => ({ default: m.ExpenseCreatePage })),
 );
+const ExpenseEditPage = lazy(() =>
+  import('./pages/3pl-operations/expenses/ExpenseEditPage').then((m) => ({ default: m.ExpenseEditPage })),
+);
 const WarehousesListPage = lazy(() =>
   import('./pages/3pl-operations/warehouses/WarehousesListPage').then((m) => ({ default: m.WarehousesListPage })),
 );
@@ -340,6 +354,9 @@ const WarehouseDetailPage = lazy(() =>
 );
 const WarehouseCreatePage = lazy(() =>
   import('./pages/3pl-operations/warehouses/WarehouseCreatePage').then((m) => ({ default: m.WarehouseCreatePage })),
+);
+const WarehouseEditPage = lazy(() =>
+  import('./pages/3pl-operations/warehouses/WarehouseEditPage').then((m) => ({ default: m.WarehouseEditPage })),
 );
 const BomsListPage = lazy(() =>
   import('./pages/3pl-operations/boms/BomsListPage').then((m) => ({ default: m.BomsListPage })),
@@ -920,6 +937,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
+    path: '/3pl-operations/items/:id/edit',
+    element: ItemEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
     path: '/3pl-operations/sales-config/taxes',
     element: TaxesPage,
     guard: 'protected',
@@ -1002,17 +1025,21 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/vendors',                element: VendorsListPage,           guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/vendors/new',            element: VendorCreatePage,          guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/vendors/:id',            element: VendorDetailPage,          guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/vendors/:id/edit',       element: VendorEditPage,            guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/purchase-orders',        element: POsListPage,               guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/purchase-orders/new',    element: POCreatePage,              guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/purchase-orders/:id',    element: PODetailPage,              guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/vendor-bills',           element: VendorBillsListPage,       guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/vendor-bills/:id',       element: VendorBillDetailPage,      guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/vendor-bills/:id/edit',  element: VendorBillEditPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/expenses',               element: ExpensesListPage,          guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/expenses/new',           element: ExpenseCreatePage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/expenses/:id',           element: ExpenseDetailPage,         guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/expenses/:id/edit',      element: ExpenseEditPage,           guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses',             element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses/new',         element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/warehouses/:id',         element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/warehouses/:id/edit',    element: WarehouseEditPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/boms',                   element: BomsListPage,              guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/boms/new',               element: BomCreatePage,             guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/boms/:id',               element: BomDetailPage,             guard: 'protected', layout: 'shell' },

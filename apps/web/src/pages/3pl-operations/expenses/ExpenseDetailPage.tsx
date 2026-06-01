@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { StateStepper } from '@/components/shell/StateStepper';
@@ -41,8 +41,14 @@ export function ExpenseDetailPage() {
             : undefined
         }
       />
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">EXPENSE {d.expense_number ?? d.id.slice(0, 8)}</h1>
+        <Link
+          to={`/3pl-operations/expenses/${d.id}/edit`}
+          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+        >
+          EDIT
+        </Link>
       </header>
       {transition.error && (
         <p className="font-sans text-sm text-accent">

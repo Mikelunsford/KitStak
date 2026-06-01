@@ -50,9 +50,17 @@ export function VendorDetailPage() {
           { label: data.display_name },
         ]}
       />
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        {data.display_name}
-      </h1>
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-4xl font-display tracking-wide text-ink">
+          {data.display_name}
+        </h1>
+        <Link
+          to={`/3pl-operations/vendors/${data.id}/edit`}
+          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+        >
+          EDIT
+        </Link>
+      </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <Row label="Vendor number" value={data.vendor_number ?? ''} />
         <Row label="Email" value={data.email ?? ''} />

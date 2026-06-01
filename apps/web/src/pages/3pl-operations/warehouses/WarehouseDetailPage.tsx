@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useWarehouse } from '@/lib/hooks/useInventory';
 
@@ -15,7 +15,15 @@ export function WarehouseDetailPage() {
           { label: data.display_name },
         ]}
       />
-      <h1 className="text-4xl font-display tracking-wide text-ink">{data.display_name}</h1>
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-4xl font-display tracking-wide text-ink">{data.display_name}</h1>
+        <Link
+          to={`/3pl-operations/warehouses/${data.id}/edit`}
+          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+        >
+          EDIT
+        </Link>
+      </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Code</dt><dd className="text-ink">{data.code}</dd>
         <dt className="text-ink-dim">Default</dt><dd className="text-ink">{data.is_default ? 'Yes' : 'No'}</dd>

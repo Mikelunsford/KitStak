@@ -39,6 +39,30 @@ export const VendorSchema = z.object({
 });
 export type Vendor = z.infer<typeof VendorSchema>;
 
+export const VendorCreateSchema = z.object({
+  display_name: z.string().min(1),
+  vendor_number: z.string().optional().nullable(),
+  legal_name: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  website: z.string().optional().nullable(),
+  tax_id: z.string().optional().nullable(),
+  default_currency_code: Currency.optional(),
+  default_payment_terms_days: z.number().int().min(0).optional(),
+  notes: z.string().optional().nullable(),
+  is_active: z.boolean().optional(),
+  address_line1: z.string().optional().nullable(),
+  address_line2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  region: z.string().optional().nullable(),
+  postal_code: z.string().optional().nullable(),
+  country_code: z.string().optional().nullable(),
+});
+export type VendorCreate = z.infer<typeof VendorCreateSchema>;
+
+export const VendorPatchSchema = VendorCreateSchema.partial();
+export type VendorPatch = z.infer<typeof VendorPatchSchema>;
+
 // ---------------------------------------------------------------------------
 // Purchase orders + lines
 // ---------------------------------------------------------------------------
@@ -131,6 +155,24 @@ export const VendorBillSchema = z.object({
 });
 export type VendorBill = z.infer<typeof VendorBillSchema>;
 
+export const VendorBillCreateSchema = z.object({
+  vendor_id: Uuid,
+  purchase_order_id: Uuid.optional().nullable(),
+  bill_number: z.string().optional().nullable(),
+  currency_code: Currency.optional(),
+  bill_date: z.string().optional(),
+  due_date: z.string().optional().nullable(),
+  subtotal_cents: Cents.optional(),
+  tax_cents: Cents.optional(),
+  total_cents: Cents.optional(),
+  notes: z.string().optional().nullable(),
+  reference: z.string().optional().nullable(),
+});
+export type VendorBillCreate = z.infer<typeof VendorBillCreateSchema>;
+
+export const VendorBillPatchSchema = VendorBillCreateSchema.partial();
+export type VendorBillPatch = z.infer<typeof VendorBillPatchSchema>;
+
 export const VendorBillPaymentSchema = z.object({
   id: Uuid,
   vendor_bill_id: Uuid,
@@ -182,6 +224,26 @@ export const ExpenseSchema = z.object({
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
+export const ExpenseCreateSchema = z.object({
+  expense_category_id: Uuid.optional().nullable(),
+  vendor_id: Uuid.optional().nullable(),
+  project_id: Uuid.optional().nullable(),
+  submitter_user_id: Uuid.optional().nullable(),
+  currency_code: Currency.optional(),
+  expense_date: z.string().optional(),
+  description: z.string().optional().nullable(),
+  amount_cents: Cents.optional(),
+  tax_cents: Cents.optional(),
+  total_cents: Cents.optional(),
+  reimbursable: z.boolean().optional(),
+  receipt_url: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type ExpenseCreate = z.infer<typeof ExpenseCreateSchema>;
+
+export const ExpensePatchSchema = ExpenseCreateSchema.partial();
+export type ExpensePatch = z.infer<typeof ExpensePatchSchema>;
+
 export const ExpenseCategorySchema = z.object({
   id: Uuid,
   org_id: Uuid,
@@ -216,6 +278,24 @@ export const WarehouseSchema = z.object({
   updated_at: Iso,
 });
 export type Warehouse = z.infer<typeof WarehouseSchema>;
+
+export const WarehouseCreateSchema = z.object({
+  code: z.string().min(1),
+  display_name: z.string().min(1),
+  is_default: z.boolean().optional(),
+  is_active: z.boolean().optional(),
+  address_line1: z.string().optional().nullable(),
+  address_line2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  region: z.string().optional().nullable(),
+  postal_code: z.string().optional().nullable(),
+  country_code: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type WarehouseCreate = z.infer<typeof WarehouseCreateSchema>;
+
+export const WarehousePatchSchema = WarehouseCreateSchema.partial();
+export type WarehousePatch = z.infer<typeof WarehousePatchSchema>;
 
 export const StockLevelSchema = z.object({
   id: Uuid,
