@@ -473,6 +473,16 @@ const ChartOfAccountsPage = lazy(() =>
     default: m.ChartOfAccountsPage,
   })),
 );
+const ChartOfAccountCreatePage = lazy(() =>
+  import('./pages/finance/ChartOfAccountCreatePage').then((m) => ({
+    default: m.ChartOfAccountCreatePage,
+  })),
+);
+const ChartOfAccountEditPage = lazy(() =>
+  import('./pages/finance/ChartOfAccountEditPage').then((m) => ({
+    default: m.ChartOfAccountEditPage,
+  })),
+);
 const JournalEntriesListPage = lazy(() =>
   import('./pages/finance/JournalEntriesListPage').then((m) => ({
     default: m.JournalEntriesListPage,
@@ -1114,6 +1124,8 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/invoicing/credit-notes/:id',       element: CreditNoteDetailPage,    guard: 'protected', layout: 'shell' },
   { path: '/invoicing/credit-notes/:id/apply', element: CreditNoteApplyPage,     guard: 'protected', layout: 'shell' },
   { path: '/finance/coa',                      element: ChartOfAccountsPage,     guard: 'protected', layout: 'shell' },
+  { path: '/finance/coa/new',                  element: ChartOfAccountCreatePage, guard: 'protected', layout: 'shell' },
+  { path: '/finance/coa/:id/edit',             element: ChartOfAccountEditPage,  guard: 'protected', layout: 'shell' },
   { path: '/finance/journal-entries',          element: JournalEntriesListPage,  guard: 'protected', layout: 'shell' },
   { path: '/finance/journal-entries/:id',      element: JournalEntryDetailPage,  guard: 'protected', layout: 'shell' },
   { path: '/finance/period-close',             element: PeriodClosePage,         guard: 'admin',     layout: 'shell' },
