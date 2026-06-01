@@ -121,12 +121,12 @@ export function ShiftDetailPage() {
         items={[
           { label: 'KitForce', to: '/kitforce/members' },
           { label: 'Schedule', to: '/kitforce/shifts' },
-          { label: memberName[d.member_id] ?? d.member_id.slice(0, 8) },
+          { label: d.shift_number ?? memberName[d.member_id] ?? d.member_id.slice(0, 8) },
         ]}
       />
       <header className="flex items-center justify-between">
         <h1 className="text-4xl font-display tracking-wide text-ink">
-          SHIFT {memberName[d.member_id] ?? d.member_id.slice(0, 8)}
+          SHIFT {d.shift_number ?? memberName[d.member_id] ?? d.member_id.slice(0, 8)}
         </h1>
         <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
           {defaultStateLabel(d.status)}
@@ -245,6 +245,8 @@ export function ShiftDetailPage() {
       ) : null}
 
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
+        <dt className="text-ink-dim">Shift number</dt>
+        <dd className="text-ink font-mono">{d.shift_number ?? '·'}</dd>
         <dt className="text-ink-dim">Member</dt>
         <dd className="text-ink">{memberName[d.member_id] ?? d.member_id.slice(0, 8)}</dd>
         <dt className="text-ink-dim">Team</dt>

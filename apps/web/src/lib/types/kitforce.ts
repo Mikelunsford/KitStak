@@ -119,6 +119,7 @@ export const ShiftSchema = z.object({
   member_id: Uuid,
   team_id: Uuid.nullable(),
   warehouse_id: Uuid.nullable(),
+  shift_number: z.string().nullable(),
   status: ShiftStatusSchema,
   scheduled_start_at: Iso,
   scheduled_end_at: Iso,
@@ -134,6 +135,7 @@ export type Shift = z.infer<typeof ShiftSchema>;
 
 export const ShiftCreateSchema = z.object({
   member_id: Uuid,
+  shift_number: z.string().optional().nullable(),
   team_id: Uuid.optional().nullable(),
   warehouse_id: Uuid.optional().nullable(),
   scheduled_start_at: Iso,
