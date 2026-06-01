@@ -37,6 +37,13 @@ const VIEWER = { userId: USER_A, orgId: ORG_A, role: 'viewer' as const };
 
 function makeStateWithCustomers() {
   return makeState({
+    // crm-api now gates on the three commerce pillar plugins (OR predicate)
+    // per F-Wave9-SALES-CONFIG-3PL-GATE-01. Enable plugins.three_pl so the
+    // bundle dispatcher passes the gate and these handler-level assertions
+    // reach the route table instead of the 404 surface.
+    org_feature_flags: [
+      { org_id: ORG_A, flag_key: 'plugins.three_pl', is_enabled: true, config: {} },
+    ],
     customers: [
       {
         id: CUSTOMER_A,
