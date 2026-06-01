@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -34,6 +34,7 @@ export function MemberDetailPage() {
   const caps = useVioCapabilities();
   const canReadRate = caps.can('kitforce.member.read_rate');
   const canDeactivate = caps.can('kitforce.member.deactivate');
+  const canUpdate = caps.can('kitforce.member.update');
 
   if (member.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (member.error || !member.data) {
@@ -68,6 +69,14 @@ export function MemberDetailPage() {
       </header>
 
       <div className="flex gap-2 flex-wrap">
+        {canUpdate && (
+          <Link
+            to={`/kitforce/members/${memberId}/edit`}
+            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
+          >
+            Edit
+          </Link>
+        )}
         {isActive && canDeactivate && (
           <button
             onClick={onDeactivate}

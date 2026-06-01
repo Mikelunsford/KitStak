@@ -15,10 +15,12 @@ import {
   useDeleteSalesOrder,
   useSalesOrderLines,
   useAddSalesOrderLine,
+  useUpdateSalesOrderLine,
   useDeleteSalesOrderLine,
 } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents, roundHalfEven } from '@/lib/money';
+import type { SalesOrderLineItemUpdate } from '@/lib/types/copack';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
 import { formatDateTimeMedium } from '@/lib/dates';
@@ -46,7 +48,43 @@ export function SalesOrderDetailPage() {
 
   const lines = useSalesOrderLines(id);
   const addLine = useAddSalesOrderLine(orderId);
+  const updateLine = useUpdateSalesOrderLine(orderId);
   const removeLine = useDeleteSalesOrderLine(orderId);
+
+  // Inline line edit (F-Wave10-SMOKE-SO-LINE-EDIT-01): one row at a time.
+  const [editLineId, setEditLineId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editUom, setEditUom] = useState('');
+  const [editRef, setEditRef] = useState('');
+
+  function startLineEdit(line: {
+    id: string;
+    quantity: number | string;
+    unit_price_cents: number | string | null;
+    uom: string | null;
+    reference: string | null;
+  }) {
+    setEditLineId(line.id);
+    setEditQty(String(line.quantity));
+    setEditPrice(line.unit_price_cents == null ? '' : String(line.unit_price_cents));
+    setEditUom(line.uom ?? '');
+    setEditRef(line.reference ?? '');
+  }
+
+  function onSaveLine() {
+    if (!editLineId) return;
+    const body: SalesOrderLineItemUpdate = {
+      quantity: editQty,
+      unit_price_cents: editPrice === '' ? null : Number(editPrice),
+      uom: editUom === '' ? null : editUom,
+      reference: editRef === '' ? null : editRef,
+    };
+    updateLine.mutate(
+      { lineId: editLineId, body },
+      { onSuccess: () => setEditLineId(null) },
+    );
+  }
 
   const caps = useVioCapabilities();
 
@@ -259,35 +297,100 @@ export function SalesOrderDetailPage() {
                   </td>
                 </tr>
               ) : (
-                (lines.data ?? []).map((l) => (
-                  <tr key={l.id} className="border-t border-line">
-                    <td className="px-4 py-2">
-                      <EntityLabel kind="item" id={l.item_id} />
-                    </td>
-                    <td className="px-4 py-2 font-mono text-sm">{Number(l.quantity).toFixed(2)}</td>
-                    <td className="px-4 py-2 font-mono text-sm">
-                      {l.unit_price_cents == null ? '·' : formatCents(l.unit_price_cents, orderCurrency)}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-sm">{l.uom ?? '·'}</td>
-                    <td className="px-4 py-2 text-sm text-ink-dim">{l.reference ?? '·'}</td>
-                    <td className="px-4 py-2 font-mono text-sm">
-                      {l.unit_price_cents == null
-                        ? '·'
-                        : formatCents(roundHalfEven(Number(l.quantity) * Number(l.unit_price_cents)), orderCurrency)}
-                    </td>
-                    <td className="px-4 py-2">
-                      {isDraft && caps.can('copack.order.line_item.delete') && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => onRemoveLine(l.id)}
-                          disabled={removeLine.isPending}
-                        >
-                          Remove
-                        </Button>
+                (lines.data ?? []).map((l) => {
+                  const editing = editLineId === l.id;
+                  return (
+                    <tr key={l.id} className="border-t border-line">
+                      <td className="px-4 py-2">
+                        <EntityLabel kind="item" id={l.item_id} />
+                      </td>
+                      {editing ? (
+                        <>
+                          <td className="px-4 py-2">
+                            <input
+                              value={editQty}
+                              onChange={(e) => setEditQty(e.target.value)}
+                              inputMode="decimal"
+                              className="w-20 bg-bg border border-line text-ink px-2 py-1 font-mono text-sm focus:outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              inputMode="numeric"
+                              placeholder="cents"
+                              className="w-24 bg-bg border border-line text-ink px-2 py-1 font-mono text-sm focus:outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              value={editUom}
+                              onChange={(e) => setEditUom(e.target.value)}
+                              className="w-20 bg-bg border border-line text-ink px-2 py-1 text-sm focus:outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              value={editRef}
+                              onChange={(e) => setEditRef(e.target.value)}
+                              className="w-28 bg-bg border border-line text-ink px-2 py-1 text-sm focus:outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="px-4 py-2 font-mono text-sm text-ink-dim">·</td>
+                          <td className="px-4 py-2">
+                            <div className="flex gap-1">
+                              <Button variant="ghost" onClick={onSaveLine} disabled={updateLine.isPending}>
+                                {updateLine.isPending ? 'Saving.' : 'Save'}
+                              </Button>
+                              <Button variant="ghost" onClick={() => setEditLineId(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-2 font-mono text-sm">{Number(l.quantity).toFixed(2)}</td>
+                          <td className="px-4 py-2 font-mono text-sm">
+                            {l.unit_price_cents == null ? '·' : formatCents(l.unit_price_cents, orderCurrency)}
+                          </td>
+                          <td className="px-4 py-2 font-mono text-sm">{l.uom ?? '·'}</td>
+                          <td className="px-4 py-2 text-sm text-ink-dim">{l.reference ?? '·'}</td>
+                          <td className="px-4 py-2 font-mono text-sm">
+                            {l.unit_price_cents == null
+                              ? '·'
+                              : formatCents(roundHalfEven(Number(l.quantity) * Number(l.unit_price_cents)), orderCurrency)}
+                          </td>
+                          <td className="px-4 py-2">
+                            {isDraft ? (
+                              <div className="flex gap-1">
+                                {caps.can('copack.order.line_item.update') && (
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => startLineEdit(l)}
+                                    disabled={editLineId !== null}
+                                  >
+                                    Edit
+                                  </Button>
+                                )}
+                                {caps.can('copack.order.line_item.delete') && (
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => onRemoveLine(l.id)}
+                                    disabled={removeLine.isPending}
+                                  >
+                                    Remove
+                                  </Button>
+                                )}
+                              </div>
+                            ) : null}
+                          </td>
+                        </>
                       )}
-                    </td>
-                  </tr>
-                ))
+                    </tr>
+                  );
+                })
               )}
             </tbody>
             {(lines.data ?? []).length > 0 ? (

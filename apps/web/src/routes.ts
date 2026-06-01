@@ -627,6 +627,11 @@ const MemberDetailPage = lazy(() =>
     default: m.MemberDetailPage,
   })),
 );
+const MemberEditPage = lazy(() =>
+  import('./pages/kitforce/MemberEditPage').then((m) => ({
+    default: m.MemberEditPage,
+  })),
+);
 const TeamsListPage = lazy(() =>
   import('./pages/kitforce/TeamsListPage').then((m) => ({
     default: m.TeamsListPage,
@@ -1092,6 +1097,7 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/kitforce/members',         element: MembersListPage,         guard: 'protected', layout: 'shell' },
   { path: '/kitforce/members/new',     element: MemberCreatePage,        guard: 'protected', layout: 'shell' },
   { path: '/kitforce/members/:id',     element: MemberDetailPage,        guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/members/:id/edit', element: MemberEditPage,         guard: 'protected', layout: 'shell' },
   { path: '/kitforce/teams',           element: TeamsListPage,           guard: 'protected', layout: 'shell' },
   { path: '/kitforce/teams/:id',       element: TeamDetailPage,          guard: 'protected', layout: 'shell' },
   { path: '/kitforce/shifts',          element: ShiftsListPage,          guard: 'protected', layout: 'shell' },
