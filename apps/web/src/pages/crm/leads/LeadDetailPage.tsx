@@ -56,14 +56,22 @@ export function LeadDetailPage() {
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {l.display_name.toUpperCase()}
         </h1>
-        {l.status === 'qualified' ? (
+        <div className="flex items-center gap-2">
           <Link
-            to={`/crm/leads/${l.id}/convert`}
-            className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider"
+            to={`/crm/leads/${l.id}/edit`}
+            className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
           >
-            CONVERT
+            EDIT
           </Link>
-        ) : null}
+          {l.status === 'qualified' ? (
+            <Link
+              to={`/crm/leads/${l.id}/convert`}
+              className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider"
+            >
+              CONVERT
+            </Link>
+          ) : null}
+        </div>
       </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Company</dt>

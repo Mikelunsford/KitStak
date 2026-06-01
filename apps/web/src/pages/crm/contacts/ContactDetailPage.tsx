@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
@@ -43,9 +43,17 @@ export function ContactDetailPage() {
           { label: contactFullName },
         ]}
       />
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        {contactFullName.toUpperCase()}
-      </h1>
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-4xl font-display tracking-wide text-ink">
+          {contactFullName.toUpperCase()}
+        </h1>
+        <Link
+          to={`/crm/contacts/${c.id}/edit`}
+          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+        >
+          EDIT
+        </Link>
+      </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Customer</dt>
         <dd><EntityLabel kind="customer" id={c.customer_id} /></dd>

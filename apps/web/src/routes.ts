@@ -162,6 +162,21 @@ const OpportunityDetailPage = lazy(() =>
     default: m.OpportunityDetailPage,
   })),
 );
+const LeadEditPage = lazy(() =>
+  import('./pages/crm/leads/LeadEditPage').then((m) => ({
+    default: m.LeadEditPage,
+  })),
+);
+const OpportunityEditPage = lazy(() =>
+  import('./pages/crm/opportunities/OpportunityEditPage').then((m) => ({
+    default: m.OpportunityEditPage,
+  })),
+);
+const ContactEditPage = lazy(() =>
+  import('./pages/crm/contacts/ContactEditPage').then((m) => ({
+    default: m.ContactEditPage,
+  })),
+);
 // === End Agent B: CRM lazy imports ===
 
 // === Agent F: Cross-cutting lazy imports ===
@@ -796,6 +811,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
+    path: '/crm/contacts/:id/edit',
+    element: ContactEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
     path: '/crm/activities',
     element: ActivitiesListPage,
     guard: 'protected',
@@ -820,6 +841,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
+    path: '/crm/leads/:id/edit',
+    element: LeadEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
     path: '/crm/leads/:id/convert',
     element: LeadConvertPage,
     guard: 'protected',
@@ -834,6 +861,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/crm/opportunities/:id',
     element: OpportunityDetailPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/crm/opportunities/:id/edit',
+    element: OpportunityEditPage,
     guard: 'protected',
     layout: 'shell',
   },
