@@ -55,6 +55,7 @@ import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { nextDocNumber } from '../_shared/numbering.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
+import { MANUFACTURING_RUN_FSM, canTransition } from '../_shared/workflow.ts';
 import {
   ManufacturingRunSchema,
   ManufacturingRunCreateSchema,
@@ -110,18 +111,18 @@ async function nextLinePosition(
 // State-machine guard. Rejects illegal transitions BEFORE the DB call with
 // STATE_CONFLICT 409 (the canonical FSM-violation envelope per
 // _shared/constants.ts ERROR_CODES; ops-api uses the same code for the same
-// class of bug — see assertTransition in supabase/functions/ops-api/index.ts).
+// class of bug. See assertTransition in supabase/functions/ops-api/index.ts).
+//
+// The allowed-transition set is the workflow canon (MANUFACTURING_RUN_FSM in
+// _shared/workflow.ts), byte-mirrored into the SPA. The canon is the single
+// source of truth; this guard only maps an illegal transition onto the 409
+// envelope so the operator never sees a 500-class error from the
+// manufacturing_runs status CHECK constraint.
 function assertManufacturingTransition(
   from: ManufacturingRunStatus,
   to: ManufacturingRunStatus,
 ): void {
-  const allowed: Record<ManufacturingRunStatus, ReadonlyArray<ManufacturingRunStatus>> = {
-    draft: ['started', 'cancelled'],
-    started: ['completed', 'cancelled'],
-    completed: [],
-    cancelled: [],
-  };
-  if (!allowed[from].includes(to)) {
+  if (!canTransition(MANUFACTURING_RUN_FSM, from, to)) {
     throw new ApiError(
       'STATE_CONFLICT', 409,
       `illegal manufacturing_run transition: ${from} -> ${to}`,
