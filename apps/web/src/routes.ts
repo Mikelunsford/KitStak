@@ -281,6 +281,53 @@ const ValueAddedServicesPage = lazy(() =>
     default: m.ValueAddedServicesPage,
   })),
 );
+// === WS4 sales-config self-serve routes ===
+const TaxCreatePage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/TaxCreatePage').then((m) => ({
+    default: m.TaxCreatePage,
+  })),
+);
+const TaxEditPage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/TaxEditPage').then((m) => ({
+    default: m.TaxEditPage,
+  })),
+);
+const PaymentMethodCreatePage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/PaymentMethodCreatePage').then((m) => ({
+    default: m.PaymentMethodCreatePage,
+  })),
+);
+const PaymentMethodEditPage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/PaymentMethodEditPage').then((m) => ({
+    default: m.PaymentMethodEditPage,
+  })),
+);
+const PricingTierCreatePage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/PricingTierCreatePage').then((m) => ({
+    default: m.PricingTierCreatePage,
+  })),
+);
+const PricingTierEditPage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/PricingTierEditPage').then((m) => ({
+    default: m.PricingTierEditPage,
+  })),
+);
+const ExchangeRateCreatePage = lazy(() =>
+  import('./pages/3pl-operations/sales-config/ExchangeRateCreatePage').then((m) => ({
+    default: m.ExchangeRateCreatePage,
+  })),
+);
+const ValueAddedServiceCreatePage = lazy(() =>
+  import('./pages/3pl-operations/vas/ValueAddedServiceCreatePage').then((m) => ({
+    default: m.ValueAddedServiceCreatePage,
+  })),
+);
+const ValueAddedServiceEditPage = lazy(() =>
+  import('./pages/3pl-operations/vas/ValueAddedServiceEditPage').then((m) => ({
+    default: m.ValueAddedServiceEditPage,
+  })),
+);
+// === End WS4 sales-config self-serve routes ===
 const QuotesListPage = lazy(() =>
   import('./pages/3pl-operations/quotes/QuotesListPage').then((m) => ({
     default: m.QuotesListPage,
@@ -996,6 +1043,19 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     guard: 'protected',
     layout: 'shell',
   },
+  // WS4: taxes create/edit
+  {
+    path: '/3pl-operations/sales-config/taxes/new',
+    element: TaxCreatePage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/3pl-operations/sales-config/taxes/:id/edit',
+    element: TaxEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
   {
     path: '/3pl-operations/sales-config/currencies',
     element: CurrenciesPage,
@@ -1008,9 +1068,29 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     guard: 'protected',
     layout: 'shell',
   },
+  // WS4: exchange-rates create (no edit - API has no PATCH)
+  {
+    path: '/3pl-operations/sales-config/exchange-rates/new',
+    element: ExchangeRateCreatePage,
+    guard: 'protected',
+    layout: 'shell',
+  },
   {
     path: '/3pl-operations/sales-config/payment-methods',
     element: PaymentMethodsPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  // WS4: payment-methods create/edit
+  {
+    path: '/3pl-operations/sales-config/payment-methods/new',
+    element: PaymentMethodCreatePage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/3pl-operations/sales-config/payment-methods/:id/edit',
+    element: PaymentMethodEditPage,
     guard: 'protected',
     layout: 'shell',
   },
@@ -1020,9 +1100,35 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     guard: 'protected',
     layout: 'shell',
   },
+  // WS4: pricing-tiers create/edit
+  {
+    path: '/3pl-operations/sales-config/pricing-tiers/new',
+    element: PricingTierCreatePage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/3pl-operations/sales-config/pricing-tiers/:id/edit',
+    element: PricingTierEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
   {
     path: '/3pl-operations/vas',
     element: ValueAddedServicesPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  // WS4: VAS create/edit
+  {
+    path: '/3pl-operations/vas/new',
+    element: ValueAddedServiceCreatePage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/3pl-operations/vas/:id/edit',
+    element: ValueAddedServiceEditPage,
     guard: 'protected',
     layout: 'shell',
   },

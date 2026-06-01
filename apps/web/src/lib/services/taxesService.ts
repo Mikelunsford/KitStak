@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/apiClient';
-import { TaxSchema, type Tax } from '@/lib/types/sales';
+import { TaxSchema, TaxCreateSchema, TaxPatchSchema, type Tax, type TaxCreate, type TaxPatch } from '@/lib/types/sales';
 import { z } from 'zod';
 
 const ListEnvelope = z.object({
@@ -12,16 +12,23 @@ export async function listTaxes(): Promise<Tax[]> {
   return ListEnvelope.parse(raw).items;
 }
 
-export async function createTax(payload: Partial<Tax>): Promise<Tax> {
+export async function getTax(id: string): Promise<Tax> {
+  const raw = await apiRequest<unknown>(`/sales-config-api/taxes/${id}`, { method: 'GET' });
+  return TaxSchema.parse(raw);
+}
+
+export async function createTax(payload: TaxCreate): Promise<Tax> {
+  const body = TaxCreateSchema.parse(payload);
   const raw = await apiRequest<unknown>('/sales-config-api/taxes', {
-    method: 'POST', body: payload,
+    method: 'POST', body,
   });
   return TaxSchema.parse(raw);
 }
 
-export async function updateTax(id: string, payload: Partial<Tax>): Promise<Tax> {
+export async function updateTax(id: string, payload: TaxPatch): Promise<Tax> {
+  const body = TaxPatchSchema.parse(payload);
   const raw = await apiRequest<unknown>(`/sales-config-api/taxes/${id}`, {
-    method: 'PATCH', body: payload,
+    method: 'PATCH', body,
   });
   return TaxSchema.parse(raw);
 }
