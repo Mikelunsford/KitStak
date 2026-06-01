@@ -5,6 +5,7 @@ import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useSalesOrdersList, useSalesChannelsList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { formatDateMedium } from '@/lib/dates';
 import type { SalesOrderStatus } from '@/lib/types/copack';
 
 /**
@@ -160,8 +161,8 @@ export function SalesOrdersListPage() {
                   <td className="px-4 py-2 text-ink-dim">
                     {o.customer_id ? <EntityLabel kind="customer" id={o.customer_id} /> : '.'}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{o.ordered_at?.slice(0, 10) ?? ''}</td>
-                  <td className="px-4 py-2 text-ink-dim">{o.created_at.slice(0, 10)}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(o.ordered_at)}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(o.created_at)}</td>
                   <td className="px-4 py-2">
                     <Link to={`/copack/orders/${o.id}`} className="text-ink underline text-xs">
                       View

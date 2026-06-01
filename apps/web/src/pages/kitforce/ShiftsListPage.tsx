@@ -11,6 +11,7 @@ import {
   useCreateShift,
 } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { formatDateTimeMedium } from '@/lib/dates';
 import type { ShiftCreate, ShiftStatus } from '@/lib/types/kitforce';
 
 /**
@@ -243,8 +244,8 @@ export function ShiftsListPage() {
                       {s.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{s.scheduled_start_at.slice(0, 16).replace('T', ' ')}</td>
-                  <td className="px-4 py-2 text-ink-dim">{s.scheduled_end_at.slice(0, 16).replace('T', ' ')}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateTimeMedium(s.scheduled_start_at)}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateTimeMedium(s.scheduled_end_at)}</td>
                   <td className="px-4 py-2">
                     <Link to={`/kitforce/shifts/${s.id}`} className="text-ink underline text-xs">
                       View

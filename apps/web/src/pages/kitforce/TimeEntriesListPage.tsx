@@ -11,6 +11,7 @@ import {
 } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
+import { formatDateTimeMedium } from '@/lib/dates';
 import type { TimeEntryClockIn } from '@/lib/types/kitforce';
 
 /**
@@ -254,11 +255,11 @@ export function TimeEntriesListPage() {
                   <td className="px-4 py-2 text-ink">
                     {memberName[t.member_id] ?? t.member_id.slice(0, 8)}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim font-mono">
-                    {t.clock_in_at.slice(0, 16).replace('T', ' ')}
+                  <td className="px-4 py-2 text-ink-dim">
+                    {formatDateTimeMedium(t.clock_in_at)}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim font-mono">
-                    {t.clock_out_at ? t.clock_out_at.slice(0, 16).replace('T', ' ') : 'Open'}
+                  <td className="px-4 py-2 text-ink-dim">
+                    {t.clock_out_at ? formatDateTimeMedium(t.clock_out_at) : 'Open'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim font-mono">{formatMinutes(t.minutes)}</td>
                   {canReadRate ? (

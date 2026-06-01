@@ -6,6 +6,7 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useKittingJobsList, useSalesOrdersList } from '@/lib/hooks/useCoPack';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { formatDateMedium } from '@/lib/dates';
 import type { KittingJobStatus } from '@/lib/types/copack';
 
 /**
@@ -158,8 +159,8 @@ export function KittingJobsListPage() {
                   <td className="px-4 py-2 text-ink-dim">
                     {j.warehouse_id ? <EntityLabel kind="warehouse" id={j.warehouse_id} /> : '.'}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{j.planned_start_at?.slice(0, 10) ?? ''}</td>
-                  <td className="px-4 py-2 text-ink-dim">{j.created_at.slice(0, 10)}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(j.planned_start_at)}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(j.created_at)}</td>
                   <td className="px-4 py-2">
                     <Link to={`/copack/kitting/${j.id}`} className="text-ink underline text-xs">
                       View

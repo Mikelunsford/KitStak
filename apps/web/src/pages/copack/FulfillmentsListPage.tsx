@@ -5,6 +5,7 @@ import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useFulfillmentsList, useSalesOrdersList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { formatDateMedium } from '@/lib/dates';
 import type { FulfillmentStatus } from '@/lib/types/copack';
 
 /**
@@ -141,7 +142,7 @@ export function FulfillmentsListPage() {
                   <td className="px-4 py-2 text-ink-dim">
                     {f.warehouse_id ? <EntityLabel kind="warehouse" id={f.warehouse_id} /> : '.'}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{f.created_at.slice(0, 10)}</td>
+                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(f.created_at)}</td>
                   <td className="px-4 py-2">
                     <Link
                       to={`/copack/fulfillments/${f.id}`}

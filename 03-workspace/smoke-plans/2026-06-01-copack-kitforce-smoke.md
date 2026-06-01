@@ -214,12 +214,22 @@ With a second test org's `org_id`, attempt:
 ## DB verification summary (run at the end)
 ```sql
 -- 1. No audit row in this org violates the restored constraint (sanity on the P0 fix).
-select count(*) as bad_rows from audit_log
-where org_id = '<test-org-id>' and entity_type not in (
-  select trim(both '''' from unnest(string_to_array(
-    substring(pg_get_constraintdef(oid) from '\((.*)\)'), ',')))
-  from pg_constraint where conrelid='public.audit_log'::regclass and conname='audit_log_entity_type_check'
-);
+-- Robust extraction: pull every quoted snake_case token out of the constraint
+-- def via regexp_matches, so it works for both the `IN (...)` and the
+-- `= ANY (ARRAY[...]::text)` forms Postgres may render. (An earlier version
+-- used a naive substring/split that mis-parsed the ARRAY form and returned a
+-- false positive count of 47. See F-Wave10-CKSMOKE-05.)
+with allowed as (
+  select array_agg(m[1]) as types
+  from pg_constraint c,
+       lateral regexp_matches(pg_get_constraintdef(c.oid), '''([a-z_]+)''', 'g') as m
+  where c.conrelid = 'public.audit_log'::regclass
+    and c.conname = 'audit_log_entity_type_check'
+)
+select count(*) as bad_rows
+from public.audit_log a, allowed
+where a.org_id = '<test-org-id>'
+  and not (a.entity_type = any(allowed.types));
 -- expect 0
 
 -- 2. Fulfillment ship advanced the order (Marquee 1). See B3 query.
