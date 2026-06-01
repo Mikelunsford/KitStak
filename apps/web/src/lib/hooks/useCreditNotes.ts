@@ -8,8 +8,10 @@ import {
   createCreditNote,
   deleteCreditNote,
   getCreditNote,
+  issueCreditNote,
   listCreditNotes,
   updateCreditNote,
+  voidCreditNote,
   type CreditNoteApplyBody,
   type CreditNoteCreate,
   type CreditNotePatch,
@@ -61,6 +63,33 @@ export function useDeleteCreditNote() {
   return useMutation({
     mutationFn: (id: string) => deleteCreditNote(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: creditNoteKeys.all }),
+  });
+}
+
+// Lifecycle transitions. The status change writes an audit_log row via the
+// AFTER UPDATE trigger, so we invalidate the credit-note detail/list queries
+// and the audit timeline on success. Mirrors useApplyCreditNote.
+export function useIssueCreditNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => issueCreditNote(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: creditNoteKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: creditNoteKeys.all });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('credit_note', id) });
+    },
+  });
+}
+
+export function useVoidCreditNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => voidCreditNote(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: creditNoteKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: creditNoteKeys.all });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('credit_note', id) });
+    },
   });
 }
 

@@ -94,3 +94,17 @@ export async function applyCreditNote(
   });
   return CnAllocListSchema.parse(data);
 }
+
+export async function issueCreditNote(id: string): Promise<CreditNote> {
+  const data = await apiRequest<unknown>(`/invoicing-api/credit-notes/${id}/issue`, {
+    method: 'POST',
+  });
+  return CreditNoteSchema.parse(data);
+}
+
+export async function voidCreditNote(id: string): Promise<CreditNote> {
+  const data = await apiRequest<unknown>(`/invoicing-api/credit-notes/${id}/void`, {
+    method: 'POST',
+  });
+  return CreditNoteSchema.parse(data);
+}

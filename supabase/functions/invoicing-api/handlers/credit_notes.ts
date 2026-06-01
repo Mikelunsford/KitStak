@@ -5,10 +5,18 @@
 //   PATCH  /credit-notes/:id
 //   DELETE /credit-notes/:id
 //   POST   /credit-notes/:id/apply
+//   POST   /credit-notes/:id/issue   (draft -> issued)
+//   POST   /credit-notes/:id/void    (draft|issued -> voided)
 //
 // Pattern A on credit_notes. Allocations write via /apply, the
 // recompute trigger keeps applied_cents and invoices.credit_allocated_cents
 // synced. Each allocation row produces an auto-JE via 0024.
+//
+// Lifecycle transitions (issue / void) enforce creditNoteStateMachine via
+// canFinanceTransition (409 STATE_CONFLICT on an illegal move) and stamp the
+// matching timestamp column (issued_at / voided_at). The AFTER UPDATE status
+// audit trigger writes the audit_log row; handlers never hand-write audit
+// rows. Mirrors the invoice send / cancel / transition shape in invoices.ts.
 
 import { z } from 'zod';
 
@@ -23,13 +31,18 @@ import {
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
-import { requireCaller } from '../../_shared/tenant.ts';
+import { requireCaller, type Caller } from '../../_shared/tenant.ts';
 import {
   CreditNoteSchema,
   CreditNoteAllocationSchema,
   type CreditNote,
   type CreditNoteAllocation,
 } from '../../_shared/types/finance.ts';
+import {
+  creditNoteStateMachine,
+  canFinanceTransition,
+  type CreditNoteState,
+} from '../../_shared/workflow/finance.ts';
 import { BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
 
@@ -266,5 +279,85 @@ export async function applyCreditNote(ctx: RouteCtx): Promise<Response> {
       }
       return ok((data ?? []).map(rowToCnAlloc));
     },
+  );
+}
+
+// Shared lifecycle transition. Loads the credit note (404 if absent /
+// cross-tenant), enforces creditNoteStateMachine (409 STATE_CONFLICT on an
+// illegal move), patches status, and stamps the matching timestamp column.
+// The AFTER UPDATE status audit trigger writes audit_log; we never hand-write
+// audit rows. Mirrors transitionInvoiceTo in invoices.ts.
+async function transitionCreditNoteTo(
+  caller: Caller,
+  id: string,
+  to: CreditNoteState,
+): Promise<CreditNote> {
+  const row = await fetchCN(caller.orgId, id);
+  const from = (row as { status: string }).status as CreditNoteState;
+  // Issue and Void are explicit forward actions, not idempotent self-loops.
+  // canFinanceTransition treats `from === to` as allowed (so the generic FSM
+  // predicate stays useful for button-gating), but re-issuing an already
+  // issued note or re-voiding a voided note is a STATE_CONFLICT at the
+  // lifecycle-endpoint grain. Request-level idempotency is the Idempotency-Key,
+  // not an FSM no-op.
+  if (from === to || !canFinanceTransition(creditNoteStateMachine, from, to)) {
+    throw new ApiError(
+      'STATE_CONFLICT',
+      409,
+      `credit note transition ${from} -> ${to} not allowed`,
+    );
+  }
+  const patch: Record<string, unknown> = {
+    status: to,
+    updated_by: caller.userId,
+  };
+  if (to === 'issued') patch.issued_at = new Date().toISOString();
+  if (to === 'voided') patch.voided_at = new Date().toISOString();
+
+  const { data, error } = await admin()
+    .from('credit_notes')
+    .update(patch)
+    .eq('id', id)
+    .eq('org_id', caller.orgId)
+    .select(CN_COLS)
+    .single();
+  if (error) {
+    // Map the period-closed trigger SQLSTATE P0001 to 422 per security canon,
+    // mirroring the invoice + apply handlers.
+    if (error.message && error.message.startsWith('period_closed:')) {
+      throw new ApiError('VALIDATION_ERROR', 422, error.message);
+    }
+    throw new ApiError('INTERNAL_ERROR', 500, 'credit note transition failed', {
+      detail: error.message,
+    });
+  }
+  return rowToCN(data);
+}
+
+export async function issueCreditNote(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'credit_notes.write');
+  const id = parseUuidParam(ctx.params.id!);
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    `${ctx.req.method} /credit-notes/:id/issue`,
+    null,
+    async () => ok(await transitionCreditNoteTo(caller, id, 'issued')),
+  );
+}
+
+export async function voidCreditNote(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'credit_notes.write');
+  const id = parseUuidParam(ctx.params.id!);
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    `${ctx.req.method} /credit-notes/:id/void`,
+    null,
+    async () => ok(await transitionCreditNoteTo(caller, id, 'voided')),
   );
 }

@@ -35,8 +35,10 @@ import {
   createCreditNote,
   deleteCreditNote,
   getCreditNote,
+  issueCreditNote,
   listCreditNotes,
   patchCreditNote,
+  voidCreditNote,
 } from './handlers/credit_notes.ts';
 
 export const routes: Route[] = [
@@ -74,4 +76,6 @@ export const routes: Route[] = [
   { method: 'PATCH',  path: '/credit-notes/:id',       handler: patchCreditNote },
   { method: 'DELETE', path: '/credit-notes/:id',       handler: deleteCreditNote },
   { method: 'POST',   path: '/credit-notes/:id/apply', handler: applyCreditNote },
+  { method: 'POST',   path: '/credit-notes/:id/issue', handler: issueCreditNote },
+  { method: 'POST',   path: '/credit-notes/:id/void',  handler: voidCreditNote },
 ];
