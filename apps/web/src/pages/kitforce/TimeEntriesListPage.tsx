@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -97,6 +98,7 @@ export function TimeEntriesListPage() {
 
   const canClockIn = caps.can('kitforce.time_entry.clock_in');
   const canClockOut = caps.can('kitforce.time_entry.clock_out');
+  const canUpdate = caps.can('kitforce.time_entry.update');
   const canReadRate = caps.can('kitforce.member.read_rate');
 
   const [memberId, setMemberId] = useState('');
@@ -280,9 +282,19 @@ export function TimeEntriesListPage() {
                     </td>
                   ) : null}
                   <td className="px-4 py-2">
-                    {t.clock_out_at == null ? (
-                      <ClockOutButton entryId={t.id} canClockOut={canClockOut} />
-                    ) : null}
+                    <div className="flex flex-col gap-1">
+                      {t.clock_out_at == null ? (
+                        <ClockOutButton entryId={t.id} canClockOut={canClockOut} />
+                      ) : null}
+                      {canUpdate ? (
+                        <Link
+                          to={`/kitforce/time-entries/${t.id}/edit`}
+                          className="text-ink underline text-xs text-left"
+                        >
+                          Edit
+                        </Link>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))

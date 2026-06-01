@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -32,6 +32,7 @@ export function TeamDetailPage() {
   const remove = useRemoveTeamMember(teamId);
   const caps = useVioCapabilities();
 
+  const canUpdate = caps.can('kitforce.team.write');
   const canAdd = caps.can('kitforce.team.member.add');
   const canRemove = caps.can('kitforce.team.member.remove');
 
@@ -94,6 +95,17 @@ export function TeamDetailPage() {
           {team.is_active ? 'active' : 'inactive'}
         </span>
       </header>
+
+      <div className="flex gap-2 flex-wrap">
+        {canUpdate && (
+          <Link
+            to={`/kitforce/teams/${teamId}/edit`}
+            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
+          >
+            Edit
+          </Link>
+        )}
+      </div>
 
       <section className="flex flex-col gap-4">
         <div className="flex items-baseline gap-3">
