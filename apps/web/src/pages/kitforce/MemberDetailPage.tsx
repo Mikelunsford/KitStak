@@ -102,9 +102,9 @@ export function MemberDetailPage() {
         <dt className="text-ink-dim">Member number</dt>
         <dd className="text-ink font-mono">{d.member_number ?? 'None'}</dd>
         <dt className="text-ink-dim">Email</dt>
-        <dd className="text-ink">{d.email ?? 'None'}</dd>
+        <dd className="text-ink">{d.email ?? '·'}</dd>
         <dt className="text-ink-dim">Phone</dt>
-        <dd className="text-ink">{d.phone ?? 'None'}</dd>
+        <dd className="text-ink">{d.phone ?? '·'}</dd>
         {canReadRate ? (
           <>
             <dt className="text-ink-dim">Default hourly rate</dt>

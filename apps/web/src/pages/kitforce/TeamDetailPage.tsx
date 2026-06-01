@@ -96,7 +96,12 @@ export function TeamDetailPage() {
       </header>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-display tracking-wide text-ink">MEMBERS</h2>
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-2xl font-display tracking-wide text-ink">MEMBERS</h2>
+          {teamMembers.isFetching && !teamMembers.isLoading ? (
+            <span className="text-xs text-ink-dim font-sans" aria-live="polite">Updating.</span>
+          ) : null}
+        </div>
 
         {canAdd ? (
           <form
@@ -157,7 +162,7 @@ export function TeamDetailPage() {
                   <td className="px-4 py-2 text-ink">
                     {memberName[tm.member_id] ?? tm.member_id.slice(0, 8)}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{tm.role_in_team ?? '.'}</td>
+                  <td className="px-4 py-2 text-ink-dim">{tm.role_in_team ?? '·'}</td>
                   <td className="px-4 py-2">
                     {canRemove ? (
                       <button

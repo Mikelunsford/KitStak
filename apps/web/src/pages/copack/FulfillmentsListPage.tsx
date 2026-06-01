@@ -140,7 +140,7 @@ export function FulfillmentsListPage() {
                     {orderNumber[f.sales_order_id] ?? f.sales_order_id.slice(0, 8)}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">
-                    {f.warehouse_id ? <EntityLabel kind="warehouse" id={f.warehouse_id} /> : '.'}
+                    {f.warehouse_id ? <EntityLabel kind="copack_warehouse" id={f.warehouse_id} /> : '·'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">{formatDateMedium(f.created_at)}</td>
                   <td className="px-4 py-2">

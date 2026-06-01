@@ -125,13 +125,13 @@ export function MembersListPage() {
                       {m.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{m.email ?? '.'}</td>
-                  <td className="px-4 py-2 text-ink-dim">{m.phone ?? '.'}</td>
+                  <td className="px-4 py-2 text-ink-dim">{m.email ?? '·'}</td>
+                  <td className="px-4 py-2 text-ink-dim">{m.phone ?? '·'}</td>
                   {canReadRate ? (
                     <td className="px-4 py-2 text-ink-dim font-mono">
                       {m.default_hourly_rate_cents != null
                         ? `${formatCents(m.default_hourly_rate_cents, 'USD')}/hr`
-                        : '.'}
+                        : '·'}
                     </td>
                   ) : null}
                   <td className="px-4 py-2">
