@@ -100,36 +100,36 @@ export function SalesOrderDetailPage() {
     );
   }
 
-  function onRemoveLine(lineId: string) {
-    if (!destructiveConfirm({
+  async function onRemoveLine(lineId: string) {
+    if (!(await destructiveConfirm({
       action: 'Remove this order line',
       consequence: 'The line will be deleted from the order.',
-    })) return;
+    }))) return;
     removeLine.mutate(lineId);
   }
 
-  function onConfirm() {
-    if (!destructiveConfirm({
+  async function onConfirm() {
+    if (!(await destructiveConfirm({
       action: 'Confirm this sales order',
       consequence: 'The order moves to confirmed and its lines are locked.',
-    })) return;
+    }))) return;
     confirm.mutate();
   }
 
-  function onCancel() {
-    if (!destructiveConfirm({
+  async function onCancel() {
+    if (!(await destructiveConfirm({
       action: 'Cancel this sales order',
       consequence: 'The order will move to cancelled and stop appearing in active order lists.',
-    })) return;
+    }))) return;
     cancel.mutate();
   }
 
-  function onDelete() {
-    if (!destructiveConfirm({
+  async function onDelete() {
+    if (!(await destructiveConfirm({
       action: 'Delete this draft sales order',
       consequence: 'The draft will be removed permanently.',
       irreversible: true,
-    })) return;
+    }))) return;
     remove.mutate(undefined, {
       onSuccess: () => navigate('/copack/orders'),
     });

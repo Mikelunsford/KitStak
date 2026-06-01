@@ -9,6 +9,7 @@ import { IndexRoute } from './auth/IndexRoute';
 import { RequirePlugin } from './auth/RequirePlugin';
 import { BrandingProvider } from './whitelabel/BrandingProvider';
 import { SubscriptionGate } from './lib/hooks/useSubscriptionGate';
+import { ConfirmDialogHost } from './components/ui/ConfirmDialogHost';
 
 /**
  * App. consumes the flat ROUTES table and wraps each route in the
@@ -64,6 +65,7 @@ function wrapWithGuard(spec: RouteSpec): ReactElement {
 export function App() {
   return (
     <BrandingProvider>
+      <ConfirmDialogHost />
       <Suspense
         fallback={
           <div className="flex h-screen items-center justify-center bg-bg text-ink-dim">

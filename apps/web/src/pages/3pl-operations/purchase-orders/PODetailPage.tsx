@@ -140,12 +140,12 @@ export function PODetailPage() {
               key={to}
               type="button"
               disabled={transition.isPending || !canTransitionVio(PURCHASE_ORDER_FSM, data.status, to)}
-              onClick={() => {
+              onClick={async () => {
                 // UX-Q8: cancelling reverses a vendor commitment.
-                if (to === 'cancelled' && !destructiveConfirm({
+                if (to === 'cancelled' && !(await destructiveConfirm({
                   action: 'Cancel this purchase order',
                   consequence: 'The order will move to cancelled and the vendor commitment will be reversed.',
-                })) return;
+                }))) return;
                 transition.mutate(to as PurchaseOrderStatus);
               }}
               className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"

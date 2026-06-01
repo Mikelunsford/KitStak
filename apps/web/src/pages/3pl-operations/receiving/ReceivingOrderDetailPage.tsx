@@ -104,12 +104,12 @@ export function ReceivingOrderDetailPage() {
           {next.map((to) => (
             <button
               key={to}
-              onClick={() => {
+              onClick={async () => {
                 // UX-Q8: cancelling reverses an inbound expectation.
-                if (to === 'cancelled' && !destructiveConfirm({
+                if (to === 'cancelled' && !(await destructiveConfirm({
                   action: 'Cancel this receiving order',
                   consequence: 'The order will move to cancelled and the expected inbound stock will no longer be tracked.',
-                })) return;
+                }))) return;
                 transition.mutate(to as ReceivingOrderStatus);
               }}
               disabled={transition.isPending}

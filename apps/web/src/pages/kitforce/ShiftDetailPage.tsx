@@ -51,20 +51,20 @@ export function ShiftDetailPage() {
   const isStarted = d.status === 'started';
   const canCancel = isScheduled || isStarted;
 
-  function onComplete() {
-    if (!destructiveConfirm({
+  async function onComplete() {
+    if (!(await destructiveConfirm({
       action: 'Complete this shift',
       consequence: 'The shift moves to completed and can no longer be started or edited.',
       irreversible: true,
-    })) return;
+    }))) return;
     complete.mutate({});
   }
 
-  function onCancel() {
-    if (!destructiveConfirm({
+  async function onCancel() {
+    if (!(await destructiveConfirm({
       action: 'Cancel this shift',
       consequence: 'The shift will move to cancelled and stop appearing in active schedules.',
-    })) return;
+    }))) return;
     cancel.mutate({});
   }
 

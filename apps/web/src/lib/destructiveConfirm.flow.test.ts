@@ -1,51 +1,49 @@
-// UX-Q8: smoke tests for the destructive-confirm flow at the call-site
-// contract level. These assert the pattern every detail-page onClick
-// follows:
+// UX-Q8 / F-Wave10-SMOKE-CONFIRM-MODAL-01: smoke tests for the destructive-
+// confirm flow at the call-site contract level. These assert the pattern every
+// detail-page onClick follows now that destructiveConfirm is async (backed by
+// the in-app modal via setConfirmOpener):
 //
-//   1. Call destructiveConfirm.
-//   2. If it returns false, short-circuit. Do NOT call the mutation.
-//   3. If it returns true, call the mutation exactly once.
+//   1. await destructiveConfirm.
+//   2. If it resolves false, short-circuit. Do NOT call the mutation.
+//   3. If it resolves true, call the mutation exactly once.
 //
-// We don't render the full detail pages here because that would force
-// us to load the Supabase singleton and TanStack Query providers — the
-// same trade-off PR #103 made with parseEntityTypeParam.ts. The flow
-// itself is a pure function of `destructiveConfirm`'s return value, so
-// testing the contract once at the helper boundary covers every
-// onClick that uses the pattern.
+// We don't render the full detail pages here (that would force the Supabase
+// singleton + TanStack Query providers). The flow is a pure function of
+// destructiveConfirm's resolved value, so testing the contract once at the
+// helper boundary covers every onClick that uses the pattern.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-import { destructiveConfirm } from './destructiveConfirm';
+import { destructiveConfirm, setConfirmOpener } from './destructiveConfirm';
 
 /**
- * Mirrors the shape of every UX-Q8 onClick in the codebase.
- * Returns true if the mutation ran, false if it was short-circuited.
+ * Mirrors the shape of every async destructive onClick in the codebase.
+ * Resolves true if the mutation ran, false if it was short-circuited.
  */
-function simulateDestructiveTransition(
+async function simulateDestructiveTransition(
   mutation: () => void,
   opts: Parameters<typeof destructiveConfirm>[0],
-): boolean {
-  if (!destructiveConfirm(opts)) return false;
+): Promise<boolean> {
+  if (!(await destructiveConfirm(opts))) return false;
   mutation();
   return true;
 }
 
 describe('destructive transition onClick flow', () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    setConfirmOpener(null);
   });
 
-  it('invokes window.confirm BEFORE the mutation', () => {
+  it('opens the confirm modal BEFORE the mutation', async () => {
     const order: string[] = [];
-    const confirmStub = vi.fn().mockImplementation(() => {
+    setConfirmOpener(async () => {
       order.push('confirm');
       return true;
     });
-    vi.stubGlobal('window', { confirm: confirmStub });
     const mutation = vi.fn().mockImplementation(() => {
       order.push('mutation');
     });
 
-    simulateDestructiveTransition(mutation, {
+    await simulateDestructiveTransition(mutation, {
       action: 'Cancel this quote',
       consequence: 'The quote will move to cancelled.',
     });
@@ -53,11 +51,11 @@ describe('destructive transition onClick flow', () => {
     expect(order).toEqual(['confirm', 'mutation']);
   });
 
-  it('does NOT call the mutation when the operator cancels the confirm', () => {
-    vi.stubGlobal('window', { confirm: vi.fn().mockReturnValue(false) });
+  it('does NOT call the mutation when the operator cancels the modal', async () => {
+    setConfirmOpener(async () => false);
     const mutation = vi.fn();
 
-    const ran = simulateDestructiveTransition(mutation, {
+    const ran = await simulateDestructiveTransition(mutation, {
       action: 'Cancel this invoice',
       consequence: 'The invoice will move to cancelled.',
     });
@@ -66,11 +64,11 @@ describe('destructive transition onClick flow', () => {
     expect(mutation).not.toHaveBeenCalled();
   });
 
-  it('DOES call the mutation exactly once when the operator confirms', () => {
-    vi.stubGlobal('window', { confirm: vi.fn().mockReturnValue(true) });
+  it('DOES call the mutation exactly once when the operator confirms', async () => {
+    setConfirmOpener(async () => true);
     const mutation = vi.fn();
 
-    const ran = simulateDestructiveTransition(mutation, {
+    const ran = await simulateDestructiveTransition(mutation, {
       action: 'Complete this manufacturing run',
       consequence: 'This writes production stock movements.',
       irreversible: true,
@@ -78,5 +76,20 @@ describe('destructive transition onClick flow', () => {
 
     expect(ran).toBe(true);
     expect(mutation).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves false (never destructive) when no modal host is mounted', async () => {
+    // SSR / node test env / before first paint: no opener registered.
+    setConfirmOpener(null);
+    const mutation = vi.fn();
+
+    const ran = await simulateDestructiveTransition(mutation, {
+      action: 'Delete this draft',
+      consequence: 'The draft will be removed permanently.',
+      irreversible: true,
+    });
+
+    expect(ran).toBe(false);
+    expect(mutation).not.toHaveBeenCalled();
   });
 });

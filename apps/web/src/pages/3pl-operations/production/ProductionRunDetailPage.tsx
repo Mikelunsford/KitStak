@@ -52,15 +52,15 @@ export function ProductionRunDetailPage() {
         ) : null}
         {d.status === 'in_progress' && caps.can('production.complete') ? (
           <button
-            onClick={() => {
+            onClick={async () => {
               // UX-Q8: Complete on a production run writes
               // production_consumed and production_produced stock
               // movements; the transition cannot be undone.
-              if (!destructiveConfirm({
+              if (!(await destructiveConfirm({
                 action: 'Complete this production run',
                 consequence: 'This writes production_consumed and production_produced stock movements.',
                 irreversible: true,
-              })) return;
+              }))) return;
               complete.mutate({ quantity_produced: d.quantity_planned, consumed: [] });
             }}
             disabled={complete.isPending}

@@ -270,12 +270,12 @@ export function QuoteDetailPage() {
         {canTransition(QUOTE_FSM, state, 'cancelled') && id && (
           <Button
             variant="ghost"
-            onClick={() => {
+            onClick={async () => {
               // UX-Q8: cancelling reverses an active sales flow.
-              if (!destructiveConfirm({
+              if (!(await destructiveConfirm({
                 action: 'Cancel this quote',
                 consequence: 'The quote will move to cancelled and stop appearing in active sales lists.',
-              })) return;
+              }))) return;
               cancel.mutate(id);
             }}
           >Cancel</Button>

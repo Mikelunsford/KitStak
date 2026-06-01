@@ -43,11 +43,11 @@ export function MemberDetailPage() {
 
   const isActive = d.status === 'active';
 
-  function onDeactivate() {
-    if (!destructiveConfirm({
+  async function onDeactivate() {
+    if (!(await destructiveConfirm({
       action: 'Deactivate this member',
       consequence: 'The member moves to inactive and stops appearing in active rosters. Time entries already recorded are kept.',
-    })) return;
+    }))) return;
     deactivate.mutate({});
   }
 

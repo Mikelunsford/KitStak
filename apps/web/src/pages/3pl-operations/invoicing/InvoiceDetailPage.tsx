@@ -359,14 +359,14 @@ export function InvoiceDetailPage() {
           {canCancel && (
             <Button
               variant="ghost"
-              onClick={() => {
+              onClick={async () => {
                 // UX-Q8: cancelling a posted invoice changes the
                 // customer-facing state (the append-only audit chain
                 // stays intact server-side).
-                if (!destructiveConfirm({
+                if (!(await destructiveConfirm({
                   action: 'Cancel this invoice',
                   consequence: 'The invoice will move to cancelled and stop appearing in active receivable lists.',
-                })) return;
+                }))) return;
                 cancelMutation.mutate(invoiceId);
               }}
               disabled={cancelMutation.isPending}
