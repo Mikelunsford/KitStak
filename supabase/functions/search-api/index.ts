@@ -55,7 +55,7 @@ const globalSearch: Route = {
           entity_id: r.id,
           title: r.display_name as string,
           subtitle: (r.email as string | null) ?? null,
-          href: `/sales/customers/${r.id}`,
+          href: `/crm/customers/${r.id}`,
         }));
         if (items.length > 0) groups.customer = items;
       }
@@ -75,7 +75,7 @@ const globalSearch: Route = {
           entity_id: r.id,
           title: r.number as string,
           subtitle: (r.status as string | null) ?? null,
-          href: `/sales/quotes/${r.id}`,
+          href: `/3pl-operations/quotes/${r.id}`,
         }));
         if (items.length > 0) groups.quote = items;
       }
@@ -95,7 +95,7 @@ const globalSearch: Route = {
           entity_id: r.id,
           title: r.number as string,
           subtitle: (r.status as string | null) ?? null,
-          href: `/billing/invoices/${r.id}`,
+          href: `/invoicing/invoices/${r.id}`,
         }));
         if (items.length > 0) groups.invoice = items;
       }
@@ -115,7 +115,7 @@ const globalSearch: Route = {
           entity_id: r.id,
           title: r.name as string,
           subtitle: (r.status as string | null) ?? null,
-          href: `/sales/projects/${r.id}`,
+          href: `/3pl-operations/projects/${r.id}`,
         }));
         if (items.length > 0) groups.project = items;
       }

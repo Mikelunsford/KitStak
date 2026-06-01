@@ -30,6 +30,8 @@
 import { useState } from 'react';
 import { Users, UserPlus, Mail, Send } from 'lucide-react';
 
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
+
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { RelativeTime } from '@/components/ui/RelativeTime';
@@ -246,8 +248,7 @@ function MembersTable({ rows, callerUserId, callerRole }: MembersTableProps) {
 //
 // Inline feedback mirrors the InviteTeammateSection pattern: success and
 // error chips render under the controls with the brand palette. The
-// destructive deactivate confirms via window.confirm — chassis-light by
-// design; a full modal is deferred to follow-up if operators ask for it.
+// destructive deactivate gates on the in-app destructiveConfirm modal.
 // ---------------------------------------------------------------------------
 
 interface MemberRowActionsProps {
@@ -275,11 +276,11 @@ function MemberRowActions({ row, callerRole }: MemberRowActionsProps) {
     update.mutate({ role: next });
   }
 
-  function handleDeactivate() {
-    const confirmed = window.confirm(
-      `Deactivate ${memberDisplayLabel(row)}? They will lose access immediately. You can reactivate them later.`,
-    );
-    if (!confirmed) return;
+  async function handleDeactivate() {
+    if (!(await destructiveConfirm({
+      action: `Deactivate ${memberDisplayLabel(row)}`,
+      consequence: 'They will lose access immediately. You can reactivate them later.',
+    }))) return;
     update.mutate({ is_active: false });
   }
 
