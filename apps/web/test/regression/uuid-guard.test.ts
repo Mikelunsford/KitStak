@@ -116,10 +116,16 @@ describe('F-Wave7-UUID-GUARD-01 — handler-boundary UUID guard', () => {
       handler = capturedHandler();
     });
 
-    afterEach(() => clearActiveMockState());
+    afterEach(() => {
+      clearActiveMockState();
+      invalidateFlagCache(ORG_A);
+    });
 
     it('rejects non-UUID :id with 400 BAD_REQUEST before any DB call', async () => {
-      setActiveMockState(makeState({ customers: [] }));
+      // crm-api now gates on the three commerce pillar plugins (OR predicate)
+      // per F-Wave9-SALES-CONFIG-3PL-GATE-01; without an enabled pillar the
+      // dispatcher 404s before the UUID guard fires.
+      setActiveMockState(makeState({ customers: [], org_feature_flags: THREE_PL_ON }));
 
       const req = new Request('https://example.test/customers/not-a-uuid', {
         method: 'GET',

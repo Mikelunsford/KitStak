@@ -7,16 +7,29 @@
 // goes through `respondWithIdempotency` + `requireCap`. RLS lives in the DB;
 // handlers still pass an explicit `.eq('org_id', caller.orgId)` filter so a
 // caller without an org claim cannot read another org's row.
+//
+// BUNDLE GATE (cross-pillar OR predicate). Constitutional rule
+// (CLAUDE.md / 00-canon): plugin bundle gates return 404 NOT_FOUND when the
+// caller's org lacks the plugin. taxes/items/payment-methods/pricing-tiers
+// /currencies are CROSS-PILLAR config: the 3PL, Manufacturing, and Co-Pack
+// surfaces all read and write them (e.g. the ItemPicker on quotes, invoices,
+// sales orders, kitting jobs, and manufacturing runs). Gating on a single
+// pillar flag would lock out a manufacturing-only or copack-only org that
+// legitimately needs taxes and items. The gate therefore passes when ANY of
+// the three commerce pillar plugins is enabled, and returns 404 only when ALL
+// are off. Closes F-Wave9-SALES-CONFIG-3PL-GATE-01.
 
 import { z } from 'zod';
 
-import { route, type Route, type RouteCtx } from '../_shared/route.ts';
+import { type Route, type RouteCtx } from '../_shared/route.ts';
 import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency,
   created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { serveBundleWithGate } from '../_shared/bundleGate.ts';
+import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import { type Capability } from '../_shared/capabilities.ts';
 import {
   CreateQuoteRequestSchema,
@@ -406,4 +419,15 @@ const ROUTES: Route[] = [
   { method: 'DELETE', path: '/job-types/:id',            handler: genericSoftDelete('job_types', '/job-types/:id') },
 ];
 
-Deno.serve((req: Request) => route(req, ROUTES, { bundle: BUNDLE }));
+// Bundle-level dispatcher: gate on the three commerce pillar plugins
+// (OR predicate) before any route runs. Shared with crm-api via
+// _shared/bundleGate.ts.
+serveBundleWithGate({
+  flagKeys: [
+    FEATURE_FLAGS.PLUGINS_THREE_PL,
+    FEATURE_FLAGS.PLUGINS_MANUFACTURING,
+    FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+  ],
+  routes: ROUTES,
+  bundle: BUNDLE,
+});
