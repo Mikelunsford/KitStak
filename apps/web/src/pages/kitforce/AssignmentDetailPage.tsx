@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -97,6 +97,14 @@ export function AssignmentDetailPage() {
       </header>
 
       <div className="flex gap-2 flex-wrap">
+        {caps.can('kitforce.assignment.update') && d.status !== 'done' && d.status !== 'cancelled' && (
+          <Link
+            to={`/kitforce/assignments/${assignmentId}/edit`}
+            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
+          >
+            Edit
+          </Link>
+        )}
         {isOpen && caps.can('kitforce.assignment.assign') && (
           <div className="flex items-center gap-2 flex-wrap">
             {!d.member_id && (

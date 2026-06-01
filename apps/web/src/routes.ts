@@ -657,6 +657,11 @@ const TeamDetailPage = lazy(() =>
     default: m.TeamDetailPage,
   })),
 );
+const TeamEditPage = lazy(() =>
+  import('./pages/kitforce/TeamEditPage').then((m) => ({
+    default: m.TeamEditPage,
+  })),
+);
 const ShiftsListPage = lazy(() =>
   import('./pages/kitforce/ShiftsListPage').then((m) => ({
     default: m.ShiftsListPage,
@@ -677,9 +682,19 @@ const AssignmentDetailPage = lazy(() =>
     default: m.AssignmentDetailPage,
   })),
 );
+const AssignmentEditPage = lazy(() =>
+  import('./pages/kitforce/AssignmentEditPage').then((m) => ({
+    default: m.AssignmentEditPage,
+  })),
+);
 const TimeEntriesListPage = lazy(() =>
   import('./pages/kitforce/TimeEntriesListPage').then((m) => ({
     default: m.TimeEntriesListPage,
+  })),
+);
+const TimeEntryEditPage = lazy(() =>
+  import('./pages/kitforce/TimeEntryEditPage').then((m) => ({
+    default: m.TimeEntryEditPage,
   })),
 );
 // === End KitForce ===
@@ -1131,13 +1146,16 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/kitforce/members/new',     element: MemberCreatePage,        guard: 'protected', layout: 'shell' },
   { path: '/kitforce/members/:id',     element: MemberDetailPage,        guard: 'protected', layout: 'shell' },
   { path: '/kitforce/members/:id/edit', element: MemberEditPage,         guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/teams',           element: TeamsListPage,           guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/teams/:id',       element: TeamDetailPage,          guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/shifts',          element: ShiftsListPage,          guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/shifts/:id',      element: ShiftDetailPage,         guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/assignments',     element: AssignmentsListPage,     guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/assignments/:id', element: AssignmentDetailPage,    guard: 'protected', layout: 'shell' },
-  { path: '/kitforce/time-entries',    element: TimeEntriesListPage,     guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/teams',                    element: TeamsListPage,          guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/teams/:id',                element: TeamDetailPage,         guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/teams/:id/edit',           element: TeamEditPage,           guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/shifts',                   element: ShiftsListPage,         guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/shifts/:id',               element: ShiftDetailPage,        guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/assignments',              element: AssignmentsListPage,    guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/assignments/:id',          element: AssignmentDetailPage,   guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/assignments/:id/edit',     element: AssignmentEditPage,     guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/time-entries',             element: TimeEntriesListPage,    guard: 'protected', layout: 'shell' },
+  { path: '/kitforce/time-entries/:id/edit',    element: TimeEntryEditPage,      guard: 'protected', layout: 'shell' },
   // === End KitForce ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.
