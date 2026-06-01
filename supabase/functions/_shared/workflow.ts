@@ -35,6 +35,24 @@ export const ORGANIZATION_FSM: Fsm<OrganizationStatus> = {
   ],
 };
 
+export type ManufacturingRunStatus =
+  | 'draft'
+  | 'started'
+  | 'completed'
+  | 'cancelled';
+
+export const MANUFACTURING_RUN_FSM: Fsm<ManufacturingRunStatus> = {
+  entity: 'manufacturing_run',
+  initial: 'draft',
+  states: ['draft', 'started', 'completed', 'cancelled'],
+  transitions: [
+    { from: 'draft',   to: 'started',   action: 'start' },
+    { from: 'draft',   to: 'cancelled', action: 'cancel' },
+    { from: 'started', to: 'completed', action: 'complete' },
+    { from: 'started', to: 'cancelled', action: 'cancel' },
+  ],
+};
+
 export function canTransition<S extends string>(
   fsm: Fsm<S>,
   from: S,
@@ -45,4 +63,5 @@ export function canTransition<S extends string>(
 
 export const FSMS = {
   organization: ORGANIZATION_FSM,
+  manufacturing_run: MANUFACTURING_RUN_FSM,
 } as const;
