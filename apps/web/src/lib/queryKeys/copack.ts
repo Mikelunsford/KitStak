@@ -16,6 +16,13 @@ export const salesChannelsKeys = {
   list: () => [...salesChannelsKeys.all, 'list'] as const,
 };
 
+// Co-Pack-scoped warehouse read (F-Wave10-CKSMOKE-04). Distinct from the
+// inventory-api warehouse keys so the two caches never collide.
+export const coPackWarehousesKeys = {
+  all: ['copack', 'warehouses'] as const,
+  list: () => [...coPackWarehousesKeys.all, 'list'] as const,
+};
+
 export const salesOrdersKeys = {
   all: ['copack', 'sales-orders'] as const,
   list: (filters: ListSalesOrdersFilters = {}) =>

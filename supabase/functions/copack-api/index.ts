@@ -623,6 +623,31 @@ const TABLE: Route[] = [
   },
 
   // -------------------------------------------------------------------------
+  // warehouses (read-only, Co-Pack scoped). F-Wave10-CKSMOKE-04.
+  //
+  // Warehouses are a shared inventory primitive: every org gets a default
+  // warehouse at provisioning, and kitting / fulfillment both reference one.
+  // The inventory-api bundle is gated on plugins.three_pl, so a Co-Pack-only
+  // org cannot read warehouses there to populate the picker (the picker came
+  // back empty and kitting completion then recorded no stock movements). This
+  // read-only, org-scoped list lives inside the copack_ecom bundle so Co-Pack
+  // operators can select a warehouse and resolve its name without enabling 3PL.
+  // Warehouse CRUD stays in inventory-api; this is read-only.
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/warehouses',
+    handler: async ({ req }) => {
+      const caller = requireCaller(req);
+      const { data, error } = await admin()
+        .from('warehouses').select('*')
+        .eq('org_id', caller.orgId).is('deleted_at', null)
+        .order('code', { ascending: true }).limit(500);
+      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      return ok(data ?? []);
+    },
+  },
+
+  // -------------------------------------------------------------------------
   // kitting_jobs (parent)
   // -------------------------------------------------------------------------
   {
@@ -787,6 +812,15 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, BUNDLE, '/kitting-jobs/:id/complete', null, async () => {
         const cur = await loadKittingJob(caller, params.id);
         assertKittingTransition(cur.status, 'completed');
+        // Stock movements are emitted by the migration-0075 trigger only when
+        // warehouse_id is set. Completing without one silently records no
+        // inventory effect, so refuse it and tell the operator (F-Wave10-CKSMOKE-04).
+        if (!cur.warehouse_id) {
+          throw new ApiError(
+            'VALIDATION_ERROR', 422,
+            'Assign a warehouse to this kitting job before completing it, so the consumed and produced stock movements can be recorded.',
+          );
+        }
         const ts = nowIso();
         // DB trigger (migration 0075) fires AFTER UPDATE OF status and writes
         // stock_movements when warehouse_id is non-null.

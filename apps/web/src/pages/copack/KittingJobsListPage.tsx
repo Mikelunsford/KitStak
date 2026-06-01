@@ -3,8 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
-import { useKittingJobsList, useSalesOrdersList } from '@/lib/hooks/useCoPack';
-import { useWarehousesList } from '@/lib/hooks/useInventory';
+import { useKittingJobsList, useSalesOrdersList, useCoPackWarehousesList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatDateMedium } from '@/lib/dates';
 import type { KittingJobStatus } from '@/lib/types/copack';
@@ -48,7 +47,7 @@ export function KittingJobsListPage() {
   }, [status, warehouseId]);
 
   const jobs = useKittingJobsList(filters);
-  const warehouses = useWarehousesList();
+  const warehouses = useCoPackWarehousesList();
   const orders = useSalesOrdersList();
   const caps = useVioCapabilities();
 
@@ -157,7 +156,7 @@ export function KittingJobsListPage() {
                     {j.sales_order_id ? (orderNumber[j.sales_order_id] ?? j.sales_order_id.slice(0, 8)) : '.'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">
-                    {j.warehouse_id ? <EntityLabel kind="warehouse" id={j.warehouse_id} /> : '.'}
+                    {j.warehouse_id ? <EntityLabel kind="copack_warehouse" id={j.warehouse_id} /> : '·'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">{formatDateMedium(j.planned_start_at)}</td>
                   <td className="px-4 py-2 text-ink-dim">{formatDateMedium(j.created_at)}</td>

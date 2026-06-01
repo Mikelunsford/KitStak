@@ -249,7 +249,7 @@ export function KittingJobDetailPage() {
         </dd>
         <dt className="text-ink-dim">Warehouse</dt>
         <dd className="text-ink">
-          {d.warehouse_id ? <EntityLabel kind="warehouse" id={d.warehouse_id} /> : 'None'}
+          {d.warehouse_id ? <EntityLabel kind="copack_warehouse" id={d.warehouse_id} /> : 'None'}
         </dd>
         <dt className="text-ink-dim">Planned start</dt>
         <dd className="text-ink">{formatDateTimeMedium(d.planned_start_at)}</dd>

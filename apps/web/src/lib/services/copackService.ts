@@ -40,6 +40,7 @@ import {
   type FulfillmentStatus,
   type FulfillmentCreate,
 } from '@/lib/types/copack';
+import { WarehouseSchema, type Warehouse } from '@/lib/types/vendors_inventory_ops';
 
 export type {
   SalesChannel,
@@ -65,9 +66,21 @@ export type {
   Fulfillment,
   FulfillmentStatus,
   FulfillmentCreate,
+  Warehouse,
 };
 
 const BASE = '/copack-api';
+
+// ===========================================================================
+// warehouses (read-only, Co-Pack scoped). F-Wave10-CKSMOKE-04.
+// Reads the org's warehouses through the copack_ecom bundle so the kitting /
+// fulfillment pickers populate without the 3PL-gated inventory-api.
+// ===========================================================================
+
+export async function listCoPackWarehouses(): Promise<Warehouse[]> {
+  const data = await apiRequest<unknown>(`${BASE}/warehouses`, { method: 'GET' });
+  return (data as Warehouse[]).map((r) => WarehouseSchema.parse(r));
+}
 
 // ===========================================================================
 // sales_channels (library)
