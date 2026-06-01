@@ -20,6 +20,8 @@ import {
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
+import { formatDateTimeMedium } from '@/lib/dates';
 
 /**
  * SalesOrderDetailPage. Pillar 3. Mirrors ManufacturingRunDetailPage.
@@ -92,6 +94,14 @@ export function SalesOrderDetailPage() {
     );
   }
 
+  function onRemoveLine(lineId: string) {
+    if (!destructiveConfirm({
+      action: 'Remove this order line',
+      consequence: 'The line will be deleted from the order.',
+    })) return;
+    removeLine.mutate(lineId);
+  }
+
   function onConfirm() {
     if (!destructiveConfirm({
       action: 'Confirm this sales order',
@@ -133,7 +143,7 @@ export function SalesOrderDetailPage() {
           SALES ORDER {d.order_number ?? d.id.slice(0, 8)}
         </h1>
         <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {d.status}
+          {defaultStateLabel(d.status)}
         </span>
       </header>
 
@@ -198,13 +208,13 @@ export function SalesOrderDetailPage() {
         <dt className="text-ink-dim">Currency</dt>
         <dd className="text-ink">{d.currency_code ?? ''}</dd>
         <dt className="text-ink-dim">Ordered</dt>
-        <dd className="text-ink">{d.ordered_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.ordered_at)}</dd>
         <dt className="text-ink-dim">Confirmed</dt>
-        <dd className="text-ink">{d.confirmed_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.confirmed_at)}</dd>
         <dt className="text-ink-dim">Shipped</dt>
-        <dd className="text-ink">{d.shipped_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.shipped_at)}</dd>
         <dt className="text-ink-dim">Cancelled</dt>
-        <dd className="text-ink">{d.cancelled_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.cancelled_at)}</dd>
         <dt className="text-ink-dim">Notes</dt>
         <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
       </dl>
@@ -252,7 +262,7 @@ export function SalesOrderDetailPage() {
                       {isDraft && caps.can('copack.order.line_item.delete') && (
                         <Button
                           variant="ghost"
-                          onClick={() => removeLine.mutate(l.id)}
+                          onClick={() => onRemoveLine(l.id)}
                           disabled={removeLine.isPending}
                         >
                           Remove

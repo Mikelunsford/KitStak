@@ -80,3 +80,25 @@ export function formatDateShort(input: Date | string | null | undefined): string
     day: 'numeric',
   }).format(d);
 }
+
+/**
+ * Date plus wall-clock time in the runtime's LOCAL timezone, e.g.
+ * "May 31, 2026, 2:39 PM". Used for actual event timestamps on detail pages
+ * (shift started/completed, fulfillment picked/packed/shipped, assignment
+ * started/completed). Previously these rendered the raw ISO string straight
+ * from the API (e.g. "2026-05-31T22:39:28.58+00:00"), which both leaked UTC
+ * and read as a machine value. Intl converts to local time, so a 17:00 local
+ * event no longer displays as 22:00.
+ */
+export function formatDateTimeMedium(input: Date | string | null | undefined): string {
+  if (input === null || input === undefined || input === '') return NULL_DATE_PLACEHOLDER;
+  const d = typeof input === 'string' ? new Date(input) : input;
+  if (Number.isNaN(d.getTime())) return NULL_DATE_PLACEHOLDER;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d);
+}

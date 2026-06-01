@@ -12,6 +12,8 @@ import {
 } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
+import { formatDateTimeMedium } from '@/lib/dates';
 
 /**
  * ShiftDetailPage. Pillar 4. Mirrors FulfillmentDetailPage shape.
@@ -80,7 +82,7 @@ export function ShiftDetailPage() {
           SHIFT {memberName[d.member_id] ?? d.member_id.slice(0, 8)}
         </h1>
         <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {d.status}
+          {defaultStateLabel(d.status)}
         </span>
       </header>
 
@@ -135,15 +137,15 @@ export function ShiftDetailPage() {
         <dt className="text-ink-dim">Team</dt>
         <dd className="text-ink">{d.team_id ? d.team_id.slice(0, 8) : 'None'}</dd>
         <dt className="text-ink-dim">Scheduled start</dt>
-        <dd className="text-ink font-mono">{d.scheduled_start_at.slice(0, 16).replace('T', ' ')}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.scheduled_start_at)}</dd>
         <dt className="text-ink-dim">Scheduled end</dt>
-        <dd className="text-ink font-mono">{d.scheduled_end_at.slice(0, 16).replace('T', ' ')}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.scheduled_end_at)}</dd>
         <dt className="text-ink-dim">Started</dt>
-        <dd className="text-ink">{d.started_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.started_at)}</dd>
         <dt className="text-ink-dim">Completed</dt>
-        <dd className="text-ink">{d.completed_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.completed_at)}</dd>
         <dt className="text-ink-dim">Cancelled</dt>
-        <dd className="text-ink">{d.cancelled_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.cancelled_at)}</dd>
         <dt className="text-ink-dim">Notes</dt>
         <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
       </dl>

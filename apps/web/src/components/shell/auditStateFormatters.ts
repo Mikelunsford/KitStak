@@ -47,3 +47,28 @@ export function formatStateLabel(entityType: string, state: string): string {
   const fn = STATE_FORMATTERS[entityType] ?? defaultStateLabel;
   return fn(state);
 }
+
+/**
+ * Operator-facing copy for the audit_log `action` column. The DB stores
+ * machine verbs (`status_change`, `insert`, `invited`) that the timeline
+ * used to render raw. Known verbs map to plain copy; anything else falls
+ * through the Title-Case formatter (underscores -> spaces, capitalised) so
+ * a new action verb stays readable without a code change. Display-only; the
+ * DB value is unchanged.
+ */
+const ACTION_LABELS: Record<string, string> = {
+  status_change: 'Status change',
+  insert: 'Created',
+  created: 'Created',
+  create: 'Created',
+  update: 'Updated',
+  updated: 'Updated',
+  delete: 'Deleted',
+  deleted: 'Deleted',
+  invited: 'Invited',
+};
+
+export function formatAuditAction(action: string | null | undefined): string {
+  if (!action) return 'Change';
+  return ACTION_LABELS[action] ?? defaultStateLabel(action);
+}

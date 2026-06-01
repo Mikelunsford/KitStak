@@ -1009,7 +1009,7 @@ const TABLE: Route[] = [
         if (!memberId) {
           throw new ApiError(
             'VALIDATION_ERROR', 422,
-            'a member_id is required to assign a work_assignment',
+            'Select a member to assign this work assignment.',
           );
         }
         await assertMemberParent(caller, memberId);
@@ -1150,15 +1150,22 @@ const TABLE: Route[] = [
       const body = await parseBody(req, TimeEntryClockInSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/time-entries/clock-in', body, async () => {
         // The member must exist in-org; a missing member resolves to NOT_FOUND
-        // 404 before any insert.
-        await assertMemberParent(caller, body.member_id);
-        // hourly_rate_cents is the rate snapshotted at clock-in. The canon
-        // TimeEntryClockInSchema requires the field, so the body value is
-        // authoritative and is captured verbatim onto the row. The caller is
-        // expected to pass the member's current default_hourly_rate_cents; we
-        // do not silently substitute a server-side value because the snapshot
-        // must reflect exactly what was agreed at clock-in.
-        const snapshotRate = body.hourly_rate_cents;
+        // 404 before any insert. We load the full row (not just assert
+        // existence) so we can snapshot the member's current default rate when
+        // the caller does not supply a positive override.
+        const member = await loadMember(caller, body.member_id);
+        // hourly_rate_cents is the rate snapshotted at clock-in. A caller may
+        // pass a positive per-entry override; when they do not (the common
+        // case: the SPA posts 0 for callers without the rate-read cap, and the
+        // override field is blank), we snapshot the member's current
+        // default_hourly_rate_cents so labor cost rolls up correctly instead of
+        // recording a $0 rate. The snapshot still reflects what was agreed at
+        // clock-in: a deliberate override wins, otherwise the member default.
+        const overrideRate = body.hourly_rate_cents;
+        const snapshotRate =
+          overrideRate && overrideRate > 0
+            ? overrideRate
+            : member.default_hourly_rate_cents ?? 0;
         const insert: Record<string, unknown> = {
           org_id: caller.orgId,
           member_id: body.member_id,

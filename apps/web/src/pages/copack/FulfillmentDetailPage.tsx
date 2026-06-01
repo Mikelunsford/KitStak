@@ -12,6 +12,8 @@ import {
 } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
+import { formatDateTimeMedium } from '@/lib/dates';
 
 /**
  * FulfillmentDetailPage. Pillar 3. Mirrors SalesOrderDetailPage shape.
@@ -77,7 +79,7 @@ export function FulfillmentDetailPage() {
           FULFILLMENT {d.fulfillment_number ?? d.id.slice(0, 8)}
         </h1>
         <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {d.status}
+          {defaultStateLabel(d.status)}
         </span>
       </header>
 
@@ -143,9 +145,7 @@ export function FulfillmentDetailPage() {
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Sales order</dt>
         <dd className="text-ink">
-          <a href={`/copack/orders/${d.sales_order_id}`} className="underline">
-            {d.sales_order_id.slice(0, 8)}
-          </a>
+          <EntityLabel kind="sales_order" id={d.sales_order_id} />
         </dd>
         <dt className="text-ink-dim">Warehouse</dt>
         <dd className="text-ink">
@@ -154,13 +154,13 @@ export function FulfillmentDetailPage() {
         <dt className="text-ink-dim">Shipment</dt>
         <dd className="text-ink">{d.shipment_id ? d.shipment_id.slice(0, 8) : 'None'}</dd>
         <dt className="text-ink-dim">Picked</dt>
-        <dd className="text-ink">{d.picked_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.picked_at)}</dd>
         <dt className="text-ink-dim">Packed</dt>
-        <dd className="text-ink">{d.packed_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.packed_at)}</dd>
         <dt className="text-ink-dim">Shipped</dt>
-        <dd className="text-ink">{d.shipped_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.shipped_at)}</dd>
         <dt className="text-ink-dim">Cancelled</dt>
-        <dd className="text-ink">{d.cancelled_at ?? ''}</dd>
+        <dd className="text-ink">{formatDateTimeMedium(d.cancelled_at)}</dd>
         <dt className="text-ink-dim">Notes</dt>
         <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
       </dl>

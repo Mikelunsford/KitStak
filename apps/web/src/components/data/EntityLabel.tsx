@@ -22,6 +22,7 @@ import { useCustomers } from '@/lib/hooks/useCustomers';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useProjectsList } from '@/lib/hooks/useProjects';
+import { useSalesOrdersList } from '@/lib/hooks/useCoPack';
 import { useVendorsList } from '@/lib/hooks/useVendors';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
@@ -38,7 +39,8 @@ export type EntityKind =
   | 'project'
   | 'contact'
   | 'account'
-  | 'opportunity';
+  | 'opportunity'
+  | 'sales_order';
 
 interface EntityLabelProps {
   kind: EntityKind;
@@ -180,6 +182,19 @@ function OpportunityLabel({ id }: { id: string }) {
   );
 }
 
+function SalesOrderLabel({ id }: { id: string }) {
+  const q = useSalesOrdersList();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
+  const row = q.data?.find((o) => o.id === id);
+  if (!row) return <span className="text-ink">{id}</span>;
+  return (
+    <Link to={`/copack/orders/${id}`} className="text-ink underline">
+      {row.order_number ?? id.slice(0, 8)}
+    </Link>
+  );
+}
+
 export function EntityLabel({ kind, id }: EntityLabelProps) {
   if (!id) return <span className="text-ink">{''}</span>;
   switch (kind) {
@@ -199,5 +214,7 @@ export function EntityLabel({ kind, id }: EntityLabelProps) {
       return <AccountLabel id={id} />;
     case 'opportunity':
       return <OpportunityLabel id={id} />;
+    case 'sales_order':
+      return <SalesOrderLabel id={id} />;
   }
 }

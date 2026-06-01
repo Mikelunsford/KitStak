@@ -23,6 +23,14 @@ const CHANNEL_KINDS: ReadonlyArray<{ value: SalesChannelKind; label: string }> =
   { value: 'other', label: 'Other' },
 ];
 
+const CHANNEL_KIND_LABELS: Record<string, string> = Object.fromEntries(
+  CHANNEL_KINDS.map((k) => [k.value, k.label]),
+);
+
+function channelKindLabel(kind: string): string {
+  return CHANNEL_KIND_LABELS[kind] ?? kind;
+}
+
 export function ChannelsListPage() {
   const channels = useSalesChannelsList();
   const create = useCreateSalesChannel();
@@ -133,7 +141,7 @@ function ChannelRow({ channel, canWrite }: { channel: SalesChannel; canWrite: bo
   return (
     <tr className="border-t border-line">
       <td className="px-4 py-2 text-ink">{channel.name}</td>
-      <td className="px-4 py-2 text-ink-dim font-mono uppercase text-xs">{channel.kind}</td>
+      <td className="px-4 py-2 text-ink-dim text-xs">{channelKindLabel(channel.kind)}</td>
       <td className="px-4 py-2">
         <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
           {channel.is_active ? 'active' : 'inactive'}
