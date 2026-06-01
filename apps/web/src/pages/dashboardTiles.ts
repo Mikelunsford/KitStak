@@ -1,4 +1,4 @@
-// UX-Q3: dashboard pillar-tile spec + pure visibility filter.
+// UX-Q3 / SMOKE-09: dashboard pillar-tile spec + pure visibility filter.
 //
 // Extracted from DashboardPage.tsx so the gating decision can be
 // regression-tested without a React renderer (the repo has no jsdom or
@@ -13,9 +13,10 @@
 //       * hideWhenOff: true          => OMITTED.
 //       * hideWhenOff: false/absent  => visible (informational).
 //
-// Co-Pack and KitForce mark hideWhenOff: true so unbuilt pillars stop
-// advertising 404 routes on the first-impression surface. The
-// constitutional `403 FEATURE_DISABLED` API guard is unchanged.
+// SMOKE-09: ALL five pillars mark hideWhenOff: true so a pillar card
+// only appears when the org has that plugin enabled. The server-side
+// 403 FEATURE_DISABLED API gate is the authority; this is presentational
+// hiding only.
 
 import { FEATURE_FLAGS } from '@/lib/constants';
 
@@ -38,12 +39,14 @@ export const PILLAR_TILES: ReadonlyArray<PillarTileSpec> = [
     title: '3PL OPERATIONS',
     body: 'Receiving, kitting, production, shipments.',
     flag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+    hideWhenOff: true,
   },
   {
     key: 'manufacturing',
     title: 'MANUFACTURING',
     body: 'BOMs, runs, finished goods, output movements.',
     flag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
+    hideWhenOff: true,
   },
   {
     key: 'copack_ecom',
@@ -64,6 +67,7 @@ export const PILLAR_TILES: ReadonlyArray<PillarTileSpec> = [
     title: 'KITCOST',
     body: 'Job costing rolled up by run and SKU.',
     flag: FEATURE_FLAGS.PLUGINS_KITCOST,
+    hideWhenOff: true,
   },
 ];
 

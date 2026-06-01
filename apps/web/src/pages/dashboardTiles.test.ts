@@ -1,13 +1,13 @@
-// UX-Q3: pin the dashboard pillar-tile gating behaviour.
+// SMOKE-09 / UX-Q3: dashboard pillar-tile gating behaviour.
 //
-// Asserts that:
-//   - Co-Pack and KitForce tiles are OMITTED when their `plugins.*`
-//     flags are off (the first-impression surface no longer advertises
-//     404 routes).
-//   - Co-Pack and KitForce tiles RENDER when the flags are on.
-//   - 3PL / Manufacturing / KitCost preserve the legacy "render when
-//     off too" posture so the operator can recognise the surface
-//     during the flip-on dry run.
+// SMOKE-09 contract: a pillar card renders if and only if the org has
+// that pillar's plugin flag enabled. All five pillars are now gated by
+// hideWhenOff: true so the dashboard never shows a tile for a plugin the
+// org has not purchased/enabled.
+//
+// Previous behaviour (UX-Q3 pre-SMOKE-09): 3PL, Manufacturing, and
+// KitCost used to render regardless of their flag state ("operator-flip
+// posture"). SMOKE-09 tightens this so every tile obeys its flag.
 //
 // Pure-TS suite, no React renderer (mirrors the precedent in
 // src/lib/hooks/featureFlagResolver.test.ts).
@@ -33,7 +33,7 @@ const ALL_OFF: Record<string, boolean> = {
   [FEATURE_FLAGS.PLUGINS_KITCOST]: false,
 };
 
-describe('PILLAR_TILES wiring (UX-Q3)', () => {
+describe('PILLAR_TILES wiring (SMOKE-09)', () => {
   it('declares exactly the five pillars in canonical order', () => {
     expect(PILLAR_TILES.map((t) => t.key)).toEqual([
       'three_pl',
@@ -44,24 +44,26 @@ describe('PILLAR_TILES wiring (UX-Q3)', () => {
     ]);
   });
 
-  it('Co-Pack and KitForce are marked hideWhenOff', () => {
-    const copack = PILLAR_TILES.find((t) => t.key === 'copack_ecom');
-    const kitforce = PILLAR_TILES.find((t) => t.key === 'kitforce');
-    expect(copack?.hideWhenOff).toBe(true);
-    expect(kitforce?.hideWhenOff).toBe(true);
+  it('all five pillars are marked hideWhenOff (SMOKE-09)', () => {
+    for (const tile of PILLAR_TILES) {
+      expect(
+        tile.hideWhenOff,
+        `Expected tile "${tile.key}" to have hideWhenOff: true`,
+      ).toBe(true);
+    }
   });
 
-  it('3PL, Manufacturing, and KitCost are NOT hideWhenOff (operator-flip posture)', () => {
-    const threePl = PILLAR_TILES.find((t) => t.key === 'three_pl');
-    const mfg = PILLAR_TILES.find((t) => t.key === 'manufacturing');
-    const kitcost = PILLAR_TILES.find((t) => t.key === 'kitcost');
-    expect(threePl?.hideWhenOff).toBeUndefined();
-    expect(mfg?.hideWhenOff).toBeUndefined();
-    expect(kitcost?.hideWhenOff).toBeUndefined();
+  it('all five pillars have a plugin flag wired', () => {
+    for (const tile of PILLAR_TILES) {
+      expect(
+        tile.flag,
+        `Expected tile "${tile.key}" to declare a plugin flag`,
+      ).toBeTruthy();
+    }
   });
 });
 
-describe('visiblePillarTiles (UX-Q3)', () => {
+describe('visiblePillarTiles (SMOKE-09)', () => {
   it('all flags ON => all five tiles render', () => {
     const visible = visiblePillarTiles(PILLAR_TILES, ALL_ON);
     expect(visible.map((t) => t.key)).toEqual([
@@ -73,49 +75,91 @@ describe('visiblePillarTiles (UX-Q3)', () => {
     ]);
   });
 
-  it('all flags OFF => Co-Pack and KitForce OMITTED, others remain', () => {
+  it('all flags OFF => zero tiles render (SMOKE-09 core contract)', () => {
     const visible = visiblePillarTiles(PILLAR_TILES, ALL_OFF);
-    const keys = visible.map((t) => t.key);
-    expect(keys).not.toContain('copack_ecom');
-    expect(keys).not.toContain('kitforce');
-    expect(keys).toEqual(['three_pl', 'manufacturing', 'kitcost']);
+    expect(visible).toHaveLength(0);
   });
 
-  it('empty flag map (fresh org, nothing flipped yet) => Co-Pack and KitForce OMITTED', () => {
+  it('empty flag map (fresh org, nothing flipped) => zero tiles render', () => {
     // Absent keys are treated as off per the useOrgFlags contract.
+    // The empty state is handled gracefully in PillarGrid.
     const visible = visiblePillarTiles(PILLAR_TILES, {});
-    const keys = visible.map((t) => t.key);
-    expect(keys).not.toContain('copack_ecom');
-    expect(keys).not.toContain('kitforce');
-    expect(keys).toEqual(['three_pl', 'manufacturing', 'kitcost']);
+    expect(visible).toHaveLength(0);
   });
 
-  it('Co-Pack flag ON, KitForce OFF => Co-Pack renders, KitForce omitted', () => {
+  it('only three_pl ON => only the 3PL card renders', () => {
+    const visible = visiblePillarTiles(PILLAR_TILES, {
+      ...ALL_OFF,
+      [FEATURE_FLAGS.PLUGINS_THREE_PL]: true,
+    });
+    expect(visible.map((t) => t.key)).toEqual(['three_pl']);
+  });
+
+  it('only manufacturing ON => only the Manufacturing card renders', () => {
+    const visible = visiblePillarTiles(PILLAR_TILES, {
+      ...ALL_OFF,
+      [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: true,
+    });
+    expect(visible.map((t) => t.key)).toEqual(['manufacturing']);
+  });
+
+  it('only kitcost ON => only the KitCost card renders', () => {
+    const visible = visiblePillarTiles(PILLAR_TILES, {
+      ...ALL_OFF,
+      [FEATURE_FLAGS.PLUGINS_KITCOST]: true,
+    });
+    expect(visible.map((t) => t.key)).toEqual(['kitcost']);
+  });
+
+  it('Co-Pack flag ON, all others OFF => only Co-Pack renders', () => {
     const visible = visiblePillarTiles(PILLAR_TILES, {
       ...ALL_OFF,
       [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: true,
     });
-    const keys = visible.map((t) => t.key);
-    expect(keys).toContain('copack_ecom');
-    expect(keys).not.toContain('kitforce');
+    expect(visible.map((t) => t.key)).toEqual(['copack_ecom']);
   });
 
-  it('KitForce flag ON, Co-Pack OFF => KitForce renders, Co-Pack omitted', () => {
+  it('KitForce flag ON, all others OFF => only KitForce renders', () => {
     const visible = visiblePillarTiles(PILLAR_TILES, {
       ...ALL_OFF,
       [FEATURE_FLAGS.PLUGINS_KITFORCE]: true,
     });
-    const keys = visible.map((t) => t.key);
-    expect(keys).toContain('kitforce');
-    expect(keys).not.toContain('copack_ecom');
+    expect(visible.map((t) => t.key)).toEqual(['kitforce']);
   });
 
-  it('Manufacturing flag OFF still renders the tile (legacy operator-flip posture)', () => {
+  it('three_pl + manufacturing ON, others OFF => only those two render in order', () => {
+    const visible = visiblePillarTiles(PILLAR_TILES, {
+      ...ALL_OFF,
+      [FEATURE_FLAGS.PLUGINS_THREE_PL]: true,
+      [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: true,
+    });
+    expect(visible.map((t) => t.key)).toEqual(['three_pl', 'manufacturing']);
+  });
+
+  it('manufacturing OFF hides the Manufacturing tile (SMOKE-09)', () => {
     const visible = visiblePillarTiles(PILLAR_TILES, {
       ...ALL_ON,
       [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: false,
     });
     const keys = visible.map((t) => t.key);
-    expect(keys).toContain('manufacturing');
+    expect(keys).not.toContain('manufacturing');
+  });
+
+  it('three_pl OFF hides the 3PL tile (SMOKE-09)', () => {
+    const visible = visiblePillarTiles(PILLAR_TILES, {
+      ...ALL_ON,
+      [FEATURE_FLAGS.PLUGINS_THREE_PL]: false,
+    });
+    const keys = visible.map((t) => t.key);
+    expect(keys).not.toContain('three_pl');
+  });
+
+  it('kitcost OFF hides the KitCost tile (SMOKE-09)', () => {
+    const visible = visiblePillarTiles(PILLAR_TILES, {
+      ...ALL_ON,
+      [FEATURE_FLAGS.PLUGINS_KITCOST]: false,
+    });
+    const keys = visible.map((t) => t.key);
+    expect(keys).not.toContain('kitcost');
   });
 });

@@ -33,11 +33,10 @@ import { hasSeenPasswordPrompt } from '@/pages/firstSigninPromptState';
  * complete the work-card grid takes over with live actionable counts per
  * workflow stage.
  *
- * UX-Q3: the five-pillar surface remains below as the branded
- * "what each pillar does" surface, gated by `plugins.<pillar>` flags so
- * unbuilt pillars (Co-Pack and KitForce) are omitted entirely when their
- * flags are off. Pillars that are merely off pending an operator flip
- * (3PL, Manufacturing, KitCost) remain visible.
+ * SMOKE-09: the five-pillar surface is gated by plugin flags. A pillar
+ * card only appears when the org has that pillar's plugin enabled. The
+ * server-side API gate (403 FEATURE_DISABLED) remains the authority; the
+ * card hiding here is presentational only.
  *
  * Wraps in <AppShell> via the ProtectedRoute guard, not directly here.
  */
@@ -107,16 +106,7 @@ export function DashboardPage() {
         errored={Boolean(dashboard.error)}
       />
 
-      <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl tracking-wide text-ink-dim">
-          PILLARS
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {tiles.map((tile) => (
-            <Card key={tile.key} title={tile.title} body={tile.body} />
-          ))}
-        </div>
-      </section>
+      <PillarGrid tiles={tiles} loading={orgFlags.isLoading} />
     </section>
   );
 }
@@ -209,9 +199,52 @@ function WorkCardGrid({ loading, errored, summary }: WorkCardGridProps) {
 }
 
 // ---------------------------------------------------------------------------
+// PillarGrid. SMOKE-09: renders only the pillar tiles whose plugin flag is
+// on for the org. Server is the authority; this component is presentational
+// hiding only. Handles three states: loading (skeleton), zero tiles (no
+// plugins enabled yet), and 1-5 tiles (responsive grid).
+// ---------------------------------------------------------------------------
+
+interface PillarGridProps {
+  tiles: ReadonlyArray<PillarTileSpec>;
+  loading: boolean;
+}
+
+function PillarGrid({ tiles, loading }: PillarGridProps) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="font-display text-2xl tracking-wide text-ink-dim">
+        PILLARS
+      </h2>
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-bg-2 border border-line p-6 h-24 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : tiles.length === 0 ? (
+        <p className="font-sans text-sm text-ink-dim">
+          No pillar plugins are enabled for this organization. Contact your
+          administrator to enable a plugin.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {tiles.map((tile) => (
+            <Card key={tile.key} title={tile.title} body={tile.body} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Card. Branded "what each pillar does" tile. Used by the gated pillar grid
-// (Q3) so unbuilt pillars are omitted entirely when their feature flag is
-// off.
+// (SMOKE-09) so pillar tiles are omitted when their plugin flag is off.
 // ---------------------------------------------------------------------------
 
 type CardProps = { title: string; body: string };
