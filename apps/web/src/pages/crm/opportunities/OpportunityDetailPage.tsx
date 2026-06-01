@@ -96,12 +96,20 @@ export function OpportunityDetailPage() {
         <h1 className="text-4xl font-display tracking-wide text-ink">
           {o.display_name.toUpperCase()}
         </h1>
-        <Link
-          to={createQuoteHref}
-          className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider"
-        >
-          CREATE QUOTE FROM OPPORTUNITY
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/crm/opportunities/${o.id}/edit`}
+            className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+          >
+            EDIT
+          </Link>
+          <Link
+            to={createQuoteHref}
+            className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider"
+          >
+            CREATE QUOTE FROM OPPORTUNITY
+          </Link>
+        </div>
       </header>
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Customer</dt>
