@@ -10,6 +10,7 @@ import {
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { formatCents } from '@/lib/money';
+import { formatDateMedium } from '@/lib/dates';
 
 /**
  * MemberDetailPage. Pillar 4. Mirrors FulfillmentDetailPage shape.
@@ -117,7 +118,7 @@ export function MemberDetailPage() {
         <dt className="text-ink-dim">Notes</dt>
         <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
         <dt className="text-ink-dim">Created</dt>
-        <dd className="text-ink">{d.created_at.slice(0, 10)}</dd>
+        <dd className="text-ink">{formatDateMedium(d.created_at)}</dd>
       </dl>
 
       <section className="mt-6">

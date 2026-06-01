@@ -3,8 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
-import { useCreateFulfillment, useSalesOrdersList } from '@/lib/hooks/useCoPack';
-import { useWarehousesList } from '@/lib/hooks/useInventory';
+import { useCreateFulfillment, useSalesOrdersList, useCoPackWarehousesList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { FulfillmentCreate } from '@/lib/types/copack';
 
@@ -22,7 +21,7 @@ export function FulfillmentCreatePage() {
   const [searchParams] = useSearchParams();
   const create = useCreateFulfillment();
   const orders = useSalesOrdersList();
-  const warehouses = useWarehousesList();
+  const warehouses = useCoPackWarehousesList();
   const caps = useVioCapabilities();
 
   const [salesOrderId, setSalesOrderId] = useState<string>(

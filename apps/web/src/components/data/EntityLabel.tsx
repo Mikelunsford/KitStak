@@ -22,7 +22,7 @@ import { useCustomers } from '@/lib/hooks/useCustomers';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useProjectsList } from '@/lib/hooks/useProjects';
-import { useSalesOrdersList } from '@/lib/hooks/useCoPack';
+import { useSalesOrdersList, useCoPackWarehousesList } from '@/lib/hooks/useCoPack';
 import { useVendorsList } from '@/lib/hooks/useVendors';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
@@ -40,7 +40,8 @@ export type EntityKind =
   | 'contact'
   | 'account'
   | 'opportunity'
-  | 'sales_order';
+  | 'sales_order'
+  | 'copack_warehouse';
 
 interface EntityLabelProps {
   kind: EntityKind;
@@ -195,6 +196,19 @@ function SalesOrderLabel({ id }: { id: string }) {
   );
 }
 
+// Co-Pack-scoped warehouse label. Resolves through the copack_ecom bundle
+// (useCoPackWarehousesList) instead of the 3PL-gated inventory-api, so a
+// Co-Pack-only org sees the warehouse name, not a raw UUID. Rendered as plain
+// text (no link) because the warehouse detail route lives under 3PL.
+function CoPackWarehouseLabel({ id }: { id: string }) {
+  const q = useCoPackWarehousesList();
+  const state = classifyEntityLabel(q.data, id);
+  if (state === 'pending') return <PendingLabel id={id} />;
+  const row = q.data?.find((w) => w.id === id);
+  if (!row) return <span className="text-ink">{id}</span>;
+  return <span className="text-ink">{format(row.code, row.display_name)}</span>;
+}
+
 export function EntityLabel({ kind, id }: EntityLabelProps) {
   if (!id) return <span className="text-ink">{''}</span>;
   switch (kind) {
@@ -216,5 +230,7 @@ export function EntityLabel({ kind, id }: EntityLabelProps) {
       return <OpportunityLabel id={id} />;
     case 'sales_order':
       return <SalesOrderLabel id={id} />;
+    case 'copack_warehouse':
+      return <CoPackWarehouseLabel id={id} />;
   }
 }

@@ -3,8 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
-import { useCreateKittingJob, useSalesOrdersList } from '@/lib/hooks/useCoPack';
-import { useWarehousesList } from '@/lib/hooks/useInventory';
+import { useCreateKittingJob, useSalesOrdersList, useCoPackWarehousesList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { KittingJobCreate } from '@/lib/types/copack';
 
@@ -28,7 +27,7 @@ export function KittingJobCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const create = useCreateKittingJob();
-  const warehouses = useWarehousesList();
+  const warehouses = useCoPackWarehousesList();
   const orders = useSalesOrdersList();
   const caps = useVioCapabilities();
 

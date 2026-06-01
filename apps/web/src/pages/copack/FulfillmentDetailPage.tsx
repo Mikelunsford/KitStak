@@ -149,7 +149,7 @@ export function FulfillmentDetailPage() {
         </dd>
         <dt className="text-ink-dim">Warehouse</dt>
         <dd className="text-ink">
-          {d.warehouse_id ? <EntityLabel kind="warehouse" id={d.warehouse_id} /> : 'None'}
+          {d.warehouse_id ? <EntityLabel kind="copack_warehouse" id={d.warehouse_id} /> : 'None'}
         </dd>
         <dt className="text-ink-dim">Shipment</dt>
         <dd className="text-ink">{d.shipment_id ? d.shipment_id.slice(0, 8) : 'None'}</dd>

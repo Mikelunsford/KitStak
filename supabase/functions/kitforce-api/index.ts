@@ -310,7 +310,7 @@ function deriveMinutes(clockInAt: string, clockOutAt: string): number {
   if (outMs < inMs) {
     throw new ApiError(
       'STATE_CONFLICT', 409,
-      'clock_out_at is before clock_in_at',
+      'Clock-out time cannot be before the clock-in time.',
     );
   }
   // Round to 4 decimal places to match numeric(18,4) without float drift.
@@ -1199,7 +1199,7 @@ const TABLE: Route[] = [
         if (cur.clock_out_at !== null) {
           throw new ApiError(
             'STATE_CONFLICT', 409,
-            'time_entry is already clocked out',
+            'This time entry is already clocked out.',
           );
         }
         // Derive minutes from the open clock_in_at to the supplied clock_out_at.

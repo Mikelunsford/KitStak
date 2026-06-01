@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import {
   salesChannelsKeys,
+  coPackWarehousesKeys,
   salesOrdersKeys,
   kittingJobsKeys,
   fulfillmentsKeys,
@@ -36,6 +37,7 @@ import {
   deleteKittingProducedLine,
   listFulfillments, getFulfillment, createFulfillment,
   pickFulfillment, packFulfillment, shipFulfillment, cancelFulfillment,
+  listCoPackWarehouses,
   type ListSalesOrdersFilters,
   type SalesChannelCreate,
   type SalesChannelPatch,
@@ -55,6 +57,20 @@ import {
 } from '@/lib/services/copackService';
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
+
+// ===========================================================================
+// warehouses (read-only, Co-Pack scoped). F-Wave10-CKSMOKE-04. Lets the
+// kitting / fulfillment pickers list warehouses without the 3PL-gated
+// inventory-api.
+// ===========================================================================
+
+export function useCoPackWarehousesList() {
+  return useQuery({
+    queryKey: coPackWarehousesKeys.list(),
+    queryFn: () => listCoPackWarehouses(),
+    ...C,
+  });
+}
 
 // ===========================================================================
 // sales_channels (library)
