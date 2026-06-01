@@ -1,17 +1,25 @@
 name: lighthouse
 
-# Lighthouse CI against the Vercel preview deployment for the PR.
-# Thresholds enforced per 00-canon/01-architecture.md performance budgets:
-#   LCP under 2.5s
-#   CLS under 0.1
-#   TBT under 200ms
-# Any threshold breach fails the workflow.
+# Lighthouse CI for PRs. Thresholds match 00-canon/01-architecture.md:
+#   LCP under 2.5s, CLS under 0.1, TBT under 200ms.
 #
-# Gated by the repo variable LIGHTHOUSE_ENABLED. Set it to 'true' once
-# Vercel preview Deployment Protection is dropped or a Protection Bypass
-# secret is configured. While disabled, the workflow is a no-op so
-# preview-protected previews do not produce false negatives (401 redirect
-# loops register as 404 to the runner).
+# Gate: set the repo variable LIGHTHOUSE_ENABLED to 'true' to activate.
+# While unset the job is a no-op; this prevents false negatives from
+# Vercel Deployment Protection returning 401s to the runner.
+#
+# Two run modes selected automatically by the 'probe-bypass' step:
+#
+#   Static mode  (default, no extra secrets required)
+#     Builds the SPA locally and runs Lighthouse against the local dist.
+#     Activate by setting LIGHTHOUSE_ENABLED = 'true' in repo variables.
+#
+#   Preview mode (requires VERCEL_AUTOMATION_BYPASS_SECRET)
+#     Resolves the live Vercel preview URL for this PR, injects the
+#     x-vercel-protection-bypass header, and runs Lighthouse against the
+#     deployed preview. This gives real-network metrics unavailable in
+#     static mode.
+#     Activate by also adding VERCEL_AUTOMATION_BYPASS_SECRET as a repo
+#     secret (see OPERATOR ACTION section in PR #199).
 
 on:
   pull_request:
@@ -22,7 +30,10 @@ jobs:
     name: Lighthouse against preview
     if: vars.LIGHTHOUSE_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -34,13 +45,66 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      # Probe whether the Vercel protection-bypass secret is configured.
+      # Outputs bypass=true when VERCEL_AUTOMATION_BYPASS_SECRET is non-empty.
+      # Subsequent steps branch on this output to choose static vs preview mode.
+      - name: Probe bypass secret
+        id: probe-bypass
+        env:
+          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -z "${BYPASS_SECRET:-}" ]; then
+            echo "::notice::VERCEL_AUTOMATION_BYPASS_SECRET not configured. Running Lighthouse in static mode against local build. Add the secret to enable live-preview mode."
+            echo "bypass=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "bypass=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Preview mode: deploy a preview build to Vercel and resolve its URL.
+      # Skipped when the bypass secret is absent.
+      - name: Deploy preview and resolve URL
+        id: preview
+        if: steps.probe-bypass.outputs.bypass == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          npx vercel build --token="$VERCEL_TOKEN"
+          PREVIEW_URL=$(npx vercel deploy --prebuilt --token="$VERCEL_TOKEN" 2>&1 | grep -Eo 'https://[^ ]+\.vercel\.app' | tail -1)
+          echo "url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+          echo "Resolved preview URL: $PREVIEW_URL"
+
+      # Static mode: build locally.
+      # Skipped when preview mode is active.
+      - name: Build (static mode)
+        if: steps.probe-bypass.outputs.bypass == 'false'
+        run: pnpm --filter web build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Run Lighthouse CI
+      # Preview mode: run Lighthouse against the live Vercel preview URL.
+      # The x-vercel-protection-bypass header lets the runner through
+      # Vercel Deployment Protection without a password.
+      - name: Run Lighthouse CI (preview mode)
+        if: steps.probe-bypass.outputs.bypass == 'true'
+        uses: treosh/lighthouse-ci-action@v11
+        with:
+          urls: ${{ steps.preview.outputs.url }}
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          runs: 3
+        env:
+          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+          # treosh/lighthouse-ci-action forwards LHCI_* env vars to lhci.
+          # extraHeaders injects the protection-bypass header on every request.
+          LHCI_COLLECT__SETTINGS__EXTRA_HEADERS: >-
+            {"x-vercel-protection-bypass":"${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}"}
+
+      # Static mode: run Lighthouse against the locally built dist folder.
+      # No Vercel secrets required. Thresholds from apps/web/.lighthouserc.cjs.
+      - name: Run Lighthouse CI (static mode)
+        if: steps.probe-bypass.outputs.bypass == 'false'
         uses: treosh/lighthouse-ci-action@v11
         with:
           configPath: ./apps/web/.lighthouserc.cjs
