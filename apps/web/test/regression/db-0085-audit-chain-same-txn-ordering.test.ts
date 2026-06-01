@@ -258,6 +258,20 @@ describe('migration 0085 — audit chain same-transaction ordering (F-Wave9-AUDI
         /extensions\.digest\(\s*public\.kitstak_audit_canonical\(v_payload\),\s*'sha256'\s*\)/i,
       );
     });
+
+    it('reconstructs the optional non-empty metadata key so org_membership rows verify', () => {
+      // 0067/0068 hash a non-empty 'metadata' object (user_id + role_id); the
+      // audit_log.metadata column is NOT NULL default '{}', so verify must add
+      // the key back only when metadata is non-empty. Without this every
+      // org_membership row (and so every org, since provisioning creates an
+      // owner membership) falsely reports broken. F-Wave9-AUDIT-CHAIN-SAME-TXN-01.
+      const fn = sql.match(
+        /create or replace function public\.verify_audit_chain\(p_org_id uuid\)[\s\S]*?\$\$;/i,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn![0]).toMatch(/r\.metadata <> '\{\}'::jsonb/i);
+      expect(fn![0]).toMatch(/jsonb_build_object\('metadata', r\.metadata\)/i);
+    });
   });
 
   describe('append-only RLS posture preserved', () => {

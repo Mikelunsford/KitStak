@@ -218,11 +218,16 @@ comment on function public.kitstak_audit_chain_head(uuid) is
   'Returns the current per-org audit chain head (latest payload_hash) ordered by the monotonic audit_log.seq. Shared by every audit writer so same-transaction appends chain in insertion order. SECURITY DEFINER; service_role only.';
 
 -- ---------------------------------------------------------------------------
--- 3) verify_audit_chain: walk the per-org chain in seq order. Body is the 0003
---    definition with the ONLY change being `order by triggered_at asc, id asc`
---    -> `order by seq asc`. Canonical payload and hash recompute are unchanged,
---    so previously sealed rows verify exactly as before, now in a deterministic
---    insertion order that matches how the rows were written.
+-- 3) verify_audit_chain: walk the per-org chain in seq order. Two changes from
+--    the 0003 definition: (a) `order by triggered_at asc, id asc` -> `order by
+--    seq asc` (the same-transaction ordering fix), and (b) reconstruct the
+--    optional 'metadata' key that the org_membership writers (0067 / 0068)
+--    include in their hashed payload. Every other writer uses the 9-key shape,
+--    so 'metadata' is added back only when the row actually carries it. Without
+--    (b) every org_membership row (and therefore every org, since provisioning
+--    creates an owner membership) falsely reports as a broken link, which is the
+--    dominant cause of the SMOKE-05 chain breaks. The hash recompute is
+--    otherwise unchanged, so previously sealed rows verify exactly as before.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.verify_audit_chain(p_org_id uuid)
@@ -258,6 +263,16 @@ begin
       'diff_json',    r.diff_json,
       'prev_hash',    v_prev_hash
     );
+    -- F-Wave9-AUDIT-CHAIN-SAME-TXN-01 follow-on: the org_membership writers
+    -- (0067 / 0068) hash an extra 'metadata' key (user_id + role_id). The
+    -- audit_log.metadata column is NOT NULL and defaults to '{}'; the 9-key
+    -- writers leave it at '{}' and hashed WITHOUT the key, while membership
+    -- stores a non-empty object that it also hashed. So reconstruct 'metadata'
+    -- only when it is non-empty. jsonb ::text sorts keys, so insertion position
+    -- is irrelevant; only key presence affects the hash.
+    if r.metadata is not null and r.metadata <> '{}'::jsonb then
+      v_payload := v_payload || jsonb_build_object('metadata', r.metadata);
+    end if;
     v_expected := encode(
       extensions.digest(public.kitstak_audit_canonical(v_payload), 'sha256'),
       'hex'

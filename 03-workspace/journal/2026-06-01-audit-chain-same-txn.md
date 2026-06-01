@@ -138,3 +138,11 @@ PR is held for operator confirmation and is not merged. It was not applied to
 prod or staging via MCP. After confirmation, the file-based post-merge push
 ships it to prod; staging should be reset (it is frozen well before 0085) or
 have 0085 applied as part of the broader drift remediation.
+
+## Orchestrator verification + metadata follow-on (2026-06-01)
+
+An independent fresh-DB verification (supabase db reset over the full 0001 to 0085 sequence, then the repro) found the original migration fixed the same-transaction ordering (Case 1, the shared helper, verified 0 broken) but provision_organization (Case 2) still reported a break. Root cause: the org_membership writers (0067 and 0068) hash a non-empty 'metadata' object (user_id plus role_id), but verify_audit_chain reconstructed the payload without it. Confirmed by recompute: the stored hash matched the with-metadata recompute, not the without. Pre-existing and pervasive (every org has an owner membership row), and the dominant cause of the SMOKE-05 chain breaks, separate from the ordering issue.
+
+Fix: verify_audit_chain now reconstructs the optional 'metadata' key, but only when non-empty. The audit_log.metadata column is NOT NULL and defaults to '{}', so the 9-key writers leave it at '{}' and hashed without the key, while membership stores a non-empty object it also hashed. The guard "r.metadata is not null and r.metadata <> '{}'::jsonb" reconstructs each writer's true payload. A lock-in assertion was added to the static test.
+
+Re-verified on a fresh 0001 to 0085 DB: Case 1 and Case 2 both verify with 0 broken. Static test 27 green; contract parity green.
