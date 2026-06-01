@@ -133,6 +133,13 @@ export function TimeEntriesListPage() {
 
   const rateColSpan = canReadRate ? 6 : 5;
 
+  // Soft warning: clocking a member in at a future time is allowed (backfills
+  // and pre-schedules happen) but is usually a typo, so flag it.
+  const isFutureClockIn = (() => {
+    const iso = localToIso(clockInAt);
+    return iso !== null && new Date(iso).getTime() > Date.now();
+  })();
+
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
       <header>
@@ -180,6 +187,11 @@ export function TimeEntriesListPage() {
             {clockIn.isPending ? 'Saving.' : 'Clock in'}
           </Button>
         </form>
+      ) : null}
+      {isFutureClockIn ? (
+        <p className="text-amber-500 font-sans text-sm">
+          This clock-in time is in the future. Double-check before clocking in.
+        </p>
       ) : null}
       {clockIn.error ? (
         <p className="text-accent font-sans text-sm">

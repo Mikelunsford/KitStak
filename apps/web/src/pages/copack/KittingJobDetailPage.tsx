@@ -267,7 +267,12 @@ export function KittingJobDetailPage() {
 
       {/* Consumed components */}
       <section>
-        <h2 className="text-2xl font-display tracking-wider text-ink mb-3">CONSUMED COMPONENTS</h2>
+        <div className="flex items-baseline gap-3 mb-3">
+          <h2 className="text-2xl font-display tracking-wider text-ink">CONSUMED COMPONENTS</h2>
+          {consumed.isFetching && !consumed.isLoading ? (
+            <span className="text-xs text-ink-dim font-sans" aria-live="polite">Updating.</span>
+          ) : null}
+        </div>
         {consumed.isLoading ? (
           <p className="text-ink-dim text-sm">Loading lines.</p>
         ) : consumed.error ? (
@@ -371,7 +376,12 @@ export function KittingJobDetailPage() {
 
       {/* Produced kits */}
       <section>
-        <h2 className="text-2xl font-display tracking-wider text-ink mb-3">PRODUCED KITS</h2>
+        <div className="flex items-baseline gap-3 mb-3">
+          <h2 className="text-2xl font-display tracking-wider text-ink">PRODUCED KITS</h2>
+          {produced.isFetching && !produced.isLoading ? (
+            <span className="text-xs text-ink-dim font-sans" aria-live="polite">Updating.</span>
+          ) : null}
+        </div>
         {produced.isLoading ? (
           <p className="text-ink-dim text-sm">Loading lines.</p>
         ) : produced.error ? (

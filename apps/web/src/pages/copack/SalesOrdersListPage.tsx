@@ -156,10 +156,10 @@ export function SalesOrdersListPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-ink-dim">
-                    {o.channel_id ? (channelName[o.channel_id] ?? o.channel_id.slice(0, 8)) : '.'}
+                    {o.channel_id ? (channelName[o.channel_id] ?? o.channel_id.slice(0, 8)) : '·'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">
-                    {o.customer_id ? <EntityLabel kind="customer" id={o.customer_id} /> : '.'}
+                    {o.customer_id ? <EntityLabel kind="customer" id={o.customer_id} /> : '·'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">{formatDateMedium(o.ordered_at)}</td>
                   <td className="px-4 py-2 text-ink-dim">{formatDateMedium(o.created_at)}</td>

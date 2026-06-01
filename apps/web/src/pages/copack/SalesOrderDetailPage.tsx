@@ -18,7 +18,7 @@ import {
   useDeleteSalesOrderLine,
 } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
-import { formatCents } from '@/lib/money';
+import { formatCents, roundHalfEven } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { defaultStateLabel } from '@/components/shell/auditStateFormatters';
 import { formatDateTimeMedium } from '@/lib/dates';
@@ -67,6 +67,12 @@ export function SalesOrderDetailPage() {
     return <p className="px-8 py-12 text-accent">Sales order not found.</p>;
   }
   const d = order.data;
+  const orderCurrency = d.currency_code ?? 'USD';
+  const orderTotalCents = (lines.data ?? []).reduce(
+    (sum, l) =>
+      sum + (l.unit_price_cents == null ? 0 : roundHalfEven(Number(l.quantity) * Number(l.unit_price_cents))),
+    0,
+  );
 
   const isDraft = d.status === 'draft';
   const canCancel = d.status === 'draft' || d.status === 'confirmed' || d.status === 'picking' || d.status === 'packed';
@@ -220,7 +226,12 @@ export function SalesOrderDetailPage() {
       </dl>
 
       <section>
-        <h2 className="text-2xl font-display tracking-wider text-ink mb-3">ORDER LINES</h2>
+        <div className="flex items-baseline gap-3 mb-3">
+          <h2 className="text-2xl font-display tracking-wider text-ink">ORDER LINES</h2>
+          {lines.isFetching && !lines.isLoading ? (
+            <span className="text-xs text-ink-dim font-sans" aria-live="polite">Updating.</span>
+          ) : null}
+        </div>
         {lines.isLoading ? (
           <p className="text-ink-dim text-sm">Loading lines.</p>
         ) : lines.error ? (
@@ -236,13 +247,14 @@ export function SalesOrderDetailPage() {
                 <th className="px-4 py-2">Unit price</th>
                 <th className="px-4 py-2">UOM</th>
                 <th className="px-4 py-2">Reference</th>
+                <th className="px-4 py-2">Line total</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {(lines.data ?? []).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-3 text-ink-dim text-sm">
+                  <td colSpan={7} className="px-4 py-3 text-ink-dim text-sm">
                     No order lines yet.
                   </td>
                 </tr>
@@ -254,10 +266,15 @@ export function SalesOrderDetailPage() {
                     </td>
                     <td className="px-4 py-2 font-mono text-sm">{Number(l.quantity).toFixed(2)}</td>
                     <td className="px-4 py-2 font-mono text-sm">
-                      {l.unit_price_cents == null ? '' : formatCents(l.unit_price_cents, 'USD')}
+                      {l.unit_price_cents == null ? '·' : formatCents(l.unit_price_cents, orderCurrency)}
                     </td>
-                    <td className="px-4 py-2 font-mono text-sm">{l.uom ?? ''}</td>
-                    <td className="px-4 py-2 text-sm text-ink-dim">{l.reference ?? ''}</td>
+                    <td className="px-4 py-2 font-mono text-sm">{l.uom ?? '·'}</td>
+                    <td className="px-4 py-2 text-sm text-ink-dim">{l.reference ?? '·'}</td>
+                    <td className="px-4 py-2 font-mono text-sm">
+                      {l.unit_price_cents == null
+                        ? '·'
+                        : formatCents(roundHalfEven(Number(l.quantity) * Number(l.unit_price_cents)), orderCurrency)}
+                    </td>
                     <td className="px-4 py-2">
                       {isDraft && caps.can('copack.order.line_item.delete') && (
                         <Button
@@ -273,6 +290,19 @@ export function SalesOrderDetailPage() {
                 ))
               )}
             </tbody>
+            {(lines.data ?? []).length > 0 ? (
+              <tfoot>
+                <tr className="border-t border-line bg-bg-2">
+                  <td colSpan={5} className="px-4 py-2 text-right font-display tracking-wider text-ink">
+                    Order total
+                  </td>
+                  <td className="px-4 py-2 font-mono text-sm text-ink">
+                    {formatCents(orderTotalCents, orderCurrency)}
+                  </td>
+                  <td className="px-4 py-2"></td>
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         )}
         {removeLine.error ? (

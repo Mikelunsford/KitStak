@@ -153,7 +153,7 @@ export function KittingJobsListPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-ink-dim">
-                    {j.sales_order_id ? (orderNumber[j.sales_order_id] ?? j.sales_order_id.slice(0, 8)) : '.'}
+                    {j.sales_order_id ? (orderNumber[j.sales_order_id] ?? j.sales_order_id.slice(0, 8)) : '·'}
                   </td>
                   <td className="px-4 py-2 text-ink-dim">
                     {j.warehouse_id ? <EntityLabel kind="copack_warehouse" id={j.warehouse_id} /> : '·'}

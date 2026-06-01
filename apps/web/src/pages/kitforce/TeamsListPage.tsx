@@ -106,7 +106,7 @@ export function TeamsListPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-2 text-ink-dim">{t.is_active ? 'Yes' : 'No'}</td>
-                <td className="px-4 py-2 text-ink-dim">{t.notes ?? '.'}</td>
+                <td className="px-4 py-2 text-ink-dim">{t.notes ?? '·'}</td>
                 <td className="px-4 py-2">
                   <Link to={`/kitforce/teams/${t.id}`} className="text-ink underline text-xs">
                     View
