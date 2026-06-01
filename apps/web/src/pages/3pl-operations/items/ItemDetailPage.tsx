@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { useItem } from '@/lib/hooks/useItems';
@@ -17,7 +17,15 @@ export function ItemDetailPage() {
           { label: data.sku },
         ]}
       />
-      <h1 className="text-4xl font-display tracking-wide text-ink">{data.name}</h1>
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-4xl font-display tracking-wide text-ink">{data.name}</h1>
+        <Link
+          to={`/3pl-operations/items/${data.id}/edit`}
+          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+        >
+          EDIT
+        </Link>
+      </header>
       <dl className="grid grid-cols-2 gap-x-8 gap-y-3 font-sans text-ink">
         <dt className="text-ink-dim">SKU</dt>
         <dd className="font-mono">{data.sku}</dd>

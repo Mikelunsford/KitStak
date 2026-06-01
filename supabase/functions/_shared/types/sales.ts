@@ -147,6 +147,24 @@ export const ItemSchema = z.object({
 });
 export type Item = z.infer<typeof ItemSchema>;
 
+export const ItemCreateSchema = z.object({
+  sku: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  kind: ItemKindSchema.optional(),
+  unit_price_cents: CentsSchema.optional(),
+  unit_cost_cents: CentsSchema.optional().nullable(),
+  currency_code: z.string().length(3).optional(),
+  is_active: z.boolean().optional(),
+  is_taxable: z.boolean().optional(),
+  is_sellable: z.boolean().optional(),
+  is_purchasable: z.boolean().optional(),
+});
+export type ItemCreate = z.infer<typeof ItemCreateSchema>;
+
+export const ItemPatchSchema = ItemCreateSchema.partial();
+export type ItemPatch = z.infer<typeof ItemPatchSchema>;
+
 // ---------------------------------------------------------------------------
 // VAS + job types
 // ---------------------------------------------------------------------------

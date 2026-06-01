@@ -108,10 +108,16 @@ export function VendorBillDetailPage() {
             : undefined
         }
       />
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">
           BILL {d.bill_number ?? d.id.slice(0, 8)}
         </h1>
+        <Link
+          to={`/3pl-operations/vendor-bills/${d.id}/edit`}
+          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
+        >
+          EDIT
+        </Link>
       </header>
       {caps.can('vendor_bills.vendor_bill.transition') && next.length > 0 ? (
         <div className="flex gap-2">
