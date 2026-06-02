@@ -554,6 +554,10 @@ async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
   // produces a stuck "send the invite again" affordance.
   // F-Wave9-STAFF-INVITE-RESEND-01.
   const claimedById = new Map<string, boolean>();
+  const authFallbackById = new Map<
+    string,
+    { email: string | null; displayName: string | null }
+  >();
   for (const userId of userIds) {
     const { data: authData, error: authErr } =
       await sb.auth.admin.getUserById(userId);
@@ -566,33 +570,56 @@ async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
       claimedById.set(userId, true);
       continue;
     }
-    const confirmed =
-      (authData?.user as { email_confirmed_at?: string | null } | undefined)
-        ?.email_confirmed_at ?? null;
+    const authUser = authData?.user as
+      | {
+          email_confirmed_at?: string | null;
+          email?: string | null;
+          user_metadata?: { full_name?: string | null } | null;
+        }
+      | undefined;
+    const confirmed = authUser?.email_confirmed_at ?? null;
     claimedById.set(userId, confirmed !== null);
+    // Capture the auth email + metadata name so step 4 can render members who
+    // have no profiles row yet (invited-but-unclaimed staff).
+    authFallbackById.set(userId, {
+      email: authUser?.email ?? null,
+      displayName: authUser?.user_metadata?.full_name ?? null,
+    });
   }
 
-  // Step 4: project the wire shape. Skip rows missing a role or a profile-
-  // resolvable email so the response always parses cleanly through the
-  // OrgMemberRowSchema (email is z.string().email()). A missing profile is
-  // logged because it indicates a backfill gap rather than expected state.
+  // Step 4: project the wire shape. Each row needs a role and a resolvable
+  // email so the response always parses cleanly through OrgMemberRowSchema
+  // (email is z.string().email()). Email resolves from the profiles row when
+  // present and otherwise from the auth.users fallback captured in step 3, so
+  // invited-but-unclaimed staff (no profiles row yet) still render. A row is
+  // only skipped when neither source yields an email.
   const out: OrgMemberRow[] = [];
   for (const raw of rawRows) {
     const role = Array.isArray(raw.role) ? raw.role[0] : raw.role;
     if (!role) continue;
     const profile = profilesById.get(raw.user_id);
-    if (!profile || !profile.email) {
-      console.warn('auth-api: org member missing profile row', {
+    const authFallback = authFallbackById.get(raw.user_id);
+    // Resolve the member's email. profiles is the canonical source, but a
+    // freshly invited staff user has no profiles row until provisioning or
+    // first sign-in creates one (create_staff_membership inserts only the
+    // membership row). Fall back to the auth.users email already fetched in
+    // step 3 so invited-but-unclaimed members still render on the team page
+    // instead of silently disappearing. F-Wave10-MEMBERS-UNCLAIMED-VISIBILITY-01.
+    const email = profile?.email ?? authFallback?.email ?? null;
+    if (!email) {
+      console.warn('auth-api: org member has no resolvable email', {
         org_id: caller.orgId,
         user_id: raw.user_id,
       });
       continue;
     }
+    const displayName =
+      profile?.display_name ?? authFallback?.displayName ?? null;
     out.push({
       user_id: raw.user_id,
       org_id: raw.org_id,
-      email: profile.email,
-      display_name: profile.display_name,
+      email,
+      display_name: displayName,
       role_code: role.code as OrgMemberRow['role_code'],
       role_display_name: role.label,
       created_at: raw.created_at,
