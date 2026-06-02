@@ -29,7 +29,7 @@ import { useMe } from '@/lib/hooks/useMe';
 import { useEntityAuditStates } from '@/lib/hooks/useEntityAuditStates';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
-import { formatCents } from '@/lib/money';
+import { formatCents, roundHalfEven } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import {
@@ -134,7 +134,10 @@ export function InvoiceDetailPage() {
     e.preventDefault();
     const qtyNum = Number(lineQty);
     const priceNum = Number(linePrice);
-    const lineTotal = String(Math.round(qtyNum * priceNum));
+    // A3 (WS-A MONEY INTEGRITY): banker's rounding on money. This prefill is
+    // a display convenience; the invoicing handler server-recomputes the
+    // persisted line_total_cents (A1).
+    const lineTotal = String(roundHalfEven(qtyNum * priceNum));
     // F-Wave7-MUTATION-ERRORS-SWEEP-01: mutate(input, { onSuccess }) so a
     // 4xx surfaces in the inline error renderer below the form.
     addLine.mutate(

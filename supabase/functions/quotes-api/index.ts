@@ -157,6 +157,11 @@ const deleteQuote = async (ctx: RouteCtx) => {
 
 // --- line items ---
 
+// A6 (WS-A MONEY INTEGRITY, doc): currency is snapshotted at the
+// document-header grain by design (quotes.currency_code). Quote lines do not
+// carry a per-line currency_code because Kitstak is single-currency-per-
+// document. The same convention holds on invoice lines and purchase-order
+// lines. No schema change.
 const computeLineMath = (line: {
   quantity_e3: number | string;
   unit_price_cents: number | string;

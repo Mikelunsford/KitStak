@@ -11,6 +11,7 @@ import { route, type Route } from '../_shared/route.ts';
 import { admin, requireCap } from '../_shared/handler-helpers.ts';
 import { ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { roundHalfEven } from '../_shared/money.ts';
 import type {
   DashboardSummary,
   KitCostSummary,
@@ -476,9 +477,10 @@ const kitcostSummary: Route = {
         for (const lv of levelRows) {
           const qty = asNum(lv.quantity_on_hand);
           const cost = costByItem.get(lv.item_id as string) ?? 0n;
-          // Round half-even on the product to avoid drift on fractional qty.
+          // A3/A4: banker's rounding on the product to avoid drift on
+          // fractional qty (Math.round is half-up and is not banker's).
           const product = qty * Number(cost);
-          inventoryValue += BigInt(Math.round(product));
+          inventoryValue += BigInt(roundHalfEven(product));
         }
       }
     } catch {
@@ -603,7 +605,7 @@ const kitcostSummary: Route = {
           if (!pid) continue;
           const qty = asNum(m.quantity);
           const unit = costByItem.get(m.item_id as string) ?? 0n;
-          const add = BigInt(Math.round(qty * Number(unit)));
+          const add = BigInt(roundHalfEven(qty * Number(unit)));
           costByProject.set(pid, (costByProject.get(pid) ?? 0n) + add);
         }
       } catch {

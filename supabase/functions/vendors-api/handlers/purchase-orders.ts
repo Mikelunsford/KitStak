@@ -12,6 +12,7 @@ import {
   type PurchaseOrder, type PoLineItem,
 } from '../../_shared/types/vendors_inventory_ops.ts';
 import { PURCHASE_ORDER_FSM } from '../../_shared/workflow/vendors_inventory_ops.ts';
+import { roundHalfEven } from '../../_shared/money.ts';
 
 const PoCreateInput = z.object({
   vendor_id: z.string().uuid(),
@@ -44,15 +45,19 @@ const PoLineUpdateInput = PoLineInput.partial().extend({
   quantity_received: z.union([z.number(), z.string()]).optional(),
 });
 
-function lineComputed(line: {
+export function lineComputed(line: {
   quantity_ordered: number | string;
   unit_price_cents: number | string;
   tax_rate_bps: number;
 }): { line_subtotal_cents: number; line_tax_cents: number; line_total_cents: number } {
+  // A2 (WS-A MONEY INTEGRITY): banker's rounding on money, never Math.round.
+  // A6 (doc): currency is snapshotted at the document-header grain
+  // (purchase_orders.currency_code); PO lines carry no per-line currency by
+  // design (single-currency-per-document domain).
   const qty = Number(line.quantity_ordered);
   const unit = Number(line.unit_price_cents);
-  const sub = Math.round(qty * unit);
-  const tax = Math.round((sub * line.tax_rate_bps) / 10000);
+  const sub = roundHalfEven(qty * unit);
+  const tax = roundHalfEven((sub * line.tax_rate_bps) / 10000);
   return { line_subtotal_cents: sub, line_tax_cents: tax, line_total_cents: sub + tax };
 }
 

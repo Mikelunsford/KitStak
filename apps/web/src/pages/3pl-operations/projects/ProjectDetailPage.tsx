@@ -42,7 +42,7 @@ import {
   type ProjectState, type ProjectPhaseState,
 } from '@/lib/workflow/sales';
 import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
-import { formatCents } from '@/lib/money';
+import { formatCents, roundHalfEven } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import type { ProjectPhase } from '@/lib/types/sales';
 
@@ -398,7 +398,7 @@ export function ProjectDetailPage() {
                 const qty = Number(l.quantity);
                 const unit = Number(l.unit_price_cents);
                 const discount = Number(l.discount_percent);
-                const subtotal = Math.round(qty * unit * (1 - discount / 100));
+                const subtotal = roundHalfEven(qty * unit * (1 - discount / 100));
                 return (
                   <tr key={l.id} className="border-t border-line">
                     <td className="px-4 py-2">{l.name}</td>
