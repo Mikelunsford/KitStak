@@ -290,14 +290,17 @@ describe('migration 0085 — audit chain same-transaction ordering (F-Wave9-AUDI
   });
 
   describe('constitutional + forward-only invariants', () => {
-    it('is the next free migration number (0085; 0084 was the prior max)', () => {
+    it('was the next free migration number when added (0084 was the prior max); later forward migrations may extend the series', () => {
       const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
       const nums = files
         .map((f) => /^(\d{4})_/.exec(f)?.[1])
         .filter((n): n is string => Boolean(n))
         .map(Number);
       const max = Math.max(...nums);
-      expect(max).toBe(85);
+      // Forward-only: 0085 was the highest at creation, but the series only
+      // grows. Assert the max never regressed below 0085 rather than pinning
+      // it exactly, so later migrations (0086+) do not break this guard.
+      expect(max).toBeGreaterThanOrEqual(85);
       // Exactly one 0085 migration file exists.
       expect(files.filter((f) => f.startsWith('0085_')).length).toBe(1);
     });

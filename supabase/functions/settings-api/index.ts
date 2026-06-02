@@ -138,21 +138,31 @@ async function deleteSetting(ctx: RouteCtx): Promise<Response> {
   if (!group || !key) {
     throw new ApiError('VALIDATION_ERROR', 422, 'group and key required');
   }
-  const sb = admin();
-  const { error } = await sb
-    .from('org_settings')
-    .delete()
-    .eq('org_id', caller.orgId)
-    .eq('group_key', group)
-    .eq('setting_key', key);
-  if (error) {
-    throw new ApiError(
-      'INTERNAL_ERROR',
-      500,
-      `settings delete failed: ${error.message}`,
-    );
-  }
-  return noContent();
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/settings/:group/:key',
+    null,
+    async () => {
+      const sb = admin();
+      const { error } = await sb
+        .from('org_settings')
+        .delete()
+        .eq('org_id', caller.orgId)
+        .eq('group_key', group)
+        .eq('setting_key', key);
+      if (error) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `settings delete failed: ${error.message}`,
+        );
+      }
+      return noContent();
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

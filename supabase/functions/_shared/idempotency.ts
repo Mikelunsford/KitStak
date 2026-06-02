@@ -1,6 +1,6 @@
 // Idempotency helper. DB-backed.
 //
-// Contract (per constitution and migration 0001):
+// Contract (per constitution and migration 0001 + 0086):
 //   * Every non-GET handler enforces `Idempotency-Key` (UUID v4).
 //   * Storage: public.idempotency_keys, PK (key, user_id, org_id, route_hash).
 //   * Body hash: RFC 8785 canonical JSON, SHA-256.
@@ -10,12 +10,43 @@
 // The PK shape is `(key, user_id, org_id, route_hash)`. Migration 0001 ships
 // this directly (constitution decision D-010); we do not migrate from the
 // reference codebase's deferred-org PK.
+//
+// Concurrency model (migration 0086, RESERVE-BEFORE-EXECUTE):
+//   The wrapper first RESERVES a pending row via INSERT ... ON CONFLICT DO
+//   NOTHING on the PK. Exactly one concurrent caller wins the reservation and
+//   runs the handler; the others observe the existing row. This makes the
+//   "exactly-once under concurrent same-key" guarantee hold at the database
+//   level rather than relying on a lookup/insert race window.
+//
+//   * Reservation WON  -> run handler, then UPDATE the row to completed
+//     (status_code + response_jsonb + state='completed'). If that persist
+//     fails, we FAIL CLOSED with INTERNAL_ERROR rather than returning a 200
+//     that was never recorded, because a swallowed persist breaks the
+//     at-most-once replay guarantee on retry.
+//   * Reservation LOST + row completed + same body_hash  -> replay.
+//   * Reservation LOST + different body_hash             -> 409 CONFLICT.
+//   * Reservation LOST + row still pending (in-flight)   -> 409 IN_PROGRESS.
 
 import { createClient } from '@supabase/supabase-js';
 
 import { ApiError, ok, fromApiError } from './responses.ts';
 import type { Caller } from './tenant.ts';
 import { ERROR_CODES, HTTP_HEADERS } from './constants.ts';
+
+type ReservationRow = {
+  key: string;
+  user_id: string;
+  org_id: string;
+  route_hash: string;
+  body_hash: string;
+  state: 'pending' | 'completed';
+};
+
+type CompletionPatch = {
+  status_code: number;
+  response_jsonb: unknown;
+  state: 'completed';
+};
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -33,7 +64,28 @@ type SupabaseLike = {
         };
       };
     };
-    insert: (row: IdempotencyRow) => Promise<{ error: unknown }>;
+    // RESERVE: INSERT ... ON CONFLICT DO NOTHING. `ignoreDuplicates: true`
+    // maps PostgREST onto `ON CONFLICT DO NOTHING`. The returned select tells
+    // us whether the row was actually inserted (won) or skipped (lost).
+    upsert: (
+      row: ReservationRow,
+      opts: { onConflict: string; ignoreDuplicates: boolean },
+    ) => {
+      select: (cols: string) => Promise<{
+        data: IdempotencyRow[] | null;
+        error: unknown;
+      }>;
+    };
+    // COMPLETE: stamp the reserved row with the real response.
+    update: (patch: CompletionPatch) => {
+      eq: (col: string, value: string) => {
+        eq: (col: string, value: string) => {
+          eq: (col: string, value: string) => {
+            eq: (col: string, value: string) => Promise<{ error: unknown }>;
+          };
+        };
+      };
+    };
   };
 };
 
@@ -43,8 +95,9 @@ type IdempotencyRow = {
   org_id: string;
   route_hash: string;
   body_hash: string;
-  status_code: number;
+  status_code: number | null;
   response_jsonb: unknown;
+  state?: 'pending' | 'completed';
   created_at?: string;
 };
 
@@ -78,8 +131,23 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 /**
- * Canonical JSON per RFC 8785 JCS: sorted object keys, no whitespace,
- * primitives via JSON.stringify. Sufficient for our request bodies.
+ * Canonical JSON for body hashing. This is a deliberate NARROWING of RFC 8785
+ * JCS, not a full implementation, and that narrowing is safe for our inputs:
+ *
+ *   * Every body passed here has already been through Zod safeParse at the
+ *     handler boundary, so the value space is constrained to JSON the schema
+ *     admits (no NaN/Infinity, no undefined fields, no functions, no class
+ *     instances, no cyclic graphs).
+ *   * We sort object keys and emit no whitespace, which is the property the
+ *     body_hash actually depends on (stable serialization across calls).
+ *   * The SAME serializer runs on both store and compare. Replay correctness
+ *     only requires self-consistency, not byte-for-byte agreement with a
+ *     reference JCS encoder. We do not need RFC 8785 number canonicalization
+ *     (shortest round-trip form, exponent rules) because the same Zod-coerced
+ *     numeric values serialize identically on both sides via JSON.stringify.
+ *
+ * If a future caller feeds raw, un-validated JSON here, revisit this: full
+ * JCS number/string canonicalization would then matter.
  */
 function canonicalize(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -192,13 +260,18 @@ function replayResponse(
 /**
  * Run a handler with full idempotency semantics. Returns a Response.
  *
- * Hot path:
+ * Flow (RESERVE-BEFORE-EXECUTE, fail-closed persist):
  *  1. Read + validate Idempotency-Key.
  *  2. route_hash = sha256(`${method} ${bundle} ${route}`).
  *  3. body_hash = sha256(canonicalJson(body)).
- *  4. Lookup (key, user, org, route_hash). On hit + same body, replay.
- *     On hit + different body, throw IDEMPOTENCY_CONFLICT.
- *  5. On miss, invoke handler, persist (status_code, response_jsonb), return.
+ *  4. RESERVE: INSERT ... ON CONFLICT DO NOTHING a pending row on the PK.
+ *     - WON the reservation: run handler, UPDATE the row to completed. If the
+ *       UPDATE fails, FAIL CLOSED (INTERNAL_ERROR) instead of returning an
+ *       unrecorded 200.
+ *     - LOST the reservation: read the existing row.
+ *         * completed + same body_hash within window -> replay.
+ *         * any body_hash mismatch                    -> 409 CONFLICT.
+ *         * still pending (in-flight)                 -> 409 in-progress.
  */
 export async function respondWithIdempotency(
   ctx: IdempotencyContext,
@@ -214,47 +287,123 @@ export async function respondWithIdempotency(
   const requestId =
     ctx.req.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? crypto.randomUUID();
 
-  const lookup = await client
+  // -------------------------------------------------------------------------
+  // Step 4: RESERVE. INSERT ... ON CONFLICT DO NOTHING. Exactly one concurrent
+  // caller with the same PK inserts a pending row; everyone else gets an empty
+  // returned set (the conflict was skipped). This closes the lookup/insert
+  // race the previous implementation had.
+  // -------------------------------------------------------------------------
+  const reserve = await client
     .from('idempotency_keys')
-    .select('*')
-    .eq('key', key)
-    .eq('user_id', ctx.caller.userId)
-    .eq('org_id', ctx.caller.orgId)
-    .eq('route_hash', routeHash)
-    .maybeSingle();
+    .upsert(
+      {
+        key,
+        user_id: ctx.caller.userId,
+        org_id: ctx.caller.orgId,
+        route_hash: routeHash,
+        body_hash: bodyHash,
+        state: 'pending',
+      },
+      { onConflict: 'key,user_id,org_id,route_hash', ignoreDuplicates: true },
+    )
+    .select('*');
 
-  if (lookup.error) {
+  if (reserve.error) {
     throw new ApiError(
       'INTERNAL_ERROR',
       500,
-      `idempotency lookup failed: ${String((lookup.error as { message?: string }).message ?? lookup.error)}`,
+      `idempotency reserve failed: ${String((reserve.error as { message?: string }).message ?? reserve.error)}`,
     );
   }
 
-  const existing = lookup.data;
-  if (existing) {
-    // 24h replay window. Older rows fall through and are overwritten.
+  const reservedRows = reserve.data ?? [];
+  const wonReservation = reservedRows.length > 0;
+
+  if (!wonReservation) {
+    // -----------------------------------------------------------------------
+    // Reservation LOST: a row already exists. Read it and decide replay vs
+    // conflict vs in-flight.
+    // -----------------------------------------------------------------------
+    const lookup = await client
+      .from('idempotency_keys')
+      .select('*')
+      .eq('key', key)
+      .eq('user_id', ctx.caller.userId)
+      .eq('org_id', ctx.caller.orgId)
+      .eq('route_hash', routeHash)
+      .maybeSingle();
+
+    if (lookup.error) {
+      throw new ApiError(
+        'INTERNAL_ERROR',
+        500,
+        `idempotency lookup failed: ${String((lookup.error as { message?: string }).message ?? lookup.error)}`,
+      );
+    }
+
+    const existing = lookup.data;
+    if (!existing) {
+      // Reservation reported a conflict but the row vanished (GC raced the
+      // read). Fail closed rather than guess.
+      throw new ApiError(
+        'INTERNAL_ERROR',
+        500,
+        'idempotency row missing after conflict',
+      );
+    }
+
+    // Different body under the same key is always a conflict, regardless of
+    // state. This is checked before the replay window so a divergent retry is
+    // never silently accepted.
+    if (existing.body_hash !== bodyHash) {
+      throw new ApiError(
+        ERROR_CODES.IDEMPOTENCY_CONFLICT,
+        409,
+        'Idempotency-Key already used with a different request body.',
+      );
+    }
+
+    // Same body, but the original request has not finished persisting yet.
+    // We return a deterministic 409. Rationale: a 200 here would have no
+    // recorded response to echo, and re-running the handler would violate
+    // exactly-once. The IDEMPOTENCY_CONFLICT code is reused (no SPA error-map
+    // change) with an in-flight message so the caller can safely retry once
+    // the original settles.
+    if (existing.state === 'pending' || existing.status_code === null) {
+      throw new ApiError(
+        ERROR_CODES.IDEMPOTENCY_CONFLICT,
+        409,
+        'Idempotency-Key request is still in progress. Retry shortly.',
+      );
+    }
+
+    // Completed. Honour the 24h replay window; an expired completed row is
+    // treated as a conflict rather than re-executed, because the reservation
+    // path no longer overwrites rows in place.
     const createdAt = existing.created_at
       ? new Date(existing.created_at).getTime()
       : Date.now();
     const expired = Date.now() - createdAt > REPLAY_WINDOW_MS;
-    if (!expired) {
-      if (existing.body_hash !== bodyHash) {
-        throw new ApiError(
-          ERROR_CODES.IDEMPOTENCY_CONFLICT,
-          409,
-          'Idempotency-Key already used with a different request body.',
-        );
-      }
-      return replayResponse(
-        existing.status_code,
-        existing.response_jsonb,
-        requestId,
+    if (expired) {
+      throw new ApiError(
+        ERROR_CODES.IDEMPOTENCY_CONFLICT,
+        409,
+        'Idempotency-Key has expired. Use a fresh key.',
       );
     }
+
+    return replayResponse(
+      existing.status_code ?? 200,
+      existing.response_jsonb,
+      requestId,
+    );
   }
 
-  // Cache miss. Run the real handler and persist.
+  // -------------------------------------------------------------------------
+  // Reservation WON. Run the real handler, then persist the completion. The
+  // pending row guarantees concurrent same-key callers see in-flight, not a
+  // second execution.
+  // -------------------------------------------------------------------------
   const response = await handler();
   const cloned = response.clone();
   const text = await cloned.text();
@@ -266,23 +415,27 @@ export async function respondWithIdempotency(
     }
   })();
 
-  const insertRes = await client.from('idempotency_keys').insert({
-    key,
-    user_id: ctx.caller.userId,
-    org_id: ctx.caller.orgId,
-    route_hash: routeHash,
-    body_hash: bodyHash,
-    status_code: response.status,
-    response_jsonb: parsed,
-  });
+  const completion = await client
+    .from('idempotency_keys')
+    .update({
+      status_code: response.status,
+      response_jsonb: parsed,
+      state: 'completed',
+    })
+    .eq('key', key)
+    .eq('user_id', ctx.caller.userId)
+    .eq('org_id', ctx.caller.orgId)
+    .eq('route_hash', routeHash);
 
-  if (insertRes.error) {
-    // Persist failure is non-fatal: the handler ran. Log so an operator can
-    // investigate, but do not retract the response the caller already sees
-    // as semantically complete.
-    console.warn(
-      'idempotency persist failed',
-      String((insertRes.error as { message?: string }).message ?? insertRes.error),
+  if (completion.error) {
+    // FAIL CLOSED. The handler ran but we could not record its result. A
+    // swallowed persist would leave a permanently-pending row and break the
+    // replay/exactly-once contract on the caller's retry, so we surface the
+    // failure instead of returning a 200 that was never durably recorded.
+    throw new ApiError(
+      'INTERNAL_ERROR',
+      500,
+      `idempotency persist failed: ${String((completion.error as { message?: string }).message ?? completion.error)}`,
     );
   }
 

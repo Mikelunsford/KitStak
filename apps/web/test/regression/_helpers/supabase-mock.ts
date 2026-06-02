@@ -185,6 +185,10 @@ interface QueryBuilder {
   maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
   single: () => Promise<{ data: unknown; error: unknown }>;
   insert: (row: Record<string, unknown>) => QueryBuilder;
+  upsert: (
+    row: Record<string, unknown>,
+    opts?: { onConflict?: string; ignoreDuplicates?: boolean },
+  ) => QueryBuilder;
   update: (patch: Record<string, unknown>) => QueryBuilder;
   delete: () => QueryBuilder;
   then: (
@@ -198,9 +202,11 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
   let orderCol: string | null = null;
   let ascending = true;
   let limit: number | null = null;
-  let mode: 'select' | 'update' | 'insert' | 'delete' = 'select';
+  let mode: 'select' | 'update' | 'insert' | 'upsert' | 'delete' = 'select';
   let patch: Record<string, unknown> = {};
   let toInsert: Record<string, unknown> | null = null;
+  let upsertConflictCols: string[] = [];
+  let upsertIgnoreDuplicates = false;
   let countMode: 'exact' | null = null;
   let headMode = false;
 
@@ -234,6 +240,40 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
         return { data: toInsert, error: null };
       }
       return { data: null, error: null };
+    }
+
+    if (mode === 'upsert') {
+      // Models `INSERT ... ON CONFLICT (cols) DO NOTHING` when
+      // ignoreDuplicates is set (the idempotency RESERVE path). Returns the
+      // inserted row in a one-element array on a win, or an empty array when
+      // the conflict target already exists (reservation lost).
+      if (!toInsert) {
+        return { data: [], error: null };
+      }
+      const conflict = upsertConflictCols.length > 0 ? upsertConflictCols : [];
+      const exists =
+        conflict.length > 0 &&
+        tableRows.some((row) =>
+          conflict.every((col) => row[col] === (toInsert as Record<string, unknown>)[col]),
+        );
+      if (exists) {
+        if (upsertIgnoreDuplicates) {
+          return { data: [], error: null };
+        }
+        // DO UPDATE style: overwrite the existing conflicting row in place.
+        const target = tableRows.find((row) =>
+          conflict.every((col) => row[col] === (toInsert as Record<string, unknown>)[col]),
+        );
+        if (target) Object.assign(target, toInsert);
+        return { data: [target], error: null };
+      }
+      state.inserts.push({ table, row: toInsert });
+      if (state.rows[table]) {
+        state.rows[table].push(toInsert);
+      } else {
+        state.rows[table] = [toInsert];
+      }
+      return { data: [toInsert], error: null };
     }
 
     if (mode === 'update') {
@@ -323,6 +363,15 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
     insert: (row) => {
       mode = 'insert';
       toInsert = row;
+      return builder;
+    },
+    upsert: (row, opts) => {
+      mode = 'upsert';
+      toInsert = row;
+      upsertConflictCols = opts?.onConflict
+        ? opts.onConflict.split(',').map((c) => c.trim())
+        : [];
+      upsertIgnoreDuplicates = opts?.ignoreDuplicates ?? false;
       return builder;
     },
     update: (p) => {
