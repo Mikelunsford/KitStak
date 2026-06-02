@@ -53,11 +53,13 @@ const LINE_COLS =
 // per-line currency_code; the header invoices.currency_code is the snapshot.
 // Same convention holds on quote lines and purchase-order lines.
 //
-// BigInt guards the gross product where quantity * unit_price_cents can
-// exceed Number.MAX_SAFE_INTEGER; the rounding itself is exact integer-cents
-// arithmetic so roundHalfEven receives an already-integral product unless
-// quantity is fractional (numeric(18,4)), in which case the fractional part
-// is the only thing roundHalfEven resolves.
+// Every cents product is computed in pure BigInt. The fractional inputs
+// (quantity numeric(18,4), tax_rate_snapshot numeric(7,4)) are scaled to
+// integers before the multiply, so the monetary product never passes through
+// float space; unscaleHalfEven then applies banker's rounding back to integer
+// cents at each boundary. unit_price_cents and discount_cents are already
+// integer cents. Float touches only the scaling of the non-monetary factors
+// (quantity, rate), and roundHalfEven cleans the representation dust there.
 interface InvoiceLineInputs {
   quantity: number | string;
   unit_price_cents: number | string;
@@ -70,18 +72,36 @@ interface InvoiceLineMath {
   line_total_cents: string;
 }
 
+// 4 decimal places captures both numeric(18,4) quantity and numeric(7,4) rate.
+const LINE_MATH_SCALE = 10_000n;
+
+// Banker's rounding (half to even) of a LINE_MATH_SCALE-scaled BigInt back to
+// integer cents, sign aware.
+function unscaleHalfEven(scaled: bigint): bigint {
+  const sign = scaled < 0n ? -1n : 1n;
+  const abs = scaled < 0n ? -scaled : scaled;
+  let whole = abs / LINE_MATH_SCALE;
+  const rem = abs % LINE_MATH_SCALE;
+  const half = LINE_MATH_SCALE / 2n;
+  if (rem > half || (rem === half && whole % 2n === 1n)) whole += 1n;
+  return sign * whole;
+}
+
 export function invoiceLineMath(inputs: InvoiceLineInputs): InvoiceLineMath {
-  const qty = Number(inputs.quantity);
-  const unit = Number(inputs.unit_price_cents);
-  const taxRate = Number(inputs.tax_rate_snapshot);
+  const qtyScaled = BigInt(
+    roundHalfEven(Number(inputs.quantity) * Number(LINE_MATH_SCALE)),
+  );
+  const rateScaled = BigInt(
+    roundHalfEven(Number(inputs.tax_rate_snapshot) * Number(LINE_MATH_SCALE)),
+  );
+  const unit = BigInt(String(inputs.unit_price_cents));
   const discount = BigInt(String(inputs.discount_cents));
 
-  const gross = BigInt(roundHalfEven(qty * unit));
+  // qtyScaled is quantity * SCALE, so qtyScaled * unit is gross cents * SCALE.
+  const gross = unscaleHalfEven(qtyScaled * unit);
   const net = gross - discount;
-  // tax_rate_snapshot is a decimal fraction; Number(net) is exact for cent
-  // magnitudes well inside the safe-integer range that net occupies after
-  // the BigInt gross guard, and roundHalfEven returns integer cents.
-  const taxAmount = BigInt(roundHalfEven(Number(net) * taxRate));
+  // rateScaled is rate * SCALE, so net * rateScaled is tax cents * SCALE.
+  const taxAmount = unscaleHalfEven(net * rateScaled);
   const lineTotal = net + taxAmount;
 
   return {

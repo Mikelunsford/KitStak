@@ -1,4 +1,4 @@
-// Regression suite for A2 (WS-A MONEY INTEGRITY) — purchase-order line math
+// Regression suite for A2 (WS-A MONEY INTEGRITY) - purchase-order line math
 // uses banker's rounding (roundHalfEven), not Math.round (half-up). The PO
 // lineComputed helper feeds the persisted po_line_items.line_subtotal_cents
 // / line_tax_cents / line_total_cents, so a half-up bias here would drift
@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 import { lineComputed } from '../../../../supabase/functions/vendors-api/handlers/purchase-orders.ts';
 
-describe('vendors-api — purchase-order line half-even rounding (A2)', () => {
+describe('vendors-api - purchase-order line half-even rounding (A2)', () => {
   // -------------------------------------------------------------------------
   // Subtotal boundary: qty * unit lands on an exact half.
   // -------------------------------------------------------------------------

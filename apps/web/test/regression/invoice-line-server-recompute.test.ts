@@ -1,4 +1,4 @@
-// Regression suite for A1 (WS-A MONEY INTEGRITY) — invoice line totals are
+// Regression suite for A1 (WS-A MONEY INTEGRITY) - invoice line totals are
 // SERVER-AUTHORITATIVE. A client may POST/PATCH a forged tax_amount_cents
 // and line_total_cents in the body; the invoicing-api handler must IGNORE
 // those fields and persist the server-recomputed values derived from the
@@ -84,7 +84,7 @@ function existingLineRow(): Record<string, unknown> {
   };
 }
 
-describe('invoicing-api — invoice line server recompute (A1)', () => {
+describe('invoicing-api - invoice line server recompute (A1)', () => {
   let handler: (req: Request) => Promise<Response> | Response;
 
   beforeAll(async () => {
