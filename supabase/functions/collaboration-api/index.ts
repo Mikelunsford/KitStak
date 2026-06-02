@@ -14,7 +14,7 @@ import {
   respondWithIdempotency,
   requireCap,
 } from '../_shared/handler-helpers.ts';
-import { ApiError, ok, created, noContent } from '../_shared/responses.ts';
+import { ApiError, ok, created, noContent, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import {
   AttachmentCreateSchema,
@@ -55,7 +55,7 @@ const listAttachments: Route = {
       .order('created_at', { ascending: false })
       .limit(limit + 1);
     if (error) {
-      throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      throw internalError('collaboration-api', error);
     }
     return ok(paginate(data ?? [], limit));
   },
@@ -86,7 +86,7 @@ const createAttachment: Route = {
         })
         .select('*')
         .single();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('collaboration-api', error);
       return created(data);
     });
   },
@@ -115,7 +115,7 @@ const deleteAttachment: Route = {
           })
           .eq('id', params.id)
           .eq('org_id', caller.orgId);
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('collaboration-api', error);
         return noContent();
       },
     );
@@ -152,7 +152,7 @@ const listComments: Route = {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(limit + 1);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('collaboration-api', error);
     return ok(paginate(data ?? [], limit));
   },
 };
@@ -181,7 +181,7 @@ const createComment: Route = {
         })
         .select('*')
         .single();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('collaboration-api', error);
       return created(data);
     });
   },
@@ -210,7 +210,7 @@ const deleteComment: Route = {
           })
           .eq('id', params.id)
           .eq('org_id', caller.orgId);
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('collaboration-api', error);
         return noContent();
       },
     );
@@ -235,7 +235,7 @@ const listNotifications: Route = {
       .eq('recipient_user_id', caller.userId)
       .order('queued_at', { ascending: false })
       .limit(limit);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('collaboration-api', error);
     return ok(data ?? []);
   },
 };
@@ -266,7 +266,7 @@ const markRead: Route = {
           .eq('recipient_user_id', caller.userId)
           .select('*')
           .single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('collaboration-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(data);
       },
@@ -282,6 +282,7 @@ const listSavedViews: Route = {
   path: '/saved-views',
   async handler({ req, url }) {
     const caller = requireCaller(req);
+    requireCap(caller, 'saved_views.saved_view.read');
     const entityType = url.searchParams.get('entity_type');
     if (!entityType) {
       throw new ApiError('VALIDATION_ERROR', 422, 'entity_type is required');
@@ -292,7 +293,7 @@ const listSavedViews: Route = {
       .eq('org_id', caller.orgId)
       .eq('entity_type', entityType)
       .or(`owner_user_id.eq.${caller.userId},is_shared.eq.true`);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('collaboration-api', error);
     return ok(data ?? []);
   },
 };
@@ -302,6 +303,7 @@ const createSavedView: Route = {
   path: '/saved-views',
   async handler({ req }) {
     const caller = requireCaller(req);
+    requireCap(caller, 'saved_views.saved_view.create');
     const body = await parseBody(req, SavedViewCreateSchema);
 
     return respondWithIdempotency(req, caller, BUNDLE, '/saved-views', body, async () => {
@@ -319,7 +321,7 @@ const createSavedView: Route = {
         })
         .select('*')
         .single();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('collaboration-api', error);
       return created(data);
     });
   },
@@ -330,6 +332,7 @@ const deleteSavedView: Route = {
   path: '/saved-views/:id',
   async handler({ req, params }) {
     const caller = requireCaller(req);
+    requireCap(caller, 'saved_views.saved_view.delete');
     parseUuidParam(params.id);
 
     return respondWithIdempotency(
@@ -345,7 +348,7 @@ const deleteSavedView: Route = {
           .eq('id', params.id)
           .eq('org_id', caller.orgId)
           .eq('owner_user_id', caller.userId);
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('collaboration-api', error);
         return noContent();
       },
     );

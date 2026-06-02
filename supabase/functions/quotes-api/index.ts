@@ -19,7 +19,7 @@ import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
   requireCap,
 } from '../_shared/handler-helpers.ts';
-import { ok, ApiError } from '../_shared/responses.ts';
+import { ok, ApiError, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -54,7 +54,7 @@ const listQuotes = async (ctx: RouteCtx) => {
   if (state) q = q.eq('state', state);
   if (customerId) q = q.eq('customer_id', customerId);
   const { data, error } = await q;
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('quotes-api', error);
   const rows = data ?? [];
   return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
 };
@@ -68,13 +68,13 @@ const getQuote = async (ctx: RouteCtx) => {
     .from('quotes').select('*')
     .eq('id', ctx.params.id).eq('org_id', caller.orgId)
     .maybeSingle();
-  if (qErr) throw new ApiError('INTERNAL_ERROR', 500, qErr.message);
+  if (qErr) throw internalError('quotes-api', qErr);
   if (!quote) throw new ApiError('NOT_FOUND', 404);
   const { data: lines, error: lErr } = await client
     .from('quote_line_items').select('*')
     .eq('quote_id', ctx.params.id)
     .order('position', { ascending: true });
-  if (lErr) throw new ApiError('INTERNAL_ERROR', 500, lErr.message);
+  if (lErr) throw internalError('quotes-api', lErr);
   return ok({ quote, line_items: lines ?? [] });
 };
 
@@ -108,7 +108,7 @@ const createQuote = async (ctx: RouteCtx) => {
           updated_by: caller.userId,
         })
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       return created(data);
     },
   );
@@ -128,7 +128,7 @@ const updateQuote = async (ctx: RouteCtx) => {
         .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok(data);
     },
@@ -148,7 +148,7 @@ const deleteQuote = async (ctx: RouteCtx) => {
         .update({ deleted_at: new Date().toISOString(), updated_by: caller.userId })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('id').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok({ id: data.id, deleted: true });
     },
@@ -200,7 +200,7 @@ const addLineItem = async (ctx: RouteCtx) => {
       const { data: parent, error: pErr } = await client
         .from('quotes').select('id, org_id, state')
         .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
-      if (pErr) throw new ApiError('INTERNAL_ERROR', 500, pErr.message);
+      if (pErr) throw internalError('quotes-api', pErr);
       if (!parent) throw new ApiError('NOT_FOUND', 404);
       if (!['draft', 'revise_requested'].includes(parent.state as string)) {
         throw new ApiError('STATE_CONFLICT', 409, 'quote is not editable in current state');
@@ -245,7 +245,7 @@ const addLineItem = async (ctx: RouteCtx) => {
 
       const { data, error } = await client
         .from('quote_line_items').insert(insert).select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
 
       await client.rpc('recompute_quote_totals', { p_quote_id: ctx.params.id });
       return created(data);
@@ -269,7 +269,7 @@ const removeLineItem = async (ctx: RouteCtx) => {
       const { error } = await client
         .from('quote_line_items').delete()
         .eq('id', ctx.params.lineId).eq('quote_id', ctx.params.id);
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       await client.rpc('recompute_quote_totals', { p_quote_id: ctx.params.id });
       return ok({ id: ctx.params.lineId, deleted: true });
     },
@@ -294,7 +294,7 @@ async function transitionTo(
       const { data: quote, error: qErr } = await client
         .from('quotes').select('id, org_id, state')
         .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
-      if (qErr) throw new ApiError('INTERNAL_ERROR', 500, qErr.message);
+      if (qErr) throw internalError('quotes-api', qErr);
       if (!quote) throw new ApiError('NOT_FOUND', 404);
       const from = quote.state as QuoteState;
       if (!canTransition(QUOTE_FSM, from, to)) {
@@ -306,7 +306,7 @@ async function transitionTo(
         .update({ state: to, updated_by: caller.userId })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       return ok(data);
     },
   );
@@ -349,7 +349,7 @@ const sendQuote = async (ctx: RouteCtx) => {
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .is('deleted_at', null)
         .maybeSingle();
-      if (quoteErr) throw new ApiError('INTERNAL_ERROR', 500, quoteErr.message);
+      if (quoteErr) throw internalError('quotes-api', quoteErr);
       if (!quoteRow) throw new ApiError('NOT_FOUND', 404);
 
       let customerEmail: string | null = null;
@@ -360,7 +360,7 @@ const sendQuote = async (ctx: RouteCtx) => {
           .select('primary_email, display_name')
           .eq('id', quoteRow.customer_id).eq('org_id', caller.orgId)
           .maybeSingle();
-        if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+        if (custErr) throw internalError('quotes-api', custErr);
         customerEmail = cust?.primary_email ?? null;
         customerName = cust?.display_name ?? null;
       }
@@ -379,7 +379,7 @@ const sendQuote = async (ctx: RouteCtx) => {
         .update({ sent_at: new Date().toISOString(), updated_by: caller.userId })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
 
       // Queue the email notification. The notifications-worker drains it on
@@ -445,7 +445,7 @@ const convertToProject = async (ctx: RouteCtx) => {
         if (/STATE_CONFLICT/.test(error.message)) {
           throw new ApiError('STATE_CONFLICT', 409, error.message);
         }
-        throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        throw internalError('quotes-api', error);
       }
       return created({ project_id: data });
     },
@@ -468,7 +468,7 @@ const listVersions = async (ctx: RouteCtx) => {
     .from('quote_versions').select('*')
     .eq('quote_id', ctx.params.id)
     .order('version_number', { ascending: false });
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('quotes-api', error);
   return ok(data ?? []);
 };
 
@@ -511,7 +511,7 @@ const requestApproval = async (ctx: RouteCtx) => {
         .from('quote_approvals')
         .insert({ quote_id: ctx.params.id, requested_by: caller.userId })
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       return created(data);
     },
   );
@@ -538,7 +538,7 @@ const decideApproval = async (ctx: RouteCtx) => {
         .eq('id', ctx.params.approvalId)
         .eq('quote_id', ctx.params.id)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('quotes-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok(data);
     },

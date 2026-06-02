@@ -83,6 +83,9 @@ export type Capability =
   | 'portal.attachment.read'
   | 'pdf.document.render'
   | 'kitcost.dashboard.view'
+  | 'saved_views.saved_view.read'
+  | 'saved_views.saved_view.create'
+  | 'saved_views.saved_view.delete'
   // finance (24)
   | 'invoices.read'
   | 'invoices.write'
@@ -365,6 +368,9 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'exports.job.create',
   'pdf.document.render',
   'kitcost.dashboard.view',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance (full)
   'invoices.read',
   'invoices.write',
@@ -630,6 +636,9 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'exports.job.create',
   'pdf.document.render',
   'kitcost.dashboard.view',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance (full)
   'invoices.read',
   'invoices.write',
@@ -878,6 +887,9 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'dashboard.summary.read',
   'exports.job.create',
   'pdf.document.render',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance SALES
   'invoices.read',
   'invoices.write',
@@ -986,6 +998,9 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'dashboard.summary.read',
   'exports.job.create',
   'pdf.document.render',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance OPS
   'invoices.read',
   'payments.read',
@@ -1149,6 +1164,9 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   'exports.job.create',
   'pdf.document.render',
   'kitcost.dashboard.view',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance ACCOUNTING
   'invoices.read',
   'invoices.write',
@@ -1272,6 +1290,7 @@ const VIEWER_CAPS: ReadonlyArray<Capability> = [
   'search.global.read',
   'dashboard.summary.read',
   'pdf.document.render',
+  'saved_views.saved_view.read',
   // finance VIEWER
   'invoices.read',
   'payments.read',

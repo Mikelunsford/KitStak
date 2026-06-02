@@ -32,7 +32,7 @@ import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,
   parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireCap,
+  requireCaller, requireCap, internalError,
 } from './shared.ts';
 import {
   WarehouseSchema, StockLevelSchema, StockMovementSchema, BomItemSchema,
@@ -78,7 +78,7 @@ const TABLE: Route[] = [
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(limit + 1);
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('inventory-api', error);
       const parsed = (data ?? []).map((r) => WarehouseSchema.parse(r)) as Array<Warehouse>;
       return ok(paginate(parsed, limit));
     },
@@ -97,7 +97,7 @@ const TABLE: Route[] = [
             created_by: caller.userId, updated_by: caller.userId,
           })
           .select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('inventory-api', error);
         return created(WarehouseSchema.parse(data));
       });
     },
@@ -112,7 +112,7 @@ const TABLE: Route[] = [
         .from('warehouses').select('*')
         .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
         .maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('inventory-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok(WarehouseSchema.parse(data));
     },
@@ -130,7 +130,7 @@ const TABLE: Route[] = [
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('inventory-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WarehouseSchema.parse(data));
       });
@@ -147,7 +147,7 @@ const TABLE: Route[] = [
           .from('warehouses')
           .update({ deleted_at: new Date().toISOString(), updated_by: caller.userId })
           .eq('org_id', caller.orgId).eq('id', params.id);
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('inventory-api', error);
         return ok({ id: params.id, deleted: true });
       });
     },
@@ -169,7 +169,7 @@ const TABLE: Route[] = [
       const item = url.searchParams.get('item_id');
       if (item) q = q.eq('item_id', item);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('inventory-api', error);
       const parsed = (data ?? []).map((r) => StockLevelSchema.parse(r));
       return ok(paginateByUpdatedAt(parsed, limit));
     },
@@ -190,7 +190,7 @@ const TABLE: Route[] = [
       const item = url.searchParams.get('item_id');
       if (item) q = q.eq('item_id', item);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('inventory-api', error);
       return ok((data ?? []).map((r) => StockMovementSchema.parse(r)));
     },
   },
@@ -209,7 +209,7 @@ const TABLE: Route[] = [
       const pid = url.searchParams.get('parent_item_id');
       if (pid) q = q.eq('parent_item_id', pid);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('inventory-api', error);
       const parsed = (data ?? []).map((r) => BomItemSchema.parse(r));
       return ok(paginate(parsed, limit));
     },
@@ -225,7 +225,7 @@ const TABLE: Route[] = [
           .from('bom_items')
           .insert({ ...body, org_id: caller.orgId, created_by: caller.userId, updated_by: caller.userId })
           .select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('inventory-api', error);
         return created(BomItemSchema.parse(data));
       });
     },
@@ -243,7 +243,7 @@ const TABLE: Route[] = [
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('inventory-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(BomItemSchema.parse(data));
       });
@@ -259,7 +259,7 @@ const TABLE: Route[] = [
         const { error } = await admin()
           .from('bom_items').delete()
           .eq('org_id', caller.orgId).eq('id', params.id);
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('inventory-api', error);
         return ok({ id: params.id, deleted: true });
       });
     },

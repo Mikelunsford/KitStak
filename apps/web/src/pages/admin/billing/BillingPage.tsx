@@ -25,6 +25,24 @@ import {
 } from './billingFormatters';
 
 /**
+ * Assert a redirect target is a Stripe-owned https URL before handing it to
+ * window.location.assign (D5, F-Wave10-REVIEW-REMEDIATION). The checkout and
+ * portal URLs come back from the billing API; this is a defense-in-depth gate
+ * so a compromised or misconfigured response can never bounce the operator to
+ * an arbitrary origin. Throws on any non-https or non-`.stripe.com` host.
+ */
+function assertStripeUrl(rawUrl: string): string {
+  const parsed = new URL(rawUrl);
+  if (parsed.protocol !== 'https:') {
+    throw new Error('redirect URL must use https');
+  }
+  if (!parsed.hostname.endsWith('.stripe.com')) {
+    throw new Error('redirect URL host must be a stripe.com domain');
+  }
+  return rawUrl;
+}
+
+/**
  * /admin/billing. The Stripe-wiring SPA surface.
  *
  *   - Current plan card: status, plan name, trial countdown, period end,
@@ -63,7 +81,12 @@ export function BillingPage() {
   const checkoutMutation = useMutation({
     mutationFn: (plan: PlanCode) => createCheckoutSession(plan),
     onSuccess: ({ checkout_url }) => {
-      window.location.assign(checkout_url);
+      try {
+        window.location.assign(assertStripeUrl(checkout_url));
+      } catch {
+        toast.error('Could not start checkout. Try again.');
+        setPendingCode(null);
+      }
     },
     onError: () => {
       toast.error('Could not start checkout. Try again.');
@@ -74,7 +97,12 @@ export function BillingPage() {
   const portalMutation = useMutation({
     mutationFn: () => createBillingPortalSession(),
     onSuccess: ({ portal_url }) => {
-      window.location.assign(portal_url);
+      try {
+        window.location.assign(assertStripeUrl(portal_url));
+      } catch {
+        toast.error('Could not open billing portal. Try again.');
+        setPortalPending(false);
+      }
     },
     onError: () => {
       toast.error('Could not open billing portal. Try again.');

@@ -13,7 +13,7 @@ import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
   requireCap,
 } from '../_shared/handler-helpers.ts';
-import { ok, ApiError } from '../_shared/responses.ts';
+import { ok, ApiError, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -60,7 +60,7 @@ const listProjects = async (ctx: RouteCtx) => {
   if (state) q = q.eq('state', state);
   if (customerId) q = q.eq('customer_id', customerId);
   const { data, error } = await q;
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('projects-api', error);
   const rows = data ?? [];
   return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
 };
@@ -74,13 +74,13 @@ const getProject = async (ctx: RouteCtx) => {
     .from('projects').select('*')
     .eq('id', ctx.params.id).eq('org_id', caller.orgId)
     .maybeSingle();
-  if (pErr) throw new ApiError('INTERNAL_ERROR', 500, pErr.message);
+  if (pErr) throw internalError('projects-api', pErr);
   if (!project) throw new ApiError('NOT_FOUND', 404);
   const { data: phases, error: phErr } = await client
     .from('project_phases').select('*')
     .eq('project_id', ctx.params.id)
     .order('position', { ascending: true });
-  if (phErr) throw new ApiError('INTERNAL_ERROR', 500, phErr.message);
+  if (phErr) throw internalError('projects-api', phErr);
   return ok({ project, phases: phases ?? [] });
 };
 
@@ -101,7 +101,7 @@ const createProject = async (ctx: RouteCtx) => {
           created_by: caller.userId, updated_by: caller.userId,
         })
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return created(data);
     },
   );
@@ -121,7 +121,7 @@ const updateProject = async (ctx: RouteCtx) => {
         .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok(data);
     },
@@ -141,7 +141,7 @@ const deleteProject = async (ctx: RouteCtx) => {
         .update({ deleted_at: new Date().toISOString(), updated_by: caller.userId })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('id').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok({ id: data.id, deleted: true });
     },
@@ -172,7 +172,7 @@ const transitionProject = async (ctx: RouteCtx) => {
         .update({ state: to, updated_by: caller.userId })
         .eq('id', ctx.params.id).eq('org_id', caller.orgId)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return ok(data);
     },
   );
@@ -217,7 +217,7 @@ const createPhase = async (ctx: RouteCtx) => {
           created_by: caller.userId, updated_by: caller.userId,
         })
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return created(data);
     },
   );
@@ -243,7 +243,7 @@ const updatePhase = async (ctx: RouteCtx) => {
         .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
         .eq('id', ctx.params.phaseId).eq('project_id', ctx.params.id)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok(data);
     },
@@ -266,7 +266,7 @@ const deletePhase = async (ctx: RouteCtx) => {
       const { error } = await client
         .from('project_phases').delete()
         .eq('id', ctx.params.phaseId).eq('project_id', ctx.params.id);
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return ok({ id: ctx.params.phaseId, deleted: true });
     },
   );
@@ -301,7 +301,7 @@ const transitionPhase = async (ctx: RouteCtx) => {
         .update({ state: to, updated_by: caller.userId })
         .eq('id', ctx.params.phaseId).eq('project_id', ctx.params.id)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return ok(data);
     },
   );
@@ -325,7 +325,7 @@ const reorderPhases = async (ctx: RouteCtx) => {
       const { data: existing, error: exErr } = await client
         .from('project_phases').select('id')
         .eq('project_id', ctx.params.id);
-      if (exErr) throw new ApiError('INTERNAL_ERROR', 500, exErr.message);
+      if (exErr) throw internalError('projects-api', exErr);
       const existingIds = new Set((existing ?? []).map((r) => (r as { id: string }).id));
       for (const id of body.phase_ids) {
         if (!existingIds.has(id)) {
@@ -342,7 +342,7 @@ const reorderPhases = async (ctx: RouteCtx) => {
           .update({ position: i, updated_by: caller.userId, updated_at: now })
           .eq('id', body.phase_ids[i])
           .eq('project_id', ctx.params.id);
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('projects-api', error);
       }
       return ok({ project_id: ctx.params.id, ordered: body.phase_ids });
     },
@@ -365,7 +365,7 @@ const listLineItems = async (ctx: RouteCtx) => {
     .eq('project_id', ctx.params.id)
     .eq('org_id', caller.orgId)
     .order('position', { ascending: true });
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('projects-api', error);
   return ok(data ?? []);
 };
 
@@ -409,7 +409,7 @@ const createLineItem = async (ctx: RouteCtx) => {
       };
       const { data, error } = await client
         .from('project_line_items').insert(insert).select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return created(data);
     },
   );
@@ -436,7 +436,7 @@ const updateLineItem = async (ctx: RouteCtx) => {
         .eq('project_id', ctx.params.id)
         .eq('org_id', caller.orgId)
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       if (!data) throw new ApiError('NOT_FOUND', 404);
       return ok(data);
     },
@@ -461,7 +461,7 @@ const deleteLineItem = async (ctx: RouteCtx) => {
         .eq('id', ctx.params.lineId)
         .eq('project_id', ctx.params.id)
         .eq('org_id', caller.orgId);
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('projects-api', error);
       return ok({ id: ctx.params.lineId, deleted: true });
     },
   );
@@ -491,7 +491,7 @@ const convertToInvoice = async (ctx: RouteCtx) => {
         if (/STATE_CONFLICT/.test(error.message)) {
           throw new ApiError('STATE_CONFLICT', 409, error.message);
         }
-        throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        throw internalError('projects-api', error);
       }
       return created({ invoice_id: data });
     },

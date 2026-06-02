@@ -16,14 +16,18 @@
 // email/webhook rows with only a `console.warn`, causing silent data loss.
 
 import { createClient } from '@supabase/supabase-js';
-import { ApiError, ok, fromApiError, noContent } from '../_shared/responses.ts';
+import { ApiError, ok, fromApiError, internalError } from '../_shared/responses.ts';
+import { serverCorsHeaders } from '../_shared/cors.ts';
 import { senderFor, type NotificationRow } from '../_shared/notifications/senders.ts';
 import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
 const MAX_BATCH = 200;
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return noContent();
+  // Server-only worker: emit the non-browser CORS origin (D6).
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: serverCorsHeaders() });
+  }
   const url = new URL(req.url);
   if (!url.pathname.endsWith('/drain')) {
     return fromApiError(new ApiError(ERROR_CODES.NOT_FOUND, 404));
@@ -58,7 +62,7 @@ Deno.serve(async (req: Request) => {
     .limit(MAX_BATCH);
 
   if (error) {
-    return fromApiError(new ApiError('INTERNAL_ERROR', 500, error.message));
+    return fromApiError(internalError('notifications-worker', error));
   }
 
   let delivered = 0;

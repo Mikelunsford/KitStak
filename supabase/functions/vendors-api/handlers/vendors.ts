@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
   requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
 } from '../shared.ts';
 import {
@@ -66,7 +66,7 @@ export function handleVendors(): Route[] {
               })
               .select('*')
               .single();
-            if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+            if (error) throw internalError('vendors-api/vendors', error);
             return created(VendorSchema.parse(data));
           },
         );
@@ -102,7 +102,7 @@ export function handleVendors(): Route[] {
               .is('deleted_at', null)
               .select('*')
               .maybeSingle();
-            if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+            if (error) throw internalError('vendors-api/vendors', error);
             if (!data) throw new ApiError('NOT_FOUND', 404);
             return ok(VendorSchema.parse(data));
           },
@@ -127,7 +127,7 @@ export function handleVendors(): Route[] {
               })
               .eq('org_id', caller.orgId)
               .eq('id', params.id);
-            if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+            if (error) throw internalError('vendors-api/vendors', error);
             return ok({ id: params.id, deleted: true });
           },
         );

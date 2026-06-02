@@ -5,7 +5,7 @@
 // Handlers now import requireCap from _shared/handler-helpers.ts directly
 // via the re-export below.
 
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import { admin, parseLimit, decodeCursor, paginate, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import {
@@ -16,6 +16,7 @@ import {
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, paginate, parseBody,
   parseUuidParam, respondWithIdempotency, created, requireCaller, requireCap,
+  internalError,
 };
 export type { Caller };
 
@@ -76,7 +77,7 @@ export async function listOrgScoped<T extends { id: string; created_at: string }
 
   const { data, error } = await q;
   if (error) {
-    throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    throw internalError('vendors-api/shared', error);
   }
   return paginate<T>((data ?? []) as T[], limit);
 }
@@ -94,7 +95,7 @@ export async function getByIdOrgScoped<T>(
     .eq('id', id)
     .maybeSingle();
   if (error) {
-    throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    throw internalError('vendors-api/shared', error);
   }
   if (!data) {
     throw new ApiError('NOT_FOUND', 404);

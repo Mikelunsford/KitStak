@@ -6,12 +6,13 @@ import {
   admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
   parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
   parseUuidParam, respondWithIdempotency, created, requireCaller, requireCap,
+  internalError,
 };
 export type { Caller };
 

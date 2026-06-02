@@ -39,23 +39,9 @@ import {
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { PLAN_TO_PRICE, type PlanCode } from '../_shared/stripe-plans.ts';
 
 const BUNDLE = 'billing-api';
-
-// The six approved Stripe Price IDs. Source of truth lives in the Stripe
-// dashboard; mirrored here so the SPA can pass a stable plan code instead of
-// a leaky price id. Adding a new plan: add the price in Stripe, then append
-// to this map and to the Zod enum below.
-const PLAN_TO_PRICE = {
-  starter_monthly: 'price_1TbmMV4KMrbWyNl1MPMQrM2a',
-  starter_annual: 'price_1TbmSB4KMrbWyNl1QpHy3QQU',
-  pro_monthly: 'price_1TbmOU4KMrbWyNl1sbGBK6qz',
-  pro_annual: 'price_1TbmSw4KMrbWyNl1rp7mEfLc',
-  enterprise_monthly: 'price_1TbmQD4KMrbWyNl1z7vh1f4T',
-  enterprise_annual: 'price_1TbmTe4KMrbWyNl186ej636V',
-} as const;
-
-type PlanCode = keyof typeof PLAN_TO_PRICE;
 
 const CheckoutSessionBodySchema = z.object({
   plan: z.enum([

@@ -15,7 +15,7 @@
 
 import { route, type Route } from '../_shared/route.ts';
 import { admin } from '../_shared/handler-helpers.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { hasCap } from '../_shared/capabilities.ts';
 
@@ -39,7 +39,7 @@ async function resolveCustomerId(caller: Caller): Promise<string> {
     .limit(1)
     .maybeSingle();
   if (error) {
-    throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    throw internalError('customer-portal-api', error);
   }
   const mapped = (data as { customer_id?: string | null } | null)?.customer_id;
   if (mapped) return mapped;
@@ -110,7 +110,7 @@ const invoices: Route = {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(200);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('customer-portal-api', error);
     return ok(data ?? []);
   },
 };
@@ -141,7 +141,7 @@ const quotes: Route = {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(200);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('customer-portal-api', error);
     return ok(data ?? []);
   },
 };
@@ -172,7 +172,7 @@ const projects: Route = {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(200);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('customer-portal-api', error);
     return ok(data ?? []);
   },
 };
@@ -214,7 +214,7 @@ const invoiceDetail: Route = {
       .eq('id', params.id)
       .is('deleted_at', null)
       .maybeSingle();
-    if (invErr) throw new ApiError('INTERNAL_ERROR', 500, invErr.message);
+    if (invErr) throw internalError('customer-portal-api', invErr);
     if (!invoice) throw new ApiError('NOT_FOUND', 404);
 
     const { data: lines, error: linesErr } = await client
@@ -222,7 +222,7 @@ const invoiceDetail: Route = {
       .select('id, description, quantity, unit_price_cents, line_total_cents')
       .eq('invoice_id', params.id)
       .order('position', { ascending: true });
-    if (linesErr) throw new ApiError('INTERNAL_ERROR', 500, linesErr.message);
+    if (linesErr) throw internalError('customer-portal-api', linesErr);
 
     const { data: customer, error: custErr } = await client
       .from('customers')
@@ -230,7 +230,7 @@ const invoiceDetail: Route = {
       .eq('org_id', caller.orgId)
       .eq('id', customerId)
       .maybeSingle();
-    if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+    if (custErr) throw internalError('customer-portal-api', custErr);
 
     return ok({
       invoice,
@@ -270,7 +270,7 @@ const quoteDetail: Route = {
       .eq('id', params.id)
       .is('deleted_at', null)
       .maybeSingle();
-    if (qErr) throw new ApiError('INTERNAL_ERROR', 500, qErr.message);
+    if (qErr) throw internalError('customer-portal-api', qErr);
     if (!quote) throw new ApiError('NOT_FOUND', 404);
 
     const { data: lines, error: linesErr } = await client
@@ -278,7 +278,7 @@ const quoteDetail: Route = {
       .select('id, name, quantity_e3, unit_price_cents, line_total_cents')
       .eq('quote_id', params.id)
       .order('position', { ascending: true });
-    if (linesErr) throw new ApiError('INTERNAL_ERROR', 500, linesErr.message);
+    if (linesErr) throw internalError('customer-portal-api', linesErr);
 
     const { data: customer, error: custErr } = await client
       .from('customers')
@@ -286,7 +286,7 @@ const quoteDetail: Route = {
       .eq('org_id', caller.orgId)
       .eq('id', customerId)
       .maybeSingle();
-    if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+    if (custErr) throw internalError('customer-portal-api', custErr);
 
     return ok({
       quote,
@@ -357,7 +357,7 @@ const attachments: Route = {
       .eq('entity_id', entityId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('customer-portal-api', error);
     return ok(data ?? []);
   },
 };

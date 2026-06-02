@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
   requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
@@ -98,7 +98,7 @@ export function handlePurchaseOrders(): Route[] {
             })
             .select('*')
             .single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/purchase-orders', error);
           return created(PurchaseOrderSchema.parse(data));
         });
       },
@@ -126,7 +126,7 @@ export function handlePurchaseOrders(): Route[] {
             .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
             .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/purchase-orders', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(PurchaseOrderSchema.parse(data));
         });
@@ -147,7 +147,7 @@ export function handlePurchaseOrders(): Route[] {
             .update({ status: body.to, updated_by: caller.userId, updated_at: new Date().toISOString() })
             .eq('org_id', caller.orgId).eq('id', params.id)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/purchase-orders', error);
           return ok(PurchaseOrderSchema.parse(data));
         });
       },
@@ -164,7 +164,7 @@ export function handlePurchaseOrders(): Route[] {
           .select('*')
           .eq('purchase_order_id', params.id)
           .order('sort_order', { ascending: true });
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('vendors-api/purchase-orders', error);
         return ok((data ?? []).map((r) => PoLineItemSchema.parse(r)));
       },
     },
@@ -186,7 +186,7 @@ export function handlePurchaseOrders(): Route[] {
               quantity_received: 0,
             })
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/purchase-orders', error);
           return created(PoLineItemSchema.parse(data));
         });
       },
@@ -203,7 +203,7 @@ export function handlePurchaseOrders(): Route[] {
           await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
           const existing = await admin().from('po_line_items').select('*')
             .eq('id', params.lid).eq('purchase_order_id', params.id).maybeSingle();
-          if (existing.error) throw new ApiError('INTERNAL_ERROR', 500, existing.error.message);
+          if (existing.error) throw internalError('vendors-api/purchase-orders', existing.error);
           if (!existing.data) throw new ApiError('NOT_FOUND', 404);
 
           const merged = { ...existing.data, ...body } as Record<string, unknown>;
@@ -217,7 +217,7 @@ export function handlePurchaseOrders(): Route[] {
             .update({ ...body, ...computed, updated_at: new Date().toISOString() })
             .eq('id', params.lid).eq('purchase_order_id', params.id)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/purchase-orders', error);
           return ok(PoLineItemSchema.parse(data));
         });
       },
@@ -234,7 +234,7 @@ export function handlePurchaseOrders(): Route[] {
           const { error } = await admin()
             .from('po_line_items').delete()
             .eq('id', params.lid).eq('purchase_order_id', params.id);
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/purchase-orders', error);
           return ok({ id: params.lid, deleted: true });
         });
       },

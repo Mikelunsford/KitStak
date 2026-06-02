@@ -5,13 +5,17 @@
 // Idempotent: re-running on the same window is a no-op (rows already gone).
 
 import { createClient } from '@supabase/supabase-js';
-import { fromApiError, ApiError, ok, noContent } from '../_shared/responses.ts';
+import { fromApiError, ApiError, ok, internalError } from '../_shared/responses.ts';
+import { serverCorsHeaders } from '../_shared/cors.ts';
 import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
 const RETENTION_DAYS = 7;
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return noContent();
+  // Server-only worker: emit the non-browser CORS origin (D6).
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: serverCorsHeaders() });
+  }
 
   const authHeader = req.headers.get(HTTP_HEADERS.AUTHORIZATION) ?? '';
   const expected = Deno.env.get('GC_TRIGGER_SECRET');
@@ -36,7 +40,7 @@ Deno.serve(async (req: Request) => {
     .lt('created_at', cutoff);
 
   if (error) {
-    return fromApiError(new ApiError('INTERNAL_ERROR', error.message));
+    return fromApiError(internalError('idempotency-gc:delete', error));
   }
 
   return ok({ deleted: count ?? 0, cutoff });

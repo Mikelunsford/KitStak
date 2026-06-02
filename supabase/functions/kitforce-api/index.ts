@@ -85,7 +85,7 @@
 //   DELETE /time-entries/:id                     delete an entry
 
 import { type Route } from '../_shared/route.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
@@ -160,7 +160,7 @@ async function loadMember(caller: Caller, id: string): Promise<WorkforceMember> 
     .from('workforce_members').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return WorkforceMemberSchema.parse(data);
 }
@@ -168,14 +168,14 @@ async function loadMember(caller: Caller, id: string): Promise<WorkforceMember> 
 async function assertMemberParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('workforce_members').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
 async function assertTeamParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('workforce_teams').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
@@ -184,7 +184,7 @@ async function loadShift(caller: Caller, id: string): Promise<Shift> {
     .from('shifts').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return ShiftSchema.parse(data);
 }
@@ -194,7 +194,7 @@ async function loadAssignment(caller: Caller, id: string): Promise<WorkAssignmen
     .from('work_assignments').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return WorkAssignmentSchema.parse(data);
 }
@@ -205,7 +205,7 @@ async function loadTimeEntry(caller: Caller, id: string): Promise<TimeEntry> {
     .from('time_entries').select('*')
     .eq('org_id', caller.orgId).eq('id', id)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return TimeEntrySchema.parse(data);
 }
@@ -230,7 +230,7 @@ async function assertJobLink(
   const { data, error } = await admin().from(table).select('id')
     .eq('org_id', caller.orgId).eq('id', jobId).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('kitforce-api', error);
   if (!data) {
     throw new ApiError(
       'VALIDATION_ERROR', 422,
@@ -346,13 +346,13 @@ const TABLE: Route[] = [
         const { data: links, error: linkErr } = await admin()
           .from('workforce_team_members').select('member_id')
           .eq('org_id', caller.orgId).eq('team_id', teamId).is('deleted_at', null);
-        if (linkErr) throw new ApiError('INTERNAL_ERROR', 500, linkErr.message);
+        if (linkErr) throw internalError('kitforce-api', linkErr);
         const ids = (links ?? []).map((r) => r.member_id as string);
         if (ids.length === 0) return ok([]);
         q = q.in('id', ids);
       }
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('kitforce-api', error);
       return ok(
         (data ?? [])
           .map((r) => WorkforceMemberSchema.parse(r))
@@ -389,7 +389,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('workforce_members')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         // Creator sees the figure they just set only if they may read rates.
         return created(stripMemberRate(caller, WorkforceMemberSchema.parse(data)));
       });
@@ -447,7 +447,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(stripMemberRate(caller, WorkforceMemberSchema.parse(data)));
       });
@@ -471,7 +471,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(stripMemberRate(caller, WorkforceMemberSchema.parse(data)));
       });
@@ -497,7 +497,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(stripMemberRate(caller, WorkforceMemberSchema.parse(data)));
       });
@@ -519,7 +519,7 @@ const TABLE: Route[] = [
       if (isActive === 'true') q = q.eq('is_active', true);
       if (isActive === 'false') q = q.eq('is_active', false);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('kitforce-api', error);
       return ok((data ?? []).map((r) => WorkforceTeamSchema.parse(r)));
     },
   },
@@ -541,7 +541,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('workforce_teams')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         return created(WorkforceTeamSchema.parse(data));
       });
     },
@@ -566,7 +566,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WorkforceTeamSchema.parse(data));
       });
@@ -586,7 +586,7 @@ const TABLE: Route[] = [
         .from('workforce_team_members').select('*')
         .eq('org_id', caller.orgId).eq('team_id', params.id).is('deleted_at', null)
         .order('created_at', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('kitforce-api', error);
       return ok((data ?? []).map((r) => WorkforceTeamMemberSchema.parse(r)));
     },
   },
@@ -615,7 +615,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('workforce_team_members').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('kitforce-api', error);
           return created(WorkforceTeamMemberSchema.parse(data));
         },
       );
@@ -647,7 +647,7 @@ const TABLE: Route[] = [
             .eq('member_id', params.memberId)
             .is('deleted_at', null)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('kitforce-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ team_id: params.id, member_id: params.memberId, removed: true });
         },
@@ -679,7 +679,7 @@ const TABLE: Route[] = [
       if (from) q = q.gte('scheduled_start_at', from);
       if (to) q = q.lte('scheduled_start_at', to);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('kitforce-api', error);
       return ok((data ?? []).map((r) => ShiftSchema.parse(r)));
     },
   },
@@ -717,7 +717,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('shifts')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         return created(ShiftSchema.parse(data));
       });
     },
@@ -766,7 +766,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ShiftSchema.parse(data));
       });
@@ -792,7 +792,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ShiftSchema.parse(data));
       });
@@ -818,7 +818,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ShiftSchema.parse(data));
       });
@@ -844,7 +844,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ShiftSchema.parse(data));
       });
@@ -873,7 +873,7 @@ const TABLE: Route[] = [
       if (jobType) q = q.eq('job_type', jobType);
       if (jobId) q = q.eq('job_id', jobId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('kitforce-api', error);
       return ok((data ?? []).map((r) => WorkAssignmentSchema.parse(r)));
     },
   },
@@ -921,7 +921,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('work_assignments')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         return created(WorkAssignmentSchema.parse(data));
       });
     },
@@ -988,7 +988,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WorkAssignmentSchema.parse(data));
       });
@@ -1024,7 +1024,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WorkAssignmentSchema.parse(data));
       });
@@ -1050,7 +1050,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WorkAssignmentSchema.parse(data));
       });
@@ -1076,7 +1076,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WorkAssignmentSchema.parse(data));
       });
@@ -1102,7 +1102,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WorkAssignmentSchema.parse(data));
       });
@@ -1135,7 +1135,7 @@ const TABLE: Route[] = [
       if (from) q = q.gte('clock_in_at', from);
       if (to) q = q.lte('clock_in_at', to);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('kitforce-api', error);
       return ok(
         (data ?? [])
           .map((r) => TimeEntrySchema.parse(r))
@@ -1183,7 +1183,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('time_entries')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         return created(stripTimeEntryRate(caller, TimeEntrySchema.parse(data)));
       });
     },
@@ -1215,7 +1215,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(stripTimeEntryRate(caller, TimeEntrySchema.parse(data)));
       });
@@ -1270,7 +1270,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(stripTimeEntryRate(caller, TimeEntrySchema.parse(data)));
       });
@@ -1289,7 +1289,7 @@ const TABLE: Route[] = [
           .delete()
           .eq('org_id', caller.orgId).eq('id', params.id)
           .select('id').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('kitforce-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok({ id: params.id, deleted: true });
       });

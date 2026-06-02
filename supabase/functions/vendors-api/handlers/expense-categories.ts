@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
   requireCaller, requireCap,
 } from '../shared.ts';
 import {
@@ -30,7 +30,7 @@ export function handleExpenseCategories(): Route[] {
           .select('*')
           .eq('org_id', caller.orgId)
           .order('code', { ascending: true });
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('vendors-api/expense-categories', error);
         return ok((data ?? []).map((r) => ExpenseCategorySchema.parse(r)));
       },
     },
@@ -48,7 +48,7 @@ export function handleExpenseCategories(): Route[] {
               created_by: caller.userId, updated_by: caller.userId,
             })
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/expense-categories', error);
           return created(ExpenseCategorySchema.parse(data));
         });
       },
@@ -66,7 +66,7 @@ export function handleExpenseCategories(): Route[] {
             .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
             .eq('org_id', caller.orgId).eq('id', params.id)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/expense-categories', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(ExpenseCategorySchema.parse(data));
         });
