@@ -1,5 +1,7 @@
-import { lazy, Suspense, useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+
+import { lazyWithReload as lazy } from '@/lib/lazyWithReload';
 
 import { Package, Layers, Truck, Inbox, Factory, FileText } from 'lucide-react';
 
