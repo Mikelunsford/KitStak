@@ -4,8 +4,8 @@
 //
 // Idempotent: re-running on the same window is a no-op (rows already gone).
 
-import { createClient } from '@supabase/supabase-js';
 import { fromApiError, ApiError, ok, internalError } from '../_shared/responses.ts';
+import { admin } from '../_shared/handler-helpers.ts';
 import { serverCorsHeaders } from '../_shared/cors.ts';
 import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
@@ -23,15 +23,13 @@ Deno.serve(async (req: Request) => {
     return fromApiError(new ApiError(ERROR_CODES.UNAUTHORIZED));
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceKey) {
-    return fromApiError(new ApiError(ERROR_CODES.INTERNAL_ERROR, 'Missing service-role credentials'));
+  let client;
+  try {
+    client = admin();
+  } catch (err) {
+    if (err instanceof ApiError) return fromApiError(err);
+    return fromApiError(internalError('idempotency-gc:admin', err));
   }
-
-  const client = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 86_400_000).toISOString();
   const { count, error } = await client

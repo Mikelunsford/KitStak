@@ -11,6 +11,12 @@
 //
 // Shape: <domain>.<resource>.<action>. Server is authority via requireCap();
 // SPA mirrors CAPABILITIES_BY_ROLE only to hide buttons.
+//
+// SIZE EXCEPTION (E8, F-Wave10-REVIEW-REMEDIATION): this file exceeds the
+// 800-line coding-style guideline by design. It is a singular byte-mirror
+// canon (~120 capabilities plus the role policy matrix) and must stay in one
+// file so the parity contract test can assert it byte-identical with its
+// mirror. Splitting it would break that mirror and fragment the authority.
 
 export type RoleCode =
   | 'org_owner'

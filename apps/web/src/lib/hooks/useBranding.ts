@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { brandingKeys } from '@/lib/queryKeys/branding';
 import { getBranding } from '@/lib/services/brandingService';
+import { QUERY_DEFAULTS } from './queryDefaults';
 
 /**
  * React Query hook for the active org's branding row.
@@ -18,6 +19,7 @@ export function useBranding(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: brandingKeys.all,
     queryFn: getBranding,
+    ...QUERY_DEFAULTS,
     staleTime: 5 * 60_000,
     enabled: opts.enabled ?? false,
   });

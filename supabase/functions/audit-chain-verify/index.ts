@@ -3,8 +3,8 @@
 // Returns the first broken row (if any) per org. A non-empty array is a P0:
 // the nightly workflow fails and pages the operator.
 
-import { createClient } from '@supabase/supabase-js';
 import { fromApiError, ApiError, ok, internalError } from '../_shared/responses.ts';
+import { admin } from '../_shared/handler-helpers.ts';
 import { serverCorsHeaders } from '../_shared/cors.ts';
 import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
@@ -28,15 +28,13 @@ Deno.serve(async (req: Request) => {
     return fromApiError(new ApiError(ERROR_CODES.UNAUTHORIZED));
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceKey) {
-    return fromApiError(new ApiError(ERROR_CODES.INTERNAL_ERROR, 'Missing service-role credentials'));
+  let client;
+  try {
+    client = admin();
+  } catch (err) {
+    if (err instanceof ApiError) return fromApiError(err);
+    return fromApiError(internalError('audit-chain-verify:admin', err));
   }
-
-  const client = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   const { data: orgs, error: orgErr } = await client
     .from('organizations')

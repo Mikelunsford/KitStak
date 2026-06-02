@@ -119,10 +119,6 @@ export function ok<T>(data: T, meta?: Record<string, unknown>): Response {
   return withCommonHeaders(200, body);
 }
 
-export function created<T>(data: T): Response {
-  return withCommonHeaders(201, { data });
-}
-
 export function noContent(): Response {
   return new Response(null, { status: 204, headers: corsHeaders() });
 }

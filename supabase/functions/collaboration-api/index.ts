@@ -7,6 +7,7 @@
 import { route, type Route } from '../_shared/route.ts';
 import {
   admin,
+  created,
   parseBody,
   parseLimit,
   paginate,
@@ -14,7 +15,7 @@ import {
   respondWithIdempotency,
   requireCap,
 } from '../_shared/handler-helpers.ts';
-import { ApiError, ok, created, noContent, internalError } from '../_shared/responses.ts';
+import { ApiError, ok, noContent, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import {
   AttachmentCreateSchema,

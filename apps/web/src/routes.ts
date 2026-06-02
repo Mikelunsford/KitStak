@@ -1,3 +1,10 @@
+// SIZE EXCEPTION (E8, F-Wave10-REVIEW-REMEDIATION): this file exceeds the
+// 800-line coding-style guideline by design. The flat ROUTES table is a
+// single-source-of-truth canon: every route entry, its guard, layout, and
+// plugin gate live in one declaration so the routing map stays auditable in a
+// single read. Splitting it would fragment the canon and add cross-file
+// indirection without reducing complexity. The size is intentional, not debt.
+
 import { type LazyExoticComponent, type ComponentType } from 'react';
 
 import { FEATURE_FLAGS } from '@/lib/constants';

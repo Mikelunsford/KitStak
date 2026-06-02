@@ -67,7 +67,7 @@ export interface BillableLineColumn {
   align?: 'left' | 'right';
 }
 
-export interface BillableLineItemsEditorProps<TLine> {
+export interface BillableLineItemsEditorProps<TLine extends { id: string }> {
   /**
    * Header copy above the section. Defaults to 'LINE ITEMS'.
    */
@@ -150,7 +150,7 @@ export interface BillableLineItemsEditorProps<TLine> {
  *     onItemPicked={(_id, item) => { ... }}
  *   />
  */
-export function BillableLineItemsEditor<TLine>({
+export function BillableLineItemsEditor<TLine extends { id: string }>({
   heading = 'LINE ITEMS',
   canEdit,
   lines,
@@ -205,8 +205,8 @@ export function BillableLineItemsEditor<TLine>({
             </tr>
           </thead>
           <tbody>
-            {lines.map((line, idx) => (
-              <tr key={idx} className="border-b border-line">
+            {lines.map((line) => (
+              <tr key={line.id} className="border-b border-line">
                 {renderLine(line)}
               </tr>
             ))}

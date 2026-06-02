@@ -483,7 +483,11 @@ const kitcostSummary: Route = {
           inventoryValue += BigInt(roundHalfEven(product));
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('dashboard.inventory_value.fallback', {
+        org_id: orgId,
+        detail: err instanceof Error ? err.message : String(err),
+      });
       inventoryValue = 0n;
     }
 
@@ -608,9 +612,13 @@ const kitcostSummary: Route = {
           const add = BigInt(roundHalfEven(qty * Number(unit)));
           costByProject.set(pid, (costByProject.get(pid) ?? 0n) + add);
         }
-      } catch {
+      } catch (err) {
         // Leave the cost map empty on any failure; the SPA renders the row
         // with zero cost rather than a 500.
+        console.error('dashboard.project_cost.fallback', {
+          org_id: orgId,
+          detail: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 

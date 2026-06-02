@@ -2,9 +2,10 @@
 // lead / opportunity (entity_type + entity_id). Filterable by entity in list.
 
 import type { RouteCtx } from '../../_shared/route.ts';
-import { ApiError, ok, created } from '../../_shared/responses.ts';
+import { ApiError, ok } from '../../_shared/responses.ts';
 import {
   admin,
+  created,
   decodeCursor,
   paginate,
   parseBody,

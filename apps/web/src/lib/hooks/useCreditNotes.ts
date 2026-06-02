@@ -17,12 +17,13 @@ import {
   type CreditNotePatch,
   type ListCreditNotesFilters,
 } from '@/lib/services/creditNotesService';
+import { QUERY_DEFAULTS } from './queryDefaults';
 
 export function useCreditNotes(filters: ListCreditNotesFilters = {}) {
   return useQuery({
     queryKey: creditNoteKeys.list(filters),
     queryFn: () => listCreditNotes(filters),
-    staleTime: 30_000,
+    ...QUERY_DEFAULTS,
   });
 }
 
@@ -30,8 +31,8 @@ export function useCreditNote(id: string) {
   return useQuery({
     queryKey: creditNoteKeys.detail(id),
     queryFn: () => getCreditNote(id),
+    ...QUERY_DEFAULTS,
     enabled: Boolean(id),
-    staleTime: 30_000,
   });
 }
 
