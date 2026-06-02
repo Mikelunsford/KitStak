@@ -75,7 +75,15 @@ async function existsRowForOrg(
     const { count, error } = await q;
     if (error) return false;
     return (count ?? 0) > 0;
-  } catch {
+  } catch (err) {
+    // E2: log the swallowed catch instead of dropping it. The false
+    // fallback keeps the setup-checklist signal off (never 500s a fresh
+    // org missing an upstream table), but the context is preserved.
+    console.error('dashboard.exists_row.fallback', {
+      org_id: orgId,
+      table,
+      detail: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
 }

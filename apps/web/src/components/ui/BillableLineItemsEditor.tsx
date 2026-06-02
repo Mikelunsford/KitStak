@@ -196,7 +196,7 @@ export function BillableLineItemsEditor<TLine extends { id: string }>({
             <tr className="text-left text-ink-dim border-b border-line">
               {columns.map((col, i) => (
                 <th
-                  key={i}
+                  key={`${col.label}-${col.align ?? 'left'}-${i}`}
                   className={`py-2 ${col.align === 'right' ? 'text-right' : ''}`}
                 >
                   {col.label}
