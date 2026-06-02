@@ -12,9 +12,10 @@
 import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
-import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';
+import { ApiError, ok, noContent, internalError } from '../../_shared/responses.ts';
 import {
   admin,
+  created,
   decodeCursor,
   paginate,
   parseBody,
@@ -351,7 +352,7 @@ export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
         .eq('org_id', caller.orgId)
         .is('deleted_at', null)
         .maybeSingle();
-      if (invErr) throw new ApiError('INTERNAL_ERROR', 500, invErr.message);
+      if (invErr) throw internalError('invoicing-api/invoices', invErr);
       if (!invoiceRow) throw new ApiError('NOT_FOUND', 404);
 
       let customerEmail: string | null = null;
@@ -363,7 +364,7 @@ export async function sendInvoice(ctx: RouteCtx): Promise<Response> {
           .eq('id', invoiceRow.customer_id)
           .eq('org_id', caller.orgId)
           .maybeSingle();
-        if (custErr) throw new ApiError('INTERNAL_ERROR', 500, custErr.message);
+        if (custErr) throw internalError('invoicing-api/invoices', custErr);
         customerEmail = cust?.primary_email ?? null;
         customerName = cust?.display_name ?? null;
       }

@@ -26,7 +26,7 @@ import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency,
   created, requireCap,
 } from '../_shared/handler-helpers.ts';
-import { ok, ApiError } from '../_shared/responses.ts';
+import { ok, ApiError, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -142,7 +142,7 @@ function genericList(table: string, orderCol = 'created_at') {
       .is('deleted_at', null)
       .order(orderCol, { ascending: false })
       .limit(limit + 1);
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('sales-config-api', error);
     const rows = data ?? [];
     return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
   };
@@ -160,7 +160,7 @@ function genericGet(table: string) {
       .eq('id', ctx.params.id)
       .eq('org_id', caller.orgId)
       .maybeSingle();
-    if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+    if (error) throw internalError('sales-config-api', error);
     if (!data) throw new ApiError('NOT_FOUND', 404);
     return ok(data);
   };
@@ -215,7 +215,7 @@ function genericCreate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
         };
         const { data, error } = await client
           .from(table).insert(insert).select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('sales-config-api', error);
         return created(data);
       },
     );
@@ -241,7 +241,7 @@ function genericUpdate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
           .from(table).update(patch)
           .eq('id', ctx.params.id).eq('org_id', caller.orgId)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('sales-config-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(data);
       },
@@ -266,7 +266,7 @@ function genericSoftDelete(table: string, route: string) {
           })
           .eq('id', ctx.params.id).eq('org_id', caller.orgId)
           .select('id').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('sales-config-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok({ id: data.id, deleted: true });
       },
@@ -288,7 +288,7 @@ const setDefaultTax = async (ctx: RouteCtx) => {
       if (error) {
         if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
         if (/FORBIDDEN/.test(error.message)) throw new ApiError('FORBIDDEN', 403);
-        throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        throw internalError('sales-config-api', error);
       }
       return ok({ id: ctx.params.id, default_for_org: true });
     },
@@ -307,7 +307,7 @@ const setDefaultPaymentMethod = async (ctx: RouteCtx) => {
       if (error) {
         if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
         if (/FORBIDDEN/.test(error.message)) throw new ApiError('FORBIDDEN', 403);
-        throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        throw internalError('sales-config-api', error);
       }
       return ok({ id: ctx.params.id, default_for_org: true });
     },
@@ -322,7 +322,7 @@ const listCurrencies = async (ctx: RouteCtx) => {
   const client = admin();
   const { data, error } = await client
     .from('currencies').select('*').order('code', { ascending: true });
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('sales-config-api', error);
   return ok(data ?? []);
 };
 
@@ -335,7 +335,7 @@ const listExchangeRates = async (ctx: RouteCtx) => {
     .from('exchange_rates').select('*')
     .order('effective_date', { ascending: false })
     .limit(limit + 1);
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('sales-config-api', error);
   const rows = data ?? [];
   return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
 };
@@ -352,7 +352,7 @@ const createExchangeRate = async (ctx: RouteCtx) => {
         .from('exchange_rates')
         .insert({ ...body, created_by: caller.userId })
         .select('*').maybeSingle();
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('sales-config-api', error);
       return created(data);
     },
   );

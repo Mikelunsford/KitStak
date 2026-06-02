@@ -29,29 +29,9 @@ import { admin } from '../_shared/handler-helpers.ts';
 import { ApiError, fromApiError, ok } from '../_shared/responses.ts';
 import { ERROR_CODES } from '../_shared/constants.ts';
 import { captureException } from '../_shared/sentry.ts';
+import { planFromPriceId } from '../_shared/stripe-plans.ts';
 
 const BUNDLE = 'stripe-webhook';
-
-// Hardcoded Stripe price-id -> internal plan slug. The product catalogue
-// is fixed (6 SKUs across 3 tiers x 2 cadences) and lives in the operator's
-// Stripe dashboard. When a new price is added, this map must update.
-const PRICE_TO_PLAN: Record<string, string> = {
-  'price_1TbmMV4KMrbWyNl1MPMQrM2a': 'starter_monthly',
-  'price_1TbmSB4KMrbWyNl1QpHy3QQU': 'starter_annual',
-  'price_1TbmOU4KMrbWyNl1sbGBK6qz': 'pro_monthly',
-  'price_1TbmSw4KMrbWyNl1rp7mEfLc': 'pro_annual',
-  'price_1TbmQD4KMrbWyNl1z7vh1f4T': 'enterprise_monthly',
-  'price_1TbmTe4KMrbWyNl186ej636V': 'enterprise_annual',
-};
-
-// Resolve plan slug from a Stripe price id. Returns null for unknown prices
-// so callers can decide whether to clear, retain, or refuse to write the
-// column. The current handlers retain whatever is there rather than wipe
-// it on an unknown price.
-function planFromPriceId(priceId: string | null | undefined): string | null {
-  if (!priceId) return null;
-  return PRICE_TO_PLAN[priceId] ?? null;
-}
 
 // Extract the first line-item price id from a subscription event. Stripe
 // subscriptions can carry multiple items; for Kitstak's flat-tier pricing

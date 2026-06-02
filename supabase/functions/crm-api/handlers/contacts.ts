@@ -2,9 +2,10 @@
 // detail/patch/delete operate by contact id under tenant scope.
 
 import type { RouteCtx } from '../../_shared/route.ts';
-import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';
+import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
+  created,
   decodeCursor,
   paginate,
   parseBody,

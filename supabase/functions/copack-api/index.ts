@@ -79,7 +79,7 @@
 //   POST   /fulfillments/:id/cancel                 -> cancelled
 
 import { type Route } from '../_shared/route.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
@@ -132,7 +132,7 @@ async function loadOrder(caller: Caller, id: string): Promise<SalesOrder> {
     .from('sales_orders').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return SalesOrderSchema.parse(data);
 }
@@ -140,7 +140,7 @@ async function loadOrder(caller: Caller, id: string): Promise<SalesOrder> {
 async function assertOrderParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('sales_orders').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
@@ -149,7 +149,7 @@ async function loadKittingJob(caller: Caller, id: string): Promise<KittingJob> {
     .from('kitting_jobs').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return KittingJobSchema.parse(data);
 }
@@ -157,7 +157,7 @@ async function loadKittingJob(caller: Caller, id: string): Promise<KittingJob> {
 async function assertKittingJobParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('kitting_jobs').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
@@ -166,7 +166,7 @@ async function loadFulfillment(caller: Caller, id: string): Promise<Fulfillment>
     .from('fulfillments').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return FulfillmentSchema.parse(data);
 }
@@ -177,7 +177,7 @@ async function nextOrderLinePosition(caller: Caller, orderId: string): Promise<n
     .eq('org_id', caller.orgId)
     .eq('sales_order_id', orderId)
     .order('position', { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   return ((data?.position as number | undefined) ?? -1) + 1;
 }
 
@@ -189,7 +189,7 @@ async function nextKittingLinePosition(
     .eq('org_id', caller.orgId)
     .eq('kitting_job_id', jobId)
     .order('position', { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('copack-api', error);
   return ((data?.position as number | undefined) ?? -1) + 1;
 }
 
@@ -272,7 +272,7 @@ const TABLE: Route[] = [
       if (isActive === 'false') q = q.eq('is_active', false);
       if (kind) q = q.eq('kind', kind);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => SalesChannelSchema.parse(r)));
     },
   },
@@ -293,7 +293,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('sales_channels')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         return created(SalesChannelSchema.parse(data));
       });
     },
@@ -317,7 +317,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(SalesChannelSchema.parse(data));
       });
@@ -344,7 +344,7 @@ const TABLE: Route[] = [
       if (customerId) q = q.eq('customer_id', customerId);
       if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => SalesOrderSchema.parse(r)));
     },
   },
@@ -377,7 +377,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('sales_orders')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         return created(SalesOrderSchema.parse(data));
       });
     },
@@ -424,7 +424,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(SalesOrderSchema.parse(data));
       });
@@ -456,7 +456,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('id').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok({ id: params.id, deleted: true });
       });
@@ -481,7 +481,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(SalesOrderSchema.parse(data));
       });
@@ -506,7 +506,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(SalesOrderSchema.parse(data));
       });
@@ -527,7 +527,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('sales_order_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => SalesOrderLineItemSchema.parse(r)));
     },
   },
@@ -558,7 +558,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('sales_order_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           return created(SalesOrderLineItemSchema.parse(data));
         },
       );
@@ -590,7 +590,7 @@ const TABLE: Route[] = [
             .eq('sales_order_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(SalesOrderLineItemSchema.parse(data));
         },
@@ -614,7 +614,7 @@ const TABLE: Route[] = [
             .eq('sales_order_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },
@@ -642,7 +642,7 @@ const TABLE: Route[] = [
         .from('warehouses').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('code', { ascending: true }).limit(500);
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok(data ?? []);
     },
   },
@@ -665,7 +665,7 @@ const TABLE: Route[] = [
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       if (salesOrderId) q = q.eq('sales_order_id', salesOrderId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => KittingJobSchema.parse(r)));
     },
   },
@@ -697,7 +697,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('kitting_jobs')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         return created(KittingJobSchema.parse(data));
       });
     },
@@ -741,7 +741,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(KittingJobSchema.parse(data));
       });
@@ -772,7 +772,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('id').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok({ id: params.id, deleted: true });
       });
@@ -797,7 +797,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(KittingJobSchema.parse(data));
       });
@@ -833,7 +833,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(KittingJobSchema.parse(data));
       });
@@ -858,7 +858,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(KittingJobSchema.parse(data));
       });
@@ -879,7 +879,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('kitting_job_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => KittingJobConsumedLineItemSchema.parse(r)));
     },
   },
@@ -912,7 +912,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('kitting_job_consumed_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           return created(KittingJobConsumedLineItemSchema.parse(data));
         },
       );
@@ -944,7 +944,7 @@ const TABLE: Route[] = [
             .eq('kitting_job_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(KittingJobConsumedLineItemSchema.parse(data));
         },
@@ -968,7 +968,7 @@ const TABLE: Route[] = [
             .eq('kitting_job_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },
@@ -990,7 +990,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('kitting_job_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => KittingJobProducedLineItemSchema.parse(r)));
     },
   },
@@ -1023,7 +1023,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('kitting_job_produced_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           return created(KittingJobProducedLineItemSchema.parse(data));
         },
       );
@@ -1055,7 +1055,7 @@ const TABLE: Route[] = [
             .eq('kitting_job_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(KittingJobProducedLineItemSchema.parse(data));
         },
@@ -1079,7 +1079,7 @@ const TABLE: Route[] = [
             .eq('kitting_job_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('copack-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },
@@ -1106,7 +1106,7 @@ const TABLE: Route[] = [
       if (salesOrderId) q = q.eq('sales_order_id', salesOrderId);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('copack-api', error);
       return ok((data ?? []).map((r) => FulfillmentSchema.parse(r)));
     },
   },
@@ -1139,7 +1139,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('fulfillments')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         return created(FulfillmentSchema.parse(data));
       });
     },
@@ -1172,7 +1172,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(FulfillmentSchema.parse(data));
       });
@@ -1197,7 +1197,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(FulfillmentSchema.parse(data));
       });
@@ -1226,7 +1226,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(FulfillmentSchema.parse(data));
       });
@@ -1252,7 +1252,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('copack-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(FulfillmentSchema.parse(data));
       });

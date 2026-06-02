@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created,
+  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
   requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
   assertTransition,
 } from '../shared.ts';
@@ -78,7 +78,7 @@ export function handleExpenses(): Route[] {
               created_by: caller.userId, updated_by: caller.userId,
             })
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/expenses', error);
           return created(ExpenseSchema.parse(data));
         });
       },
@@ -106,7 +106,7 @@ export function handleExpenses(): Route[] {
             .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
             .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/expenses', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(ExpenseSchema.parse(data));
         });
@@ -128,7 +128,7 @@ export function handleExpenses(): Route[] {
             .update({ status: body.to, updated_by: caller.userId, updated_at: new Date().toISOString() })
             .eq('org_id', caller.orgId).eq('id', params.id)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('vendors-api/expenses', error);
           return ok(ExpenseSchema.parse(data));
         });
       },

@@ -5,9 +5,10 @@
 // Handlers now import requireCap from _shared/handler-helpers.ts directly
 // via the re-export below.
 
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import { admin, parseLimit, decodeCursor, paginate, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { listOrgScoped, getByIdOrgScoped } from '../_shared/crud.ts';
 import {
   canTransitionVio,
   type Fsm,
@@ -16,6 +17,10 @@ import {
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, paginate, parseBody,
   parseUuidParam, respondWithIdempotency, created, requireCaller, requireCap,
+  internalError,
+  // E6: relocated to _shared/crud.ts; re-exported so the vendors-api bundle
+  // keeps its existing import surface unchanged.
+  listOrgScoped, getByIdOrgScoped,
 };
 export type { Caller };
 
@@ -35,69 +40,4 @@ export function assertTransition<S extends string>(
       `illegal ${fsm.entity} transition: ${from} -> ${to}`,
     );
   }
-}
-
-/**
- * Cursor-paginated list over a tenant-scoped table. Order by
- * (created_at desc, id desc). Returns canonical { items, next_cursor }.
- */
-export async function listOrgScoped<T extends { id: string; created_at: string }>(
-  table: string,
-  caller: Caller,
-  url: URL,
-  options: {
-    select?: string;
-    filters?: Array<[string, string, string]>;
-    softDelete?: boolean;
-  } = {},
-): Promise<{ items: T[]; next_cursor: string | null }> {
-  const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
-  const select = options.select ?? '*';
-
-  let q = admin()
-    .from(table)
-    .select(select)
-    .eq('org_id', caller.orgId)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
-
-  if (options.softDelete !== false) {
-    q = q.is('deleted_at', null);
-  }
-  for (const [col, op, val] of options.filters ?? []) {
-    if (op === 'eq') q = q.eq(col, val);
-    else if (op === 'ilike') q = q.ilike(col, val);
-  }
-  if (cursor) {
-    q = q.lt('created_at', cursor.created_at);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  }
-  return paginate<T>((data ?? []) as T[], limit);
-}
-
-export async function getByIdOrgScoped<T>(
-  table: string,
-  caller: Caller,
-  id: string,
-  select = '*',
-): Promise<T> {
-  const { data, error } = await admin()
-    .from(table)
-    .select(select)
-    .eq('org_id', caller.orgId)
-    .eq('id', id)
-    .maybeSingle();
-  if (error) {
-    throw new ApiError('INTERNAL_ERROR', 500, error.message);
-  }
-  if (!data) {
-    throw new ApiError('NOT_FOUND', 404);
-  }
-  return data as T;
 }

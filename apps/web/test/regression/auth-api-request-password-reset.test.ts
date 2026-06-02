@@ -34,6 +34,28 @@ import {
 const USER_ID = '00000000-0000-4000-8000-0000000000c1';
 const USER_EMAIL = 'operator@example.test';
 
+// D7: the handler resolves email -> user_id through a parameterised profiles
+// lookup, then loads the auth user by id (no listUsers filter string). Seed a
+// profiles row plus a matching getUserById echo for the known user.
+function makeStateWithProfile() {
+  const state = makeState({
+    profiles: [{ user_id: USER_ID, email: USER_EMAIL }],
+  });
+  state.authAdminGetUserByIdResults = {
+    [USER_ID]: {
+      data: {
+        user: {
+          id: USER_ID,
+          email: USER_EMAIL,
+          email_confirmed_at: '2026-01-01T00:00:00Z',
+        },
+      },
+      error: null,
+    },
+  };
+  return state;
+}
+
 function postReset(
   body: Record<string, unknown> | string | undefined,
 ): Request {
@@ -75,8 +97,7 @@ describe('auth-api POST /auth/request-password-reset - F-Wave9-INVITE-PASSWORD-S
   });
 
   it('anti-leak: unknown email returns 200 accepted:true with no side effects', async () => {
-    const state = makeState();
-    state.authAdminListUsersResult = { data: { users: [] }, error: null };
+    const state = makeStateWithProfile();
     setActiveMockState(state);
 
     const res = await handler(postReset({ email: 'nobody@example.test' }));
@@ -91,11 +112,7 @@ describe('auth-api POST /auth/request-password-reset - F-Wave9-INVITE-PASSWORD-S
   });
 
   it('anti-leak: generateLink internal error returns 200; no notifications row', async () => {
-    const state = makeState();
-    state.authAdminListUsersResult = {
-      data: { users: [{ id: USER_ID, email: USER_EMAIL }] },
-      error: null,
-    };
+    const state = makeStateWithProfile();
     state.authAdminGenerateLinkResult = {
       data: { user: null, properties: null },
       error: { message: 'Rate limit exceeded' },
@@ -124,11 +141,7 @@ describe('auth-api POST /auth/request-password-reset - F-Wave9-INVITE-PASSWORD-S
   });
 
   it('happy path: known email triggers recovery generateLink + queues notifications row', async () => {
-    const state = makeState();
-    state.authAdminListUsersResult = {
-      data: { users: [{ id: USER_ID, email: USER_EMAIL }] },
-      error: null,
-    };
+    const state = makeStateWithProfile();
     state.authAdminGenerateLinkResult = {
       data: {
         user: { id: USER_ID, email: USER_EMAIL },
@@ -174,11 +187,7 @@ describe('auth-api POST /auth/request-password-reset - F-Wave9-INVITE-PASSWORD-S
   });
 
   it('normalises email (trim + lowercase) before lookup', async () => {
-    const state = makeState();
-    state.authAdminListUsersResult = {
-      data: { users: [{ id: USER_ID, email: USER_EMAIL }] },
-      error: null,
-    };
+    const state = makeStateWithProfile();
     state.authAdminGenerateLinkResult = {
       data: {
         user: { id: USER_ID, email: USER_EMAIL },
@@ -190,8 +199,9 @@ describe('auth-api POST /auth/request-password-reset - F-Wave9-INVITE-PASSWORD-S
 
     const res = await handler(postReset({ email: '  OPERATOR@Example.TEST  ' }));
     expect(res.status).toBe(200);
-    expect(state.authAdminListUsersCalls).toHaveLength(1);
-    expect(state.authAdminListUsersCalls[0]?.filter).toContain(USER_EMAIL);
+    // The normalised email resolves through the profiles lookup to the user id,
+    // then loads the auth user by id (no listUsers filter string).
+    expect(state.authAdminGetUserByIdCalls).toContain(USER_ID);
     expect(state.authAdminGenerateLinkCalls[0]?.email).toBe(USER_EMAIL);
   });
 });

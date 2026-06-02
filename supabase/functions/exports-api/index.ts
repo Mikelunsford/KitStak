@@ -6,7 +6,7 @@
 
 import { route, type Route } from '../_shared/route.ts';
 import { admin, requireCap } from '../_shared/handler-helpers.ts';
-import { ApiError } from '../_shared/responses.ts';
+import { ApiError, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { HTTP_HEADERS } from '../_shared/constants.ts';
@@ -122,7 +122,7 @@ const exportEntity: Route = {
       .limit(10_000);
 
     if (error) {
-      throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      throw internalError('exports-api', error);
     }
 
     const header = spec.columns.join(',');
@@ -138,7 +138,7 @@ const exportEntity: Route = {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${entity}-export.csv"`,
         [HTTP_HEADERS.X_REQUEST_ID]: crypto.randomUUID(),
-        ...corsHeaders(),
+        ...corsHeaders(req),
       },
     });
   },

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { meKeys } from '@/lib/queryKeys/me';
 import { getMe } from '@/lib/services/meService';
+import { QUERY_DEFAULTS } from './queryDefaults';
 
 /**
  * React Query hook for the caller's `/auth-api/me` payload.
@@ -16,6 +17,7 @@ export function useMe(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: meKeys.all,
     queryFn: getMe,
+    ...QUERY_DEFAULTS,
     staleTime: 60_000,
     enabled: opts.enabled ?? false,
   });

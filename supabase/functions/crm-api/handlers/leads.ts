@@ -3,9 +3,10 @@
 // inserts a customer + opportunity and stamps the lead under one transaction.
 
 import type { RouteCtx } from '../../_shared/route.ts';
-import { ApiError, ok, created } from '../../_shared/responses.ts';
+import { ApiError, ok } from '../../_shared/responses.ts';
 import {
   admin,
+  created,
   decodeCursor,
   paginate,
   parseBody,

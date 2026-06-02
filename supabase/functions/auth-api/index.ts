@@ -32,6 +32,7 @@ import { z } from 'zod';
 import { route, type RouteCtx } from '../_shared/route.ts';
 import {
   admin,
+  created,
   respondWithIdempotency,
   parseBody,
   parseUuidParam,
@@ -41,7 +42,7 @@ import {
   readCallerContext,
   requireCaller,
 } from '../_shared/tenant.ts';
-import { ok, created, ApiError } from '../_shared/responses.ts';
+import { ok, ApiError, internalError } from '../_shared/responses.ts';
 import {
   InviteStaffRequestSchema,
   MeResponseSchema,
@@ -70,10 +71,9 @@ async function getMe(ctx: RouteCtx): Promise<Response> {
   const { data: authUser, error: authError } =
     await sb.auth.admin.getUserById(caller.userId);
   if (authError || !authUser?.user) {
-    throw new ApiError(
-      'INTERNAL_ERROR',
-      500,
-      `failed to read auth user: ${authError?.message ?? 'unknown'}`,
+    throw internalError(
+      'auth-api/getMe:auth_user_lookup',
+      authError ?? 'auth user not found',
     );
   }
 
@@ -84,11 +84,7 @@ async function getMe(ctx: RouteCtx): Promise<Response> {
     .maybeSingle();
 
   if (profileQ.error) {
-    throw new ApiError(
-      'INTERNAL_ERROR',
-      500,
-      `profile lookup failed: ${profileQ.error.message}`,
-    );
+    throw internalError('auth-api/getMe:profile_lookup', profileQ.error);
   }
 
   const email =
@@ -113,11 +109,7 @@ async function getMe(ctx: RouteCtx): Promise<Response> {
     .eq('is_active', true);
 
   if (membershipQ.error) {
-    throw new ApiError(
-      'INTERNAL_ERROR',
-      500,
-      `membership lookup failed: ${membershipQ.error.message}`,
-    );
+    throw internalError('auth-api:membership_lookup_failed', membershipQ.error);
   }
 
   type MembershipJoinRow = {
@@ -224,11 +216,7 @@ async function postSwitchOrg(ctx: RouteCtx): Promise<Response> {
         .maybeSingle();
 
       if (membershipErr) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `membership lookup failed: ${membershipErr.message}`,
-        );
+        throw internalError('auth-api:membership_lookup_failed', membershipErr);
       }
       if (!membership) {
         // Surfaced as 404 per the constitution: cross-tenant reads return
@@ -261,11 +249,7 @@ async function postSwitchOrg(ctx: RouteCtx): Promise<Response> {
         },
       );
       if (updateErr) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `claim update failed: ${updateErr.message}`,
-        );
+        throw internalError('auth-api:claim_update_failed', updateErr);
       }
 
       // Also record the last_org_id on the profile so the next sign-in
@@ -327,6 +311,8 @@ const SIGNIN_LINK_RESPONSE = {
 const PORTAL_REDIRECT_URL = 'https://www.kitstak.com/portal';
 
 async function postRequestSignInLink(ctx: RouteCtx): Promise<Response> {
+  // D3: per-email / per-IP rate limiting on this endpoint is deferred to
+  // F-Wave9-PORTAL-SIGNIN-RATE-LIMIT-01. Not implemented here.
   let body: { email: string };
   try {
     body = await parseBody(ctx.req, RequestSignInLinkSchema);
@@ -343,25 +329,39 @@ async function postRequestSignInLink(ctx: RouteCtx): Promise<Response> {
   const email = body.email;
   const sb = admin();
 
-  // Look up the auth.users row for this email. The service-role client
-  // can read auth.users directly via the admin helpers; listUsers with a
-  // filter is the documented path.
-  // listUsers returns paginated results; the filter narrows server-side.
-  const { data: usersPage, error: usersErr } = await sb.auth.admin.listUsers({
-    page: 1,
-    perPage: 1,
-    filter: `email eq "${email.replace(/"/g, '')}"`,
-  } as unknown as { page: number; perPage: number });
-  if (usersErr) {
+  // Resolve the email to a user via the profiles table, then load the auth
+  // user by id (D7, F-Wave10-REVIEW-REMEDIATION). This removes the prior
+  // listUsers filter-string interpolation surface entirely: the email is now
+  // a parameterised `.eq('email', email)` predicate, never woven into a
+  // PostgREST/GoTrue filter string. Anti-enumeration is preserved: every
+  // miss / internal failure returns the same constant SIGNIN_LINK_RESPONSE.
+  const profileLookup = await sb
+    .from('profiles')
+    .select('user_id')
+    .eq('email', email)
+    .maybeSingle();
+  if (profileLookup.error) {
     // Internal-side failure: log but return success envelope so the
     // attacker cannot infer existence from response shape.
-    console.error('auth-api: listUsers failed during portal signin', {
-      message: usersErr.message,
+    console.error('auth-api: profile lookup failed during portal signin', {
+      message: profileLookup.error.message,
     });
     return ok(SIGNIN_LINK_RESPONSE);
   }
-  const user = usersPage?.users?.find((u) => u.email?.toLowerCase() === email);
-  if (!user) return ok(SIGNIN_LINK_RESPONSE);
+  if (!profileLookup.data) return ok(SIGNIN_LINK_RESPONSE);
+  const { data: authUser, error: authErr } = await sb.auth.admin.getUserById(
+    profileLookup.data.user_id,
+  );
+  if (authErr) {
+    console.error('auth-api: getUserById failed during portal signin', {
+      message: authErr.message,
+    });
+    return ok(SIGNIN_LINK_RESPONSE);
+  }
+  const user = authUser?.user ?? null;
+  if (!user || user.email?.toLowerCase() !== email) {
+    return ok(SIGNIN_LINK_RESPONSE);
+  }
 
   // The user exists. Confirm they hold a customer_user org_membership before
   // generating any link. We join through roles to keep the role-code coupling
@@ -498,11 +498,7 @@ async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
     .eq('is_active', true);
 
   if (membershipQ.error) {
-    throw new ApiError(
-      'INTERNAL_ERROR',
-      500,
-      `membership lookup failed: ${membershipQ.error.message}`,
-    );
+    throw internalError('auth-api:membership_lookup_failed', membershipQ.error);
   }
 
   type MembershipJoinRow = {
@@ -533,11 +529,7 @@ async function listOrgMembers(ctx: RouteCtx): Promise<Response> {
     .in('user_id', userIds);
 
   if (profilesQ.error) {
-    throw new ApiError(
-      'INTERNAL_ERROR',
-      500,
-      `profiles lookup failed: ${profilesQ.error.message}`,
-    );
+    throw internalError('auth-api:profiles_lookup_failed', profilesQ.error);
   }
 
   type ProfileRow = {
@@ -709,12 +701,7 @@ async function postInviteStaffMember(ctx: RouteCtx): Promise<Response> {
         },
       );
       if (rpcError) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `Staff membership creation failed: ${rpcError.message}`,
-          { detail: rpcError.message },
-        );
+        throw internalError('auth-api:staff_membership_creation', rpcError);
       }
 
       // Stamp the org claim onto the invitee's app_metadata so the very
@@ -860,24 +847,36 @@ async function postRequestPasswordReset(ctx: RouteCtx): Promise<Response> {
   const email = body.email;
   const sb = admin();
 
-  // Look up the auth.users row via the admin listUsers helper. The
-  // service-role client can read auth.users directly but listUsers is the
-  // documented filter path; same pattern as postRequestSignInLink.
-  const { data: usersPage, error: usersErr } = await sb.auth.admin.listUsers({
-    page: 1,
-    perPage: 1,
-    filter: `email eq "${email.replace(/"/g, '')}"`,
-  } as unknown as { page: number; perPage: number });
-
-  if (usersErr) {
-    console.error('auth-api: listUsers failed during password-reset', {
-      message: usersErr.message,
+  // Resolve the email to a user via the profiles table, then load the auth
+  // user by id (D7, F-Wave10-REVIEW-REMEDIATION). Same pattern as
+  // postRequestSignInLink: the email is a parameterised predicate, not a
+  // filter string, and every miss / failure returns the constant
+  // PASSWORD_RESET_RESPONSE so existence can never be inferred.
+  const profileLookup = await sb
+    .from('profiles')
+    .select('user_id')
+    .eq('email', email)
+    .maybeSingle();
+  if (profileLookup.error) {
+    console.error('auth-api: profile lookup failed during password-reset', {
+      message: profileLookup.error.message,
     });
     return ok(PASSWORD_RESET_RESPONSE);
   }
-
-  const user = usersPage?.users?.find((u) => u.email?.toLowerCase() === email);
-  if (!user) {
+  if (!profileLookup.data) {
+    return ok(PASSWORD_RESET_RESPONSE);
+  }
+  const { data: authUser, error: authErr } = await sb.auth.admin.getUserById(
+    profileLookup.data.user_id,
+  );
+  if (authErr) {
+    console.error('auth-api: getUserById failed during password-reset', {
+      message: authErr.message,
+    });
+    return ok(PASSWORD_RESET_RESPONSE);
+  }
+  const user = authUser?.user ?? null;
+  if (!user || user.email?.toLowerCase() !== email) {
     return ok(PASSWORD_RESET_RESPONSE);
   }
 
@@ -1017,11 +1016,7 @@ async function patchOrgMember(ctx: RouteCtx): Promise<Response> {
         .eq('org_id', caller.orgId)
         .maybeSingle();
       if (targetQ.error) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `membership lookup failed: ${targetQ.error.message}`,
-        );
+        throw internalError('auth-api:membership_lookup_failed', targetQ.error);
       }
       if (!targetQ.data) {
         throw new ApiError('NOT_FOUND', 404, 'Member not found.');
@@ -1041,11 +1036,7 @@ async function patchOrgMember(ctx: RouteCtx): Promise<Response> {
           .eq('code', body.role)
           .maybeSingle();
         if (roleQ.error) {
-          throw new ApiError(
-            'INTERNAL_ERROR',
-            500,
-            `role lookup failed: ${roleQ.error.message}`,
-          );
+          throw internalError('auth-api:role_lookup_failed', roleQ.error);
         }
         const roleRow = roleQ.data as { id: string; code: string } | null;
         if (!roleRow) {
@@ -1067,11 +1058,7 @@ async function patchOrgMember(ctx: RouteCtx): Promise<Response> {
         .eq('user_id', targetUserId)
         .eq('org_id', caller.orgId);
       if (updateQ.error) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `membership update failed: ${updateQ.error.message}`,
-        );
+        throw internalError('auth-api:membership_update_failed', updateQ.error);
       }
 
       // Re-read so the response carries the same shape listOrgMembers emits.
@@ -1094,11 +1081,7 @@ async function patchOrgMember(ctx: RouteCtx): Promise<Response> {
         .eq('org_id', caller.orgId)
         .maybeSingle();
       if (reReadQ.error || !reReadQ.data) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `post-update re-read failed: ${reReadQ.error?.message ?? 'no row'}`,
-        );
+        throw internalError('auth-api:post_update_re_read_failed', reReadQ.error);
       }
       type ReRead = {
         user_id: string;
@@ -1126,11 +1109,7 @@ async function patchOrgMember(ctx: RouteCtx): Promise<Response> {
         .eq('user_id', targetUserId)
         .maybeSingle();
       if (profileQ.error || !profileQ.data) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `profile lookup failed: ${profileQ.error?.message ?? 'no row'}`,
-        );
+        throw internalError('auth-api:profile_lookup_failed', profileQ.error);
       }
       const profile = profileQ.data as {
         email: string | null;
@@ -1233,11 +1212,7 @@ async function resendOrgMemberInvite(ctx: RouteCtx): Promise<Response> {
         .eq('org_id', caller.orgId)
         .maybeSingle();
       if (targetQ.error) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `membership lookup failed: ${targetQ.error.message}`,
-        );
+        throw internalError('auth-api:membership_lookup_failed', targetQ.error);
       }
       if (!targetQ.data) {
         throw new ApiError('NOT_FOUND', 404, 'Member not found.');
@@ -1258,11 +1233,7 @@ async function resendOrgMemberInvite(ctx: RouteCtx): Promise<Response> {
       const { data: authData, error: authErr } =
         await sb.auth.admin.getUserById(targetUserId);
       if (authErr || !authData?.user) {
-        throw new ApiError(
-          'INTERNAL_ERROR',
-          500,
-          `auth user lookup failed: ${authErr?.message ?? 'no user'}`,
-        );
+        throw internalError('auth-api:auth_user_lookup_failed', authErr);
       }
       const authUser = authData.user as {
         id: string;

@@ -10,9 +10,10 @@
 import { z } from 'zod';
 
 import type { RouteCtx } from '../../_shared/route.ts';
-import { ApiError, ok, created, noContent } from '../../_shared/responses.ts';
+import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
+  created,
   parseBody,
   parseUuidParam,
   respondWithIdempotency,
@@ -24,11 +25,90 @@ import {
 } from '../../_shared/types/finance.ts';
 import { BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
+import { roundHalfEven } from '../../_shared/money.ts';
 
 const LINE_COLS =
   'id, invoice_id, item_id, description, quantity, unit_price_cents, ' +
   'tax_rate_snapshot, tax_amount_cents, discount_cents, line_total_cents, ' +
   'sort_order';
+
+// A1 (WS-A MONEY INTEGRITY): line totals are SERVER-AUTHORITATIVE. The
+// client may send tax_amount_cents / line_total_cents in the body, but we
+// IGNORE those fields and persist server-recomputed values so a forged
+// total can never reach the invoice header sum (recompute_invoice_totals in
+// migration 0018 sums line_total_cents and tax_amount_cents directly).
+//
+// Invoice line formula (mirrors quotes-api computeLineMath shape; the only
+// divergence is tax_rate_snapshot grain — invoice tax_rate_snapshot is a
+// DECIMAL FRACTION numeric(7,4), e.g. 0.0825 = 8.25%, not integer bps as on
+// quotes). gross/net/tax are integer cents:
+//
+//   gross           = roundHalfEven(quantity * unit_price_cents)
+//   net             = gross - discount_cents        (flat per-line cents)
+//   tax_amount_cents= roundHalfEven(net * tax_rate_snapshot)
+//   line_total_cents= net + tax_amount_cents
+//
+// A6 (doc): currency is snapshotted at the document-header grain by design.
+// Kitstak is single-currency-per-document, so invoice lines do not carry a
+// per-line currency_code; the header invoices.currency_code is the snapshot.
+// Same convention holds on quote lines and purchase-order lines.
+//
+// Every cents product is computed in pure BigInt. The fractional inputs
+// (quantity numeric(18,4), tax_rate_snapshot numeric(7,4)) are scaled to
+// integers before the multiply, so the monetary product never passes through
+// float space; unscaleHalfEven then applies banker's rounding back to integer
+// cents at each boundary. unit_price_cents and discount_cents are already
+// integer cents. Float touches only the scaling of the non-monetary factors
+// (quantity, rate), and roundHalfEven cleans the representation dust there.
+interface InvoiceLineInputs {
+  quantity: number | string;
+  unit_price_cents: number | string;
+  tax_rate_snapshot: number | string;
+  discount_cents: number | string;
+}
+
+interface InvoiceLineMath {
+  tax_amount_cents: string;
+  line_total_cents: string;
+}
+
+// 4 decimal places captures both numeric(18,4) quantity and numeric(7,4) rate.
+const LINE_MATH_SCALE = 10_000n;
+
+// Banker's rounding (half to even) of a LINE_MATH_SCALE-scaled BigInt back to
+// integer cents, sign aware.
+function unscaleHalfEven(scaled: bigint): bigint {
+  const sign = scaled < 0n ? -1n : 1n;
+  const abs = scaled < 0n ? -scaled : scaled;
+  let whole = abs / LINE_MATH_SCALE;
+  const rem = abs % LINE_MATH_SCALE;
+  const half = LINE_MATH_SCALE / 2n;
+  if (rem > half || (rem === half && whole % 2n === 1n)) whole += 1n;
+  return sign * whole;
+}
+
+export function invoiceLineMath(inputs: InvoiceLineInputs): InvoiceLineMath {
+  const qtyScaled = BigInt(
+    roundHalfEven(Number(inputs.quantity) * Number(LINE_MATH_SCALE)),
+  );
+  const rateScaled = BigInt(
+    roundHalfEven(Number(inputs.tax_rate_snapshot) * Number(LINE_MATH_SCALE)),
+  );
+  const unit = BigInt(String(inputs.unit_price_cents));
+  const discount = BigInt(String(inputs.discount_cents));
+
+  // qtyScaled is quantity * SCALE, so qtyScaled * unit is gross cents * SCALE.
+  const gross = unscaleHalfEven(qtyScaled * unit);
+  const net = gross - discount;
+  // rateScaled is rate * SCALE, so net * rateScaled is tax cents * SCALE.
+  const taxAmount = unscaleHalfEven(net * rateScaled);
+  const lineTotal = net + taxAmount;
+
+  return {
+    tax_amount_cents: taxAmount.toString(),
+    line_total_cents: lineTotal.toString(),
+  };
+}
 
 const LineCreateSchema = z.object({
   description: z.string().min(1),
@@ -113,6 +193,14 @@ export async function createLineItem(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await ensureInvoiceForCaller(caller.orgId, invoiceId);
+      // A1: ignore client-supplied tax_amount_cents / line_total_cents and
+      // persist the server-recomputed values from the trusted inputs.
+      const computed = invoiceLineMath({
+        quantity: body.quantity,
+        unit_price_cents: body.unit_price_cents,
+        tax_rate_snapshot: body.tax_rate_snapshot,
+        discount_cents: body.discount_cents,
+      });
       const insert = {
         invoice_id: invoiceId,
         item_id: body.item_id ?? null,
@@ -120,9 +208,9 @@ export async function createLineItem(ctx: RouteCtx): Promise<Response> {
         quantity: body.quantity,
         unit_price_cents: body.unit_price_cents,
         tax_rate_snapshot: body.tax_rate_snapshot,
-        tax_amount_cents: body.tax_amount_cents,
+        tax_amount_cents: computed.tax_amount_cents,
         discount_cents: body.discount_cents,
-        line_total_cents: body.line_total_cents,
+        line_total_cents: computed.line_total_cents,
         sort_order: body.sort_order,
         created_by: caller.userId,
         updated_by: caller.userId,
@@ -157,10 +245,48 @@ export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       const invoiceId = await ensureInvoiceForLine(caller.orgId, lineId);
-      const patch: Record<string, unknown> = { updated_by: caller.userId };
-      for (const [k, v] of Object.entries(body)) {
-        if (v !== undefined) patch[k] = v;
+
+      // A1: PATCH is partial, so load the current row, overlay the supplied
+      // input fields, then server-recompute. Any client-supplied
+      // tax_amount_cents / line_total_cents in the body is dropped below.
+      const { data: existing, error: loadError } = await admin()
+        .from('invoice_line_items')
+        .select(LINE_COLS)
+        .eq('id', lineId)
+        .single();
+      if (loadError) {
+        throw new ApiError('INTERNAL_ERROR', 500, 'line load failed', {
+          detail: loadError.message,
+        });
       }
+      const current = existing as Record<string, unknown>;
+
+      const patch: Record<string, unknown> = { updated_by: caller.userId };
+      // Persist only the trusted input fields the caller actually sent.
+      for (const k of [
+        'description',
+        'quantity',
+        'unit_price_cents',
+        'tax_rate_snapshot',
+        'discount_cents',
+        'item_id',
+        'sort_order',
+      ] as const) {
+        if (body[k] !== undefined) patch[k] = body[k];
+      }
+
+      const computed = invoiceLineMath({
+        quantity: (patch.quantity ?? current.quantity) as number | string,
+        unit_price_cents: (patch.unit_price_cents ??
+          current.unit_price_cents) as number | string,
+        tax_rate_snapshot: (patch.tax_rate_snapshot ??
+          current.tax_rate_snapshot) as number | string,
+        discount_cents: (patch.discount_cents ??
+          current.discount_cents) as number | string,
+      });
+      patch.tax_amount_cents = computed.tax_amount_cents;
+      patch.line_total_cents = computed.line_total_cents;
+
       const { data, error } = await admin()
         .from('invoice_line_items')
         .update(patch)

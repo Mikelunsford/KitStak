@@ -11,6 +11,7 @@ import { route, type Route } from '../_shared/route.ts';
 import { admin, requireCap } from '../_shared/handler-helpers.ts';
 import { ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { roundHalfEven } from '../_shared/money.ts';
 import type {
   DashboardSummary,
   KitCostSummary,
@@ -74,7 +75,15 @@ async function existsRowForOrg(
     const { count, error } = await q;
     if (error) return false;
     return (count ?? 0) > 0;
-  } catch {
+  } catch (err) {
+    // E2: log the swallowed catch instead of dropping it. The false
+    // fallback keeps the setup-checklist signal off (never 500s a fresh
+    // org missing an upstream table), but the context is preserved.
+    console.error('dashboard.exists_row.fallback', {
+      org_id: orgId,
+      table,
+      detail: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
 }
@@ -476,12 +485,17 @@ const kitcostSummary: Route = {
         for (const lv of levelRows) {
           const qty = asNum(lv.quantity_on_hand);
           const cost = costByItem.get(lv.item_id as string) ?? 0n;
-          // Round half-even on the product to avoid drift on fractional qty.
+          // A3/A4: banker's rounding on the product to avoid drift on
+          // fractional qty (Math.round is half-up and is not banker's).
           const product = qty * Number(cost);
-          inventoryValue += BigInt(Math.round(product));
+          inventoryValue += BigInt(roundHalfEven(product));
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('dashboard.inventory_value.fallback', {
+        org_id: orgId,
+        detail: err instanceof Error ? err.message : String(err),
+      });
       inventoryValue = 0n;
     }
 
@@ -603,12 +617,16 @@ const kitcostSummary: Route = {
           if (!pid) continue;
           const qty = asNum(m.quantity);
           const unit = costByItem.get(m.item_id as string) ?? 0n;
-          const add = BigInt(Math.round(qty * Number(unit)));
+          const add = BigInt(roundHalfEven(qty * Number(unit)));
           costByProject.set(pid, (costByProject.get(pid) ?? 0n) + add);
         }
-      } catch {
+      } catch (err) {
         // Leave the cost map empty on any failure; the SPA renders the row
         // with zero cost rather than a 500.
+        console.error('dashboard.project_cost.fallback', {
+          org_id: orgId,
+          detail: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 

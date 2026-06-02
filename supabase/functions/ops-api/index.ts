@@ -42,7 +42,7 @@
 import { z } from 'zod';
 
 import { type Route } from '../_shared/route.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
@@ -80,7 +80,7 @@ async function loadOrgScoped<T>(table: string, caller: Caller, id: string): Prom
     .from(table).select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('ops-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return data as T;
 }
@@ -183,14 +183,14 @@ const ShipmentShip = z.object({
 async function assertReceivingParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('receiving_orders').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('ops-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
 async function assertShipmentParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('shipments').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('ops-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
@@ -204,7 +204,7 @@ async function nextPositionFor(
     .eq('org_id', caller.orgId)
     .eq(parentColumn, parentId)
     .order('position', { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('ops-api', error);
   return ((data?.position as number | undefined) ?? -1) + 1;
 }
 
@@ -236,7 +236,7 @@ const TABLE: Route[] = [
       if (vendorId) q = q.eq('vendor_id', vendorId);
       if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('ops-api', error);
       return ok((data ?? []).map((r) => ReceivingOrderSchema.parse(r)));
     },
   },
@@ -259,7 +259,7 @@ const TABLE: Route[] = [
           ...body, receiving_number, status: 'created', org_id: caller.orgId,
           created_by: caller.userId, updated_by: caller.userId,
         }).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return created(ReceivingOrderSchema.parse(data));
       });
     },
@@ -286,7 +286,7 @@ const TABLE: Route[] = [
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ReceivingOrderSchema.parse(data));
       });
@@ -319,7 +319,7 @@ const TABLE: Route[] = [
         const { data, error } = await admin().from('receiving_orders')
           .update(updatePayload)
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return ok(ReceivingOrderSchema.parse(data));
       });
     },
@@ -344,7 +344,7 @@ const TABLE: Route[] = [
             updated_at: new Date().toISOString(),
           })
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return ok(ReceivingOrderSchema.parse(data));
       });
     },
@@ -363,7 +363,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('receiving_order_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('ops-api', error);
       return ok((data ?? []).map((r) => ReceivingOrderLineItemSchema.parse(r)));
     },
   },
@@ -396,7 +396,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('receiving_order_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('ops-api', error);
           return created(ReceivingOrderLineItemSchema.parse(data));
         },
       );
@@ -429,7 +429,7 @@ const TABLE: Route[] = [
             .eq('receiving_order_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('ops-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(ReceivingOrderLineItemSchema.parse(data));
         },
@@ -453,7 +453,7 @@ const TABLE: Route[] = [
             .eq('receiving_order_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('ops-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },
@@ -470,7 +470,7 @@ const TABLE: Route[] = [
       const { data, error } = await admin().from('production_runs').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(200);
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('ops-api', error);
       return ok((data ?? []).map((r) => ProductionRunSchema.parse(r)));
     },
   },
@@ -485,7 +485,7 @@ const TABLE: Route[] = [
           ...body, status: 'planned', org_id: caller.orgId,
           created_by: caller.userId, updated_by: caller.userId,
         }).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return created(ProductionRunSchema.parse(data));
       });
     },
@@ -512,7 +512,7 @@ const TABLE: Route[] = [
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ProductionRunSchema.parse(data));
       });
@@ -535,7 +535,7 @@ const TABLE: Route[] = [
             updated_at: new Date().toISOString(),
           })
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return ok(ProductionRunSchema.parse(data));
       });
     },
@@ -565,7 +565,7 @@ const TABLE: Route[] = [
             updated_at: new Date().toISOString(),
           })
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return ok(ProductionRunSchema.parse(data));
       });
     },
@@ -594,7 +594,7 @@ const TABLE: Route[] = [
       if (customerId) q = q.eq('customer_id', customerId);
       if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('ops-api', error);
       return ok((data ?? []).map((r) => ShipmentSchema.parse(r)));
     },
   },
@@ -617,7 +617,7 @@ const TABLE: Route[] = [
           ...body, shipment_number, status: 'created', org_id: caller.orgId,
           created_by: caller.userId, updated_by: caller.userId,
         }).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return created(ShipmentSchema.parse(data));
       });
     },
@@ -644,7 +644,7 @@ const TABLE: Route[] = [
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ShipmentSchema.parse(data));
       });
@@ -663,7 +663,7 @@ const TABLE: Route[] = [
         const { data, error } = await admin().from('shipments')
           .update({ status: body.to, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return ok(ShipmentSchema.parse(data));
       });
     },
@@ -697,7 +697,7 @@ const TABLE: Route[] = [
             updated_at: new Date().toISOString(),
           })
           .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('ops-api', error);
         return ok(ShipmentSchema.parse(data));
       });
     },
@@ -716,7 +716,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('shipment_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('ops-api', error);
       return ok((data ?? []).map((r) => ShipmentLineItemSchema.parse(r)));
     },
   },
@@ -749,7 +749,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('shipment_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('ops-api', error);
           return created(ShipmentLineItemSchema.parse(data));
         },
       );
@@ -782,7 +782,7 @@ const TABLE: Route[] = [
             .eq('shipment_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('ops-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(ShipmentLineItemSchema.parse(data));
         },
@@ -806,7 +806,7 @@ const TABLE: Route[] = [
             .eq('shipment_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('ops-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },

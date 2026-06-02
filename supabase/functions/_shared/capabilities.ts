@@ -11,6 +11,12 @@
 //
 // Shape: <domain>.<resource>.<action>. Server is authority via requireCap();
 // SPA mirrors CAPABILITIES_BY_ROLE only to hide buttons.
+//
+// SIZE EXCEPTION (E8, F-Wave10-REVIEW-REMEDIATION): this file exceeds the
+// 800-line coding-style guideline by design. It is a singular byte-mirror
+// canon (~120 capabilities plus the role policy matrix) and must stay in one
+// file so the parity contract test can assert it byte-identical with its
+// mirror. Splitting it would break that mirror and fragment the authority.
 
 export type RoleCode =
   | 'org_owner'
@@ -83,6 +89,9 @@ export type Capability =
   | 'portal.attachment.read'
   | 'pdf.document.render'
   | 'kitcost.dashboard.view'
+  | 'saved_views.saved_view.read'
+  | 'saved_views.saved_view.create'
+  | 'saved_views.saved_view.delete'
   // finance (24)
   | 'invoices.read'
   | 'invoices.write'
@@ -365,6 +374,9 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'exports.job.create',
   'pdf.document.render',
   'kitcost.dashboard.view',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance (full)
   'invoices.read',
   'invoices.write',
@@ -630,6 +642,9 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'exports.job.create',
   'pdf.document.render',
   'kitcost.dashboard.view',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance (full)
   'invoices.read',
   'invoices.write',
@@ -878,6 +893,9 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'dashboard.summary.read',
   'exports.job.create',
   'pdf.document.render',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance SALES
   'invoices.read',
   'invoices.write',
@@ -986,6 +1004,9 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'dashboard.summary.read',
   'exports.job.create',
   'pdf.document.render',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance OPS
   'invoices.read',
   'payments.read',
@@ -1149,6 +1170,9 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   'exports.job.create',
   'pdf.document.render',
   'kitcost.dashboard.view',
+  'saved_views.saved_view.read',
+  'saved_views.saved_view.create',
+  'saved_views.saved_view.delete',
   // finance ACCOUNTING
   'invoices.read',
   'invoices.write',
@@ -1272,6 +1296,7 @@ const VIEWER_CAPS: ReadonlyArray<Capability> = [
   'search.global.read',
   'dashboard.summary.read',
   'pdf.document.render',
+  'saved_views.saved_view.read',
   // finance VIEWER
   'invoices.read',
   'payments.read',

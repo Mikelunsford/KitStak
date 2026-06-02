@@ -15,6 +15,7 @@
 import type { Item, ProjectLineItem } from '@/lib/types/sales';
 import type { ShipmentLineItem } from '@/lib/types/vendors_inventory_ops';
 import type { InvoiceLineCreate } from '@/lib/services/invoiceLineItemsService';
+import { roundHalfEven } from '@/lib/money';
 
 /**
  * Lookup a string field off an Item by id, used to derive the
@@ -42,10 +43,11 @@ function findItem(
  *   - unit_price_cents <- item.unit_price_cents (the SALES price, not the
  *                         shipment's unit_cost_cents, which is the COGS
  *                         snapshot for inventory accounting)
- *   - line_total_cents <- round(qty * price) using banker's rounding via
- *                         Math.round (caller-side recomputation is fine
- *                         because the handler does not enforce equality;
- *                         we mirror the InvoiceDetailPage Add Line math)
+ *   - line_total_cents <- roundHalfEven(qty * price) using banker's rounding.
+ *                         This is a client-side prefill only; the invoicing
+ *                         handler now server-recomputes line totals (A1), so
+ *                         the prefill value is a display convenience and the
+ *                         server is the authority on persisted totals.
  *   - item_id         <- preserved so downstream reporting joins back
  *   - sort_order      <- shipment line position (1-based on the form)
  */
@@ -61,7 +63,7 @@ export function shipmentLineToInvoiceLineCreate(
   const qtyNum = Number(shipmentLine.quantity);
   const priceNum = Number(item.unit_price_cents);
   if (!Number.isFinite(qtyNum) || !Number.isFinite(priceNum)) return null;
-  const lineTotal = Math.round(qtyNum * priceNum);
+  const lineTotal = roundHalfEven(qtyNum * priceNum);
   return {
     description: item.name,
     quantity: String(shipmentLine.quantity),
@@ -84,7 +86,7 @@ export function shipmentLineToInvoiceLineCreate(
  *   - description     <- project line description, falling back to name
  *   - quantity        <- project line quantity
  *   - unit_price_cents <- project line unit_price_cents
- *   - line_total_cents <- round(qty * price)
+ *   - line_total_cents <- roundHalfEven(qty * price)
  *   - item_id         <- preserved when present (nullable on project lines)
  *   - sort_order      <- project line position
  */
@@ -98,7 +100,7 @@ export function projectLineToInvoiceLineCreate(
   const priceNum = Number(projectLine.unit_price_cents);
   const lineTotal =
     Number.isFinite(qtyNum) && Number.isFinite(priceNum)
-      ? Math.round(qtyNum * priceNum)
+      ? roundHalfEven(qtyNum * priceNum)
       : 0;
   const body: InvoiceLineCreate = {
     description: projectLine.description ?? projectLine.name,

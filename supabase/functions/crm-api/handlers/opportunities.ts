@@ -3,9 +3,10 @@
 // illegal moves return 409 instead of triggering the DB CHECK constraint.
 
 import type { RouteCtx } from '../../_shared/route.ts';
-import { ApiError, ok, created } from '../../_shared/responses.ts';
+import { ApiError, ok } from '../../_shared/responses.ts';
 import {
   admin,
+  created,
   decodeCursor,
   paginate,
   parseBody,

@@ -47,7 +47,7 @@
 //   DELETE /manufacturing-runs/:id/produced/:lineId      delete
 
 import { type Route } from '../_shared/route.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
@@ -81,7 +81,7 @@ async function loadRun(caller: Caller, id: string): Promise<ManufacturingRun> {
     .from('manufacturing_runs').select('*')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
     .maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('manufacturing-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
   return ManufacturingRunSchema.parse(data);
 }
@@ -91,7 +91,7 @@ async function loadRun(caller: Caller, id: string): Promise<ManufacturingRun> {
 async function assertRunParent(caller: Caller, id: string): Promise<void> {
   const { data, error } = await admin().from('manufacturing_runs').select('id')
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('manufacturing-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
 }
 
@@ -104,7 +104,7 @@ async function nextLinePosition(
     .eq('org_id', caller.orgId)
     .eq('manufacturing_run_id', runId)
     .order('position', { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+  if (error) throw internalError('manufacturing-api', error);
   return ((data?.position as number | undefined) ?? -1) + 1;
 }
 
@@ -167,7 +167,7 @@ const TABLE: Route[] = [
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('manufacturing-api', error);
       return ok((data ?? []).map((r) => ManufacturingRunSchema.parse(r)));
     },
   },
@@ -203,7 +203,7 @@ const TABLE: Route[] = [
         };
         const { data, error } = await admin().from('manufacturing_runs')
           .insert(insert).select('*').single();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('manufacturing-api', error);
         return created(ManufacturingRunSchema.parse(data));
       });
     },
@@ -253,7 +253,7 @@ const TABLE: Route[] = [
           .update(patch)
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('manufacturing-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ManufacturingRunSchema.parse(data));
       });
@@ -285,7 +285,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('id').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('manufacturing-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok({ id: params.id, deleted: true });
       });
@@ -314,7 +314,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('manufacturing-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ManufacturingRunSchema.parse(data));
       });
@@ -343,7 +343,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('manufacturing-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ManufacturingRunSchema.parse(data));
       });
@@ -368,7 +368,7 @@ const TABLE: Route[] = [
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
           .select('*').maybeSingle();
-        if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+        if (error) throw internalError('manufacturing-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(ManufacturingRunSchema.parse(data));
       });
@@ -389,7 +389,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('manufacturing_run_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('manufacturing-api', error);
       return ok((data ?? []).map((r) => ManufacturingRunConsumedLineItemSchema.parse(r)));
     },
   },
@@ -422,7 +422,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('manufacturing_run_consumed_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('manufacturing-api', error);
           return created(ManufacturingRunConsumedLineItemSchema.parse(data));
         },
       );
@@ -454,7 +454,7 @@ const TABLE: Route[] = [
             .eq('manufacturing_run_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('manufacturing-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(ManufacturingRunConsumedLineItemSchema.parse(data));
         },
@@ -478,7 +478,7 @@ const TABLE: Route[] = [
             .eq('manufacturing_run_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('manufacturing-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },
@@ -500,7 +500,7 @@ const TABLE: Route[] = [
         .eq('org_id', caller.orgId)
         .eq('manufacturing_run_id', params.id)
         .order('position', { ascending: true });
-      if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+      if (error) throw internalError('manufacturing-api', error);
       return ok((data ?? []).map((r) => ManufacturingRunProducedLineItemSchema.parse(r)));
     },
   },
@@ -533,7 +533,7 @@ const TABLE: Route[] = [
           const { data, error } = await admin()
             .from('manufacturing_run_produced_line_items').insert(insert)
             .select('*').single();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('manufacturing-api', error);
           return created(ManufacturingRunProducedLineItemSchema.parse(data));
         },
       );
@@ -565,7 +565,7 @@ const TABLE: Route[] = [
             .eq('manufacturing_run_id', params.id)
             .eq('id', params.lineId)
             .select('*').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('manufacturing-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok(ManufacturingRunProducedLineItemSchema.parse(data));
         },
@@ -589,7 +589,7 @@ const TABLE: Route[] = [
             .eq('manufacturing_run_id', params.id)
             .eq('id', params.lineId)
             .select('id').maybeSingle();
-          if (error) throw new ApiError('INTERNAL_ERROR', 500, error.message);
+          if (error) throw internalError('manufacturing-api', error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lineId, deleted: true });
         },

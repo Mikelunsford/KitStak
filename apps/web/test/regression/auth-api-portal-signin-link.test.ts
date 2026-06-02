@@ -59,7 +59,38 @@ function makeStateWithMemberships() {
         is_active: true,
       },
     ],
+    // D7: the handler now resolves email -> user_id via a parameterised
+    // profiles lookup, then loads the auth user by id (no listUsers filter
+    // string). Seed profiles so the lookup can find the user.
+    profiles: [
+      { user_id: CUSTOMER_USER_ID, email: CUSTOMER_USER_EMAIL },
+      { user_id: STAFF_USER_ID, email: STAFF_EMAIL },
+    ],
   });
+  // Echo the auth user by id with the matching email so the handler's
+  // email-confirmation check passes.
+  state.authAdminGetUserByIdResults = {
+    [CUSTOMER_USER_ID]: {
+      data: {
+        user: {
+          id: CUSTOMER_USER_ID,
+          email: CUSTOMER_USER_EMAIL,
+          email_confirmed_at: '2026-01-01T00:00:00Z',
+        },
+      },
+      error: null,
+    },
+    [STAFF_USER_ID]: {
+      data: {
+        user: {
+          id: STAFF_USER_ID,
+          email: STAFF_EMAIL,
+          email_confirmed_at: '2026-01-01T00:00:00Z',
+        },
+      },
+      error: null,
+    },
+  };
   return state;
 }
 
@@ -105,8 +136,7 @@ describe('auth-api POST /portal/request-signin-link - Path B2.5a', () => {
 
   it('anti-leak: unknown email returns canonical 200 envelope; no generateLink, no notifications', async () => {
     const state = makeStateWithMemberships();
-    // listUsers returns empty (email not in auth.users).
-    state.authAdminListUsersResult = { data: { users: [] }, error: null };
+    // profiles lookup misses (email not registered).
     setActiveMockState(state);
 
     const res = await handler(postSigninLink({ email: 'nobody@example.test' }));
@@ -122,10 +152,6 @@ describe('auth-api POST /portal/request-signin-link - Path B2.5a', () => {
 
   it('anti-leak: email exists but has no customer_user membership returns canonical 200; no generateLink', async () => {
     const state = makeStateWithMemberships();
-    state.authAdminListUsersResult = {
-      data: { users: [{ id: STAFF_USER_ID, email: STAFF_EMAIL }] },
-      error: null,
-    };
     setActiveMockState(state);
 
     const res = await handler(postSigninLink({ email: STAFF_EMAIL }));
@@ -140,12 +166,6 @@ describe('auth-api POST /portal/request-signin-link - Path B2.5a', () => {
 
   it('happy path: customer_user membership triggers generateLink + notifications row', async () => {
     const state = makeStateWithMemberships();
-    state.authAdminListUsersResult = {
-      data: {
-        users: [{ id: CUSTOMER_USER_ID, email: CUSTOMER_USER_EMAIL }],
-      },
-      error: null,
-    };
     state.authAdminGenerateLinkResult = {
       data: {
         user: { id: CUSTOMER_USER_ID, email: CUSTOMER_USER_EMAIL },
@@ -192,12 +212,6 @@ describe('auth-api POST /portal/request-signin-link - Path B2.5a', () => {
 
   it('anti-leak: generateLink internal error returns canonical 200; no notifications row', async () => {
     const state = makeStateWithMemberships();
-    state.authAdminListUsersResult = {
-      data: {
-        users: [{ id: CUSTOMER_USER_ID, email: CUSTOMER_USER_EMAIL }],
-      },
-      error: null,
-    };
     state.authAdminGenerateLinkResult = {
       data: { user: null, properties: null },
       error: { message: 'Rate limit exceeded' },
@@ -227,12 +241,6 @@ describe('auth-api POST /portal/request-signin-link - Path B2.5a', () => {
 
   it('normalises email (trim + lowercase) before lookup', async () => {
     const state = makeStateWithMemberships();
-    state.authAdminListUsersResult = {
-      data: {
-        users: [{ id: CUSTOMER_USER_ID, email: CUSTOMER_USER_EMAIL }],
-      },
-      error: null,
-    };
     state.authAdminGenerateLinkResult = {
       data: {
         user: { id: CUSTOMER_USER_ID, email: CUSTOMER_USER_EMAIL },
@@ -248,11 +256,9 @@ describe('auth-api POST /portal/request-signin-link - Path B2.5a', () => {
     expect(res.status).toBe(200);
     // The Zod schema trims + lowercases via .transform() before email
     // validation, so the handler should see the canonical
-    // `customer@example.test` and pass it to listUsers.
-    expect(state.authAdminListUsersCalls).toHaveLength(1);
-    expect(state.authAdminListUsersCalls[0]?.filter).toContain(
-      CUSTOMER_USER_EMAIL,
-    );
+    // `customer@example.test`, resolve it through the profiles lookup, and
+    // load the auth user by id (no listUsers filter string).
+    expect(state.authAdminGetUserByIdCalls).toContain(CUSTOMER_USER_ID);
     // Generate was called with the normalised email too.
     expect(state.authAdminGenerateLinkCalls[0]?.email).toBe(
       CUSTOMER_USER_EMAIL,

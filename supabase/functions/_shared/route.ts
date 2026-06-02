@@ -194,6 +194,9 @@ export async function route(
     if (err instanceof ApiError) {
       return withRequestId(fromApiError(err), requestId);
     }
+    // D2 (F-Wave10-REVIEW-REMEDIATION): log the real message server-side, but
+    // never echo it on the wire. The response carries a fixed opaque message
+    // so dispatch-level faults do not leak database or stack internals.
     const message = err instanceof Error ? err.message : String(err);
     console.error('unhandled error in route dispatch', {
       bundle: opts.bundle,
@@ -202,7 +205,13 @@ export async function route(
       message,
     });
     return withRequestId(
-      fromApiError(new ApiError(ERROR_CODES.INTERNAL_ERROR, 500, message)),
+      fromApiError(
+        new ApiError(
+          ERROR_CODES.INTERNAL_ERROR,
+          500,
+          'An internal error occurred.',
+        ),
+      ),
       requestId,
     );
   }

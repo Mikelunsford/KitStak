@@ -19,6 +19,8 @@ import type { JournalEntryLineInput } from '@/lib/services/journalEntriesService
  */
 
 interface DraftLine {
+  /** Stable client-side key so React reconciles rows by identity, not index. */
+  id: string;
   account_id: string;
   debit_cents: string;
   credit_cents: string;
@@ -26,7 +28,13 @@ interface DraftLine {
 }
 
 function emptyLine(): DraftLine {
-  return { account_id: '', debit_cents: '0', credit_cents: '0', memo: '' };
+  return {
+    id: crypto.randomUUID(),
+    account_id: '',
+    debit_cents: '0',
+    credit_cents: '0',
+    memo: '',
+  };
 }
 
 export function JournalEntryCreatePage() {
@@ -165,7 +173,7 @@ export function JournalEntryCreatePage() {
             </thead>
             <tbody>
               {lines.map((line, i) => (
-                <tr key={i} className="border-b border-line">
+                <tr key={line.id} className="border-b border-line">
                   <td className="py-2 pr-2">
                     <select
                       value={line.account_id}

@@ -61,6 +61,42 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Build an opaque 500 from an internal failure (D2, F-Wave10-REVIEW-REMEDIATION).
+ *
+ * The real error (a Postgres/Postgrest error, a thrown Error, or any raw
+ * value) is logged server-side with its log context so operators can still
+ * trace it in the function logs. The returned ApiError carries a fixed,
+ * non-leaking message so the wire response never echoes database internals,
+ * column names, constraint text, or stack detail to the caller.
+ *
+ * Usage keeps the existing `throw` site shape:
+ *   if (error) throw internalError('saved_views.insert', error);
+ *
+ * Only use for true internal faults. Do NOT route 4xx validation errors
+ * through this helper: those messages are intentional, caller-facing, and
+ * must stay specific.
+ */
+export function internalError(
+  logContext: string,
+  rawErr: unknown,
+): ApiError {
+  const detail =
+    rawErr instanceof Error
+      ? rawErr.message
+      : typeof rawErr === 'string'
+        ? rawErr
+        : (() => {
+            try {
+              return JSON.stringify(rawErr);
+            } catch {
+              return String(rawErr);
+            }
+          })();
+  console.error('internal_error', { context: logContext, detail });
+  return new ApiError('INTERNAL_ERROR', 500, 'An internal error occurred.');
+}
+
 function withCommonHeaders(
   status: number,
   body: unknown,
@@ -81,10 +117,6 @@ function withCommonHeaders(
 export function ok<T>(data: T, meta?: Record<string, unknown>): Response {
   const body = meta !== undefined ? { data, meta } : { data };
   return withCommonHeaders(200, body);
-}
-
-export function created<T>(data: T): Response {
-  return withCommonHeaders(201, { data });
 }
 
 export function noContent(): Response {

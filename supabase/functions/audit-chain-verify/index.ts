@@ -3,8 +3,9 @@
 // Returns the first broken row (if any) per org. A non-empty array is a P0:
 // the nightly workflow fails and pages the operator.
 
-import { createClient } from '@supabase/supabase-js';
-import { fromApiError, ApiError, ok, noContent } from '../_shared/responses.ts';
+import { fromApiError, ApiError, ok, internalError } from '../_shared/responses.ts';
+import { admin } from '../_shared/handler-helpers.ts';
+import { serverCorsHeaders } from '../_shared/cors.ts';
 import { ERROR_CODES, HTTP_HEADERS } from '../_shared/constants.ts';
 
 type BrokenRow = {
@@ -16,7 +17,10 @@ type BrokenRow = {
 };
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return noContent();
+  // Server-only worker: emit the non-browser CORS origin (D6).
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: serverCorsHeaders() });
+  }
 
   const authHeader = req.headers.get(HTTP_HEADERS.AUTHORIZATION) ?? '';
   const expected = Deno.env.get('AUDIT_VERIFY_SECRET');
@@ -24,15 +28,13 @@ Deno.serve(async (req: Request) => {
     return fromApiError(new ApiError(ERROR_CODES.UNAUTHORIZED));
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceKey) {
-    return fromApiError(new ApiError(ERROR_CODES.INTERNAL_ERROR, 'Missing service-role credentials'));
+  let client;
+  try {
+    client = admin();
+  } catch (err) {
+    if (err instanceof ApiError) return fromApiError(err);
+    return fromApiError(internalError('audit-chain-verify:admin', err));
   }
-
-  const client = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   const { data: orgs, error: orgErr } = await client
     .from('organizations')
@@ -40,7 +42,7 @@ Deno.serve(async (req: Request) => {
     .is('deleted_at', null);
 
   if (orgErr) {
-    return fromApiError(new ApiError('INTERNAL_ERROR', orgErr.message));
+    return fromApiError(internalError('audit-chain-verify:org_list', orgErr));
   }
 
   const broken: BrokenRow[] = [];
@@ -49,7 +51,7 @@ Deno.serve(async (req: Request) => {
       p_org_id: row.id,
     });
     if (error) {
-      return fromApiError(new ApiError('INTERNAL_ERROR', error.message));
+      return fromApiError(internalError('audit-chain-verify:rpc', error));
     }
     for (const r of (data as Array<Omit<BrokenRow, 'org_id'>>) ?? []) {
       broken.push({ org_id: row.id, ...r });

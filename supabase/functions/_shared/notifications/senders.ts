@@ -193,17 +193,79 @@ async function sendViaResend(row: NotificationRow): Promise<SendResult> {
   };
 }
 
+// Parse the WEBHOOK_ALLOWED_HOSTS allow-list. Comma or whitespace separated,
+// case-insensitive on the hostname. Empty / unset means no per-row host is
+// allowed (fail closed: a notification row can never reach an arbitrary host
+// unless the operator explicitly allow-lists it).
+function allowedWebhookHosts(): Set<string> {
+  const raw = denoEnv('WEBHOOK_ALLOWED_HOSTS') ?? '';
+  const out = new Set<string>();
+  for (const part of raw.split(/[,\s]+/)) {
+    const trimmed = part.trim().toLowerCase();
+    if (trimmed) out.add(trimmed);
+  }
+  return out;
+}
+
+// D4 (F-Wave10-REVIEW-REMEDIATION): a per-row webhook_url is attacker-influenced
+// data (it rides in on the notification payload). Validate it before any fetch
+// to close the SSRF surface: require https and an explicitly allow-listed
+// hostname. On reject we return a non-retryable failure and do NOT fall back to
+// the global WEBHOOK_URL, so a poisoned row can never be coerced onto the
+// trusted global endpoint either.
+function validatePerRowWebhookUrl(rawUrl: string): SendFailure | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return {
+      ok: false,
+      reason: 'transport_rejected',
+      retryable: false,
+      message: 'payload.webhook_url is not a valid URL',
+    };
+  }
+  if (parsed.protocol !== 'https:') {
+    return {
+      ok: false,
+      reason: 'transport_rejected',
+      retryable: false,
+      message: 'payload.webhook_url must use https',
+    };
+  }
+  const allowed = allowedWebhookHosts();
+  if (!allowed.has(parsed.hostname.toLowerCase())) {
+    return {
+      ok: false,
+      reason: 'transport_rejected',
+      retryable: false,
+      message:
+        'payload.webhook_url host is not in WEBHOOK_ALLOWED_HOSTS allow-list',
+    };
+  }
+  return null;
+}
+
 // Webhook: HTTP POST to either a per-row payload.webhook_url or a globally
-// configured WEBHOOK_URL. We do attempt the POST when configured; failure
-// surfaces as transport_rejected.
+// configured WEBHOOK_URL. A per-row URL is attacker-influenced, so it is
+// validated (https + allow-listed host) before use; a reject is terminal and
+// never falls back to the global URL. The global WEBHOOK_URL is operator-set
+// and trusted, so it is used as-is. Failure surfaces as transport_rejected.
 const webhookSender: Sender = async (row) => {
   const perRowUrl =
     typeof row.payload?.webhook_url === 'string'
       ? (row.payload.webhook_url as string)
       : null;
   const globalUrl = denoEnv('WEBHOOK_URL');
-  const url = perRowUrl ?? globalUrl;
-  if (!url) {
+
+  let url: string;
+  if (perRowUrl) {
+    const rejection = validatePerRowWebhookUrl(perRowUrl);
+    if (rejection) return rejection;
+    url = perRowUrl;
+  } else if (globalUrl) {
+    url = globalUrl;
+  } else {
     return {
       ok: false,
       reason: 'transport_not_configured',
