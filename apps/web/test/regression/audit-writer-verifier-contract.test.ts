@@ -12,9 +12,11 @@
 // to be taught to add it back when non-empty).
 //
 // FORM OF THIS GUARD: STATIC. The apps/web harness has no database connection,
-// so this suite parses migration 0085 (the canonical home of all 23 writers,
-// the shared chain-head helper, and verify_audit_chain) and asserts that every
-// writer's hashed-payload key-set is one the verifier knows how to reconstruct:
+// so this suite parses the migration tree (0085 is the canonical home of all 23
+// writers, the shared chain-head helper, and verify_audit_chain today; forward-
+// only supersedes are followed by reading the LATEST definition of each
+// function) and asserts that every writer's hashed-payload key-set is one the
+// verifier knows how to reconstruct:
 //
 //   - the 9-key BASE shape:
 //       org_id, entity_type, entity_id, from_state, to_state, action,
@@ -30,18 +32,31 @@
 // edit at review time.
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
-const MIGRATION_PATH = join(
-  ROOT,
-  'supabase',
-  'migrations',
-  '0085_audit_chain_same_txn_ordering.sql',
-);
+const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
 
-const sql = readFileSync(MIGRATION_PATH, 'utf8');
+// Resolve the LATEST definition of each audited function instead of pinning a
+// single migration file. Migrations are forward-only: a later migration may
+// supersede 0085 by recreating verify_audit_chain or a writer. Pinning 0085
+// would let this guard assert against stale SQL while prod runs the superseding
+// definition, which is the exact writer/verifier drift this suite exists to
+// catch. So we read every migration in ascending order and concatenate them;
+// functionBody() below matches greedily and a per-function lookup picks the
+// last (highest-numbered) `create or replace function` for that name, which is
+// the one that actually runs in the database.
+function loadMigrationsConcatenated(): string {
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+    .sort();
+  return files
+    .map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8'))
+    .join('\n');
+}
+
+const sql = loadMigrationsConcatenated();
 
 // The base key-set every writer hashes. Order is irrelevant to the hash because
 // kitstak_audit_canonical sorts keys (jsonb ::text), so we compare as sets.
@@ -94,15 +109,20 @@ const METADATA_WRITERS = new Set([
   'trg_org_memberships_updated_audit',
 ]);
 
-// Return the body text of `create or replace function public.<name>(...) ... $$;`
+// Return the body text of the LAST (highest-numbered, hence authoritative)
+// `create or replace function public.<name>(...) ... $$;` across all migrations.
+// A global regex is iterated so a superseding migration's redefinition wins over
+// the original, matching what the database actually runs.
 function functionBody(name: string): string | null {
-  const m = sql.match(
-    new RegExp(
-      `create or replace function public\\.${name}\\s*\\([\\s\\S]*?\\$\\$;`,
-      'i',
-    ),
+  const re = new RegExp(
+    `create or replace function public\\.${name}\\s*\\([\\s\\S]*?\\$\\$;`,
+    'gi',
   );
-  return m ? m[0] : null;
+  let last: string | null = null;
+  for (const m of sql.matchAll(re)) {
+    last = m[0];
+  }
+  return last;
 }
 
 // Find the index of the matching close paren for the '(' at openIdx.
@@ -235,9 +255,20 @@ function verifierKeys(): { base: string[]; conditional: string[] } {
 }
 
 describe('audit writer / verifier hashed-payload contract (C2 static guard)', () => {
-  it('discovers every writer function declared in 0085', () => {
+  it('loads a non-empty migration tree containing the audit functions', () => {
+    // Fail loud if the concatenated load is empty (wrong dir, glob miss): an
+    // empty corpus would make every functionBody() return null and silently
+    // weaken the rest of the suite.
+    expect(sql.length).toBeGreaterThan(0);
+    expect(functionBody('verify_audit_chain')).not.toBeNull();
+  });
+
+  it('discovers every writer function in its latest migration definition', () => {
     for (const fn of WRITER_FUNCTIONS) {
-      expect(functionBody(fn), `${fn} must be redefined in 0085`).not.toBeNull();
+      expect(
+        functionBody(fn),
+        `${fn} must be defined by some migration`,
+      ).not.toBeNull();
     }
   });
 
