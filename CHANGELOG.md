@@ -4,6 +4,48 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] · 2026-06-02 Codebase review remediation (39 findings) + repository housekeeping (PR #208)
+
+A 55-agent adversarial codebase review surfaced 39 confirmed findings (4 HIGH, 14 MEDIUM, 21 LOW, no CRITICAL), all remediated across six workstreams on one branch, independently re-reviewed, and shipped via squash PR #208. Both migrations applied to staging then prod and verified live. Closeout journal at `03-workspace/journal/2026-06-01-wave10-review-remediation-closeout.md`.
+
+> Changelog gap note: the 2026-05-31 Stripe billing activation and the 2026-06-01 full-DoD Phases A, B, and C (PRs #164 through #201) shipped without dedicated CHANGELOG entries. STATUS.md and the per-day journals under `03-workspace/journal/` are the authoritative record for that span.
+
+### Changed
+
+- **WS-A money integrity**: invoice line totals are now server authoritative. The invoicing-api handler recomputes `tax_amount_cents` and `line_total_cents` from trusted inputs in pure scaled BigInt and ignores any client-supplied derived `_cents` on both create and patch. Purchase-order line math and the SPA and dashboard money paths moved from `Math.round` (half-up) to `roundHalfEven` (banker's). `tax_rate_snapshot` confirmed and documented as a decimal fraction (`numeric(7,4)`).
+- **WS-B idempotency**: `settings-api` `deleteSetting` is now wrapped in the Idempotency-Key flow. The shared wrapper moved from lookup-then-execute-then-insert to reserve-before-execute with fail-closed persist, closing a same-key concurrency window and a swallowed-persist re-execution path.
+- **WS-E quality**: collapsed the duplicate `created()` response helper to one source, added logging to previously silent dashboard catches, switched mutable lists to stable id keys, normalized TanStack Query defaults, reused the shared `admin()` client in the workers, and relocated the org-scoped list helpers to `_shared/crud.ts`.
+
+### Fixed / Security
+
+- **WS-C audit**: removed the unused `writeAudit()`/`computeDiff()`/`withRequestContext()` helpers (a latent chain-breaking footgun with no callers) and corrected the stale header comment; added a migration `audit_log_entity_type_check` superset guard and a writer-versus-verifier payload contract test.
+- **WS-D authz and security**: added a `saved_views` capability gate, made `INTERNAL_ERROR` 500 bodies opaque while logging the real cause server-side, replaced the wildcard CORS origin with an `ALLOWED_ORIGINS` allow-list, removed the `listUsers` filter-string interpolation in favor of a parameterized profiles lookup, added a webhook host allow-list (fail-closed), pinned billing redirect targets to `*.stripe.com`, and moved the Stripe price map to a shared module with a parity test.
+- **CORS prod hotfix**: the new allow-list fell back to `app.kitstak.com` while prod runs at `www.kitstak.com`; the `ALLOWED_ORIGINS` edge secret was set on prod and a live preflight confirmed the correct `Access-Control-Allow-Origin` before any user impact.
+
+### Migrations
+
+- **`0086_idempotency_reserve_state.sql`**: relaxes `idempotency_keys.status_code` to nullable and adds a `state` column (`pending`/`completed`, default `completed`) with a check constraint; primary key unchanged; historical rows backfill as `completed`.
+- **`0087_rls_select_wrap.sql`**: wraps `current_org_id()` / `current_user_role()` / `auth.uid()` calls in subqueries on the high-read tenant tables (audit_log, quotes, invoices, stock levels and movements, projects, customers, contacts, leads, opportunities and their line items), preserving USING and WITH CHECK semantics exactly. Remaining lower-traffic tables tracked as a follow-up.
+
+### Constitution
+
+- New `saved_views.saved_view.read|create|delete` capabilities byte-mirrored across `_shared/capabilities.ts` and `apps/web/src/lib/capabilities.ts` (read for all internal roles plus viewer; write for owner, admin, sales, ops, accounting; portal roles none).
+- Two new edge secrets introduced: `ALLOWED_ORIGINS` (set on prod) and `WEBHOOK_ALLOWED_HOSTS` (unset, fail-closed while the webhook channel is dormant).
+
+### Housekeeping
+
+- Pruned 126 stale agent worktrees and 306 stale local branches (307 to 1, keeping only `main`) after verifying every deleted branch was merged or squash-merged into `main`.
+- A `knip` dead-code scan returned only intentional structure (byte-mirror canon files, complete data-layer API surfaces, test-only exports), so no source was removed.
+- `database.types.ts` verified already current with prod after `0086`.
+
+### Filed (follow-ups)
+
+- `F-Wave10-INDEX-SPLIT-01`: split the oversized `auth`, `kitforce`, `copack`, `ops` index files into per-resource modules.
+- `F-Wave10-QUERY-DEFAULTS-SWEEP-01`: apply the shared query defaults to the remaining hooks.
+- `F-Wave10-CRUD-CALLSITE-MIGRATION-01`: migrate the remaining bundles onto the shared list and get helpers.
+- `F-Wave10-RLS-WRAP-REMAINDER-01`: wrap the lower-traffic tenant tables in the RLS subquery form.
+- `F-Wave10-IDEMPOTENCY-PENDING-STALENESS-01`: add a staleness window or failed state so a thrown handler does not leave a pending row until nightly GC.
+
 ## [0.13.0] · 2026-05-27 Staff invite admin loop + portal v0.6 smoke (PRs #154, #155, #156, #157, #158)
 
 Closing batch for the staff invite admin chassis end-to-end, plus customer portal v0.6 UX polish, plus a chassis improvement to canon-steward-check. Customer portal walked live on prod against a real customer with cross-tenant attack probes; all five probes returned the constitutional Pattern B answer. Day closeout journal at `03-workspace/journal/2026-05-27-day-closeout.md`.
