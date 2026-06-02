@@ -48,6 +48,10 @@ export async function resolveLazyChunk<T>(
  * reload does not resolve the failure (e.g. a real bug in the module),
  * the second attempt rethrows and the Suspense boundary surfaces it.
  */
+// `ComponentType<any>` mirrors React's own `lazy` signature so that
+// component-specific prop types (e.g. PhasesSectionProps) are preserved
+// at the call site instead of being collapsed to `unknown`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyWithReload<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
 ): LazyExoticComponent<T> {
