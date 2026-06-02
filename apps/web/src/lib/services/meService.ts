@@ -29,6 +29,12 @@ export const MeSchema = z.object({
   display_name: z.string().nullable(),
   active_org_id: UuidSchema.nullable(),
   active_role: RoleCodeSchema.nullable(),
+  // Server-authoritative "does this user already have a password". Optional
+  // here (not in the canon MeResponseSchema) so the SPA tolerates an older
+  // getMe response that predates the field during a deploy window: undefined
+  // is treated as "do not nudge" by the dashboard, never as "needs password".
+  // F-Wave10-WELCOME-PASSWORD-SERVER-GATE-01.
+  password_set: z.boolean().optional(),
   memberships: z.array(MembershipSchema),
 });
 export type Me = z.infer<typeof MeSchema>;

@@ -62,12 +62,23 @@ export function DashboardPage() {
   // flow. Once the prompt is marked seen (either via "Skip for now" on
   // SecurityPage or by successfully setting a password), this effect
   // no-ops on every subsequent visit.
+  //
+  // F-Wave10-WELCOME-PASSWORD-SERVER-GATE-01: only nudge users who genuinely
+  // have no password yet. password_set is server-authoritative
+  // (auth.users.encrypted_password via GET /me). We require a strict `false`
+  // so an older getMe response that predates the field (undefined) is treated
+  // as "do not nudge", which prevents re-nagging a user who already has a
+  // password from a fresh browser or after clearing storage. The localStorage
+  // one-shot still suppresses repeat nudges within a browser for the
+  // genuinely-passwordless case.
+  const passwordSet = me.data?.password_set;
   useEffect(() => {
     if (me.isLoading) return;
     if (!userId) return;
+    if (passwordSet !== false) return;
     if (hasSeenPasswordPrompt(userId)) return;
     navigate('/account/security?welcome=1', { replace: true });
-  }, [me.isLoading, userId, navigate]);
+  }, [me.isLoading, userId, passwordSet, navigate]);
 
   // Celebration banner gating. The banner appears once, the first time the
   // operator sees the work-card grid for a given org. The `dismissed`

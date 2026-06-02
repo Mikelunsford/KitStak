@@ -92,6 +92,26 @@ async function getMe(ctx: RouteCtx): Promise<Response> {
   const displayName =
     profileQ.data?.display_name ?? authUser.user.user_metadata?.full_name ?? null;
 
+  // Whether the user already has a password set. Server-authoritative so the
+  // SPA shows the set-password onboarding nudge only to users who have none,
+  // rather than re-nagging on a fresh browser / cleared storage. Read via the
+  // service-role-only user_has_password helper (auth.users is not exposed to
+  // PostgREST). Defensive: a lookup failure defaults to true (suppress the
+  // nudge) so a transient error never breaks the dashboard load or produces a
+  // spurious prompt. F-Wave10-WELCOME-PASSWORD-SERVER-GATE-01.
+  let passwordSet = true;
+  const passwordCheck = await sb.rpc('user_has_password', {
+    p_user_id: caller.userId,
+  });
+  if (passwordCheck.error) {
+    console.warn('auth-api/getMe: user_has_password lookup failed', {
+      user_id: caller.userId,
+      message: passwordCheck.error.message,
+    });
+  } else {
+    passwordSet = passwordCheck.data === true;
+  }
+
   // Memberships join through to organizations and roles. We filter active
   // rows only; suspended-org rows still appear so the SPA can show them
   // disabled, but the cleanest baseline is is_active and the org not archived.
@@ -168,6 +188,7 @@ async function getMe(ctx: RouteCtx): Promise<Response> {
     display_name: displayName,
     active_org_id: activeOrgId,
     active_role: activeRole,
+    password_set: passwordSet,
     memberships,
   });
 

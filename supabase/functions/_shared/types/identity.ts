@@ -223,6 +223,11 @@ export const MeResponseSchema = z.object({
   display_name: z.string().nullable(),
   active_org_id: UuidSchema.nullable(),
   active_role: RoleCodeSchema.nullable(),
+  // True when the user already has a password set
+  // (auth.users.encrypted_password). Lets the SPA show the set-password
+  // onboarding nudge only to users who have none, instead of re-nagging on
+  // every fresh browser or cleared storage. F-Wave10-WELCOME-PASSWORD-SERVER-GATE-01.
+  password_set: z.boolean(),
   memberships: z.array(MembershipSummarySchema),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
