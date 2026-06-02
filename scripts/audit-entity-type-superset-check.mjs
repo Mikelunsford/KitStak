@@ -40,7 +40,13 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, '..');
-const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
+// Default to the real tree. AUDIT_MIGRATIONS_DIR lets a caller (notably the
+// guard regression test) point the check at an isolated copy so it never has
+// to write a synthetic migration into the real supabase/migrations dir, which
+// other tests readdirSync in parallel (F-Wave10-MEMBERS-LIST-TEST-ISOLATION-01).
+const MIGRATIONS_DIR = process.env.AUDIT_MIGRATIONS_DIR
+  ? resolve(process.env.AUDIT_MIGRATIONS_DIR)
+  : join(ROOT, 'supabase', 'migrations');
 
 const CONSTRAINT = 'audit_log_entity_type_check';
 
