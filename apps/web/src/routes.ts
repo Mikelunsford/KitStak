@@ -1,6 +1,7 @@
-import { lazy, type LazyExoticComponent, type ComponentType } from 'react';
+import { type LazyExoticComponent, type ComponentType } from 'react';
 
 import { FEATURE_FLAGS } from '@/lib/constants';
+import { lazyWithReload as lazy } from '@/lib/lazyWithReload';
 
 /**
  * Flat ROUTES table. Per 00-canon/01-architecture.md "Routing". react-router-dom
