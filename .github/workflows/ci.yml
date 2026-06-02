@@ -30,6 +30,10 @@ jobs:
       # entries (see those files for the require-a-follow-up rule).
       - run: node scripts/canon-steward-check.mjs
       - run: node scripts/trigger-audit-check.mjs
+      # F-Wave10-REVIEW-REMEDIATION (WS-F / F3) migration-header-format guard.
+      # Fails fast when a FUTURE migration (>= ENFORCE_FROM) is missing a
+      # canonical header field. Already-applied files are grandfathered.
+      - run: node scripts/migration-header-format-check.mjs
       - run: pnpm --filter web test
       - run: pnpm --filter web test:contract
       - run: pnpm --filter web build

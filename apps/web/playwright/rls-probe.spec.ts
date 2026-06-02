@@ -1027,6 +1027,31 @@ test.describe('@rls cross-tenant probe matrix', () => {
     }
   });
 
+  // stripe_webhook_events is intentionally service-role-only: migration 0071
+  // enables RLS on the table but adds NO authenticated policy, so the Stripe
+  // webhook bundle (which runs with service-role and bypasses RLS) is the only
+  // reader or writer. An authenticated caller, even the same-org owner, must
+  // therefore read zero rows. RLS filters, never throws, so the read still
+  // succeeds with an empty array rather than erroring.
+  test('@rls stripe_webhook_events own-tenant read returns empty array', async () => {
+    if (!orgB) test.skip(true, 'fixtures not ready');
+    const sb = anonForJwt(orgB!.ownerJwt);
+    const { data, error } = await sb
+      .from('stripe_webhook_events')
+      .select('event_id')
+      .eq('org_id', orgB!.id)
+      .limit(50);
+    expect(
+      error,
+      `read stripe_webhook_events should not error: ${error?.message}`,
+    ).toBeNull();
+    expect(Array.isArray(data)).toBe(true);
+    expect(
+      data,
+      'RLS leak: stripe_webhook_events is service-role-only and must read empty for authenticated callers',
+    ).toEqual([]);
+  });
+
   // --- Category 11: newer-pillar cross-tenant read RLS -------------------
   //
   // F-Wave8-NIGHTLY-RLS-PROBE-INVESTIGATE-01. The probe historically only
