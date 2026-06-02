@@ -54,6 +54,11 @@ const COLOR_MAP: Record<string, string> = {
   completed: 'bg-green-500',
   on_track: 'bg-green-500',
   delayed: 'bg-yellow-500',
+
+  // Customer statuses
+  new: 'bg-yellow-500',
+  active: 'bg-green-500',
+  inactive: 'bg-ink-dim',
 };
 
 /**
@@ -95,6 +100,11 @@ const LABEL_MAP: Record<string, string> = {
   completed: 'Completed',
   on_track: 'On track',
   delayed: 'Delayed',
+
+  // Customer statuses
+  new: 'New',
+  active: 'Active',
+  inactive: 'Inactive',
 };
 
 /**

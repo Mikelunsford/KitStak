@@ -15,6 +15,9 @@ import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { DetailSectionEmptyCoaching } from '@/components/shell/DetailSectionEmptyCoaching';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { formatCents } from '@/lib/money';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useInviteCustomerToPortal } from '@/lib/hooks/useCustomers';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
@@ -96,22 +99,20 @@ export function CustomerDetailPage() {
           { label: c.display_name },
         ]}
       />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-4xl font-display tracking-wide text-ink">
-          {c.display_name.toUpperCase()}
-        </h1>
-        <Link
-          to={`/crm/customers/${c.id}/edit`}
-          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
-        >
-          EDIT
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Library / Customers"
+        title={c.display_name}
+        actions={
+          <Link to={`/crm/customers/${c.id}/edit`}>
+            <Button variant="secondary">Edit</Button>
+          </Link>
+        }
+      />
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Kind</dt>
         <dd>{c.kind}</dd>
         <dt className="text-ink-dim">Status</dt>
-        <dd>{c.status}</dd>
+        <dd><StatusBadge status={c.status} /></dd>
         <dt className="text-ink-dim">Email</dt>
         <dd>{c.primary_email ?? ''}</dd>
         <dt className="text-ink-dim">Phone</dt>
@@ -143,7 +144,7 @@ export function CustomerDetailPage() {
               {q.number}
               {q.title ? ` . ${q.title}` : ''}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">{q.state}</span>
+            <span className="ml-2 inline-flex"><StatusBadge status={q.state} /></span>
           </li>
         ))}
       </RelatedSection>
@@ -164,7 +165,7 @@ export function CustomerDetailPage() {
               {p.number}
               {p.name ? ` . ${p.name}` : ''}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">{p.state}</span>
+            <span className="ml-2 inline-flex"><StatusBadge status={p.state} /></span>
           </li>
         ))}
       </RelatedSection>
@@ -187,7 +188,7 @@ export function CustomerDetailPage() {
             <Link to={`/invoicing/invoices/${inv.id}`} className="underline">
               {inv.invoice_number}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">{inv.status}</span>
+            <span className="ml-2 inline-flex"><StatusBadge status={inv.status} /></span>
           </li>
         ))}
       </RelatedSection>
@@ -209,7 +210,7 @@ export function CustomerDetailPage() {
           >
             <span>{p.payment_number}</span>
             <span className="text-ink-dim ml-2 text-xs font-mono">
-              {p.amount_cents} {p.currency_code ?? ''}
+              {formatCents(p.amount_cents, p.currency_code ?? 'USD')}
             </span>
           </li>
         ))}

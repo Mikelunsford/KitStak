@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { PageHeader } from '@/components/ui/PageHeader';
 import { customersKeys } from '@/lib/queryKeys/customers';
 import { createCustomer } from '@/lib/services/customersService';
 import {
@@ -171,9 +172,7 @@ export function CustomerCreatePage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW CUSTOMER
-      </h1>
+      <PageHeader eyebrow="Library / Customers" title="New customer" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
         <label className="flex flex-col gap-1">
           <span className="text-sm text-ink-dim">Display name</span>
