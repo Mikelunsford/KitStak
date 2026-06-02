@@ -10,8 +10,10 @@
 //      per the constitutional Pattern A read rule.
 //   5. Happy path: 200, envelope.data is a flat array (not { items }),
 //      every row matches the OrgMemberRowSchema shape.
-//   6. Profile-missing row is silently dropped so the response always
-//      parses cleanly through the Zod schema.
+//   6. Profile-missing row renders via the auth.users email fallback so
+//      invited-but-unclaimed staff still appear on the team page
+//      (F-Wave10-MEMBERS-UNCLAIMED-VISIBILITY-01).
+//   7. Row is dropped only when neither profile nor auth yields an email.
 
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -207,9 +209,12 @@ describe('auth-api GET /members - staff members list', () => {
     expect(viewerRow?.email).toBe('viewer@example.test');
   });
 
-  it('drops members with no profile row so the response always parses cleanly', async () => {
+  it('renders a member with no profile row via the auth email fallback', async () => {
     const state = makeListState();
-    // Inject a membership whose user_id has no matching profiles row.
+    // A freshly invited staff member: membership row exists but no profiles
+    // row yet (create_staff_membership inserts only the membership). The
+    // handler must fall back to the auth.users email so the row still appears
+    // on the team page. F-Wave10-MEMBERS-UNCLAIMED-VISIBILITY-01.
     (state.rows.org_memberships as Array<Record<string, unknown>>).push({
       user_id: NO_PROFILE_USER,
       org_id: ORG_A,
@@ -217,6 +222,17 @@ describe('auth-api GET /members - staff members list', () => {
       created_at: '2026-05-20T10:00:00Z',
       role: { code: 'ops', label: 'Operations' },
     });
+    // Unclaimed: email present, email_confirmed_at null -> claimed=false.
+    state.authAdminGetUserByIdResults[NO_PROFILE_USER] = {
+      data: {
+        user: {
+          id: NO_PROFILE_USER,
+          email: 'invited@example.test',
+          email_confirmed_at: null,
+        },
+      },
+      error: null,
+    };
     setActiveMockState(state);
 
     const res = await handler(get(OWNER));
@@ -224,7 +240,38 @@ describe('auth-api GET /members - staff members list', () => {
 
     expect(status).toBe(200);
     const rows = json.data as Array<Record<string, unknown>>;
-    // The profile-less membership is dropped; the four well-formed rows remain.
+    // The profile-less membership now renders via the auth fallback.
+    expect(rows.length).toBe(5);
+    const invited = rows.find((r) => r.user_id === NO_PROFILE_USER);
+    expect(invited).toBeDefined();
+    expect(invited?.email).toBe('invited@example.test');
+    expect(invited?.display_name).toBeNull();
+    expect(invited?.role_code).toBe('ops');
+    expect(invited?.claimed).toBe(false);
+  });
+
+  it('drops a member only when neither profile nor auth yields an email', async () => {
+    const state = makeListState();
+    (state.rows.org_memberships as Array<Record<string, unknown>>).push({
+      user_id: NO_PROFILE_USER,
+      org_id: ORG_A,
+      is_active: true,
+      created_at: '2026-05-20T10:00:00Z',
+      role: { code: 'ops', label: 'Operations' },
+    });
+    // getUserById fails -> no auth fallback -> no resolvable email -> dropped
+    // so the response still parses cleanly through OrgMemberRowSchema.
+    state.authAdminGetUserByIdResults[NO_PROFILE_USER] = {
+      data: { user: null },
+      error: { message: 'auth lookup failed' },
+    };
+    setActiveMockState(state);
+
+    const res = await handler(get(OWNER));
+    const { status, json } = await readJsonStatus(res);
+
+    expect(status).toBe(200);
+    const rows = json.data as Array<Record<string, unknown>>;
     expect(rows.find((r) => r.user_id === NO_PROFILE_USER)).toBeUndefined();
     expect(rows.length).toBe(4);
   });
