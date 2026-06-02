@@ -12,6 +12,9 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { DetailLayout } from '@/components/ui/DetailLayout';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { PercentInput } from '@/components/forms/PercentInput';
 import { QuantityInput } from '@/components/forms/QuantityInput';
@@ -37,7 +40,7 @@ import {
   computeSendButtonFeedback,
   SEND_FEEDBACK_COPY,
 } from '@/lib/workflow/sendButtonFeedback';
-import type { QuoteState } from '@/lib/types/sales';
+import type { QuoteState, QuoteLineItem } from '@/lib/types/sales';
 
 /**
  * QuoteDetailPage. Header now resolves customer display_name with a link to
@@ -183,8 +186,51 @@ export function QuoteDetailPage() {
     );
   };
 
+  const lineColumns: DataColumn<QuoteLineItem>[] = [
+    { key: 'name', header: 'Name', render: (l) => l.name },
+    {
+      key: 'qty',
+      header: 'Qty',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => (Number(l.quantity_e3) / 1000).toFixed(3),
+    },
+    {
+      key: 'unit',
+      header: 'Unit price',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => formatCents(l.unit_price_cents, quote.currency_code),
+    },
+    {
+      key: 'tax',
+      header: 'Tax %',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => (l.tax_rate_snapshot / 100).toFixed(2),
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => formatCents(l.line_total_cents, quote.currency_code),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (l) =>
+        ['draft', 'revise_requested'].includes(state) ? (
+          <Button variant="ghost" onClick={() => removeLine.mutate(l.id)}>
+            Remove
+          </Button>
+        ) : null,
+    },
+  ];
+
   return (
-    <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'Customers', to: '/crm/customers' },
@@ -214,24 +260,38 @@ export function QuoteDetailPage() {
             : undefined
         }
       />
-      <header className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-4xl font-display tracking-wide text-ink">{quote.number}</h1>
-          {quote.title && <p className="text-ink-dim">{quote.title}</p>}
-          {customerId && (
-            <p className="text-ink-dim text-sm mt-1">
-              Customer:{' '}
-              <Link
-                to={`/crm/customers/${customerId}`}
-                className="text-ink hover:text-accent"
-              >
-                {customer.data?.display_name ?? customerId}
-              </Link>
-            </p>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={quote.number}
+        meta={
+          quote.title || customerId ? (
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {quote.title ? <span>{quote.title}</span> : null}
+              {customerId ? (
+                <span>
+                  Customer:{' '}
+                  <Link
+                    to={`/crm/customers/${customerId}`}
+                    className="text-ink hover:text-accent"
+                  >
+                    {customer.data?.display_name ?? customerId}
+                  </Link>
+                </span>
+              ) : null}
+            </span>
+          ) : undefined
+        }
+      />
 
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="text-2xl font-display tracking-wide text-ink mb-3">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="quote" entityId={id ?? null} />
+          </section>
+        }
+      >
       {/* UX-Q4: forward-transition CTA promoted to primary top placement.
           Predicate lives in `@/lib/workflow/nextStepCTA` so the regression
           test can lock the trigger state. */}
@@ -356,56 +416,20 @@ export function QuoteDetailPage() {
         </p>
       )}
 
-      <table className="w-full border border-line">
-        <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
-          <tr>
-            <th className="px-4 py-2">Name</th>
-            <th className="px-4 py-2">Qty</th>
-            <th className="px-4 py-2">Unit price</th>
-            <th className="px-4 py-2">Tax %</th>
-            <th className="px-4 py-2">Total</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {lineItems.map((l) => (
-            <tr key={l.id} className="border-t border-line">
-              <td className="px-4 py-2">{l.name}</td>
-              <td className="px-4 py-2 font-mono text-sm">
-                {(Number(l.quantity_e3) / 1000).toFixed(3)}
-              </td>
-              <td className="px-4 py-2 font-mono text-sm">
-                {formatCents(l.unit_price_cents, quote.currency_code)}
-              </td>
-              <td className="px-4 py-2 font-mono text-sm">
-                {(l.tax_rate_snapshot / 100).toFixed(2)}
-              </td>
-              <td className="px-4 py-2 font-mono text-sm">
-                {formatCents(l.line_total_cents, quote.currency_code)}
-              </td>
-              <td className="px-4 py-2">
-                {['draft', 'revise_requested'].includes(state) && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => removeLine.mutate(l.id)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-line">
-            <td colSpan={4} className="px-4 py-2 text-right text-ink-dim">Total</td>
-            <td className="px-4 py-2 font-mono text-sm">
-              {formatCents(quote.total_cents, quote.currency_code)}
-            </td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+      <div className="flex flex-col gap-2">
+        <DataTable
+          columns={lineColumns}
+          rows={lineItems}
+          getRowKey={(l) => l.id}
+          empty="No line items yet."
+        />
+        <div className="flex items-center justify-end gap-6 px-4 text-sm">
+          <span className="text-ink-dim">Total</span>
+          <span className="font-mono text-ink">
+            {formatCents(quote.total_cents, quote.currency_code)}
+          </span>
+        </div>
+      </div>
 
       {['draft', 'revise_requested'].includes(state) && (
         <form onSubmit={onAddLine} className="flex flex-col gap-3 border border-line p-4">
@@ -482,10 +506,7 @@ export function QuoteDetailPage() {
         </form>
       )}
 
-      <section className="mt-6">
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="quote" entityId={id ?? null} />
-      </section>
+      </DetailLayout>
     </section>
   );
 }
