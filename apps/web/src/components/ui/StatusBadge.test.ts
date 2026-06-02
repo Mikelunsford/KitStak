@@ -56,4 +56,13 @@ describe('statusColorClass', () => {
   it('is case tolerant', () => {
     expect(statusColorClass('Approved')).toBe('bg-green-500');
   });
+
+  it('maps customer statuses', () => {
+    expect(statusColorClass('active')).toBe('bg-green-500');
+    expect(statusColorClass('inactive')).toBe('bg-ink-dim');
+    expect(statusColorClass('new')).toBe('bg-yellow-500');
+    expect(humaniseStatus('active')).toBe('Active');
+    expect(humaniseStatus('inactive')).toBe('Inactive');
+    expect(humaniseStatus('new')).toBe('New');
+  });
 });
