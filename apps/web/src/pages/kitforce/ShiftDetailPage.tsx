@@ -74,6 +74,12 @@ export function ShiftDetailPage() {
     return map;
   }, [members.data]);
 
+  const teamName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const t of teams.data ?? []) map[t.id] = t.name;
+    return map;
+  }, [teams.data]);
+
   if (shift.isLoading) {
     return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   }
@@ -287,7 +293,9 @@ export function ShiftDetailPage() {
           </dd>
           <dt className="text-ink-dim">Team</dt>
           <dd className="text-ink">
-            {d.team_id ? d.team_id.slice(0, 8) : 'None'}
+            {d.team_id
+              ? teamName[d.team_id] ?? d.team_id.slice(0, 8)
+              : 'None'}
           </dd>
           <dt className="text-ink-dim">Scheduled start</dt>
           <dd className="text-ink">
