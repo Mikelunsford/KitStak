@@ -55,6 +55,7 @@ export function ContactDetailPage() {
         ]}
       />
       <PageHeader
+        eyebrow="Library / Contacts"
         title={contactFullName}
         actions={
           <Link to={`/crm/contacts/${c.id}/edit`}>
