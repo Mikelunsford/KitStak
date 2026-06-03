@@ -1,8 +1,16 @@
+// BomCreatePage. Migration to the shared UI kit (F-Wave10-UI-KIT-01, 3PL CRUD
+// tail): PageHeader replaces the hand-rolled title and the two raw item selects
+// become the kit Select. The Zod FormSchema (including the cross-field refine
+// that rejects parent === component), the per-field error spans, the cap-gate
+// early return, and the redirect to the new BOM's detail page are preserved.
+
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { useCreateBomItem } from '@/lib/hooks/useInventory';
 import { useItemsList } from '@/lib/hooks/useItems';
@@ -38,7 +46,7 @@ export function BomCreatePage() {
 
   if (!caps.can('stock.bom.write')) {
     return (
-      <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
+      <section className="mx-auto flex max-w-3xl flex-col gap-6 px-8 py-12">
         <p className="text-ink">Forbidden.</p>
       </section>
     );
@@ -71,47 +79,64 @@ export function BomCreatePage() {
       parent_item_id: parsed.data.parent_item_id,
       component_item_id: parsed.data.component_item_id,
       quantity_per: parsed.data.quantity_per,
-      unit_of_measure: parsed.data.unit_of_measure ? parsed.data.unit_of_measure : null,
+      unit_of_measure: parsed.data.unit_of_measure
+        ? parsed.data.unit_of_measure
+        : null,
       notes: parsed.data.notes ? parsed.data.notes : null,
     });
     navigate(`/3pl-operations/boms/${parsed.data.parent_item_id}`);
   }
 
   return (
-    <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW BOM</h1>
+    <section className="mx-auto flex max-w-3xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Make / Bills of materials" title="New BOM" />
       <p className="font-sans text-sm text-ink-dim">
-        Pick the finished item, then add its first component. You can add more components from the BOM detail page.
+        Pick the finished item, then add its first component. You can add more
+        components from the BOM detail page.
       </p>
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
         <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">Finished item</span>
-          <select
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Finished item
+          </span>
+          <Select
             value={parentItemId}
             onChange={(e) => setParentItemId(e.target.value)}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           >
             <option value="">Select an item</option>
             {options.map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
             ))}
-          </select>
-          {errors.parent_item_id ? <span className="font-sans text-sm text-danger">{errors.parent_item_id}</span> : null}
+          </Select>
+          {errors.parent_item_id ? (
+            <span className="font-sans text-sm text-danger">
+              {errors.parent_item_id}
+            </span>
+          ) : null}
         </label>
 
         <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">Component item</span>
-          <select
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Component item
+          </span>
+          <Select
             value={componentItemId}
             onChange={(e) => setComponentItemId(e.target.value)}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           >
             <option value="">Select an item</option>
             {options.map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
             ))}
-          </select>
-          {errors.component_item_id ? <span className="font-sans text-sm text-danger">{errors.component_item_id}</span> : null}
+          </Select>
+          {errors.component_item_id ? (
+            <span className="font-sans text-sm text-danger">
+              {errors.component_item_id}
+            </span>
+          ) : null}
         </label>
 
         <TextInput
@@ -139,7 +164,11 @@ export function BomCreatePage() {
         />
 
         {create.error ? (
-          <p className="text-accent">{create.error instanceof Error ? create.error.message : 'Failed to create BOM.'}</p>
+          <p className="text-accent">
+            {create.error instanceof Error
+              ? create.error.message
+              : 'Failed to create BOM.'}
+          </p>
         ) : null}
 
         <Button type="submit" disabled={create.isPending} className="self-start">
