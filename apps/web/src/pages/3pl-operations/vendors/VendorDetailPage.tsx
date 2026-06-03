@@ -2,6 +2,9 @@ import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useVendor } from '@/lib/hooks/useVendors';
 import { usePurchaseOrdersList } from '@/lib/hooks/usePurchaseOrders';
 import { useVendorBillsList } from '@/lib/hooks/useVendorBills';
@@ -50,17 +53,15 @@ export function VendorDetailPage() {
           { label: data.display_name },
         ]}
       />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-4xl font-display tracking-wide text-ink">
-          {data.display_name}
-        </h1>
-        <Link
-          to={`/3pl-operations/vendors/${data.id}/edit`}
-          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
-        >
-          EDIT
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Library / Vendors"
+        title={data.display_name}
+        actions={
+          <Link to={`/3pl-operations/vendors/${data.id}/edit`}>
+            <Button variant="secondary">Edit</Button>
+          </Link>
+        }
+      />
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <Row label="Vendor number" value={data.vendor_number ?? ''} />
         <Row label="Email" value={data.email ?? ''} />
@@ -71,7 +72,10 @@ export function VendorDetailPage() {
           value={`${data.default_payment_terms_days} days`}
         />
         <Row label="Tax ID" value={data.tax_id ?? ''} />
-        <Row label="Active" value={data.is_active ? 'Yes' : 'No'} />
+        <dt className="text-ink-dim">Active</dt>
+        <dd className="text-ink">
+          <StatusBadge status={data.is_active ? 'active' : 'inactive'} />
+        </dd>
       </dl>
 
       <RelatedSection
@@ -93,8 +97,8 @@ export function VendorDetailPage() {
             >
               {po.po_number ?? po.id.slice(0, 8)}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">
-              {po.status}
+            <span className="ml-2 inline-flex">
+              <StatusBadge status={po.status} />
             </span>
           </li>
         ))}
@@ -119,8 +123,8 @@ export function VendorDetailPage() {
             >
               {b.bill_number ?? b.id.slice(0, 8)}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">
-              {b.status}
+            <span className="ml-2 inline-flex">
+              <StatusBadge status={b.status} />
             </span>
           </li>
         ))}
@@ -145,8 +149,8 @@ export function VendorDetailPage() {
             >
               {e.expense_number ?? e.id.slice(0, 8)}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">
-              {e.status}
+            <span className="ml-2 inline-flex">
+              <StatusBadge status={e.status} />
             </span>
           </li>
         ))}
@@ -171,8 +175,8 @@ export function VendorDetailPage() {
             >
               {r.receiving_number ?? r.id.slice(0, 8)}
             </Link>
-            <span className="text-ink-dim ml-2 text-xs font-mono">
-              {r.status}
+            <span className="ml-2 inline-flex">
+              <StatusBadge status={r.status} />
             </span>
           </li>
         ))}

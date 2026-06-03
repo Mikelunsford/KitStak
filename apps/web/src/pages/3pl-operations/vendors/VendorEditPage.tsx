@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useVendor, useUpdateVendor } from '@/lib/hooks/useVendors';
 import { VendorPatchSchema } from '@/lib/types/vendors_inventory_ops';
 import type { Vendor } from '@/lib/types/vendors_inventory_ops';
@@ -67,7 +69,7 @@ export function VendorEditPage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EDIT VENDOR</h1>
+      <PageHeader title="Edit vendor" eyebrow="Library / Vendors" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
         <label className="flex flex-col gap-1">
           <span className="text-sm text-ink-dim">Display name</span>
@@ -135,13 +137,13 @@ export function VendorEditPage() {
             {update.error instanceof Error ? update.error.message : 'Failed to save.'}
           </p>
         ) : null}
-        <button
+        <Button
           type="submit"
           disabled={update.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
+          className="self-start"
         >
           {update.isPending ? 'SAVING.' : 'SAVE'}
-        </button>
+        </Button>
       </form>
     </section>
   );

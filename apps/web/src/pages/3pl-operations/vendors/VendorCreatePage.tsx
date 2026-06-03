@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useCreateVendor } from '@/lib/hooks/useVendors';
 
 const FormSchema = z.object({
@@ -61,7 +63,7 @@ export function VendorCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW VENDOR</h1>
+      <PageHeader eyebrow="Library / Vendors" title="New vendor" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
         <Field label="Display name" error={errors.display_name}>
           <input
@@ -103,13 +105,14 @@ export function VendorCreatePage() {
           </p>
         ) : null}
 
-        <button
+        <Button
+          variant="primary"
           type="submit"
           disabled={create.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-sans text-sm"
+          className="self-start"
         >
           {create.isPending ? 'Saving.' : 'Create'}
-        </button>
+        </Button>
       </form>
     </section>
   );
