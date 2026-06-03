@@ -84,25 +84,22 @@ export function TaxesPage() {
       />
       {error ? (
         <p className="font-sans text-sm text-accent">Failed to load taxes.</p>
-      ) : (
-        <>
-          <DataTable
-            columns={COLUMNS}
-            rows={pageRows}
-            getRowKey={(tax) => tax.id}
-            loading={isLoading}
-            empty="No taxes yet."
-          />
-          {totalCount > PAGE_SIZE ? (
-            <Pagination
-              page={page}
-              totalCount={totalCount}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-            />
-          ) : null}
-        </>
-      )}
+      ) : null}
+      <DataTable
+        columns={COLUMNS}
+        rows={pageRows}
+        getRowKey={(tax) => tax.id}
+        loading={isLoading}
+        empty="No taxes yet."
+      />
+      {totalCount > PAGE_SIZE ? (
+        <Pagination
+          page={page}
+          totalCount={totalCount}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
+      ) : null}
     </section>
   );
 }
