@@ -1,9 +1,21 @@
+// BomDetailPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01, 3PL CRUD
+// tail): PageHeader replaces the hand-rolled title and the component table
+// becomes a DataTable (per-row Remove lives in an actions column). The add-
+// component form keeps its shape with the raw select swapped for the kit
+// Select. BOMs have no FSM or history, so this stays a single-column hub (no
+// DetailLayout). The parent-item-keyed routing, the self-reference filter on
+// the component options, the quantity validation, and the cap gate are
+// preserved verbatim.
+
 import { useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import {
   useBomItemsList,
   useCreateBomItem,
@@ -11,6 +23,7 @@ import {
 } from '@/lib/hooks/useInventory';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import type { BomItem } from '@/lib/types/vendors_inventory_ops';
 
 export function BomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -67,73 +80,96 @@ export function BomDetailPage() {
     setNotes('');
   }
 
+  const actionColumn: DataColumn<BomItem>[] = canWrite
+    ? [
+        {
+          key: 'actions',
+          header: '',
+          align: 'right',
+          render: (line) => (
+            <Button
+              variant="ghost"
+              onClick={() => remove.mutate(line.id)}
+              disabled={remove.isPending}
+            >
+              Remove
+            </Button>
+          ),
+        },
+      ]
+    : [];
+
+  const columns: ReadonlyArray<DataColumn<BomItem>> = [
+    {
+      key: 'component',
+      header: 'Component',
+      render: (line) =>
+        itemLabel.get(line.component_item_id) ?? line.component_item_id,
+    },
+    {
+      key: 'qty',
+      header: 'Quantity per',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (line) => String(line.quantity_per),
+    },
+    {
+      key: 'unit',
+      header: 'Unit',
+      cellClassName: 'text-ink-dim',
+      render: (line) => line.unit_of_measure ?? '',
+    },
+    {
+      key: 'notes',
+      header: 'Notes',
+      cellClassName: 'text-ink-dim',
+      render: (line) => line.notes ?? '',
+    },
+    ...actionColumn,
+  ];
+
   if (isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
 
   return (
-    <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
+    <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'Bills of materials', to: '/3pl-operations/boms' },
           { label: parentLabel },
         ]}
       />
-      <h1 className="text-4xl font-display tracking-wide text-ink">{parentLabel}</h1>
+      <PageHeader title={parentLabel} />
 
-      <table className="w-full border border-line text-sm font-sans">
-        <thead className="bg-bg-2 text-left text-ink-dim">
-          <tr>
-            <th className="px-4 py-2">Component</th>
-            <th className="px-4 py-2">Quantity per</th>
-            <th className="px-4 py-2">Unit</th>
-            <th className="px-4 py-2">Notes</th>
-            {canWrite ? <th className="px-4 py-2" /> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {(lines ?? []).length === 0 ? (
-            <tr className="border-t border-line">
-              <td className="px-4 py-2 text-ink-dim" colSpan={canWrite ? 5 : 4}>No components yet.</td>
-            </tr>
-          ) : (
-            (lines ?? []).map((line) => (
-              <tr key={line.id} className="border-t border-line">
-                <td className="px-4 py-2 text-ink">{itemLabel.get(line.component_item_id) ?? line.component_item_id}</td>
-                <td className="px-4 py-2 text-ink-dim">{line.quantity_per}</td>
-                <td className="px-4 py-2 text-ink-dim">{line.unit_of_measure ?? ''}</td>
-                <td className="px-4 py-2 text-ink-dim">{line.notes ?? ''}</td>
-                {canWrite ? (
-                  <td className="px-4 py-2">
-                    <button
-                      type="button"
-                      onClick={() => remove.mutate(line.id)}
-                      disabled={remove.isPending}
-                      className="text-accent underline disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                ) : null}
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+      <DataTable
+        columns={columns}
+        rows={lines ?? []}
+        getRowKey={(line) => line.id}
+        empty="No components yet."
+      />
 
       {canWrite ? (
-        <form onSubmit={onAddLine} className="flex flex-col gap-4 font-sans text-sm border border-line p-6">
-          <h2 className="text-xl font-display tracking-wide text-ink">ADD COMPONENT</h2>
+        <form
+          onSubmit={onAddLine}
+          className="flex flex-col gap-4 border border-line p-6 font-sans text-sm"
+        >
+          <h2 className="text-xl font-display tracking-wide text-ink">
+            ADD COMPONENT
+          </h2>
           <label className="flex flex-col gap-2">
-            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">Component item</span>
-            <select
+            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+              Component item
+            </span>
+            <Select
               value={componentItemId}
               onChange={(e) => setComponentItemId(e.target.value)}
-              className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
             >
               <option value="">Select an item</option>
               {options.map((opt) => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
               ))}
-            </select>
+            </Select>
           </label>
           <TextInput
             label="Quantity per"
@@ -157,7 +193,11 @@ export function BomDetailPage() {
           />
           {formError ? <p className="text-accent">{formError}</p> : null}
           {create.error ? (
-            <p className="text-accent">{create.error instanceof Error ? create.error.message : 'Failed to add component.'}</p>
+            <p className="text-accent">
+              {create.error instanceof Error
+                ? create.error.message
+                : 'Failed to add component.'}
+            </p>
           ) : null}
           <Button type="submit" disabled={create.isPending} className="self-start">
             {create.isPending ? 'Saving.' : 'Add component'}
