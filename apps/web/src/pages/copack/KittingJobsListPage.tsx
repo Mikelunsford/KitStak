@@ -1,34 +1,44 @@
+// KittingJobsListPage. Migrated to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination replace
+// the hand-rolled header, dual filter selects, inline status pill, and table.
+// Behavior preserved: the create CTA stays gated on copack.kitting_job.create,
+// the ?status= deep-link still seeds the status filter, both status and
+// warehouse filters drive the server query, and the onboarding empty state is
+// unchanged. The redundant trailing "View" link column is dropped (the job
+// number is already a link to the same detail page).
+
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useKittingJobsList, useSalesOrdersList, useCoPackWarehousesList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatDateMedium } from '@/lib/dates';
-import type { KittingJobStatus } from '@/lib/types/copack';
+import type { KittingJob, KittingJobStatus } from '@/lib/types/copack';
 
-/**
- * KittingJobsListPage. Pillar 3 surface. Mirrors ManufacturingRunsListPage.
- *
- * The route is reachable today but the copack-api bundle gates on
- * plugins.copack_ecom and returns 404 for orgs without the flag. The Sidebar
- * entry that lands here is also flag-gated, so unauthorised orgs never see the
- * link. Supports ?status= deep-links from the home status cards.
- */
+const PAGE_SIZE = 50;
+
 type StatusFilter = KittingJobStatus | 'all';
 
-const ALLOWED_JOB_STATUSES = new Set<string>([
+const JOB_STATUSES: ReadonlyArray<KittingJobStatus> = [
   'draft',
   'started',
   'completed',
   'cancelled',
-]);
+];
+
+const ALLOWED_JOB_STATUSES = new Set<string>(JOB_STATUSES);
 
 function parseJobStatusParam(raw: string | null): StatusFilter {
-  if (raw && ALLOWED_JOB_STATUSES.has(raw)) {
-    return raw as KittingJobStatus;
-  }
+  if (raw && ALLOWED_JOB_STATUSES.has(raw)) return raw as KittingJobStatus;
   return 'all';
 }
 
@@ -38,6 +48,7 @@ export function KittingJobsListPage() {
     parseJobStatusParam(searchParams.get('status')),
   );
   const [warehouseId, setWarehouseId] = useState<string>('');
+  const [page, setPage] = useState(0);
 
   const filters = useMemo(() => {
     const f: { status?: StatusFilter; warehouse_id?: string } = {};
@@ -57,42 +68,134 @@ export function KittingJobsListPage() {
     return map;
   }, [orders.data]);
 
-  return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">KITTING JOBS</h1>
-        {caps.can('copack.kitting_job.create') ? (
-          <Link
-            to="/copack/kitting/new"
-            className="px-4 py-2 bg-accent text-on-primary font-sans text-sm"
-          >
-            New kitting job
-          </Link>
-        ) : null}
-      </header>
+  const warehouseName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const w of warehouses.data ?? []) map[w.id] = `${w.code} · ${w.display_name}`;
+    return map;
+  }, [warehouses.data]);
 
-      <div className="flex flex-wrap gap-4 items-end">
-        <label className="flex flex-col gap-1">
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Status</span>
-          <select
+  const columns: ReadonlyArray<DataColumn<KittingJob>> = useMemo(
+    () => [
+      {
+        key: 'job',
+        header: 'Job',
+        cellClassName: 'font-mono',
+        render: (j) => (
+          <Link to={`/copack/kitting/${j.id}`} className="text-ink hover:text-accent">
+            {j.job_number ?? j.id.slice(0, 8)}
+          </Link>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (j) => <StatusBadge status={j.status} />,
+      },
+      {
+        key: 'order',
+        header: 'Sales order',
+        cellClassName: 'text-ink-dim',
+        render: (j) =>
+          j.sales_order_id ? orderNumber[j.sales_order_id] ?? j.sales_order_id.slice(0, 8) : '·',
+      },
+      {
+        key: 'warehouse',
+        header: 'Warehouse',
+        cellClassName: 'text-ink-dim',
+        render: (j) =>
+          j.warehouse_id ? <EntityLabel kind="copack_warehouse" id={j.warehouse_id} /> : '·',
+      },
+      {
+        key: 'planned',
+        header: 'Planned start',
+        cellClassName: 'text-ink-dim',
+        render: (j) => formatDateMedium(j.planned_start_at),
+      },
+      {
+        key: 'created',
+        header: 'Created',
+        cellClassName: 'text-ink-dim',
+        render: (j) => formatDateMedium(j.created_at),
+      },
+    ],
+    [orderNumber],
+  );
+
+  function applyStatus(next: StatusFilter) {
+    setStatus(next);
+    setPage(0);
+  }
+  function applyWarehouse(next: string) {
+    setWarehouseId(next);
+    setPage(0);
+  }
+
+  const rows = jobs.data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const chips: FilterChip[] = [
+    ...(status !== 'all'
+      ? [{ key: 'status', label: `Status: ${humaniseStatus(status)}`, onClear: () => applyStatus('all') }]
+      : []),
+    ...(warehouseId
+      ? [
+          {
+            key: 'warehouse',
+            label: `Warehouse: ${warehouseName[warehouseId] ?? warehouseId.slice(0, 8)}`,
+            onClear: () => applyWarehouse(''),
+          },
+        ]
+      : []),
+  ];
+
+  const showOnboardingEmpty =
+    !jobs.isLoading && !jobs.error && totalCount === 0 && status === 'all' && !warehouseId;
+
+  const meta =
+    !jobs.isLoading && !jobs.error
+      ? `${totalCount} ${totalCount === 1 ? 'kitting job' : 'kitting jobs'}`
+      : undefined;
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Make / Kitting Jobs"
+        title="Kitting Jobs"
+        meta={meta}
+        actions={
+          caps.can('copack.kitting_job.create') ? (
+            <Link to="/copack/kitting/new">
+              <Button variant="primary">New kitting job</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">Status</span>
+          <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent"
+            onChange={(e) => applyStatus(e.target.value as StatusFilter)}
+            aria-label="Filter by status"
           >
-            <option value="all">All</option>
-            <option value="draft">Draft</option>
-            <option value="started">Started</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            <option value="all">All statuses</option>
+            {JOB_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Warehouse</span>
-          <select
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">Warehouse</span>
+          <Select
             value={warehouseId}
-            onChange={(e) => setWarehouseId(e.target.value)}
+            onChange={(e) => applyWarehouse(e.target.value)}
             disabled={warehouses.isLoading}
-            className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+            aria-label="Filter by warehouse"
           >
             <option value="">All warehouses</option>
             {(warehouses.data ?? []).map((w) => (
@@ -100,18 +203,15 @@ export function KittingJobsListPage() {
                 {w.code} · {w.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-      </div>
+      </FilterBar>
 
-      {jobs.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {jobs.error ? (
-        <p className="text-accent font-sans text-sm">
+        <p className="font-sans text-sm text-accent">
           {jobs.error instanceof Error ? jobs.error.message : 'Failed to load kitting jobs.'}
         </p>
-      ) : null}
-
-      {!jobs.isLoading && (jobs.data ?? []).length === 0 && status === 'all' && !warehouseId ? (
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="kitting job"
           explainer="Kitting jobs assemble finished kits from their component items."
@@ -120,56 +220,23 @@ export function KittingJobsListPage() {
           canAdd={caps.can('copack.kitting_job.create')}
         />
       ) : (
-        <table className="w-full border border-line text-sm font-sans">
-          <thead className="bg-bg-2 text-left text-ink-dim">
-            <tr>
-              <th className="px-4 py-2">Job</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Sales order</th>
-              <th className="px-4 py-2">Warehouse</th>
-              <th className="px-4 py-2">Planned start</th>
-              <th className="px-4 py-2">Created</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(jobs.data ?? []).length === 0 && !jobs.isLoading ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-ink-dim text-sm">
-                  No kitting jobs match the current filters.
-                </td>
-              </tr>
-            ) : (
-              (jobs.data ?? []).map((j) => (
-                <tr key={j.id} className="border-t border-line">
-                  <td className="px-4 py-2">
-                    <Link to={`/copack/kitting/${j.id}`} className="text-ink underline">
-                      {j.job_number ?? j.id.slice(0, 8)}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
-                      {j.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {j.sales_order_id ? (orderNumber[j.sales_order_id] ?? j.sales_order_id.slice(0, 8)) : '·'}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {j.warehouse_id ? <EntityLabel kind="copack_warehouse" id={j.warehouse_id} /> : '·'}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(j.planned_start_at)}</td>
-                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(j.created_at)}</td>
-                  <td className="px-4 py-2">
-                    <Link to={`/copack/kitting/${j.id}`} className="text-ink underline text-xs">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={columns}
+            rows={pageRows}
+            getRowKey={(j) => j.id}
+            loading={jobs.isLoading}
+            empty="No kitting jobs match the current filters."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );
