@@ -12,6 +12,8 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailLayout } from '@/components/ui/DetailLayout';
 import { BillableLineItemsEditor } from '@/components/ui/BillableLineItemsEditor';
 import {
   useInvoice,
@@ -252,48 +254,59 @@ export function InvoiceDetailPage() {
         }
         visitedStates={auditStates.data?.visited}
       />
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase text-ink-dim font-sans">Invoice</p>
-          <h1 className="text-4xl font-display tracking-wide text-ink">
-            {inv.invoice_number}
-          </h1>
-          <div className="text-ink-dim text-sm mt-2 flex flex-col gap-1">
-            {customerId && (
-              <span>
-                Customer:{' '}
-                <Link
-                  to={`/crm/customers/${customerId}`}
-                  className="text-ink hover:text-accent"
-                >
-                  {customer.data?.display_name ?? customerId}
-                </Link>
-              </span>
-            )}
-            {projectId && (
-              <span>
-                Project:{' '}
-                <Link
-                  to={`/3pl-operations/projects/${projectId}`}
-                  className="text-ink hover:text-accent"
-                >
-                  {project.data?.project.number ?? projectId}
-                </Link>
-              </span>
-            )}
-            {sourceQuoteId && (
-              <span>
-                Source quote:{' '}
-                <Link
-                  to={`/3pl-operations/quotes/${sourceQuoteId}`}
-                  className="text-ink hover:text-accent"
-                >
-                  {sourceQuote.data?.quote.number ?? sourceQuoteId}
-                </Link>
-              </span>
-            )}
-          </div>
-        </div>
+      <PageHeader
+        title={inv.invoice_number}
+        meta={
+          customerId || projectId || sourceQuoteId ? (
+            <span className="flex flex-col gap-1">
+              {customerId && (
+                <span>
+                  Customer:{' '}
+                  <Link
+                    to={`/crm/customers/${customerId}`}
+                    className="text-ink hover:text-accent"
+                  >
+                    {customer.data?.display_name ?? customerId}
+                  </Link>
+                </span>
+              )}
+              {projectId && (
+                <span>
+                  Project:{' '}
+                  <Link
+                    to={`/3pl-operations/projects/${projectId}`}
+                    className="text-ink hover:text-accent"
+                  >
+                    {project.data?.project.number ?? projectId}
+                  </Link>
+                </span>
+              )}
+              {sourceQuoteId && (
+                <span>
+                  Source quote:{' '}
+                  <Link
+                    to={`/3pl-operations/quotes/${sourceQuoteId}`}
+                    className="text-ink hover:text-accent"
+                  >
+                    {sourceQuote.data?.quote.number ?? sourceQuoteId}
+                  </Link>
+                </span>
+              )}
+            </span>
+          ) : undefined
+        }
+      />
+
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="text-2xl font-display tracking-wide text-ink mb-3">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="invoice" entityId={invoiceId} />
+          </section>
+        }
+      >
         {/* Secondary cluster of header actions. Cancel and Download PDF
             live here at neutral weight; Send stays at primary weight
             because it is itself a forward transition from draft / pending
@@ -378,7 +391,6 @@ export function InvoiceDetailPage() {
             </Button>
           )}
         </div>
-      </header>
 
       {/* UX-Q4: forward-transition CTA promoted to primary top placement
           when status is sent / partially_paid / overdue. PaymentCreatePage
@@ -521,11 +533,7 @@ export function InvoiceDetailPage() {
           </ul>
         )}
       </section>
-
-      <section>
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="invoice" entityId={invoiceId} />
-      </section>
+      </DetailLayout>
     </section>
   );
 }
