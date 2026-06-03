@@ -7,6 +7,8 @@ import {
   type LineDraft,
 } from '@/components/forms/LineItemsEditor';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateReceivingOrder } from '@/lib/hooks/useOps';
@@ -39,6 +41,9 @@ import { parseProjectIdParam } from './receivingProjectParam';
  * operator pasting a bad URL does not blow up the picker or send
  * garbage to the server (the API would reject it as 422, but better to
  * silently drop and let the picker stay empty).
+ *
+ * F-Wave10-UI-KIT-01: migrated to the shared UI kit (PageHeader replaces the
+ * hand-rolled h1; the warehouse select uses the shared Select primitive).
  */
 export function ReceivingOrderCreatePage() {
   const navigate = useNavigate();
@@ -132,21 +137,18 @@ export function ReceivingOrderCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW RECEIVING ORDER
-      </h1>
+      <PageHeader eyebrow="Make / Receiving" title="New receiving order" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Warehouse
             <span className="text-accent ml-1">*</span>
           </span>
-          <select
+          <Select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
             required
             disabled={warehouses.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {warehouses.isLoading ? 'Loading.' : 'Select a warehouse.'}
@@ -156,7 +158,7 @@ export function ReceivingOrderCreatePage() {
                 {w.code} · {w.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <VendorPicker
           value={vendorId}
