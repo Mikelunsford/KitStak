@@ -45,7 +45,7 @@ export function OpportunitiesPipelinePage() {
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
       ) : (
-        <div className="grid grid-cols-6 gap-3">
+        <div role="region" aria-label="Opportunities pipeline" className="grid grid-cols-6 gap-3">
           {columns.map((col) => {
             const inCol = (query.data ?? []).filter((o) => o.stage === col);
             const total = inCol.reduce((sum, o) => sum + o.amount_cents, 0);

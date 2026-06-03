@@ -34,7 +34,7 @@ export function LeadsKanbanPage() {
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
       ) : (
-        <div className="grid grid-cols-5 gap-3">
+        <div role="region" aria-label="Leads kanban" className="grid grid-cols-5 gap-3">
           {columns.map((col) => {
             const inCol = (query.data ?? []).filter((l) => l.status === col);
             return (

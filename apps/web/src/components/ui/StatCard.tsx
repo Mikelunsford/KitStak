@@ -21,6 +21,7 @@ export function StatCard({ to, count, label, loading = false }: StatCardProps) {
   return (
     <Link
       to={to}
+      aria-busy={loading}
       className="bg-bg-2 border border-line p-6 flex flex-col gap-2 hover:border-accent"
     >
       <span className="text-4xl font-display tracking-wide text-ink">
