@@ -329,6 +329,19 @@ export function ProjectDetailPage() {
         ]}
       />
 
+      {/* UX-Q7: display-only horizontal progress stepper. Sits above the
+          PageHeader to match the migrated FSM detail pages and the reference
+          InvoiceDetailPage. */}
+      <StateStepper
+        steps={[...STATE_STEPPER_PATHS.project.path]}
+        current={state}
+        offPath={
+          isOffPath('project', state)
+            ? { state, label: STATE_STEPPER_PATHS.project.resolveLabel(state) }
+            : undefined
+        }
+      />
+
       <PageHeader
         title={project.number}
         meta={
@@ -368,17 +381,6 @@ export function ProjectDetailPage() {
               Budget: {formatCents(project.budget_cents, project.currency_code)}
             </span>
           </span>
-        }
-      />
-
-      {/* UX-Q7: display-only horizontal progress stepper. */}
-      <StateStepper
-        steps={[...STATE_STEPPER_PATHS.project.path]}
-        current={state}
-        offPath={
-          isOffPath('project', state)
-            ? { state, label: STATE_STEPPER_PATHS.project.resolveLabel(state) }
-            : undefined
         }
       />
 
