@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, InvoicePicker } from '@/components/ui/pickers';
 import { useCreateCreditNote } from '@/lib/hooks/useCreditNotes';
@@ -54,9 +55,7 @@ export function CreditNoteCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW CREDIT NOTE
-      </h1>
+      <PageHeader eyebrow="Get paid / Credit notes" title="New credit note" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="Credit note number"
