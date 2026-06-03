@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { useVendorBill, useUpdateVendorBill } from '@/lib/hooks/useVendorBills';
 import { VendorBillPatchSchema } from '@/lib/types/vendors_inventory_ops';
@@ -67,98 +70,78 @@ export function VendorBillEditPage() {
     return <p className="px-8 py-10 font-sans text-ink-dim">Loading.</p>;
   }
   if (!query.data) {
-    return <p className="px-8 py-10 font-sans text-accent">Vendor bill not found.</p>;
+    return (
+      <p className="px-8 py-10 font-sans text-accent">Vendor bill not found.</p>
+    );
   }
 
   return (
-    <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EDIT VENDOR BILL</h1>
+    <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
+      <PageHeader eyebrow="Library / Vendor bills" title="Edit vendor bill" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Bill number</span>
-          <input
-            type="text"
-            value={billNumber}
-            onChange={(e) => setBillNumber(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Bill date</span>
-          <input
-            type="date"
-            value={billDate}
-            onChange={(e) => setBillDate(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Due date</span>
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Currency</span>
-          <input
-            type="text"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            maxLength={3}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="Bill number"
+          value={billNumber}
+          onChange={(e) => setBillNumber(e.target.value)}
+        />
+        <TextInput
+          label="Bill date"
+          type="date"
+          value={billDate}
+          onChange={(e) => setBillDate(e.target.value)}
+          required
+        />
+        <TextInput
+          label="Due date"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
+        <TextInput
+          label="Currency"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+          maxLength={3}
+          required
+        />
         <DollarInput
           label="Subtotal"
           value={subtotalCents}
           onChange={setSubtotalCents}
         />
-        <DollarInput
-          label="Tax"
-          value={taxCents}
-          onChange={setTaxCents}
-        />
+        <DollarInput label="Tax" value={taxCents} onChange={setTaxCents} />
         <DollarInput
           label="Total"
           value={totalCents}
           onChange={setTotalCents}
         />
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Reference</span>
-          <input
-            type="text"
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Notes</span>
+        <TextInput
+          label="Reference"
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+        />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Notes
+          </span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="bg-bg-2 border border-line px-3 py-2"
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
         {update.error ? (
           <p className="text-accent text-sm">
-            {update.error instanceof Error ? update.error.message : 'Failed to save.'}
+            {update.error instanceof Error
+              ? update.error.message
+              : 'Failed to save.'}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={update.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-        >
-          {update.isPending ? 'SAVING.' : 'SAVE'}
-        </button>
+        <Button type="submit" disabled={update.isPending} className="self-start">
+          {update.isPending ? 'Saving.' : 'Save'}
+        </Button>
       </form>
     </section>
   );
