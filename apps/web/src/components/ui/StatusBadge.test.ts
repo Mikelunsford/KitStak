@@ -67,6 +67,13 @@ describe('humaniseStatus - 3PL finance states (credit note, expense, vendor bill
     expect(humaniseStatus('assigned')).toBe('Assigned');
     expect(humaniseStatus('done')).toBe('Done');
   });
+
+  it('humanises the finance journal-entry and period-close states', () => {
+    expect(humaniseStatus('posted')).toBe('Posted');
+    expect(humaniseStatus('reversed')).toBe('Reversed');
+    expect(humaniseStatus('in_review')).toBe('In review');
+    expect(humaniseStatus('reopened')).toBe('Reopened');
+  });
 });
 
 describe('statusColorClass', () => {
@@ -93,6 +100,13 @@ describe('statusColorClass', () => {
     expect(statusColorClass('scheduled')).toBe('bg-accent');
     expect(statusColorClass('assigned')).toBe('bg-accent');
     expect(statusColorClass('done')).toBe('bg-green-500');
+  });
+
+  it('maps the finance journal-entry and period-close states to brand tokens', () => {
+    expect(statusColorClass('posted')).toBe('bg-green-500');
+    expect(statusColorClass('reversed')).toBe('bg-ink-dim');
+    expect(statusColorClass('in_review')).toBe('bg-yellow-500');
+    expect(statusColorClass('reopened')).toBe('bg-accent');
   });
 
   it('falls back to neutral for an unknown state', () => {

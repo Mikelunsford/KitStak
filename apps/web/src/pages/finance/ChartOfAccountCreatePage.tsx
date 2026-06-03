@@ -2,6 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { TextInput } from '@/components/ui/TextInput';
 import { AccountTypeSchema } from '@/lib/types/finance';
 import { useCreateChartOfAccount } from '@/lib/hooks/useChartOfAccounts';
 import type { CoaCreate } from '@/lib/services/chartOfAccountsService'; // cast target
@@ -27,7 +31,8 @@ export function ChartOfAccountCreatePage() {
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [accountType, setAccountType] = useState<z.infer<typeof AccountTypeSchema>>('asset');
+  const [accountType, setAccountType] =
+    useState<z.infer<typeof AccountTypeSchema>>('asset');
   const [isActive, setIsActive] = useState(true);
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -52,62 +57,52 @@ export function ChartOfAccountCreatePage() {
 
     create.mutate(parsed.data as CoaCreate, {
       onSuccess: () => navigate('/finance/coa'),
-      onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create account.'),
+      onError: (e) =>
+        setError(e instanceof Error ? e.message : 'Failed to create account.'),
     });
   }
 
   return (
-    <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW ACCOUNT</h1>
+    <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
+      <PageHeader eyebrow="Get paid / Chart of accounts" title="New account" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Account code</span>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            placeholder="e.g. 1010"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Account name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            placeholder="e.g. Cash"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Account type</span>
-          <select
+        <TextInput
+          label="Account code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+          placeholder="e.g. 1010"
+        />
+        <TextInput
+          label="Account name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          placeholder="e.g. Cash"
+        />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Account type
+          </span>
+          <Select
             value={accountType}
             onChange={(e) =>
               setAccountType(e.target.value as z.infer<typeof AccountTypeSchema>)
             }
-            className="bg-bg-2 border border-line px-3 py-2"
           >
             <option value="asset">Asset</option>
             <option value="liability">Liability</option>
             <option value="equity">Equity</option>
             <option value="revenue">Revenue</option>
             <option value="expense">Expense</option>
-          </select>
+          </Select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Description</span>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional"
+        />
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -118,20 +113,16 @@ export function ChartOfAccountCreatePage() {
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
         <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-          >
-            {create.isPending ? 'CREATING.' : 'CREATE'}
-          </button>
-          <button
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? 'Creating.' : 'Create'}
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => navigate('/finance/coa')}
-            className="px-4 py-2 border border-line text-ink-dim font-sans text-sm"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </section>
