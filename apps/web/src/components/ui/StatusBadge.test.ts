@@ -57,6 +57,10 @@ describe('humaniseStatus - 3PL finance states (credit note, expense, vendor bill
     expect(label).toBe('Partially paid');
     expect(label).not.toContain('_');
   });
+
+  it('humanises the CRM activity open state', () => {
+    expect(humaniseStatus('open')).toBe('Open');
+  });
 });
 
 describe('statusColorClass', () => {
@@ -73,6 +77,10 @@ describe('statusColorClass', () => {
     expect(statusColorClass('voided')).toBe('bg-ink-dim');
     expect(statusColorClass('reimbursed')).toBe('bg-green-500');
     expect(statusColorClass('partial_paid')).toBe('bg-yellow-500');
+  });
+
+  it('maps the CRM activity open state to a brand token', () => {
+    expect(statusColorClass('open')).toBe('bg-yellow-500');
   });
 
   it('falls back to neutral for an unknown state', () => {

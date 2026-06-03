@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
@@ -81,7 +82,7 @@ export function ContactCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW CONTACT</h1>
+      <PageHeader eyebrow="Library / Contacts" title="New contact" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <CustomerPicker
           value={customerId}

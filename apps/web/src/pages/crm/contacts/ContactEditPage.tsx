@@ -2,6 +2,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { TextInput } from '@/components/ui/TextInput';
 import { useContact } from '@/lib/hooks/useContact';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { updateContact } from '@/lib/services/contactsService';
@@ -70,59 +73,41 @@ export function ContactEditPage() {
   }
 
   return (
-    <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EDIT CONTACT</h1>
+    <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
+      <PageHeader eyebrow="Library / Contacts" title="Edit contact" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">First name</span>
-          <input
-            type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Last name</span>
-          <input
-            type="text"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Optional"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Title</span>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Optional"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Optional"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Phone</span>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Optional"
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="First name"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          required
+        />
+        <TextInput
+          label="Last name"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          placeholder="Optional"
+        />
+        <TextInput
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Optional"
+        />
+        <TextInput
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Optional"
+        />
+        <TextInput
+          label="Phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Optional"
+        />
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -135,13 +120,9 @@ export function ContactEditPage() {
           </span>
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-        >
-          {mutation.isPending ? 'SAVING.' : 'SAVE'}
-        </button>
+        <Button type="submit" disabled={mutation.isPending} className="self-start">
+          {mutation.isPending ? 'Saving.' : 'Save'}
+        </Button>
       </form>
     </section>
   );
