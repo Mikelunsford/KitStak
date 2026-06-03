@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
@@ -254,13 +254,12 @@ export function ManufacturingRunFromBomPage() {
         {error && draftRunId ? (
           <p className="font-sans text-sm text-ink-dim">
             A draft run was created.{' '}
-            <button
-              type="button"
-              onClick={() => navigate(`/manufacturing/runs/${draftRunId}`)}
+            <Link
+              to={`/manufacturing/runs/${draftRunId}`}
               className="text-ink underline"
             >
               Open it to finish manually.
-            </button>
+            </Link>
           </p>
         ) : null}
 

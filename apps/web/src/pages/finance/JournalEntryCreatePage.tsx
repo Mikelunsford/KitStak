@@ -164,11 +164,11 @@ export function JournalEntryCreatePage() {
           <table className="w-full text-sm font-sans border-collapse">
             <thead>
               <tr className="text-left text-ink-dim border-b border-line">
-                <th className="py-2">Account</th>
-                <th className="py-2 text-right">Debit (cents)</th>
-                <th className="py-2 text-right">Credit (cents)</th>
-                <th className="py-2">Memo</th>
-                <th className="py-2" />
+                <th scope="col" className="py-2">Account</th>
+                <th scope="col" className="py-2 text-right">Debit (cents)</th>
+                <th scope="col" className="py-2 text-right">Credit (cents)</th>
+                <th scope="col" className="py-2">Memo</th>
+                <th scope="col" className="py-2" />
               </tr>
             </thead>
             <tbody>

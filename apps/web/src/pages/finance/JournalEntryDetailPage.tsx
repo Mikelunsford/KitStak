@@ -76,7 +76,11 @@ export function JournalEntryDetailPage() {
       >
         {canPost && (
           <div>
-            <Button onClick={() => post.mutate(jeId)} disabled={post.isPending}>
+            <Button
+              variant="secondary"
+              onClick={() => post.mutate(jeId)}
+              disabled={post.isPending}
+            >
               {post.isPending ? 'Posting.' : 'Post'}
             </Button>
           </div>
