@@ -7,6 +7,8 @@ import {
   type LineDraft,
 } from '@/components/forms/LineItemsEditor';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateShipment } from '@/lib/hooks/useOps';
@@ -36,6 +38,9 @@ import { deriveShipmentCustomerFromProject } from './deriveShipmentCustomerFromP
  * persisted to the shipments row instead of being silently stripped.
  * F-Wave9-AUDIT-V3-WAVE-C3-01 hardens the deep-link prefill with a UUID
  * guard so a malformed `?project_id=` URL falls back to null.
+ *
+ * F-Wave10-UI-KIT-01: migrated to the shared UI kit (PageHeader replaces the
+ * hand-rolled h1; the warehouse select uses the shared Select primitive).
  */
 export function ShipmentCreatePage() {
   const navigate = useNavigate();
@@ -136,21 +141,18 @@ export function ShipmentCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW SHIPMENT
-      </h1>
+      <PageHeader eyebrow="Ship / Shipments" title="New shipment" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Warehouse
             <span className="text-accent ml-1">*</span>
           </span>
-          <select
+          <Select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
             required
             disabled={warehouses.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {warehouses.isLoading ? 'Loading.' : 'Select a warehouse.'}
@@ -160,7 +162,7 @@ export function ShipmentCreatePage() {
                 {w.code} · {w.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {/* B4 (Wave B): Project sits above Customer so the natural flow
             "pick the project this shipment is for, customer auto-fills"

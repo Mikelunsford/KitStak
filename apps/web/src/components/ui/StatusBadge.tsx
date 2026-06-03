@@ -67,6 +67,13 @@ const COLOR_MAP: Record<string, string> = {
   partial_received: 'bg-yellow-500',
   received: 'bg-green-500',
   closed: 'bg-ink-dim',
+
+  // Shipment and receiving order statuses (F-Wave10-UI-KIT-01). The terminal
+  // states shipped / received / cancelled are mapped above and shared; only
+  // the in-flight states are new here.
+  created: 'bg-ink-dim',
+  picking: 'bg-yellow-500',
+  in_progress: 'bg-yellow-500',
 };
 
 /**
@@ -119,6 +126,11 @@ const LABEL_MAP: Record<string, string> = {
   partial_received: 'Partially received',
   received: 'Received',
   closed: 'Closed',
+
+  // Shipment and receiving order statuses (F-Wave10-UI-KIT-01).
+  created: 'Created',
+  picking: 'Picking',
+  in_progress: 'In progress',
 };
 
 /**
