@@ -1,8 +1,18 @@
+// TaxCreatePage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + TextInput + kit Button replace the hand-rolled header, raw
+// inputs, and raw submit button; a secondary Cancel is added. The PercentInput
+// (rate, basis-points round-trip), the notes textarea, and the Compound /
+// Active / Default-for-org checkboxes stay. Validation and the submit payload
+// are unchanged.
+
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { PercentInput } from '@/components/forms/PercentInput';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { TextInput } from '@/components/ui/TextInput';
 import { taxesKeys } from '@/lib/queryKeys/taxes';
 import { createTax } from '@/lib/services/taxesService';
 import { TaxCreateSchema, type TaxCreate } from '@/lib/types/sales';
@@ -51,28 +61,20 @@ export function TaxCreatePage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW TAX</h1>
+      <PageHeader eyebrow="Sales config / Taxes" title="New tax" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Code</span>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="Code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+        />
+        <TextInput
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
         <PercentInput
           label="Rate"
           value={rateBps}
@@ -104,23 +106,30 @@ export function TaxCreatePage() {
           />
           <span className="text-sm text-ink-dim">Default for org</span>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Notes</span>
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Notes
+          </span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="bg-bg-2 border border-line px-3 py-2"
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-        >
-          {mutation.isPending ? 'CREATING.' : 'CREATE'}
-        </button>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Creating.' : 'Create'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/3pl-operations/sales-config/taxes')}
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </section>
   );

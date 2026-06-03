@@ -1,7 +1,18 @@
+// ValueAddedServiceCreatePage. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + TextInput + Select + kit Button replace the
+// hand-rolled header, raw inputs, raw kind select, and raw submit button; a
+// secondary Cancel is added. The DollarInput (base price), the description
+// textarea, and the Active checkbox stay (no kit equivalents). Validation and
+// the submit payload are unchanged.
+
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { vasKeys } from '@/lib/queryKeys/vas';
 import { createValueAddedService } from '@/lib/services/vasService';
@@ -32,7 +43,8 @@ export function ValueAddedServiceCreatePage() {
       void qc.invalidateQueries({ queryKey: vasKeys.all });
       navigate('/3pl-operations/vas');
     },
-    onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create service.'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Failed to create service.'),
   });
 
   function onSubmit(e: FormEvent) {
@@ -57,48 +69,45 @@ export function ValueAddedServiceCreatePage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW VALUE ADDED SERVICE</h1>
+      <PageHeader
+        eyebrow="Library / Value added services"
+        title="New value added service"
+      />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Code</span>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Description</span>
+        <TextInput
+          label="Code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+        />
+        <TextInput
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Description
+          </span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="bg-bg-2 border border-line px-3 py-2"
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Kind</span>
-          <select
-            value={kind}
-            onChange={(e) => setKind(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2"
-          >
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Kind
+          </span>
+          <Select value={kind} onChange={(e) => setKind(e.target.value)}>
             {KIND_OPTIONS.map((k) => (
-              <option key={k} value={k}>{k}</option>
+              <option key={k} value={k}>
+                {k}
+              </option>
             ))}
-          </select>
+          </Select>
         </label>
         <DollarInput
           label="Base price"
@@ -106,16 +115,12 @@ export function ValueAddedServiceCreatePage() {
           onChange={setBasePriceCents}
           placeholder="0.00"
         />
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Currency (3-letter code)</span>
-          <input
-            type="text"
-            value={currencyCode}
-            onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
-            maxLength={3}
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="Currency (3-letter code)"
+          value={currencyCode}
+          onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
+          maxLength={3}
+        />
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -125,13 +130,18 @@ export function ValueAddedServiceCreatePage() {
           <span className="text-sm text-ink-dim">Active</span>
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-        >
-          {mutation.isPending ? 'CREATING.' : 'CREATE'}
-        </button>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Creating.' : 'Create'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/3pl-operations/vas')}
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </section>
   );

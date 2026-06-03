@@ -1,7 +1,17 @@
+// PaymentMethodCreatePage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + TextInput + Select + kit Button replace the hand-rolled header,
+// raw inputs, raw kind select, and raw submit button; a secondary Cancel is
+// added. The notes textarea and the Active / Default-for-org checkboxes stay (no
+// kit equivalents). Validation and the submit payload are unchanged.
+
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { TextInput } from '@/components/ui/TextInput';
 import { paymentMethodsKeys } from '@/lib/queryKeys/paymentMethods';
 import { createPaymentMethod } from '@/lib/services/paymentMethodsService';
 import {
@@ -30,7 +40,8 @@ export function PaymentMethodCreatePage() {
       void qc.invalidateQueries({ queryKey: paymentMethodsKeys.all });
       navigate('/3pl-operations/sales-config/payment-methods');
     },
-    onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create payment method.'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Failed to create payment method.'),
   });
 
   function onSubmit(e: FormEvent) {
@@ -54,39 +65,34 @@ export function PaymentMethodCreatePage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW PAYMENT METHOD</h1>
+      <PageHeader
+        eyebrow="Sales config / Payment methods"
+        title="New payment method"
+      />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Code</span>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Label</span>
-          <input
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Kind</span>
-          <select
-            value={kind}
-            onChange={(e) => setKind(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2"
-          >
+        <TextInput
+          label="Code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+        />
+        <TextInput
+          label="Label"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          required
+        />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Kind
+          </span>
+          <Select value={kind} onChange={(e) => setKind(e.target.value)}>
             {KIND_OPTIONS.map((k) => (
-              <option key={k} value={k}>{k}</option>
+              <option key={k} value={k}>
+                {k}
+              </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-2">
           <input
@@ -104,23 +110,32 @@ export function PaymentMethodCreatePage() {
           />
           <span className="text-sm text-ink-dim">Default for org</span>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Notes</span>
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Notes
+          </span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="bg-bg-2 border border-line px-3 py-2"
+            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-        >
-          {mutation.isPending ? 'CREATING.' : 'CREATE'}
-        </button>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Creating.' : 'Create'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              navigate('/3pl-operations/sales-config/payment-methods')
+            }
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </section>
   );
