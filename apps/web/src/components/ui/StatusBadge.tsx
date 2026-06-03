@@ -95,6 +95,10 @@ const COLOR_MAP: Record<string, string> = {
   voided: 'bg-ink-dim',
   reimbursed: 'bg-green-500',
   partial_paid: 'bg-yellow-500',
+
+  // CRM activity statuses (F-Wave10-UI-KIT-01). completed / cancelled are
+  // mapped above and shared; only open is new.
+  open: 'bg-yellow-500',
 };
 
 /**
@@ -167,6 +171,9 @@ const LABEL_MAP: Record<string, string> = {
   voided: 'Voided',
   reimbursed: 'Reimbursed',
   partial_paid: 'Partially paid',
+
+  // CRM activity statuses (F-Wave10-UI-KIT-01).
+  open: 'Open',
 };
 
 /**
