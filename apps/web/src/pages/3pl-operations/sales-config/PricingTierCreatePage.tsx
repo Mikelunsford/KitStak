@@ -1,11 +1,23 @@
+// PricingTierCreatePage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + TextInput + kit Button replace the hand-rolled header, raw
+// inputs, and raw submit button; a secondary Cancel is added. The PercentInput
+// (discount, basis-points round-trip) and the Active checkbox stay. The
+// sort-order integer validation and the submit payload are unchanged.
+
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { PercentInput } from '@/components/forms/PercentInput';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { TextInput } from '@/components/ui/TextInput';
 import { pricingTiersKeys } from '@/lib/queryKeys/pricingTiers';
 import { createPricingTier } from '@/lib/services/pricingTiersService';
-import { PricingTierCreateSchema, type PricingTierCreate } from '@/lib/types/sales';
+import {
+  PricingTierCreateSchema,
+  type PricingTierCreate,
+} from '@/lib/types/sales';
 
 export function PricingTierCreatePage() {
   const navigate = useNavigate();
@@ -24,7 +36,8 @@ export function PricingTierCreatePage() {
       void qc.invalidateQueries({ queryKey: pricingTiersKeys.all });
       navigate('/3pl-operations/sales-config/pricing-tiers');
     },
-    onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create pricing tier.'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Failed to create pricing tier.'),
   });
 
   function onSubmit(e: FormEvent) {
@@ -52,28 +65,23 @@ export function PricingTierCreatePage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW PRICING TIER</h1>
+      <PageHeader
+        eyebrow="Sales config / Pricing tiers"
+        title="New pricing tier"
+      />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Code</span>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="Code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+        />
+        <TextInput
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
         <PercentInput
           label="Discount"
           value={discountBps}
@@ -88,25 +96,29 @@ export function PricingTierCreatePage() {
           />
           <span className="text-sm text-ink-dim">Active</span>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-ink-dim">Sort order</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            step={1}
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2"
-          />
-        </label>
+        <TextInput
+          label="Sort order"
+          type="number"
+          inputMode="numeric"
+          step={1}
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+        />
         {error ? <p className="text-accent text-sm">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="self-start px-4 py-2 bg-accent text-on-primary font-display tracking-wider disabled:opacity-50"
-        >
-          {mutation.isPending ? 'CREATING.' : 'CREATE'}
-        </button>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Creating.' : 'Create'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              navigate('/3pl-operations/sales-config/pricing-tiers')
+            }
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </section>
   );

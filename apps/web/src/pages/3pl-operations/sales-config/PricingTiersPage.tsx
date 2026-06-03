@@ -1,57 +1,100 @@
+// PricingTiersPage. 3PL sales config. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + DataTable + Pagination replace the
+// hand-rolled header, link-as-button CTA, and table. The discount column stays
+// the basis-points-to-percent rendering (discount_bps / 100).toFixed(2)%: it is
+// a rate, NOT a money amount, so formatCents must never touch it.
+
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
 import { pricingTiersKeys } from '@/lib/queryKeys/pricingTiers';
 import { listPricingTiers } from '@/lib/services/pricingTiersService';
+import type { PricingTier } from '@/lib/types/sales';
+
+const PAGE_SIZE = 50;
+
+const COLUMNS: ReadonlyArray<DataColumn<PricingTier>> = [
+  {
+    key: 'code',
+    header: 'Code',
+    cellClassName: 'font-mono',
+    render: (t) => t.code,
+  },
+  {
+    key: 'name',
+    header: 'Name',
+    render: (t) => t.name,
+  },
+  {
+    key: 'discount',
+    header: 'Discount',
+    align: 'right',
+    cellClassName: 'font-mono',
+    render: (t) => `${(t.discount_bps / 100).toFixed(2)}%`,
+  },
+  {
+    key: 'edit',
+    header: '',
+    align: 'right',
+    render: (t) => (
+      <Link
+        to={`/3pl-operations/sales-config/pricing-tiers/${t.id}/edit`}
+        className="text-xs text-ink-dim hover:text-accent"
+      >
+        Edit
+      </Link>
+    ),
+  },
+];
 
 export function PricingTiersPage() {
   const { data, isLoading } = useQuery({
     queryKey: pricingTiersKeys.list(),
     queryFn: () => listPricingTiers(),
   });
+  const [page, setPage] = useState(0);
+
+  const rows = data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta = !isLoading
+    ? `${totalCount} ${totalCount === 1 ? 'tier' : 'tiers'}`
+    : undefined;
+
   return (
-    <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">PRICING TIERS</h1>
-        <Link
-          to="/3pl-operations/sales-config/pricing-tiers/new"
-          className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider text-sm"
-        >
-          ADD TIER
-        </Link>
-      </div>
-      {isLoading && <p className="text-ink-dim">Loading.</p>}
-      {data && (
-        <table className="w-full border border-line">
-          <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
-            <tr>
-              <th className="px-4 py-2">Code</th>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Discount</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((t) => (
-              <tr key={t.id} className="border-t border-line">
-                <td className="px-4 py-2 font-mono text-sm">{t.code}</td>
-                <td className="px-4 py-2">{t.name}</td>
-                <td className="px-4 py-2 font-mono text-sm">
-                  {(t.discount_bps / 100).toFixed(2)}%
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <Link
-                    to={`/3pl-operations/sales-config/pricing-tiers/${t.id}/edit`}
-                    className="text-sm text-accent font-display tracking-wider"
-                  >
-                    EDIT
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <section className="mx-auto flex max-w-3xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Sales config / Pricing tiers"
+        title="Pricing tiers"
+        meta={meta}
+        actions={
+          <Link to="/3pl-operations/sales-config/pricing-tiers/new">
+            <Button variant="primary">Add tier</Button>
+          </Link>
+        }
+      />
+      <DataTable
+        columns={COLUMNS}
+        rows={pageRows}
+        getRowKey={(t) => t.id}
+        loading={isLoading}
+        empty="No pricing tiers yet."
+      />
+      {totalCount > PAGE_SIZE ? (
+        <Pagination
+          page={page}
+          totalCount={totalCount}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
+      ) : null}
     </section>
   );
 }
