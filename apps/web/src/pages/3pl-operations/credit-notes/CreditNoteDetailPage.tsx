@@ -1,9 +1,22 @@
+// CreditNoteDetailPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01,
+// 3PL CRUD tail): PageHeader + DetailLayout (HISTORY in the rail) replace the
+// hand-rolled header and bottom-of-page history section. The Issue / Void
+// lifecycle cluster moves into the main column (Void stays ghost weight behind
+// the in-app confirm). The source-invoice link becomes the PageHeader meta.
+//
+// The credit-note FSM, the canFinanceTransition gates, the void
+// destructiveConfirm, and the StateStepper are preserved verbatim. The apply
+// flow stays a separate route and is intentionally untouched here
+// (F-Wave10-CREDIT-NOTE-APPLY-FSM-01 owns the apply CTA / status gating).
+
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { StateStepper } from '@/components/shell/StateStepper';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailLayout } from '@/components/ui/DetailLayout';
 import {
   useCreditNote,
   useIssueCreditNote,
@@ -73,15 +86,15 @@ export function CreditNoteDetailPage() {
   };
 
   return (
-    <section className="px-8 py-8 flex flex-col gap-8">
+    <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'Credit notes', to: '/invoicing/credit-notes' },
           { label: row.credit_note_number },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
-          "Status: <status>" line. voided is the off-path sink. */}
+      {/* UX-Q7: display-only horizontal progress stepper. voided is the
+          off-path sink. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.credit_note.path]}
         current={row.status}
@@ -94,14 +107,11 @@ export function CreditNoteDetailPage() {
             : undefined
         }
       />
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase text-ink-dim font-sans">Credit note</p>
-          <h1 className="text-4xl font-display tracking-wide text-ink">
-            {row.credit_note_number}
-          </h1>
-          {sourceInvoiceId && (
-            <p className="font-sans text-sm text-ink-dim mt-2">
+      <PageHeader
+        title={row.credit_note_number}
+        meta={
+          sourceInvoiceId ? (
+            <span>
               Source invoice:{' '}
               {sourceInvoice.isLoading ? (
                 <span>Loading.</span>
@@ -115,14 +125,26 @@ export function CreditNoteDetailPage() {
               ) : (
                 <span>not found</span>
               )}
-            </p>
-          )}
-        </div>
+            </span>
+          ) : undefined
+        }
+      />
+
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="credit_note" entityId={creditNoteId} />
+          </section>
+        }
+      >
         {/* Lifecycle actions. Issue moves draft -> issued at primary weight;
             Void is destructive (draft|issued -> voided) so it sits at ghost
             weight behind the in-app confirm modal. Both hide once the FSM no
             longer permits the move. */}
-        <div className="flex gap-2 flex-wrap items-start">
+        <div className="flex flex-wrap items-start gap-2">
           {canIssue && (
             <Button
               onClick={() => issueMutation.mutate(creditNoteId)}
@@ -132,35 +154,40 @@ export function CreditNoteDetailPage() {
             </Button>
           )}
           {canVoid && (
-            <Button
-              variant="ghost"
-              onClick={onVoid}
-              disabled={transitionPending}
-            >
+            <Button variant="ghost" onClick={onVoid} disabled={transitionPending}>
               Void
             </Button>
           )}
         </div>
-      </header>
 
-      {(issueMutation.error || voidMutation.error) && (
-        <p className="font-sans text-sm text-accent">
-          {(issueMutation.error instanceof Error && issueMutation.error.message) ||
-            (voidMutation.error instanceof Error && voidMutation.error.message) ||
-            'Action failed.'}
-        </p>
-      )}
+        {(issueMutation.error || voidMutation.error) && (
+          <p className="font-sans text-sm text-accent">
+            {(issueMutation.error instanceof Error &&
+              issueMutation.error.message) ||
+              (voidMutation.error instanceof Error &&
+                voidMutation.error.message) ||
+              'Action failed.'}
+          </p>
+        )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Stat label="Amount" value={formatCents(row.amount_cents as number | string, row.currency_code)} />
-        <Stat label="Applied" value={formatCents(row.applied_cents as number | string, row.currency_code)} />
-        <Stat label="Reason" value={row.reason ?? '-'} />
-      </div>
-
-      <section>
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="credit_note" entityId={creditNoteId} />
-      </section>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Stat
+            label="Amount"
+            value={formatCents(
+              row.amount_cents as number | string,
+              row.currency_code,
+            )}
+          />
+          <Stat
+            label="Applied"
+            value={formatCents(
+              row.applied_cents as number | string,
+              row.currency_code,
+            )}
+          />
+          <Stat label="Reason" value={row.reason ?? '-'} />
+        </div>
+      </DetailLayout>
     </section>
   );
 }

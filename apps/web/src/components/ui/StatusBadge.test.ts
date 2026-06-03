@@ -41,12 +41,38 @@ describe('humaniseStatus - operator quote states', () => {
   });
 });
 
+describe('humaniseStatus - 3PL finance states (credit note, expense, vendor bill)', () => {
+  it('humanises the credit note states', () => {
+    expect(humaniseStatus('issued')).toBe('Issued');
+    expect(humaniseStatus('applied')).toBe('Applied');
+    expect(humaniseStatus('voided')).toBe('Voided');
+  });
+
+  it('humanises the expense reimbursed state', () => {
+    expect(humaniseStatus('reimbursed')).toBe('Reimbursed');
+  });
+
+  it('humanises vendor bill partial_paid without leaking the underscore', () => {
+    const label = humaniseStatus('partial_paid');
+    expect(label).toBe('Partially paid');
+    expect(label).not.toContain('_');
+  });
+});
+
 describe('statusColorClass', () => {
   it('maps known states to brand color tokens', () => {
     expect(statusColorClass('approved')).toBe('bg-green-500');
     expect(statusColorClass('submitted')).toBe('bg-accent');
     expect(statusColorClass('revise_requested')).toBe('bg-yellow-500');
     expect(statusColorClass('draft')).toBe('bg-ink-dim');
+  });
+
+  it('maps the 3PL finance states to brand tokens', () => {
+    expect(statusColorClass('issued')).toBe('bg-accent');
+    expect(statusColorClass('applied')).toBe('bg-green-500');
+    expect(statusColorClass('voided')).toBe('bg-ink-dim');
+    expect(statusColorClass('reimbursed')).toBe('bg-green-500');
+    expect(statusColorClass('partial_paid')).toBe('bg-yellow-500');
   });
 
   it('falls back to neutral for an unknown state', () => {

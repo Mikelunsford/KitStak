@@ -1,3 +1,14 @@
+// VendorBillDetailPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01,
+// 3PL CRUD tail): PageHeader + DetailLayout (HISTORY in the rail) replace the
+// hand-rolled header and bottom-of-page history section. FSM transition
+// buttons move to the kit Button (ghost for the destructive cancel, secondary
+// for forward transitions) and humanise their target-state labels.
+//
+// Money fix: total / paid / balance and the per-payment amount now render
+// through formatCents instead of raw String(*_cents) (constitution: never raw
+// cents). FSM transitions, the cancel destructiveConfirm, the capability
+// gates, the payments table, and the Record Payment form are preserved.
+
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -7,6 +18,9 @@ import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { StateStepper } from '@/components/shell/StateStepper';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailLayout } from '@/components/ui/DetailLayout';
+import { humaniseStatus } from '@/components/ui/StatusBadge';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
@@ -19,6 +33,7 @@ import { useVendor } from '@/lib/hooks/useVendors';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { VENDOR_BILL_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { VendorBillStatus } from '@/lib/types/vendors_inventory_ops';
+import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 export function VendorBillDetailPage() {
@@ -83,7 +98,7 @@ export function VendorBillDetailPage() {
       : 'Unknown vendor';
 
   return (
-    <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
+    <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'Vendors', to: '/3pl-operations/vendors' },
@@ -108,162 +123,190 @@ export function VendorBillDetailPage() {
             : undefined
         }
       />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-4xl font-display tracking-wide text-ink">
-          BILL {d.bill_number ?? d.id.slice(0, 8)}
-        </h1>
-        <Link
-          to={`/3pl-operations/vendor-bills/${d.id}/edit`}
-          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
-        >
-          EDIT
-        </Link>
-      </header>
-      {caps.can('vendor_bills.vendor_bill.transition') && next.length > 0 ? (
-        <div className="flex gap-2">
-          {next.map((to) => (
-            <button
-              key={to}
-              onClick={async () => {
-                // UX-Q8: cancelling reverses an AP obligation.
-                if (to === 'cancelled' && !(await destructiveConfirm({
-                  action: 'Cancel this vendor bill',
-                  consequence: 'The bill will move to cancelled and the payable obligation will be reversed.',
-                }))) return;
-                transition.mutate(to as VendorBillStatus);
-              }}
-              disabled={transition.isPending}
-              className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-            >
-              {to.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {transition.error && (
-        <p className="font-sans text-sm text-accent">
-          {transition.error instanceof Error
-            ? transition.error.message
-            : 'Transition failed.'}
-        </p>
-      )}
-      <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Vendor</dt>
-        <dd className="text-ink">
-          <Link
-            to={`/3pl-operations/vendors/${d.vendor_id}`}
-            className="text-accent hover:underline"
-          >
-            {vendorLabel}
+      <PageHeader
+        title={`Bill ${d.bill_number ?? d.id.slice(0, 8)}`}
+        actions={
+          <Link to={`/3pl-operations/vendor-bills/${d.id}/edit`}>
+            <Button variant="secondary">Edit</Button>
           </Link>
-        </dd>
-        <dt className="text-ink-dim">Bill date</dt>
-        <dd className="text-ink">{d.bill_date}</dd>
-        <dt className="text-ink-dim">Due</dt>
-        <dd className="text-ink">{d.due_date ?? ''}</dd>
-        <dt className="text-ink-dim">Total</dt>
-        <dd className="text-ink">{String(d.total_cents)}</dd>
-        <dt className="text-ink-dim">Paid</dt>
-        <dd className="text-ink">{String(d.paid_cents)}</dd>
-        <dt className="text-ink-dim">Balance</dt>
-        <dd className="text-ink">{String(d.balance_cents)}</dd>
-      </dl>
+        }
+      />
 
-      <h2 className="text-2xl font-display tracking-wide text-ink">PAYMENTS</h2>
-      <table className="w-full border border-line text-sm font-sans">
-        <thead className="bg-bg-2 text-left text-ink-dim">
-          <tr>
-            <th className="px-4 py-2">Date</th>
-            <th className="px-4 py-2">Amount</th>
-            <th className="px-4 py-2">Method</th>
-            <th className="px-4 py-2">Reference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(payments.data ?? []).length === 0 ? (
-            <tr>
-              <td colSpan={4} className="px-4 py-3 text-ink-dim text-center">
-                No payments recorded.
-              </td>
-            </tr>
-          ) : (
-            (payments.data ?? []).map((p) => (
-              <tr key={p.id} className="border-t border-line">
-                <td className="px-4 py-2 text-ink">{p.payment_date}</td>
-                <td className="px-4 py-2 text-ink-dim">{String(p.amount_cents)}</td>
-                <td className="px-4 py-2 text-ink-dim">{p.method ?? ''}</td>
-                <td className="px-4 py-2 text-ink-dim">{p.reference ?? ''}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-
-      {caps.can('vendor_bills.payment.write') ? (
-        <form
-          onSubmit={onRecordPayment}
-          className="flex flex-col gap-3 border border-line p-4"
-        >
-          <h3 className="font-display tracking-wider text-ink">RECORD PAYMENT</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <TextInput
-              label="Payment date"
-              type="date"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              required
-            />
-            <TextInput
-              label="Amount (cents)"
-              value={paymentAmountCents}
-              onChange={(e) => setPaymentAmountCents(e.target.value)}
-              inputMode="numeric"
-              required
-            />
-            <TextInput
-              label="Currency"
-              value={paymentCurrency}
-              onChange={(e) => setPaymentCurrency(e.target.value.toUpperCase())}
-              maxLength={3}
-            />
-            <TextInput
-              label="Method"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              placeholder="ach, wire, card, check."
-            />
-            <TextInput
-              label="Reference"
-              value={paymentReference}
-              onChange={(e) => setPaymentReference(e.target.value)}
-            />
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="vendor_bill" entityId={id ?? null} />
+          </section>
+        }
+      >
+        {caps.can('vendor_bills.vendor_bill.transition') && next.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {next.map((to) => (
+              <Button
+                key={to}
+                variant={to === 'cancelled' ? 'ghost' : 'secondary'}
+                onClick={async () => {
+                  // UX-Q8: cancelling reverses an AP obligation.
+                  if (
+                    to === 'cancelled' &&
+                    !(await destructiveConfirm({
+                      action: 'Cancel this vendor bill',
+                      consequence:
+                        'The bill will move to cancelled and the payable obligation will be reversed.',
+                    }))
+                  )
+                    return;
+                  transition.mutate(to as VendorBillStatus);
+                }}
+                disabled={transition.isPending}
+              >
+                {humaniseStatus(to)}
+              </Button>
+            ))}
           </div>
-          <label className="flex flex-col gap-2">
-            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-              Notes
-            </span>
-            <textarea
-              value={paymentNotes}
-              onChange={(e) => setPaymentNotes(e.target.value)}
-              rows={2}
-              className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
-            />
-          </label>
-          {createPayment.error && (
-            <p className="text-accent font-sans text-sm">
-              {(createPayment.error as Error).message}
-            </p>
-          )}
-          <Button type="submit" disabled={createPayment.isPending}>
-            {createPayment.isPending ? 'Saving.' : 'Record payment'}
-          </Button>
-        </form>
-      ) : null}
+        ) : null}
+        {transition.error && (
+          <p className="font-sans text-sm text-accent">
+            {transition.error instanceof Error
+              ? transition.error.message
+              : 'Transition failed.'}
+          </p>
+        )}
+        <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
+          <dt className="text-ink-dim">Vendor</dt>
+          <dd className="text-ink">
+            <Link
+              to={`/3pl-operations/vendors/${d.vendor_id}`}
+              className="text-accent hover:underline"
+            >
+              {vendorLabel}
+            </Link>
+          </dd>
+          <dt className="text-ink-dim">Bill date</dt>
+          <dd className="text-ink">{d.bill_date}</dd>
+          <dt className="text-ink-dim">Due</dt>
+          <dd className="text-ink">{d.due_date ?? ''}</dd>
+          <dt className="text-ink-dim">Total</dt>
+          <dd className="font-mono text-ink">
+            {formatCents(d.total_cents as number | string, d.currency_code)}
+          </dd>
+          <dt className="text-ink-dim">Paid</dt>
+          <dd className="font-mono text-ink">
+            {formatCents(d.paid_cents as number | string, d.currency_code)}
+          </dd>
+          <dt className="text-ink-dim">Balance</dt>
+          <dd className="font-mono text-ink">
+            {formatCents(d.balance_cents as number | string, d.currency_code)}
+          </dd>
+        </dl>
 
-      <section className="mt-6">
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="vendor_bill" entityId={id ?? null} />
-      </section>
+        <section>
+          <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+            PAYMENTS
+          </h2>
+          <table className="w-full border border-line text-sm font-sans">
+            <thead className="bg-bg-2 text-left text-ink-dim">
+              <tr>
+                <th className="px-4 py-2">Date</th>
+                <th className="px-4 py-2 text-right">Amount</th>
+                <th className="px-4 py-2">Method</th>
+                <th className="px-4 py-2">Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(payments.data ?? []).length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-3 text-ink-dim text-center">
+                    No payments recorded.
+                  </td>
+                </tr>
+              ) : (
+                (payments.data ?? []).map((p) => (
+                  <tr key={p.id} className="border-t border-line">
+                    <td className="px-4 py-2 text-ink">{p.payment_date}</td>
+                    <td className="px-4 py-2 text-right font-mono text-ink-dim">
+                      {formatCents(
+                        p.amount_cents as number | string,
+                        p.currency_code,
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-ink-dim">{p.method ?? ''}</td>
+                    <td className="px-4 py-2 text-ink-dim">
+                      {p.reference ?? ''}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        {caps.can('vendor_bills.payment.write') ? (
+          <form
+            onSubmit={onRecordPayment}
+            className="flex flex-col gap-3 border border-line p-4"
+          >
+            <h3 className="font-display tracking-wider text-ink">
+              RECORD PAYMENT
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <TextInput
+                label="Payment date"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                required
+              />
+              <TextInput
+                label="Amount (cents)"
+                value={paymentAmountCents}
+                onChange={(e) => setPaymentAmountCents(e.target.value)}
+                inputMode="numeric"
+                required
+              />
+              <TextInput
+                label="Currency"
+                value={paymentCurrency}
+                onChange={(e) => setPaymentCurrency(e.target.value.toUpperCase())}
+                maxLength={3}
+              />
+              <TextInput
+                label="Method"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                placeholder="ach, wire, card, check."
+              />
+              <TextInput
+                label="Reference"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+              />
+            </div>
+            <label className="flex flex-col gap-2">
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Notes
+              </span>
+              <textarea
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                rows={2}
+                className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
+              />
+            </label>
+            {createPayment.error && (
+              <p className="text-accent font-sans text-sm">
+                {(createPayment.error as Error).message}
+              </p>
+            )}
+            <Button type="submit" disabled={createPayment.isPending}>
+              {createPayment.isPending ? 'Saving.' : 'Record payment'}
+            </Button>
+          </form>
+        ) : null}
+      </DetailLayout>
     </section>
   );
 }

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { VendorPicker } from '@/components/ui/pickers';
@@ -69,9 +70,7 @@ export function VendorBillCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW VENDOR BILL
-      </h1>
+      <PageHeader eyebrow="Library / Vendor bills" title="New vendor bill" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="Bill number"
