@@ -2,6 +2,8 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { ProjectPicker } from '@/components/ui/pickers';
 import { useCreateManufacturingRun } from '@/lib/hooks/useManufacturing';
@@ -77,7 +79,7 @@ export function ManufacturingRunCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW MANUFACTURING RUN</h1>
+      <PageHeader eyebrow="Make / Manufacturing runs" title="New manufacturing run" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create manufacturing runs.
@@ -93,11 +95,10 @@ export function ManufacturingRunCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Warehouse (optional)
           </span>
-          <select
+          <Select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
             disabled={warehouses.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {warehouses.isLoading ? 'Loading.' : 'No warehouse (admin-only run)'}
@@ -107,7 +108,7 @@ export function ManufacturingRunCreatePage() {
                 {w.code} · {w.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <ProjectPicker
           value={projectId}

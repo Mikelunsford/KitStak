@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { useBomItemsList } from '@/lib/hooks/useInventory';
 import { useItemsList } from '@/lib/hooks/useItems';
@@ -151,7 +153,7 @@ export function ManufacturingRunFromBomPage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">BUILD RUN FROM BOM</h1>
+      <PageHeader eyebrow="Make / Manufacturing runs" title="Build from BOM" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create manufacturing runs.
@@ -166,17 +168,16 @@ export function ManufacturingRunFromBomPage() {
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">Finished item</span>
-          <select
+          <Select
             value={finishedItemId}
             onChange={(e) => setFinishedItemId(e.target.value)}
             disabled={bomLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">{bomLoading ? 'Loading.' : 'Select an item'}</option>
             {parentOptions.map((opt) => (
               <option key={opt.id} value={opt.id}>{opt.label}</option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <TextInput
@@ -191,11 +192,10 @@ export function ManufacturingRunFromBomPage() {
 
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">Warehouse (optional)</span>
-          <select
+          <Select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
             disabled={warehouses.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {warehouses.isLoading ? 'Loading.' : 'No warehouse (admin-only run)'}
@@ -203,7 +203,7 @@ export function ManufacturingRunFromBomPage() {
             {(warehouses.data ?? []).map((w) => (
               <option key={w.id} value={w.id}>{w.code} · {w.display_name}</option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label className="flex flex-col gap-2">
