@@ -32,6 +32,7 @@ const COLOR_MAP: Record<string, string> = {
   void: 'bg-ink-dim',
   on_hold: 'bg-ink-dim',
   cancelled: 'bg-ink-dim',
+  refunded: 'bg-ink-dim',
 
   // Quote statuses
   submitted: 'bg-accent',
@@ -80,6 +81,7 @@ const LABEL_MAP: Record<string, string> = {
   void: 'Void',
   on_hold: 'On hold',
   cancelled: 'Cancelled',
+  refunded: 'Refunded',
 
   // Quote statuses
   submitted: 'Submitted',

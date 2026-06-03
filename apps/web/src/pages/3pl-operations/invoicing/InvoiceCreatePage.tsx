@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { FormGrid } from '@/components/ui/FormGrid';
 import { CustomerPicker, ProjectPicker, QuotePicker } from '@/components/ui/pickers';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
@@ -186,7 +187,7 @@ export function InvoiceCreatePage() {
 
   return (
     <section className="px-8 py-8 max-w-4xl flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW INVOICE</h1>
+      <PageHeader eyebrow="Get paid / Invoices" title="New invoice" />
       {/* F-Wave9-AUDIT-V3-WAVE-F-01: two-column form grid. The customer
           / project / quote / currency / dates fan out side by side on
           md and up; notes and the submit row span the full width via
