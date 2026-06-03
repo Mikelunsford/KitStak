@@ -1,40 +1,168 @@
-import { Link } from 'react-router-dom';
+// POsListPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination
+// replace the hand-rolled header, inline status pill, table, and (previously
+// absent) pagination. Behavior preserved: the create CTA stays gated by the
+// existing capability; a new ?status deep-link filters the list client-side
+// and invalid values fall back to the full list.
+
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { usePurchaseOrdersList } from '@/lib/hooks/usePurchaseOrders';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
+import type { PurchaseOrder } from '@/lib/services/purchaseOrdersService';
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
-      {status}
-    </span>
-  );
+const PAGE_SIZE = 50;
+
+// PO statuses the list accepts via ?status=. Ordered for the filter dropdown;
+// an arbitrary string never reaches the filter state.
+const PO_STATUSES = [
+  'draft',
+  'submitted',
+  'approved',
+  'partial_received',
+  'received',
+  'closed',
+  'cancelled',
+] as const;
+
+const ALLOWED_PO_STATUSES = new Set<string>(PO_STATUSES);
+
+function parseStatusParam(raw: string | null): string | undefined {
+  if (!raw) return undefined;
+  return ALLOWED_PO_STATUSES.has(raw) ? raw : undefined;
 }
 
+const COLUMNS: ReadonlyArray<DataColumn<PurchaseOrder>> = [
+  {
+    key: 'po_number',
+    header: 'PO #',
+    cellClassName: 'font-mono',
+    render: (po) => (
+      <Link
+        to={`/3pl-operations/purchase-orders/${po.id}`}
+        className="text-ink hover:text-accent"
+      >
+        {po.po_number ?? po.id.slice(0, 8)}
+      </Link>
+    ),
+  },
+  {
+    key: 'vendor',
+    header: 'Vendor',
+    cellClassName: 'text-ink-dim',
+    render: (po) => <EntityLabel kind="vendor" id={po.vendor_id} />,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (po) => <StatusBadge status={po.status} />,
+  },
+  {
+    key: 'total',
+    header: 'Total',
+    align: 'right',
+    cellClassName: 'font-mono',
+    render: (po) => formatCents(po.total_cents as number | string, po.currency_code),
+  },
+  {
+    key: 'order_date',
+    header: 'Order date',
+    cellClassName: 'text-ink-dim',
+    render: (po) => po.order_date,
+  },
+];
+
 export function POsListPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = parseStatusParam(searchParams.get('status'));
+  const [page, setPage] = useState(0);
+
   const { data, isLoading, error } = usePurchaseOrdersList();
   const caps = useVioCapabilities();
 
+  function applyStatusFilter(next: string) {
+    const params = new URLSearchParams(searchParams);
+    if (next) params.set('status', next);
+    else params.delete('status');
+    setSearchParams(params, { replace: true });
+    setPage(0);
+  }
+
+  const allRows = data ?? [];
+  const rows = statusFilter
+    ? allRows.filter((po) => po.status === statusFilter)
+    : allRows;
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const chips: FilterChip[] = statusFilter
+    ? [
+        {
+          key: 'status',
+          label: `Status: ${humaniseStatus(statusFilter)}`,
+          onClear: () => applyStatusFilter(''),
+        },
+      ]
+    : [];
+
+  const showOnboardingEmpty =
+    !isLoading && !error && !statusFilter && allRows.length === 0;
+
+  const meta =
+    !isLoading && !error
+      ? `${totalCount} ${totalCount === 1 ? 'purchase order' : 'purchase orders'}`
+      : undefined;
+
   return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">PURCHASE ORDERS</h1>
-        {caps.can('purchase_orders.purchase_order.create') ? (
-          <Link
-            to="/3pl-operations/purchase-orders/new"
-            className="px-4 py-2 bg-accent text-on-primary font-sans text-sm"
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Library / Purchase Orders"
+        title="Purchase Orders"
+        meta={meta}
+        actions={
+          caps.can('purchase_orders.purchase_order.create') ? (
+            <Link to="/3pl-operations/purchase-orders/new">
+              <Button variant="primary">New PO</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={statusFilter ?? ''}
+            onChange={(e) => applyStatusFilter(e.target.value)}
+            aria-label="Filter by status"
           >
-            New PO
-          </Link>
-        ) : null}
-      </header>
+            <option value="">All statuses</option>
+            {PO_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </FilterBar>
 
-      {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
-      {error ? <p className="text-accent">Failed to load.</p> : null}
-
-      {!isLoading && !error && (data ?? []).length === 0 ? (
+      {error ? (
+        <p className="font-sans text-accent">Failed to load.</p>
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="purchase order"
           explainer="Purchase orders commit to buying from a vendor."
@@ -43,32 +171,23 @@ export function POsListPage() {
           canAdd={caps.can('purchase_orders.purchase_order.create')}
         />
       ) : (
-      <table className="w-full border border-line text-sm font-sans">
-        <thead className="bg-bg-2 text-left text-ink-dim">
-          <tr>
-            <th className="px-4 py-2">PO #</th>
-            <th className="px-4 py-2">Vendor</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2">Total</th>
-            <th className="px-4 py-2">Order date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(data ?? []).map((po) => (
-            <tr key={po.id} className="border-t border-line">
-              <td className="px-4 py-2">
-                <Link to={`/3pl-operations/purchase-orders/${po.id}`} className="text-ink underline">
-                  {po.po_number ?? po.id.slice(0, 8)}
-                </Link>
-              </td>
-              <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="vendor" id={po.vendor_id} /></td>
-              <td className="px-4 py-2"><StatusBadge status={po.status} /></td>
-              <td className="px-4 py-2 text-ink-dim">{formatCents(po.total_cents as number | string)}</td>
-              <td className="px-4 py-2 text-ink-dim">{po.order_date}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(po) => po.id}
+            loading={isLoading}
+            empty="No purchase orders match this filter."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );

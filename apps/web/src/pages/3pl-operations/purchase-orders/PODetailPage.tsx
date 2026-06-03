@@ -6,6 +6,8 @@ import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { StateStepper } from '@/components/shell/StateStepper';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailLayout } from '@/components/ui/DetailLayout';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
@@ -18,6 +20,7 @@ import { useVendor } from '@/lib/hooks/useVendors';
 import { useMe } from '@/lib/hooks/useMe';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
+import { formatCents } from '@/lib/money';
 import {
   PURCHASE_ORDER_FSM, canTransitionVio,
 } from '@/lib/workflow/vendors_inventory_ops';
@@ -111,12 +114,10 @@ export function PODetailPage() {
             : undefined
         }
       />
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">
-          PO {data.po_number ?? data.id.slice(0, 8)}
-        </h1>
-        <div className="flex items-center gap-2">
-          {canRenderPdf && (
+      <PageHeader
+        title={`PO ${data.po_number ?? data.id.slice(0, 8)}`}
+        actions={
+          canRenderPdf ? (
             <Button
               variant="secondary"
               onClick={onDownloadPdf}
@@ -124,83 +125,90 @@ export function PODetailPage() {
             >
               {pdfPending ? 'Building.' : 'Download PDF'}
             </Button>
-          )}
-        </div>
-      </header>
-      {pdfError && (
-        <p className="font-sans text-sm text-accent">
-          {pdfError}
-        </p>
-      )}
+          ) : null
+        }
+      />
 
-      {caps.can('purchase_orders.purchase_order.transition') && allowedNext.length > 0 ? (
-        <div className="flex gap-2">
-          {allowedNext.map((to) => (
-            <button
-              key={to}
-              type="button"
-              disabled={transition.isPending || !canTransitionVio(PURCHASE_ORDER_FSM, data.status, to)}
-              onClick={async () => {
-                // UX-Q8: cancelling reverses a vendor commitment.
-                if (to === 'cancelled' && !(await destructiveConfirm({
-                  action: 'Cancel this purchase order',
-                  consequence: 'The order will move to cancelled and the vendor commitment will be reversed.',
-                }))) return;
-                transition.mutate(to as PurchaseOrderStatus);
-              }}
-              className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-            >
-              {to.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="text-2xl font-display tracking-wide text-ink mb-3">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="purchase_order" entityId={id ?? null} />
+          </section>
+        }
+      >
+        {caps.can('purchase_orders.purchase_order.transition') && allowedNext.length > 0 ? (
+          <div className="flex gap-2">
+            {allowedNext.map((to) => (
+              <button
+                key={to}
+                type="button"
+                disabled={transition.isPending || !canTransitionVio(PURCHASE_ORDER_FSM, data.status, to)}
+                onClick={async () => {
+                  // UX-Q8: cancelling reverses a vendor commitment.
+                  if (to === 'cancelled' && !(await destructiveConfirm({
+                    action: 'Cancel this purchase order',
+                    consequence: 'The order will move to cancelled and the vendor commitment will be reversed.',
+                  }))) return;
+                  transition.mutate(to as PurchaseOrderStatus);
+                }}
+                className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
+              >
+                {to.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
-      {transition.error && (
-        <p className="font-sans text-sm text-accent">
-          {transition.error instanceof Error
-            ? transition.error.message
-            : 'Transition failed.'}
-        </p>
-      )}
+        {pdfError && (
+          <p className="font-sans text-sm text-accent">
+            {pdfError}
+          </p>
+        )}
 
-      <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Vendor</dt><dd className="text-ink">{data.vendor_id}</dd>
-        <dt className="text-ink-dim">Order date</dt><dd className="text-ink">{data.order_date}</dd>
-        <dt className="text-ink-dim">Expected</dt><dd className="text-ink">{data.expected_date ?? ''}</dd>
-        <dt className="text-ink-dim">Subtotal</dt><dd className="text-ink">{String(data.subtotal_cents)}</dd>
-        <dt className="text-ink-dim">Tax</dt><dd className="text-ink">{String(data.tax_cents)}</dd>
-        <dt className="text-ink-dim">Total</dt><dd className="text-ink">{String(data.total_cents)}</dd>
-      </dl>
+        {transition.error && (
+          <p className="font-sans text-sm text-accent">
+            {transition.error instanceof Error
+              ? transition.error.message
+              : 'Transition failed.'}
+          </p>
+        )}
 
-      <h2 className="text-2xl font-display tracking-wide text-ink">LINE ITEMS</h2>
-      <table className="w-full border border-line text-sm font-sans">
-        <thead className="bg-bg-2 text-left text-ink-dim">
-          <tr>
-            <th className="px-4 py-2">Description</th>
-            <th className="px-4 py-2">Qty</th>
-            <th className="px-4 py-2">Received</th>
-            <th className="px-4 py-2">Unit</th>
-            <th className="px-4 py-2">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(lines.data ?? []).map((l) => (
-            <tr key={l.id} className="border-t border-line">
-              <td className="px-4 py-2 text-ink">{l.description}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(l.quantity_ordered)}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(l.quantity_received)}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(l.unit_price_cents)}</td>
-              <td className="px-4 py-2 text-ink-dim">{String(l.line_total_cents)}</td>
+        <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
+          <dt className="text-ink-dim">Vendor</dt><dd className="text-ink">{data.vendor_id}</dd>
+          <dt className="text-ink-dim">Order date</dt><dd className="text-ink">{data.order_date}</dd>
+          <dt className="text-ink-dim">Expected</dt><dd className="text-ink">{data.expected_date ?? ''}</dd>
+          <dt className="text-ink-dim">Subtotal</dt><dd className="text-ink">{formatCents(data.subtotal_cents, data.currency_code)}</dd>
+          <dt className="text-ink-dim">Tax</dt><dd className="text-ink">{formatCents(data.tax_cents, data.currency_code)}</dd>
+          <dt className="text-ink-dim">Total</dt><dd className="text-ink">{formatCents(data.total_cents, data.currency_code)}</dd>
+        </dl>
+
+        <h2 className="text-2xl font-display tracking-wide text-ink">LINE ITEMS</h2>
+        <table className="w-full border border-line text-sm font-sans">
+          <thead className="bg-bg-2 text-left text-ink-dim">
+            <tr>
+              <th className="px-4 py-2">Description</th>
+              <th className="px-4 py-2">Qty</th>
+              <th className="px-4 py-2">Received</th>
+              <th className="px-4 py-2">Unit</th>
+              <th className="px-4 py-2">Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <section className="mt-6">
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="purchase_order" entityId={id ?? null} />
-      </section>
+          </thead>
+          <tbody>
+            {(lines.data ?? []).map((l) => (
+              <tr key={l.id} className="border-t border-line">
+                <td className="px-4 py-2 text-ink">{l.description}</td>
+                <td className="px-4 py-2 text-ink-dim">{String(l.quantity_ordered)}</td>
+                <td className="px-4 py-2 text-ink-dim">{String(l.quantity_received)}</td>
+                <td className="px-4 py-2 text-ink-dim">{formatCents(l.unit_price_cents, data.currency_code)}</td>
+                <td className="px-4 py-2 text-ink-dim">{formatCents(l.line_total_cents, data.currency_code)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DetailLayout>
     </section>
   );
 }

@@ -12,9 +12,11 @@
 //
 // F-Wave9-PORTAL-STATUS-LABEL-HUMANIZE-01 established the portal vocabulary.
 // F-Wave10-UI-KIT-01 adds the operator quote states (submitted,
-// revise_requested) so the Quotes list can render a badge instead of raw
-// state text. New customer- or operator-visible statuses must be added to
-// both maps below when they land in a database state machine.
+// revise_requested) and the purchase order progress and terminal states
+// (partial_received, received, closed) so the Quotes and Purchase Orders
+// lists can render a badge instead of raw state text. New customer- or
+// operator-visible statuses must be added to both maps below when they land
+// in a database state machine.
 
 interface StatusBadgeProps {
   status: string;
@@ -60,6 +62,11 @@ const COLOR_MAP: Record<string, string> = {
   new: 'bg-yellow-500',
   active: 'bg-green-500',
   inactive: 'bg-ink-dim',
+
+  // Purchase order statuses
+  partial_received: 'bg-yellow-500',
+  received: 'bg-green-500',
+  closed: 'bg-ink-dim',
 };
 
 /**
@@ -107,6 +114,11 @@ const LABEL_MAP: Record<string, string> = {
   new: 'New',
   active: 'Active',
   inactive: 'Inactive',
+
+  // Purchase order statuses
+  partial_received: 'Partially received',
+  received: 'Received',
+  closed: 'Closed',
 };
 
 /**
