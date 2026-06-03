@@ -61,6 +61,12 @@ describe('humaniseStatus - 3PL finance states (credit note, expense, vendor bill
   it('humanises the CRM activity open state', () => {
     expect(humaniseStatus('open')).toBe('Open');
   });
+
+  it('humanises the KitForce shift and assignment states', () => {
+    expect(humaniseStatus('scheduled')).toBe('Scheduled');
+    expect(humaniseStatus('assigned')).toBe('Assigned');
+    expect(humaniseStatus('done')).toBe('Done');
+  });
 });
 
 describe('statusColorClass', () => {
@@ -81,6 +87,12 @@ describe('statusColorClass', () => {
 
   it('maps the CRM activity open state to a brand token', () => {
     expect(statusColorClass('open')).toBe('bg-yellow-500');
+  });
+
+  it('maps the KitForce shift and assignment states to brand tokens', () => {
+    expect(statusColorClass('scheduled')).toBe('bg-accent');
+    expect(statusColorClass('assigned')).toBe('bg-accent');
+    expect(statusColorClass('done')).toBe('bg-green-500');
   });
 
   it('falls back to neutral for an unknown state', () => {

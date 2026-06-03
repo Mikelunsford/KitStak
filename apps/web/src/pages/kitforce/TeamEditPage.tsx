@@ -2,6 +2,7 @@ import { useState, useMemo, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { useTeamsList, useUpdateTeam } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
@@ -60,7 +61,7 @@ export function TeamEditPage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EDIT TEAM</h1>
+      <PageHeader eyebrow="Workforce / Teams" title="Edit team" />
       {!canUpdate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to edit teams.
