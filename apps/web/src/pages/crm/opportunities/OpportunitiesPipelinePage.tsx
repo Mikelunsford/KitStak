@@ -1,8 +1,23 @@
+// OpportunitiesPipelinePage. CRM Sell surface. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + kit Button replace the hand-rolled header
+// and the link-as-button CTA. The six-column pipeline (aligned with the
+// opportunity stage machine) stays bespoke.
+//
+// Money fix (bug-fix rider): the per-card amount and the per-column total
+// rendered raw cents (`{o.amount_cents}` and `total cents: {total}`). Both now
+// render through formatCents. The per-card amount uses its own currency_code;
+// the column total uses USD (the column sums cents across opportunities that may
+// carry mixed currencies, which is a pre-existing limitation tracked separately
+// from this presentation migration).
+
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import { listOpportunities } from '@/lib/services/opportunitiesService';
+import { formatCents } from '@/lib/money';
 import {
   opportunityStageMachine,
   type OpportunityStageState,
@@ -17,11 +32,16 @@ export function OpportunitiesPipelinePage() {
   const columns: OpportunityStageState[] = [...opportunityStageMachine.states];
 
   return (
-    <section className="px-8 py-10 max-w-7xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">PIPELINE</h1>
-        <Link to="/crm/opportunities/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New opportunity</Link>
-      </header>
+    <section className="mx-auto flex max-w-7xl flex-col gap-6 px-8 py-10">
+      <PageHeader
+        eyebrow="Sell / Opportunities"
+        title="Pipeline"
+        actions={
+          <Link to="/crm/opportunities/new">
+            <Button variant="primary">New opportunity</Button>
+          </Link>
+        }
+      />
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
       ) : (
@@ -35,7 +55,7 @@ export function OpportunitiesPipelinePage() {
                   {col.toUpperCase().replace('_', ' ')} ({inCol.length})
                 </h2>
                 <div className="px-3 py-1 text-xs font-mono text-ink-dim border-b border-line">
-                  total cents: {total}
+                  Total {formatCents(total, 'USD')}
                 </div>
                 <ul className="flex flex-col gap-2 p-2 min-h-32">
                   {inCol.map((o) => (
@@ -47,7 +67,7 @@ export function OpportunitiesPipelinePage() {
                         {o.display_name}
                       </Link>
                       <div className="text-ink-dim text-xs font-mono">
-                        {o.amount_cents} {o.currency_code ?? ''}
+                        {formatCents(o.amount_cents, o.currency_code ?? 'USD')}
                       </div>
                     </li>
                   ))}

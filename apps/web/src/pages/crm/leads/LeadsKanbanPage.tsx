@@ -1,5 +1,13 @@
+// LeadsKanbanPage. CRM Sell surface. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + kit Button replace the hand-rolled header
+// and the link-as-button CTA. The five-column kanban (aligned with the lead
+// state machine) stays bespoke; there is no kit equivalent for a board, and the
+// client-side grouping + the deferred drag-drop are unchanged.
+
 import { Link } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useLeads } from '@/lib/hooks/useLeads';
 import { leadStateMachine, type LeadState } from '@/lib/workflow/crm';
 
@@ -13,11 +21,16 @@ export function LeadsKanbanPage() {
   const columns: LeadState[] = [...leadStateMachine.states];
 
   return (
-    <section className="px-8 py-10 max-w-7xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-4xl font-display tracking-wide text-ink">LEADS</h1>
-        <Link to="/crm/leads/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New lead</Link>
-      </header>
+    <section className="mx-auto flex max-w-7xl flex-col gap-6 px-8 py-10">
+      <PageHeader
+        eyebrow="Sell / Leads"
+        title="Leads"
+        actions={
+          <Link to="/crm/leads/new">
+            <Button variant="primary">New lead</Button>
+          </Link>
+        }
+      />
       {query.isLoading ? (
         <p className="font-sans text-ink-dim">Loading.</p>
       ) : (
