@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { PercentInput } from '@/components/forms/PercentInput';
@@ -125,9 +126,7 @@ export function POCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW PURCHASE ORDER
-      </h1>
+      <PageHeader eyebrow="Library / Purchase Orders" title="New Purchase Order" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <VendorPicker
           value={vendorId}
