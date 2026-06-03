@@ -1,12 +1,52 @@
+// ActivitiesListPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01, CRM
+// mid): PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination
+// replace the hand-rolled header, raw status select, table, and pager. Behavior
+// preserved: the status filter still defaults to "open" (shown as a removable
+// chip), the page resets on filter change, and the onboarding ListEmptyState
+// still renders on an empty result set.
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { activitiesKeys } from '@/lib/queryKeys/activities';
 import { listActivities } from '@/lib/services/activitiesService';
+import type { Activity } from '@/lib/types/crm';
 
 const PAGE_SIZE = 50;
+
+const COLUMNS: ReadonlyArray<DataColumn<Activity>> = [
+  {
+    key: 'kind',
+    header: 'Kind',
+    cellClassName: 'text-ink-dim',
+    render: (a) => a.kind,
+  },
+  {
+    key: 'subject',
+    header: 'Subject',
+    render: (a) => a.subject,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (a) => <StatusBadge status={a.status} />,
+  },
+  {
+    key: 'due',
+    header: 'Due',
+    cellClassName: 'text-ink-dim',
+    render: (a) => a.due_at ?? '',
+  },
+];
 
 export function ActivitiesListPage() {
   const [status, setStatus] = useState('open');
@@ -18,37 +58,68 @@ export function ActivitiesListPage() {
     staleTime: 30_000,
   });
 
-  const totalCount = query.data?.length ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const pageStart = page * PAGE_SIZE;
-  const pageRows = (query.data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
+  function applyStatus(next: string) {
+    setStatus(next);
+    setPage(0);
+  }
+
+  const rows = query.data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta =
+    !query.isLoading && !query.isError
+      ? `${totalCount} ${totalCount === 1 ? 'activity' : 'activities'}`
+      : undefined;
+
+  const chips: FilterChip[] = status
+    ? [
+        {
+          key: 'status',
+          label: `Status: ${humaniseStatus(status)}`,
+          onClear: () => applyStatus(''),
+        },
+      ]
+    : [];
+
+  const showOnboardingEmpty =
+    !query.isLoading && !query.isError && totalCount === 0;
 
   return (
-    <section className="px-8 py-10 max-w-6xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-4xl font-display tracking-wide text-ink">
-          ACTIVITIES
-        </h1>
-        <Link
-          to="/crm/activities/new"
-          className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider"
-        >
-          NEW ACTIVITY
-        </Link>
-      </header>
-      <select
-        value={status}
-        onChange={(e) => { setStatus(e.target.value); setPage(0); }}
-        className="bg-bg-2 border border-line px-3 py-2 font-sans w-48"
-      >
-        <option value="">All</option>
-        <option value="open">Open</option>
-        <option value="completed">Completed</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-      {query.isLoading ? (
-        <p className="font-sans text-ink-dim">Loading.</p>
-      ) : (query.data?.length ?? 0) === 0 ? (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Sell / Activities"
+        title="Activities"
+        meta={meta}
+        actions={
+          <Link to="/crm/activities/new">
+            <Button variant="primary">New activity</Button>
+          </Link>
+        }
+      />
+
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={status}
+            onChange={(e) => applyStatus(e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All</option>
+            <option value="open">Open</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </Select>
+        </label>
+      </FilterBar>
+
+      {query.isError ? (
+        <p className="font-sans text-accent">Failed to load activities.</p>
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="activity"
           explainer="Activities log calls, emails, and notes against a customer or opportunity."
@@ -56,50 +127,24 @@ export function ActivitiesListPage() {
           addTo="/crm/activities/new"
         />
       ) : (
-        <table className="w-full border border-line">
-          <thead className="bg-bg-2 text-left font-display tracking-wider text-sm">
-            <tr>
-              <th className="px-4 py-2">Kind</th>
-              <th className="px-4 py-2">Subject</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Due</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((a) => (
-              <tr key={a.id} className="border-t border-line">
-                <td className="px-4 py-2 font-sans">{a.kind}</td>
-                <td className="px-4 py-2 font-sans">{a.subject}</td>
-                <td className="px-4 py-2 font-sans">{a.status}</td>
-                <td className="px-4 py-2 font-sans">{a.due_at ?? ''}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(a) => a.id}
+            loading={query.isLoading}
+            empty="No activities match this filter."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
-      {totalCount > PAGE_SIZE ? (
-        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Prev
-          </button>
-          <span className="text-ink-dim">
-            {page + 1} of {pageCount}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            disabled={page >= pageCount - 1}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
     </section>
   );
 }
