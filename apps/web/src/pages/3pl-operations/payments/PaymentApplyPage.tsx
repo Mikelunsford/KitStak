@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { useApplyPayment, usePayment } from '@/lib/hooks/usePayments';
 import { useInvoices } from '@/lib/hooks/useInvoices';
 import { formatCents } from '@/lib/money';
@@ -60,8 +63,8 @@ export function PaymentApplyPage() {
     return <p className="px-8 py-8 text-accent">Payment not found.</p>;
 
   return (
-    <section className="px-8 py-8 max-w-2xl flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">APPLY PAYMENT</h1>
+    <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-8">
+      <PageHeader eyebrow="Payments" title="Apply payment" />
       <p className="font-sans text-ink-dim">
         Allocating {payment.data.payment_number} (
         {formatCents(payment.data.amount_cents as number | string, payment.data.currency_code)}
@@ -72,10 +75,10 @@ export function PaymentApplyPage() {
       <form className="flex flex-col gap-3" onSubmit={onSubmit}>
         {allocations.map((a, i) => (
           <div key={i} className="flex gap-2">
-            <select
+            <Select
+              className="flex-1"
               value={a.invoice_id}
               onChange={(e) => setAlloc(i, 'invoice_id', e.target.value)}
-              className="flex-1 bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
             >
               <option value="">Select invoice</option>
               {(invoices.data ?? []).map((inv) => (
@@ -83,7 +86,7 @@ export function PaymentApplyPage() {
                   {inv.invoice_number}
                 </option>
               ))}
-            </select>
+            </Select>
             <input
               type="text"
               value={a.amount_cents}
@@ -108,13 +111,9 @@ export function PaymentApplyPage() {
         )}
 
         <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={apply.isPending}
-            className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider text-sm disabled:opacity-50"
-          >
+          <Button type="submit" variant="primary" disabled={apply.isPending}>
             APPLY
-          </button>
+          </Button>
         </div>
       </form>
     </section>

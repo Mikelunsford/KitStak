@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { CustomerPicker, InvoicePicker } from '@/components/ui/pickers';
@@ -116,8 +118,8 @@ export function PaymentCreatePage() {
   };
 
   return (
-    <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">RECEIVE PAYMENT</h1>
+    <section className="mx-auto flex max-w-xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Payments" title="Receive payment" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <CustomerPicker
           value={customerId}
@@ -158,10 +160,9 @@ export function PaymentCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Payment method
           </span>
-          <select
+          <Select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           >
             <option value="">Unspecified</option>
             <option value="ach">ACH</option>
@@ -170,7 +171,7 @@ export function PaymentCreatePage() {
             <option value="card">Card</option>
             <option value="cash">Cash</option>
             <option value="other">Other</option>
-          </select>
+          </Select>
         </label>
         <TextInput
           label="Received at"
@@ -201,7 +202,7 @@ export function PaymentCreatePage() {
           </p>
         )}
 
-        <Button type="submit" disabled={create.isPending || apply.isPending}>
+        <Button type="submit" variant="primary" disabled={create.isPending || apply.isPending}>
           {create.isPending || apply.isPending ? 'Saving.' : 'Save payment'}
         </Button>
       </form>
