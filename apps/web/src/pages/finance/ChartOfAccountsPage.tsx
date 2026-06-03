@@ -1,70 +1,112 @@
+// ChartOfAccountsPage. Finance config surface. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + DataTable + StatusBadge + Pagination
+// replace the hand-rolled header, table, and yes/no active text. Chart of
+// accounts is reference/config data (no FSM), sorted by code server-side.
+// account_type is categorical (rendered as plain uppercase text, not a badge);
+// is_active becomes a StatusBadge. No onboarding ListEmptyState (accounts are
+// seeded); the empty state is the DataTable empty string. The per-row Edit link
+// and the create CTA are preserved.
+
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useChartOfAccounts } from '@/lib/hooks/useChartOfAccounts';
+import type { ChartOfAccount } from '@/lib/types/finance';
 
-/**
- * ChartOfAccountsPage. Lists the seeded default accounts plus any custom
- * accounts for the org, sorted by code. Provides a Create button wired to
- * /finance/coa/new and per-row edit links wired to /finance/coa/:id/edit.
- */
+const PAGE_SIZE = 50;
+
+const COLUMNS: ReadonlyArray<DataColumn<ChartOfAccount>> = [
+  {
+    key: 'code',
+    header: 'Code',
+    cellClassName: 'font-mono',
+    render: (a) => a.code,
+  },
+  {
+    key: 'name',
+    header: 'Name',
+    render: (a) => a.name,
+  },
+  {
+    key: 'type',
+    header: 'Type',
+    cellClassName: 'uppercase text-ink-dim',
+    render: (a) => a.account_type,
+  },
+  {
+    key: 'active',
+    header: 'Active',
+    render: (a) => (
+      <StatusBadge status={a.is_active ? 'active' : 'inactive'} />
+    ),
+  },
+  {
+    key: 'actions',
+    header: '',
+    align: 'right',
+    render: (a) => (
+      <Link
+        to={`/finance/coa/${a.id}/edit`}
+        className="text-ink-dim hover:text-accent text-xs"
+      >
+        Edit
+      </Link>
+    ),
+  },
+];
+
 export function ChartOfAccountsPage() {
   const { data, isLoading, error } = useChartOfAccounts();
+  const [page, setPage] = useState(0);
+
+  const rows = data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta =
+    !isLoading && !error
+      ? `${totalCount} ${totalCount === 1 ? 'account' : 'accounts'}`
+      : undefined;
 
   return (
-    <section className="px-8 py-8 flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">
-          CHART OF ACCOUNTS
-        </h1>
-        <Link
-          to="/finance/coa/new"
-          className="px-4 py-2 bg-accent text-on-primary font-sans text-sm"
-        >
-          New account
-        </Link>
-      </header>
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Get paid / Chart of accounts"
+        title="Chart of accounts"
+        meta={meta}
+        actions={
+          <Link to="/finance/coa/new">
+            <Button variant="primary">New account</Button>
+          </Link>
+        }
+      />
 
-      {isLoading ? (
-        <p className="text-ink-dim font-sans">Loading accounts.</p>
-      ) : error ? (
+      {error ? (
         <p className="text-accent font-sans">Failed to load accounts.</p>
       ) : (
-        <table className="w-full text-sm font-sans border-collapse">
-          <thead>
-            <tr className="text-left text-ink-dim border-b border-line">
-              <th className="py-2 pr-4">Code</th>
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Type</th>
-              <th className="py-2 pr-4">Active</th>
-              <th className="py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {(data ?? []).map((a) => (
-              <tr key={a.id} className="border-b border-line">
-                <td className="py-2 pr-4 font-mono">{a.code}</td>
-                <td className="py-2 pr-4">{a.name}</td>
-                <td className="py-2 pr-4 uppercase text-ink-dim">{a.account_type}</td>
-                <td className="py-2 pr-4 text-ink-dim">{a.is_active ? 'yes' : 'no'}</td>
-                <td className="py-2 text-right">
-                  <Link
-                    to={`/finance/coa/${a.id}/edit`}
-                    className="text-ink-dim hover:text-accent text-xs"
-                  >
-                    Edit
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {(data ?? []).length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-6 text-center text-ink-dim">
-                  No accounts found.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(a) => a.id}
+            loading={isLoading}
+            empty="No accounts found."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );

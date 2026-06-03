@@ -1,9 +1,61 @@
+// JournalEntriesListPage. Finance. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + DataTable + StatusBadge + Pagination
+// replace the hand-rolled header, table, raw uppercase status, and hand-rolled
+// pager. Behavior preserved: the period format (YYYY-MM, zero-padded), the
+// uppercase source, the number link to the detail, and the server-enforced
+// finance.journal_entries.enabled flag error surfaced inline.
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useJournalEntries } from '@/lib/hooks/useJournalEntries';
+import type { JournalEntry } from '@/lib/types/finance';
 
 const PAGE_SIZE = 50;
+
+const COLUMNS: ReadonlyArray<DataColumn<JournalEntry>> = [
+  {
+    key: 'number',
+    header: 'Number',
+    cellClassName: 'font-mono',
+    render: (je) => (
+      <Link
+        to={`/finance/journal-entries/${je.id}`}
+        className="text-ink hover:text-accent"
+      >
+        {je.entry_number}
+      </Link>
+    ),
+  },
+  {
+    key: 'date',
+    header: 'Date',
+    cellClassName: 'text-ink-dim',
+    render: (je) => je.entry_date,
+  },
+  {
+    key: 'period',
+    header: 'Period',
+    cellClassName: 'font-mono text-ink-dim',
+    render: (je) => `${je.period_year}-${String(je.period_month).padStart(2, '0')}`,
+  },
+  {
+    key: 'source',
+    header: 'Source',
+    cellClassName: 'uppercase text-ink-dim',
+    render: (je) => je.source_type,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (je) => <StatusBadge status={je.status} />,
+  },
+];
 
 /**
  * JournalEntriesListPage. Reverse-chronological list. The per-route
@@ -14,81 +66,53 @@ export function JournalEntriesListPage() {
   const [page, setPage] = useState(0);
   const { data, isLoading, error } = useJournalEntries();
 
-  const totalCount = data?.length ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const pageStart = page * PAGE_SIZE;
-  const pageRows = (data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
+  const rows = data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta =
+    !isLoading && !error
+      ? `${totalCount} ${totalCount === 1 ? 'entry' : 'entries'}`
+      : undefined;
 
   return (
-    <section className="px-8 py-8 flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">JOURNAL ENTRIES</h1>
-        <Link to="/finance/journal-entries/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New journal entry</Link>
-      </header>
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Get paid / Journal entries"
+        title="Journal entries"
+        meta={meta}
+        actions={
+          <Link to="/finance/journal-entries/new">
+            <Button variant="primary">New journal entry</Button>
+          </Link>
+        }
+      />
 
-      {isLoading ? (
-        <p className="text-ink-dim">Loading entries.</p>
-      ) : error ? (
+      {error ? (
         <p className="text-accent font-sans">
           {(error as Error).message ||
             'Journal entries unavailable for this org.'}
         </p>
       ) : (
-        <table className="w-full text-sm font-sans border-collapse">
-          <thead>
-            <tr className="text-left text-ink-dim border-b border-line">
-              <th className="py-2">Number</th>
-              <th className="py-2">Date</th>
-              <th className="py-2">Period</th>
-              <th className="py-2">Source</th>
-              <th className="py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((je) => (
-              <tr key={je.id} className="border-b border-line">
-                <td className="py-2">
-                  <Link
-                    to={`/finance/journal-entries/${je.id}`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {je.entry_number}
-                  </Link>
-                </td>
-                <td className="py-2 text-ink-dim">{je.entry_date}</td>
-                <td className="py-2 text-ink-dim font-mono">
-                  {je.period_year}-{String(je.period_month).padStart(2, '0')}
-                </td>
-                <td className="py-2 text-ink-dim uppercase">{je.source_type}</td>
-                <td className="py-2 text-ink-dim uppercase">{je.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(je) => je.id}
+            loading={isLoading}
+            empty="No journal entries."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
-      {totalCount > PAGE_SIZE ? (
-        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Prev
-          </button>
-          <span className="text-ink-dim">
-            {page + 1} of {pageCount}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            disabled={page >= pageCount - 1}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
     </section>
   );
 }

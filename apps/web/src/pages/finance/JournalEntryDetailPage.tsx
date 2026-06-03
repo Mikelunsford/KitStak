@@ -1,8 +1,22 @@
+// JournalEntryDetailPage. Finance. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader (status as a StatusBadge in the meta) +
+// DetailLayout (HISTORY in the rail) replace the hand-rolled header, raw status
+// text, and bottom history section. journal_entry is NOT registered in
+// STATE_STEPPER_PATHS, so there is no StateStepper (matching Co-Pack). The Post
+// action moves to the kit Button. The debit/credit lines table stays
+// hand-rolled (it has a balance tfoot); money keeps formatCents and the
+// integer-safe debit/credit accumulation. canPost (status === 'draft') is
+// preserved verbatim.
+
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailLayout } from '@/components/ui/DetailLayout';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   useJournalEntry,
   usePostJournalEntry,
@@ -26,88 +40,101 @@ export function JournalEntryDetailPage() {
 
   const { entry, lines } = detail.data;
   const canPost = entry.status === 'draft';
-  const totalDebit = lines.reduce(
-    (acc, l) => acc + Number(l.debit_cents),
-    0,
-  );
-  const totalCredit = lines.reduce(
-    (acc, l) => acc + Number(l.credit_cents),
-    0,
-  );
+  const totalDebit = lines.reduce((acc, l) => acc + Number(l.debit_cents), 0);
+  const totalCredit = lines.reduce((acc, l) => acc + Number(l.credit_cents), 0);
 
   return (
-    <section className="px-8 py-8 flex flex-col gap-8">
+    <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'Journal entries', to: '/finance/journal-entries' },
           { label: entry.entry_number },
         ]}
       />
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase text-ink-dim font-sans">Journal entry</p>
-          <h1 className="text-4xl font-display tracking-wide text-ink">
-            {entry.entry_number}
-          </h1>
-          <p className="text-ink-dim font-sans uppercase text-xs mt-1">
-            Status: {entry.status} · Period {entry.period_year}-
-            {String(entry.period_month).padStart(2, '0')}
-          </p>
-        </div>
+      <PageHeader
+        title={entry.entry_number}
+        meta={
+          <span className="flex items-center gap-2">
+            <StatusBadge status={entry.status} />
+            <span>
+              Period {entry.period_year}-
+              {String(entry.period_month).padStart(2, '0')}
+            </span>
+          </span>
+        }
+      />
+
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="journal_entry" entityId={jeId} />
+          </section>
+        }
+      >
         {canPost && (
-          <button
-            type="button"
-            className="px-4 py-2 bg-accent text-on-primary font-display tracking-wider text-sm disabled:opacity-50"
-            onClick={() => post.mutate(jeId)}
-            disabled={post.isPending}
-          >
-            POST
-          </button>
+          <div>
+            <Button
+              variant="secondary"
+              onClick={() => post.mutate(jeId)}
+              disabled={post.isPending}
+            >
+              {post.isPending ? 'Posting.' : 'Post'}
+            </Button>
+          </div>
         )}
-      </header>
+        {post.error && (
+          <p className="text-accent font-sans text-sm">
+            {(post.error as Error).message}
+          </p>
+        )}
 
-      {post.error && (
-        <p className="text-accent font-sans text-sm">
-          {(post.error as Error).message}
-        </p>
-      )}
-
-      <section>
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">LINES</h2>
-        <table className="w-full text-sm font-sans border-collapse">
-          <thead>
-            <tr className="text-left text-ink-dim border-b border-line">
-              <th className="py-2">Account</th>
-              <th className="py-2 text-right">Debit</th>
-              <th className="py-2 text-right">Credit</th>
-              <th className="py-2">Memo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((l) => (
-              <tr key={l.id} className="border-b border-line">
-                <td className="py-2 font-mono text-xs"><EntityLabel kind="account" id={l.account_id} /></td>
-                <td className="py-2 text-right">{formatCents(l.debit_cents as number | string, 'USD')}</td>
-                <td className="py-2 text-right">{formatCents(l.credit_cents as number | string, 'USD')}</td>
-                <td className="py-2 text-ink-dim">{l.memo ?? ''}</td>
+        <section>
+          <h2 className="text-2xl font-display tracking-wide text-ink mb-3">
+            LINES
+          </h2>
+          <table className="w-full text-sm font-sans border-collapse">
+            <thead>
+              <tr className="text-left text-ink-dim border-b border-line">
+                <th className="py-2">Account</th>
+                <th className="py-2 text-right">Debit</th>
+                <th className="py-2 text-right">Credit</th>
+                <th className="py-2">Memo</th>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-line font-display text-ink">
-              <td className="py-2">TOTAL</td>
-              <td className="py-2 text-right">{formatCents(totalDebit, 'USD')}</td>
-              <td className="py-2 text-right">{formatCents(totalCredit, 'USD')}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </section>
-
-      <section>
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="journal_entry" entityId={jeId} />
-      </section>
+            </thead>
+            <tbody>
+              {lines.map((l) => (
+                <tr key={l.id} className="border-b border-line">
+                  <td className="py-2 font-mono text-xs">
+                    <EntityLabel kind="account" id={l.account_id} />
+                  </td>
+                  <td className="py-2 text-right font-mono">
+                    {formatCents(l.debit_cents as number | string, 'USD')}
+                  </td>
+                  <td className="py-2 text-right font-mono">
+                    {formatCents(l.credit_cents as number | string, 'USD')}
+                  </td>
+                  <td className="py-2 text-ink-dim">{l.memo ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-line font-display text-ink">
+                <td className="py-2">TOTAL</td>
+                <td className="py-2 text-right font-mono">
+                  {formatCents(totalDebit, 'USD')}
+                </td>
+                <td className="py-2 text-right font-mono">
+                  {formatCents(totalCredit, 'USD')}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+      </DetailLayout>
     </section>
   );
 }

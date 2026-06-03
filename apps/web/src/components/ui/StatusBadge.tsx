@@ -107,6 +107,15 @@ const COLOR_MAP: Record<string, string> = {
   scheduled: 'bg-accent',
   assigned: 'bg-accent',
   done: 'bg-green-500',
+
+  // Finance journal entry and period-close statuses (F-Wave10-UI-KIT-01).
+  // draft / open / closed are mapped above and shared. New: posted
+  // (terminal-positive), reversed (terminal-negative), in_review (mid-process),
+  // reopened (unlocked, needs re-closing).
+  posted: 'bg-green-500',
+  reversed: 'bg-ink-dim',
+  in_review: 'bg-yellow-500',
+  reopened: 'bg-accent',
 };
 
 /**
@@ -187,6 +196,12 @@ const LABEL_MAP: Record<string, string> = {
   scheduled: 'Scheduled',
   assigned: 'Assigned',
   done: 'Done',
+
+  // Finance journal entry and period-close statuses (F-Wave10-UI-KIT-01).
+  posted: 'Posted',
+  reversed: 'Reversed',
+  in_review: 'In review',
+  reopened: 'Reopened',
 };
 
 /**

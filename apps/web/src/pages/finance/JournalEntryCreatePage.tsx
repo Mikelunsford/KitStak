@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { useChartOfAccounts } from '@/lib/hooks/useChartOfAccounts';
 import { useCreateJournalEntry } from '@/lib/hooks/useJournalEntries';
@@ -117,9 +119,7 @@ export function JournalEntryCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW JOURNAL ENTRY
-      </h1>
+      <PageHeader eyebrow="Get paid / Journal entries" title="New journal entry" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <TextInput
@@ -164,22 +164,23 @@ export function JournalEntryCreatePage() {
           <table className="w-full text-sm font-sans border-collapse">
             <thead>
               <tr className="text-left text-ink-dim border-b border-line">
-                <th className="py-2">Account</th>
-                <th className="py-2 text-right">Debit (cents)</th>
-                <th className="py-2 text-right">Credit (cents)</th>
-                <th className="py-2">Memo</th>
-                <th className="py-2" />
+                <th scope="col" className="py-2">Account</th>
+                <th scope="col" className="py-2 text-right">Debit (cents)</th>
+                <th scope="col" className="py-2 text-right">Credit (cents)</th>
+                <th scope="col" className="py-2">Memo</th>
+                <th scope="col" className="py-2" />
               </tr>
             </thead>
             <tbody>
               {lines.map((line, i) => (
                 <tr key={line.id} className="border-b border-line">
                   <td className="py-2 pr-2">
-                    <select
+                    <Select
                       value={line.account_id}
                       onChange={(e) => setLineField(i, 'account_id', e.target.value)}
                       disabled={accounts.isLoading}
-                      className="w-full bg-bg-2 border border-line text-ink px-2 py-2 font-sans focus:outline-none focus:border-accent"
+                      className="w-full"
+                      aria-label="Account"
                     >
                       <option value="">
                         {accounts.isLoading ? 'Loading.' : 'Select account.'}
@@ -189,7 +190,7 @@ export function JournalEntryCreatePage() {
                           {a.code} · {a.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="py-2 pr-2">
                     <input

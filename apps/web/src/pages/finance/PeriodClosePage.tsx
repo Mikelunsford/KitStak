@@ -1,5 +1,15 @@
+// PeriodClosePage. Finance admin workflow. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader (with the year selector in the actions slot)
+// + StatusBadge + kit Button replace the hand-rolled header, raw status text,
+// and raw close/reopen buttons. The 12-month fiscal table stays hand-rolled (a
+// workflow table with per-row actions, not an entity list). The fill-12-months
+// logic, the close/reopen mutations, and the admin gating are preserved.
+
 import { useState } from 'react';
 
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   useClosePeriod,
   usePeriodClose,
@@ -17,19 +27,22 @@ export function PeriodClosePage() {
   const reopen = useReopenPeriod();
 
   return (
-    <section className="px-8 py-8 flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">PERIOD CLOSE</h1>
-        <label className="flex items-center gap-2 text-sm font-sans text-ink-dim">
-          Year
-          <input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(Number.parseInt(e.target.value, 10))}
-            className="bg-bg-2 border border-line px-2 py-1 text-ink font-mono w-24"
-          />
-        </label>
-      </header>
+    <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Get paid / Period close"
+        title="Period close"
+        actions={
+          <label className="flex items-center gap-2 text-sm font-sans text-ink-dim">
+            Year
+            <input
+              type="number"
+              value={year}
+              onChange={(e) => setYear(Number.parseInt(e.target.value, 10))}
+              className="bg-bg-2 border border-line px-2 py-1 text-ink font-mono w-24"
+            />
+          </label>
+        }
+      />
 
       {isLoading ? (
         <p className="text-ink-dim">Loading periods.</p>
@@ -56,31 +69,36 @@ export function PeriodClosePage() {
                   <td className="py-2 font-mono">
                     {year}-{String(month).padStart(2, '0')}
                   </td>
-                  <td className="py-2 uppercase text-ink-dim">{status}</td>
+                  <td className="py-2">
+                    <StatusBadge status={status} />
+                  </td>
                   <td className="py-2 text-ink-dim">{row?.closed_at ?? '-'}</td>
                   <td className="py-2 text-right">
                     {status === 'closed' ? (
-                      <button
-                        type="button"
-                        className="px-3 py-1 border border-line text-ink text-xs font-display tracking-wider"
+                      <Button
+                        variant="secondary"
                         onClick={() =>
-                          reopen.mutate({ period_year: year, period_month: month })
+                          reopen.mutate({
+                            period_year: year,
+                            period_month: month,
+                          })
                         }
                         disabled={reopen.isPending}
                       >
-                        REOPEN
-                      </button>
+                        Reopen
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
-                        className="px-3 py-1 bg-accent text-on-primary text-xs font-display tracking-wider"
+                      <Button
                         onClick={() =>
-                          close.mutate({ period_year: year, period_month: month })
+                          close.mutate({
+                            period_year: year,
+                            period_month: month,
+                          })
                         }
                         disabled={close.isPending}
                       >
-                        CLOSE
-                      </button>
+                        Close
+                      </Button>
                     )}
                   </td>
                 </tr>
