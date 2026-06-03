@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 
+import { ActionTile } from '@/components/ui/ActionTile';
+import { StatCard } from '@/components/ui/StatCard';
 import { useSalesOrdersList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { SalesOrderStatus } from '@/lib/types/copack';
@@ -13,6 +14,11 @@ import type { SalesOrderStatus } from '@/lib/types/copack';
  * Gated by plugins.copack_ecom at the route layer (requiresPlugin), so orgs
  * without the pillar flag never render it. Action tiles mirror the role policy
  * for button hiding only. The server stays the authority.
+ *
+ * Migration to the shared UI kit (F-Wave10-UI-KIT-01): the count cards and the
+ * work tiles move to the shared StatCard / ActionTile components. The pillar
+ * hero header keeps its landing-scale display type (it is a hero, not a list
+ * header, so it stays larger than the kit PageHeader).
  */
 const STATUS_CARDS: ReadonlyArray<{
   status: SalesOrderStatus;
@@ -53,18 +59,13 @@ export function CoPackHomePage() {
         <h2 className="font-display text-2xl tracking-wide text-ink-dim">ORDERS</h2>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           {STATUS_CARDS.map((card) => (
-            <Link
+            <StatCard
               key={card.status}
               to={`/copack/orders?status=${card.status}`}
-              className="bg-bg-2 border border-line p-6 flex flex-col gap-2 hover:border-accent"
-            >
-              <span className="text-4xl font-display tracking-wide text-ink">
-                {orders.isLoading ? '.' : (counts[card.status] ?? 0)}
-              </span>
-              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-                {card.label}
-              </span>
-            </Link>
+              count={counts[card.status] ?? 0}
+              label={card.label}
+              loading={orders.isLoading}
+            />
           ))}
         </div>
         {orders.error ? (
@@ -121,19 +122,5 @@ export function CoPackHomePage() {
         </div>
       </div>
     </section>
-  );
-}
-
-type ActionTileProps = { to: string; title: string; body: string };
-
-function ActionTile({ to, title, body }: ActionTileProps) {
-  return (
-    <Link
-      to={to}
-      className="bg-bg-2 border border-line p-6 flex flex-col gap-3 hover:border-accent"
-    >
-      <h3 className="text-xl font-display tracking-wider text-ink">{title}</h3>
-      <p className="font-sans text-ink-dim text-sm">{body}</p>
-    </Link>
   );
 }

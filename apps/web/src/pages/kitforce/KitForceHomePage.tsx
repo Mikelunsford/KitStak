@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 
+import { ActionTile } from '@/components/ui/ActionTile';
+import { StatCard } from '@/components/ui/StatCard';
 import { useMembersList, useShiftsList, useAssignmentsList } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -13,6 +14,10 @@ import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
  * layer (requiresPlugin), so orgs without the pillar flag never render it.
  * Action tiles mirror the role policy for button hiding only. The server stays
  * the authority.
+ *
+ * Migration to the shared UI kit (F-Wave10-UI-KIT-01): the count cards and the
+ * action tiles move to the shared StatCard / ActionTile components. The pillar
+ * hero header keeps its landing-scale display type.
  */
 export function KitForceHomePage() {
   const members = useMembersList();
@@ -59,39 +64,24 @@ export function KitForceHomePage() {
       <div className="flex flex-col gap-4">
         <h2 className="font-display text-2xl tracking-wide text-ink-dim">TODAY</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link
+          <StatCard
             to="/kitforce/members?status=active"
-            className="bg-bg-2 border border-line p-6 flex flex-col gap-2 hover:border-accent"
-          >
-            <span className="text-4xl font-display tracking-wide text-ink">
-              {members.isLoading ? '.' : memberCounts.active}
-            </span>
-            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-              Active members
-            </span>
-          </Link>
-          <Link
+            count={memberCounts.active}
+            label="Active members"
+            loading={members.isLoading}
+          />
+          <StatCard
             to="/kitforce/shifts?status=scheduled"
-            className="bg-bg-2 border border-line p-6 flex flex-col gap-2 hover:border-accent"
-          >
-            <span className="text-4xl font-display tracking-wide text-ink">
-              {shifts.isLoading ? '.' : scheduledShifts}
-            </span>
-            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-              Scheduled shifts
-            </span>
-          </Link>
-          <Link
+            count={scheduledShifts}
+            label="Scheduled shifts"
+            loading={shifts.isLoading}
+          />
+          <StatCard
             to="/kitforce/assignments?status=open"
-            className="bg-bg-2 border border-line p-6 flex flex-col gap-2 hover:border-accent"
-          >
-            <span className="text-4xl font-display tracking-wide text-ink">
-              {assignments.isLoading ? '.' : openAssignments}
-            </span>
-            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-              Open assignments
-            </span>
-          </Link>
+            count={openAssignments}
+            label="Open assignments"
+            loading={assignments.isLoading}
+          />
         </div>
         {members.error ? (
           <p className="font-sans text-sm text-accent">
@@ -172,19 +162,5 @@ export function KitForceHomePage() {
         </div>
       </div>
     </section>
-  );
-}
-
-type ActionTileProps = { to: string; title: string; body: string };
-
-function ActionTile({ to, title, body }: ActionTileProps) {
-  return (
-    <Link
-      to={to}
-      className="bg-bg-2 border border-line p-6 flex flex-col gap-3 hover:border-accent"
-    >
-      <h3 className="text-xl font-display tracking-wider text-ink">{title}</h3>
-      <p className="font-sans text-ink-dim text-sm">{body}</p>
-    </Link>
   );
 }
