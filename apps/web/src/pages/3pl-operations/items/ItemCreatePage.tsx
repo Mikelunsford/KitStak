@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { useCreateItem } from '@/lib/hooks/useItems';
@@ -36,7 +37,7 @@ export function ItemCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW ITEM</h1>
+      <PageHeader eyebrow="Library / Items" title="New item" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="SKU"

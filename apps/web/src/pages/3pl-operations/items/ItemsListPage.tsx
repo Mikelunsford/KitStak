@@ -1,95 +1,121 @@
+// ItemsListPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + DataTable + StatusBadge + Pagination replace the hand-rolled
+// header, "Yes/No" active text, table, and pagination. Items have no filters
+// today, so no FilterBar is added; the list stays unfiltered. The onboarding
+// ListEmptyState branch and the loading/error handling are preserved.
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { formatCents } from '@/lib/money';
+import type { Item } from '@/lib/types/sales';
 
 const PAGE_SIZE = 50;
+
+const COLUMNS: ReadonlyArray<DataColumn<Item>> = [
+  {
+    key: 'sku',
+    header: 'SKU',
+    cellClassName: 'font-mono',
+    render: (item) => item.sku,
+  },
+  {
+    key: 'name',
+    header: 'Name',
+    render: (item) => (
+      <Link
+        to={`/3pl-operations/items/${item.id}`}
+        className="text-ink hover:text-accent"
+      >
+        {item.name}
+      </Link>
+    ),
+  },
+  {
+    key: 'kind',
+    header: 'Kind',
+    render: (item) => item.kind,
+  },
+  {
+    key: 'price',
+    header: 'Price',
+    align: 'right',
+    cellClassName: 'font-mono',
+    render: (item) => formatCents(item.unit_price_cents, item.currency_code),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (item) => (
+      <StatusBadge status={item.is_active ? 'active' : 'inactive'} />
+    ),
+  },
+];
 
 export function ItemsListPage() {
   const [page, setPage] = useState(0);
   const { data, isLoading, error } = useItemsList();
 
-  const totalCount = data?.length ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const pageStart = page * PAGE_SIZE;
-  const pageRows = (data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
+  const rows = data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const showOnboardingEmpty = !isLoading && !error && totalCount === 0;
+
+  const meta =
+    !isLoading && !error
+      ? `${totalCount} ${totalCount === 1 ? 'item' : 'items'}`
+      : undefined;
+
   return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">ITEMS</h1>
-        <Link to="/3pl-operations/items/new">
-          <Button variant="primary">New Item</Button>
-        </Link>
-      </header>
-      {isLoading && <p className="text-ink-dim">Loading items.</p>}
-      {error && <p className="text-accent">Failed to load items.</p>}
-      {data && data.length === 0 ? (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Library / Items"
+        title="Items"
+        meta={meta}
+        actions={
+          <Link to="/3pl-operations/items/new">
+            <Button variant="primary">New item</Button>
+          </Link>
+        }
+      />
+
+      {error ? (
+        <p className="font-sans text-accent">Failed to load items.</p>
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="item"
           explainer="Items are the SKUs you receive, build, and ship."
           addLabel="Add item"
           addTo="/3pl-operations/items/new"
         />
-      ) : null}
-      {data && data.length > 0 && (
-        <table className="w-full border border-line">
-          <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
-            <tr>
-              <th className="px-4 py-2">SKU</th>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Kind</th>
-              <th className="px-4 py-2">Price</th>
-              <th className="px-4 py-2">Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((item) => (
-              <tr key={item.id} className="border-t border-line">
-                <td className="px-4 py-2 font-mono text-sm">{item.sku}</td>
-                <td className="px-4 py-2">
-                  <Link
-                    to={`/3pl-operations/items/${item.id}`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {item.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-2">{item.kind}</td>
-                <td className="px-4 py-2 font-mono text-sm">
-                  {formatCents(item.unit_price_cents, item.currency_code)}
-                </td>
-                <td className="px-4 py-2">{item.is_active ? 'Yes' : 'No'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(item) => item.id}
+            loading={isLoading}
+            empty="No items yet."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
-      {totalCount > PAGE_SIZE ? (
-        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Prev
-          </button>
-          <span className="text-ink-dim">
-            {page + 1} of {pageCount}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            disabled={page >= pageCount - 1}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
     </section>
   );
 }
