@@ -74,6 +74,10 @@ describe('humaniseStatus - 3PL finance states (credit note, expense, vendor bill
     expect(humaniseStatus('in_review')).toBe('In review');
     expect(humaniseStatus('reopened')).toBe('Reopened');
   });
+
+  it('humanises the production run planned state', () => {
+    expect(humaniseStatus('planned')).toBe('Planned');
+  });
 });
 
 describe('statusColorClass', () => {
@@ -107,6 +111,10 @@ describe('statusColorClass', () => {
     expect(statusColorClass('reversed')).toBe('bg-ink-dim');
     expect(statusColorClass('in_review')).toBe('bg-yellow-500');
     expect(statusColorClass('reopened')).toBe('bg-accent');
+  });
+
+  it('maps the production run planned state to a brand token', () => {
+    expect(statusColorClass('planned')).toBe('bg-ink-dim');
   });
 
   it('falls back to neutral for an unknown state', () => {
