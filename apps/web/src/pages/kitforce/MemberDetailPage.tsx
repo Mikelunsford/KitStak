@@ -1,7 +1,21 @@
+// MemberDetailPage. KitForce pillar. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader (with the status as a StatusBadge in the
+// meta slot and the lifecycle actions in the actions slot) replaces the
+// hand-rolled header + raw status pill + button row. Members are a hub
+// (active <-> inactive toggle, no FSM), so this stays single-column with the
+// HISTORY section at the bottom (no DetailLayout).
+//
+// Preserved verbatim: the kitforce.member.read_rate gate on the default-rate
+// field, the deactivate destructiveConfirm (reactivate fires directly), and
+// the AuditTimeline.
+
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   useMember,
   useDeactivateMember,
@@ -12,17 +26,6 @@ import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { formatCents } from '@/lib/money';
 import { formatDateMedium } from '@/lib/dates';
 
-/**
- * MemberDetailPage. Pillar 4. Mirrors FulfillmentDetailPage shape.
- *
- * State machine: active <-> inactive. Deactivate gates on
- * kitforce.member.deactivate; reactivate reuses the same capability (there is no
- * separate reactivate cap). Status renders as a simple inline pill.
- *
- * C2 rate gate: default hourly rate only renders when the caller holds
- * kitforce.member.read_rate (org_owner, accounting). The server strips the field
- * for everyone else.
- */
 export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const memberId = id ?? '';
@@ -36,7 +39,9 @@ export function MemberDetailPage() {
   const canDeactivate = caps.can('kitforce.member.deactivate');
   const canUpdate = caps.can('kitforce.member.update');
 
-  if (member.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
+  if (member.isLoading) {
+    return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
+  }
   if (member.error || !member.data) {
     return <p className="px-8 py-12 text-accent">Member not found.</p>;
   }
@@ -45,15 +50,19 @@ export function MemberDetailPage() {
   const isActive = d.status === 'active';
 
   async function onDeactivate() {
-    if (!(await destructiveConfirm({
-      action: 'Deactivate this member',
-      consequence: 'The member moves to inactive and stops appearing in active rosters. Time entries already recorded are kept.',
-    }))) return;
+    if (
+      !(await destructiveConfirm({
+        action: 'Deactivate this member',
+        consequence:
+          'The member moves to inactive and stops appearing in active rosters. Time entries already recorded are kept.',
+      }))
+    )
+      return;
     deactivate.mutate({});
   }
 
   return (
-    <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
+    <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'KitForce', to: '/kitforce/members' },
@@ -61,49 +70,50 @@ export function MemberDetailPage() {
           { label: d.member_number ?? d.display_name },
         ]}
       />
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">{d.display_name}</h1>
-        <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {d.status}
-        </span>
-      </header>
-
-      <div className="flex gap-2 flex-wrap">
-        {canUpdate && (
-          <Link
-            to={`/kitforce/members/${memberId}/edit`}
-            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-          >
-            Edit
-          </Link>
-        )}
-        {isActive && canDeactivate && (
-          <button
-            onClick={onDeactivate}
-            disabled={deactivate.isPending}
-            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-          >
-            Deactivate
-          </button>
-        )}
-        {!isActive && canDeactivate && (
-          <button
-            onClick={() => reactivate.mutate({})}
-            disabled={reactivate.isPending}
-            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-          >
-            Reactivate
-          </button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Workforce / Members"
+        title={d.display_name}
+        meta={<StatusBadge status={d.status} />}
+        actions={
+          <>
+            {canUpdate && (
+              <Link to={`/kitforce/members/${memberId}/edit`}>
+                <Button variant="secondary">Edit</Button>
+              </Link>
+            )}
+            {isActive && canDeactivate && (
+              <Button
+                variant="ghost"
+                onClick={onDeactivate}
+                disabled={deactivate.isPending}
+              >
+                Deactivate
+              </Button>
+            )}
+            {!isActive && canDeactivate && (
+              <Button
+                variant="secondary"
+                onClick={() => reactivate.mutate({})}
+                disabled={reactivate.isPending}
+              >
+                Reactivate
+              </Button>
+            )}
+          </>
+        }
+      />
       {deactivate.error ? (
         <p className="font-sans text-sm text-accent">
-          {deactivate.error instanceof Error ? deactivate.error.message : 'Deactivate failed.'}
+          {deactivate.error instanceof Error
+            ? deactivate.error.message
+            : 'Deactivate failed.'}
         </p>
       ) : null}
       {reactivate.error ? (
         <p className="font-sans text-sm text-accent">
-          {reactivate.error instanceof Error ? reactivate.error.message : 'Reactivate failed.'}
+          {reactivate.error instanceof Error
+            ? reactivate.error.message
+            : 'Reactivate failed.'}
         </p>
       ) : null}
 
@@ -130,8 +140,10 @@ export function MemberDetailPage() {
         <dd className="text-ink">{formatDateMedium(d.created_at)}</dd>
       </dl>
 
-      <section className="mt-6">
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+      <section>
+        <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+          HISTORY
+        </h2>
         <AuditTimeline entityType="workforce_member" entityId={id ?? null} />
       </section>
     </section>

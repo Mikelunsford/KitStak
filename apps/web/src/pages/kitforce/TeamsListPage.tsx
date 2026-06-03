@@ -1,23 +1,57 @@
+// TeamsListPage. KitForce pillar. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + DataTable + StatusBadge + Pagination
+// replace the hand-rolled header, table, and Yes/No active text. Teams are a
+// flat library (no state machine), so create stays an inline form rather than a
+// dedicated page; that form, its kitforce.team.write gate, and the
+// ListEmptyState (canAdd false, since creation is inline) are preserved.
+
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useTeamsList, useCreateTeam } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
-import type { WorkforceTeamCreate } from '@/lib/types/kitforce';
+import type { WorkforceTeam, WorkforceTeamCreate } from '@/lib/types/kitforce';
 
-/**
- * TeamsListPage. Pillar 4 surface. Teams are a flat library (no state machine),
- * so create is an inline form rather than a dedicated page. Membership is
- * managed on the team detail page. Writes gate on kitforce.team.write.
- */
+const PAGE_SIZE = 50;
+
+const COLUMNS: ReadonlyArray<DataColumn<WorkforceTeam>> = [
+  {
+    key: 'name',
+    header: 'Team',
+    render: (t) => (
+      <Link to={`/kitforce/teams/${t.id}`} className="text-ink hover:text-accent">
+        {t.name}
+      </Link>
+    ),
+  },
+  {
+    key: 'active',
+    header: 'Active',
+    render: (t) => (
+      <StatusBadge status={t.is_active ? 'active' : 'inactive'} />
+    ),
+  },
+  {
+    key: 'notes',
+    header: 'Notes',
+    cellClassName: 'text-ink-dim',
+    render: (t) => t.notes ?? '·',
+  },
+];
+
 export function TeamsListPage() {
   const teams = useTeamsList();
   const create = useCreateTeam();
   const caps = useVioCapabilities();
   const canWrite = caps.can('kitforce.team.write');
+  const [page, setPage] = useState(0);
 
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
@@ -35,11 +69,19 @@ export function TeamsListPage() {
     });
   }
 
+  const rows = teams.data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta =
+    !teams.isLoading && !teams.error
+      ? `${totalCount} ${totalCount === 1 ? 'team' : 'teams'}`
+      : undefined;
+
   return (
-    <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
-      <header>
-        <h1 className="text-4xl font-display tracking-wide text-ink">TEAMS</h1>
-      </header>
+    <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Workforce / Teams" title="Teams" meta={meta} />
 
       {canWrite ? (
         <form
@@ -72,14 +114,13 @@ export function TeamsListPage() {
         </p>
       ) : null}
 
-      {teams.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {teams.error ? (
         <p className="text-accent font-sans text-sm">
-          {teams.error instanceof Error ? teams.error.message : 'Failed to load teams.'}
+          {teams.error instanceof Error
+            ? teams.error.message
+            : 'Failed to load teams.'}
         </p>
-      ) : null}
-
-      {!teams.isLoading && (teams.data ?? []).length === 0 ? (
+      ) : !teams.isLoading && totalCount === 0 ? (
         <ListEmptyState
           entity="team"
           explainer="Teams group members into crews, lines, and pick teams so you can schedule and assign work in bulk."
@@ -88,34 +129,23 @@ export function TeamsListPage() {
           canAdd={false}
         />
       ) : (
-        <table className="w-full border border-line text-sm font-sans">
-          <thead className="bg-bg-2 text-left text-ink-dim">
-            <tr>
-              <th className="px-4 py-2">Team</th>
-              <th className="px-4 py-2">Active</th>
-              <th className="px-4 py-2">Notes</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(teams.data ?? []).map((t) => (
-              <tr key={t.id} className="border-t border-line">
-                <td className="px-4 py-2">
-                  <Link to={`/kitforce/teams/${t.id}`} className="text-ink underline">
-                    {t.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-2 text-ink-dim">{t.is_active ? 'Yes' : 'No'}</td>
-                <td className="px-4 py-2 text-ink-dim">{t.notes ?? '·'}</td>
-                <td className="px-4 py-2">
-                  <Link to={`/kitforce/teams/${t.id}`} className="text-ink underline text-xs">
-                    View
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(t) => t.id}
+            loading={teams.isLoading}
+            empty="No teams yet."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );

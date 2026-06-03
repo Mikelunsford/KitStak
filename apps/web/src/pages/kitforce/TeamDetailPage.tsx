@@ -1,9 +1,22 @@
+// TeamDetailPage. KitForce pillar. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader (with the active/inactive StatusBadge in the
+// meta slot and Edit in the actions slot) replaces the hand-rolled header and
+// raw status pill. Teams are a hub (no FSM), so this stays single-column with a
+// HISTORY section. The member roster stays a hand-rolled table (it has a
+// per-row Remove with destructiveConfirm and a coupled add-member form); the
+// add-member picker swaps its raw select for the kit Select. The
+// useTeamsList().find() lookup, the active-and-not-already-on-team filter, the
+// cap gates, and the remove confirm are preserved verbatim.
+
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import {
   useTeamsList,
@@ -16,11 +29,6 @@ import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import type { WorkforceTeamMemberCreate } from '@/lib/types/kitforce';
 
-/**
- * TeamDetailPage. Pillar 4. Shows the team and its membership. Adding a member
- * gates on kitforce.team.member.add; removing gates on
- * kitforce.team.member.remove. The team library row carries no state machine.
- */
 export function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
   const teamId = id ?? '';
@@ -56,7 +64,9 @@ export function TeamDetailPage() {
     return set;
   }, [teamMembers.data]);
 
-  if (teams.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
+  if (teams.isLoading) {
+    return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
+  }
   if (!team) return <p className="px-8 py-12 text-accent">Team not found.</p>;
 
   function onAdd(e: FormEvent) {
@@ -73,15 +83,19 @@ export function TeamDetailPage() {
   }
 
   async function onRemove(removeMemberId: string) {
-    if (!(await destructiveConfirm({
-      action: 'Remove this member from the team',
-      consequence: 'The member is removed from the team roster. Time entries already recorded are kept.',
-    }))) return;
+    if (
+      !(await destructiveConfirm({
+        action: 'Remove this member from the team',
+        consequence:
+          'The member is removed from the team roster. Time entries already recorded are kept.',
+      }))
+    )
+      return;
     remove.mutate(removeMemberId);
   }
 
   return (
-    <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
+    <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'KitForce', to: '/kitforce/members' },
@@ -89,29 +103,26 @@ export function TeamDetailPage() {
           { label: team.name },
         ]}
       />
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">{team.name}</h1>
-        <span className="inline-block px-3 py-1 border border-line text-xs font-mono uppercase text-ink-dim">
-          {team.is_active ? 'active' : 'inactive'}
-        </span>
-      </header>
-
-      <div className="flex gap-2 flex-wrap">
-        {canUpdate && (
-          <Link
-            to={`/kitforce/teams/${teamId}/edit`}
-            className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2"
-          >
-            Edit
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Workforce / Teams"
+        title={team.name}
+        meta={<StatusBadge status={team.is_active ? 'active' : 'inactive'} />}
+        actions={
+          canUpdate ? (
+            <Link to={`/kitforce/teams/${teamId}/edit`}>
+              <Button variant="secondary">Edit</Button>
+            </Link>
+          ) : undefined
+        }
+      />
 
       <section className="flex flex-col gap-4">
         <div className="flex items-baseline gap-3">
           <h2 className="text-2xl font-display tracking-wide text-ink">MEMBERS</h2>
           {teamMembers.isFetching && !teamMembers.isLoading ? (
-            <span className="text-xs text-ink-dim font-sans" aria-live="polite">Updating.</span>
+            <span className="text-xs text-ink-dim font-sans" aria-live="polite">
+              Updating.
+            </span>
           ) : null}
         </div>
 
@@ -121,12 +132,13 @@ export function TeamDetailPage() {
             className="flex flex-wrap gap-4 items-end border border-line bg-bg-2 p-4"
           >
             <label className="flex flex-col gap-1 flex-1 min-w-[12rem]">
-              <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Member</span>
-              <select
+              <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+                Member
+              </span>
+              <Select
                 value={memberId}
                 onChange={(e) => setMemberId(e.target.value)}
                 disabled={allMembers.isLoading}
-                className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
               >
                 <option value="">Select a member</option>
                 {(allMembers.data ?? [])
@@ -136,7 +148,7 @@ export function TeamDetailPage() {
                       {m.display_name}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             <div className="flex-1 min-w-[10rem]">
               <TextInput
@@ -158,7 +170,9 @@ export function TeamDetailPage() {
 
         {teamMembers.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
         {(teamMembers.data ?? []).length === 0 && !teamMembers.isLoading ? (
-          <p className="text-ink-dim font-sans text-sm">No members on this team yet.</p>
+          <p className="text-ink-dim font-sans text-sm">
+            No members on this team yet.
+          </p>
         ) : (
           <table className="w-full border border-line text-sm font-sans">
             <thead className="bg-bg-2 text-left text-ink-dim">
@@ -174,16 +188,18 @@ export function TeamDetailPage() {
                   <td className="px-4 py-2 text-ink">
                     {memberName[tm.member_id] ?? tm.member_id.slice(0, 8)}
                   </td>
-                  <td className="px-4 py-2 text-ink-dim">{tm.role_in_team ?? '·'}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 text-ink-dim">
+                    {tm.role_in_team ?? '·'}
+                  </td>
+                  <td className="px-4 py-2 text-right">
                     {canRemove ? (
-                      <button
+                      <Button
+                        variant="ghost"
                         onClick={() => onRemove(tm.member_id)}
                         disabled={remove.isPending}
-                        className="text-accent underline text-xs"
                       >
                         Remove
-                      </button>
+                      </Button>
                     ) : null}
                   </td>
                 </tr>
@@ -198,8 +214,10 @@ export function TeamDetailPage() {
         ) : null}
       </section>
 
-      <section className="mt-6">
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
+      <section>
+        <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+          HISTORY
+        </h2>
         <AuditTimeline entityType="workforce_team" entityId={id ?? null} />
       </section>
     </section>

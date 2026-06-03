@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { useCreateMember } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
@@ -65,7 +66,7 @@ export function MemberCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW MEMBER</h1>
+      <PageHeader eyebrow="Workforce / Members" title="New member" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create members.

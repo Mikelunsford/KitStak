@@ -99,6 +99,14 @@ const COLOR_MAP: Record<string, string> = {
   // CRM activity statuses (F-Wave10-UI-KIT-01). completed / cancelled are
   // mapped above and shared; only open is new.
   open: 'bg-yellow-500',
+
+  // KitForce shift and assignment statuses (F-Wave10-UI-KIT-01). started /
+  // completed / cancelled / open / in_progress are mapped above and shared.
+  // Distinct keys: scheduled (shift) and assigned (assignment) are accent
+  // (live, awaiting the next action); done (assignment) is terminal-positive.
+  scheduled: 'bg-accent',
+  assigned: 'bg-accent',
+  done: 'bg-green-500',
 };
 
 /**
@@ -174,6 +182,11 @@ const LABEL_MAP: Record<string, string> = {
 
   // CRM activity statuses (F-Wave10-UI-KIT-01).
   open: 'Open',
+
+  // KitForce shift and assignment statuses (F-Wave10-UI-KIT-01).
+  scheduled: 'Scheduled',
+  assigned: 'Assigned',
+  done: 'Done',
 };
 
 /**

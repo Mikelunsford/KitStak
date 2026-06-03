@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { useAssignment, useUpdateAssignment } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
@@ -64,7 +65,7 @@ export function AssignmentEditPage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EDIT ASSIGNMENT</h1>
+      <PageHeader eyebrow="Workforce / Assignments" title="Edit assignment" />
       {!canUpdate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to edit assignments.

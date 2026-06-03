@@ -1,7 +1,22 @@
+// TimeEntriesListPage. KitForce pillar. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + FilterBar + Select + DataTable +
+// Pagination replace the hand-rolled header, filter selects, and table. Time
+// entries are a line-item class (no FSM, no status column), so there is no
+// StatusBadge here. The inline clock-in form (with its kit-Select member
+// picker), the per-row ClockOutButton component (each open entry owns its own
+// mutation hook), the future-clock-in warning, formatMinutes, and the
+// kitforce.member.read_rate gate on the Rate column are all preserved. Minutes
+// is a duration, never money, so it does not go through formatCents.
+
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import {
@@ -13,20 +28,10 @@ import {
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
 import { formatDateTimeMedium } from '@/lib/dates';
-import type { TimeEntryClockIn } from '@/lib/types/kitforce';
+import type { TimeEntry, TimeEntryClockIn } from '@/lib/types/kitforce';
 
-/**
- * TimeEntriesListPage. Pillar 4. Time entries are a line-item class (no parent
- * FSM): clock-in opens an entry, clock-out closes it and derives minutes.
- *
- * Clock-in gates on kitforce.time_entry.clock_in; clock-out on
- * kitforce.time_entry.clock_out.
- *
- * C2 rate gate: hourly_rate_cents only renders when the caller holds
- * kitforce.member.read_rate (org_owner, accounting). The server strips the field
- * for everyone else, and snapshots the member rate at clock-in regardless of
- * what the wire carries. Roles without the cap post 0 and never see the column.
- */
+const PAGE_SIZE = 50;
+
 function dollarsToCents(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -59,7 +64,13 @@ function formatMinutes(min: number | string | null | undefined): string {
  * Inline clock-out control. Each open entry owns its own mutation hook (hooks
  * cannot be called in a loop), so the row is extracted into its own component.
  */
-function ClockOutButton({ entryId, canClockOut }: { entryId: string; canClockOut: boolean }) {
+function ClockOutButton({
+  entryId,
+  canClockOut,
+}: {
+  entryId: string;
+  canClockOut: boolean;
+}) {
   const clockOut = useClockOutTimeEntry(entryId);
   if (!canClockOut) return null;
   return (
@@ -73,7 +84,9 @@ function ClockOutButton({ entryId, canClockOut }: { entryId: string; canClockOut
       </button>
       {clockOut.error ? (
         <span className="text-accent text-xs">
-          {clockOut.error instanceof Error ? clockOut.error.message : 'Clock-out failed.'}
+          {clockOut.error instanceof Error
+            ? clockOut.error.message
+            : 'Clock-out failed.'}
         </span>
       ) : null}
     </div>
@@ -83,6 +96,7 @@ function ClockOutButton({ entryId, canClockOut }: { entryId: string; canClockOut
 export function TimeEntriesListPage() {
   const [memberFilter, setMemberFilter] = useState<string>('');
   const [openOnly, setOpenOnly] = useState(false);
+  const [page, setPage] = useState(0);
 
   const filters = useMemo(() => {
     const f: { member_id?: string; open?: boolean } = {};
@@ -111,6 +125,16 @@ export function TimeEntriesListPage() {
     return map;
   }, [members.data]);
 
+  function applyMember(next: string) {
+    setMemberFilter(next);
+    setPage(0);
+  }
+
+  function applyOpenOnly(next: boolean) {
+    setOpenOnly(next);
+    setPage(0);
+  }
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canClockIn || !memberId) return;
@@ -133,8 +157,6 @@ export function TimeEntriesListPage() {
     });
   }
 
-  const rateColSpan = canReadRate ? 6 : 5;
-
   // Soft warning: clocking a member in at a future time is allowed (backfills
   // and pre-schedules happen) but is usually a typo, so flag it.
   const isFutureClockIn = (() => {
@@ -142,11 +164,99 @@ export function TimeEntriesListPage() {
     return iso !== null && new Date(iso).getTime() > Date.now();
   })();
 
+  const columns = useMemo<ReadonlyArray<DataColumn<TimeEntry>>>(() => {
+    const cols: DataColumn<TimeEntry>[] = [
+      {
+        key: 'member',
+        header: 'Member',
+        cellClassName: 'text-ink',
+        render: (t) => memberName[t.member_id] ?? t.member_id.slice(0, 8),
+      },
+      {
+        key: 'in',
+        header: 'Clock-in',
+        cellClassName: 'text-ink-dim',
+        render: (t) => formatDateTimeMedium(t.clock_in_at),
+      },
+      {
+        key: 'out',
+        header: 'Clock-out',
+        cellClassName: 'text-ink-dim',
+        render: (t) =>
+          t.clock_out_at ? formatDateTimeMedium(t.clock_out_at) : 'Open',
+      },
+      {
+        key: 'minutes',
+        header: 'Minutes',
+        align: 'right',
+        cellClassName: 'font-mono text-ink-dim',
+        render: (t) => formatMinutes(t.minutes),
+      },
+    ];
+    if (canReadRate) {
+      cols.push({
+        key: 'rate',
+        header: 'Rate',
+        align: 'right',
+        cellClassName: 'font-mono text-ink-dim',
+        render: (t) => `${formatCents(t.hourly_rate_cents, 'USD')}/hr`,
+      });
+    }
+    cols.push({
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (t) => (
+        <div className="flex flex-col items-end gap-1">
+          {t.clock_out_at == null ? (
+            <ClockOutButton entryId={t.id} canClockOut={canClockOut} />
+          ) : null}
+          {canUpdate ? (
+            <Link
+              to={`/kitforce/time-entries/${t.id}/edit`}
+              className="text-ink underline text-xs"
+            >
+              Edit
+            </Link>
+          ) : null}
+        </div>
+      ),
+    });
+    return cols;
+  }, [canReadRate, canClockOut, canUpdate, memberName]);
+
+  const rows = entries.data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta =
+    !entries.isLoading && !entries.error
+      ? `${totalCount} ${totalCount === 1 ? 'entry' : 'entries'}`
+      : undefined;
+
+  const chips: FilterChip[] = [];
+  if (memberFilter) {
+    chips.push({
+      key: 'member',
+      label: `Member: ${memberName[memberFilter] ?? memberFilter}`,
+      onClear: () => applyMember(''),
+    });
+  }
+  if (openOnly) {
+    chips.push({ key: 'open', label: 'Open only', onClear: () => applyOpenOnly(false) });
+  }
+
+  const showOnboardingEmpty =
+    !entries.isLoading &&
+    !entries.error &&
+    totalCount === 0 &&
+    !memberFilter &&
+    !openOnly;
+
   return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <header>
-        <h1 className="text-4xl font-display tracking-wide text-ink">TIME ENTRIES</h1>
-      </header>
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Workforce / Time entries" title="Time entries" meta={meta} />
 
       {canClockIn ? (
         <form
@@ -154,12 +264,13 @@ export function TimeEntriesListPage() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end border border-line bg-bg-2 p-4"
         >
           <label className="flex flex-col gap-1">
-            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Member</span>
-            <select
+            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+              Member
+            </span>
+            <Select
               value={memberId}
               onChange={(e) => setMemberId(e.target.value)}
               disabled={members.isLoading}
-              className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
             >
               <option value="">Select a member</option>
               {(members.data ?? [])
@@ -169,7 +280,7 @@ export function TimeEntriesListPage() {
                     {m.display_name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           <TextInput
             label="Clock-in (blank = now)"
@@ -197,18 +308,22 @@ export function TimeEntriesListPage() {
       ) : null}
       {clockIn.error ? (
         <p className="text-accent font-sans text-sm">
-          {clockIn.error instanceof Error ? clockIn.error.message : 'Clock-in failed.'}
+          {clockIn.error instanceof Error
+            ? clockIn.error.message
+            : 'Clock-in failed.'}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-4 items-end">
-        <label className="flex flex-col gap-1">
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Member</span>
-          <select
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Member
+          </span>
+          <Select
             value={memberFilter}
-            onChange={(e) => setMemberFilter(e.target.value)}
+            onChange={(e) => applyMember(e.target.value)}
             disabled={members.isLoading}
-            className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+            aria-label="Filter by member"
           >
             <option value="">All members</option>
             {(members.data ?? []).map((m) => (
@@ -216,27 +331,28 @@ export function TimeEntriesListPage() {
                 {m.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        <label className="flex items-center gap-2 pb-2">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={openOnly}
-            onChange={(e) => setOpenOnly(e.target.checked)}
+            onChange={(e) => applyOpenOnly(e.target.checked)}
             className="accent-accent"
           />
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Open only</span>
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Open only
+          </span>
         </label>
-      </div>
+      </FilterBar>
 
-      {entries.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {entries.error ? (
         <p className="text-accent font-sans text-sm">
-          {entries.error instanceof Error ? entries.error.message : 'Failed to load time entries.'}
+          {entries.error instanceof Error
+            ? entries.error.message
+            : 'Failed to load time entries.'}
         </p>
-      ) : null}
-
-      {!entries.isLoading && (entries.data ?? []).length === 0 && !memberFilter && !openOnly ? (
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="time entry"
           explainer="Time entries clock a member in and out so labor hours roll up into cost. Clock someone in to start."
@@ -245,62 +361,23 @@ export function TimeEntriesListPage() {
           canAdd={false}
         />
       ) : (
-        <table className="w-full border border-line text-sm font-sans">
-          <thead className="bg-bg-2 text-left text-ink-dim">
-            <tr>
-              <th className="px-4 py-2">Member</th>
-              <th className="px-4 py-2">Clock-in</th>
-              <th className="px-4 py-2">Clock-out</th>
-              <th className="px-4 py-2">Minutes</th>
-              {canReadRate ? <th className="px-4 py-2">Rate</th> : null}
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(entries.data ?? []).length === 0 && !entries.isLoading ? (
-              <tr>
-                <td colSpan={rateColSpan} className="px-4 py-6 text-ink-dim text-sm">
-                  No time entries match the current filters.
-                </td>
-              </tr>
-            ) : (
-              (entries.data ?? []).map((t) => (
-                <tr key={t.id} className="border-t border-line">
-                  <td className="px-4 py-2 text-ink">
-                    {memberName[t.member_id] ?? t.member_id.slice(0, 8)}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {formatDateTimeMedium(t.clock_in_at)}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {t.clock_out_at ? formatDateTimeMedium(t.clock_out_at) : 'Open'}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim font-mono">{formatMinutes(t.minutes)}</td>
-                  {canReadRate ? (
-                    <td className="px-4 py-2 text-ink-dim font-mono">
-                      {`${formatCents(t.hourly_rate_cents, 'USD')}/hr`}
-                    </td>
-                  ) : null}
-                  <td className="px-4 py-2">
-                    <div className="flex flex-col gap-1">
-                      {t.clock_out_at == null ? (
-                        <ClockOutButton entryId={t.id} canClockOut={canClockOut} />
-                      ) : null}
-                      {canUpdate ? (
-                        <Link
-                          to={`/kitforce/time-entries/${t.id}/edit`}
-                          className="text-ink underline text-xs text-left"
-                        >
-                          Edit
-                        </Link>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={columns}
+            rows={pageRows}
+            getRowKey={(t) => t.id}
+            loading={entries.isLoading}
+            empty="No time entries match the current filters."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );

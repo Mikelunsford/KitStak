@@ -1,7 +1,21 @@
+// AssignmentsListPage. KitForce work queue. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + FilterBar + Select + DataTable +
+// StatusBadge + Pagination replace the hand-rolled header, filter selects,
+// table, and raw status pill. Assignments have no dedicated create page, so the
+// inline create form (with its kit-Select member picker) stays. Behavior
+// preserved: the ?status= deep-link seeds the filter and the onboarding
+// ListEmptyState shows only when unfiltered.
+
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import {
@@ -10,16 +24,14 @@ import {
   useCreateAssignment,
 } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
-import type { WorkAssignmentCreate, WorkAssignmentStatus } from '@/lib/types/kitforce';
+import type {
+  WorkAssignment,
+  WorkAssignmentCreate,
+  WorkAssignmentStatus,
+} from '@/lib/types/kitforce';
 
-/**
- * AssignmentsListPage. Pillar 4 work queue. Mirrors ShiftsListPage with an
- * inline create form (assignments have no dedicated create page). Supports
- * ?status= deep-links. Create gates on kitforce.assignment.create. The job link
- * is polymorphic (job_type + job_id, both null or both set); the inline form
- * keeps it simple and leaves the job link unset, since wiring a job picker
- * across three pillars is out of scope for the list surface.
- */
+const PAGE_SIZE = 50;
+
 type StatusFilter = WorkAssignmentStatus | 'all';
 
 const ALLOWED_ASSIGNMENT_STATUSES = new Set<string>([
@@ -29,6 +41,14 @@ const ALLOWED_ASSIGNMENT_STATUSES = new Set<string>([
   'done',
   'cancelled',
 ]);
+
+const ASSIGNMENT_STATUSES: WorkAssignmentStatus[] = [
+  'open',
+  'assigned',
+  'in_progress',
+  'done',
+  'cancelled',
+];
 
 function parseAssignmentStatusParam(raw: string | null): StatusFilter {
   if (raw && ALLOWED_ASSIGNMENT_STATUSES.has(raw)) {
@@ -43,6 +63,7 @@ export function AssignmentsListPage() {
     parseAssignmentStatusParam(searchParams.get('status')),
   );
   const [memberFilter, setMemberFilter] = useState<string>('');
+  const [page, setPage] = useState(0);
 
   const filters = useMemo(() => {
     const f: { status?: StatusFilter; member_id?: string } = {};
@@ -67,6 +88,16 @@ export function AssignmentsListPage() {
     return map;
   }, [members.data]);
 
+  function applyStatus(next: StatusFilter) {
+    setStatus(next);
+    setPage(0);
+  }
+
+  function applyMember(next: string) {
+    setMemberFilter(next);
+    setPage(0);
+  }
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canCreate || !title.trim()) return;
@@ -84,11 +115,78 @@ export function AssignmentsListPage() {
     });
   }
 
+  const columns: ReadonlyArray<DataColumn<WorkAssignment>> = [
+    {
+      key: 'title',
+      header: 'Title',
+      render: (a) => (
+        <Link
+          to={`/kitforce/assignments/${a.id}`}
+          className="text-ink hover:text-accent"
+        >
+          {a.title}
+        </Link>
+      ),
+    },
+    {
+      key: 'member',
+      header: 'Member',
+      cellClassName: 'text-ink-dim',
+      render: (a) =>
+        a.member_id
+          ? memberName[a.member_id] ?? a.member_id.slice(0, 8)
+          : 'Unassigned',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (a) => <StatusBadge status={a.status} />,
+    },
+    {
+      key: 'planned',
+      header: 'Planned min',
+      align: 'right',
+      cellClassName: 'font-mono text-ink-dim',
+      render: (a) => a.planned_minutes ?? '',
+    },
+  ];
+
+  const rows = assignments.data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const meta =
+    !assignments.isLoading && !assignments.error
+      ? `${totalCount} ${totalCount === 1 ? 'assignment' : 'assignments'}`
+      : undefined;
+
+  const chips: FilterChip[] = [];
+  if (status !== 'all') {
+    chips.push({
+      key: 'status',
+      label: `Status: ${humaniseStatus(status)}`,
+      onClear: () => applyStatus('all'),
+    });
+  }
+  if (memberFilter) {
+    chips.push({
+      key: 'member',
+      label: `Member: ${memberName[memberFilter] ?? memberFilter}`,
+      onClear: () => applyMember(''),
+    });
+  }
+
+  const showOnboardingEmpty =
+    !assignments.isLoading &&
+    !assignments.error &&
+    totalCount === 0 &&
+    status === 'all' &&
+    !memberFilter;
+
   return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <header>
-        <h1 className="text-4xl font-display tracking-wide text-ink">ASSIGNMENTS</h1>
-      </header>
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Workforce / Assignments" title="Assignments" meta={meta} />
 
       {canCreate ? (
         <form
@@ -104,12 +202,13 @@ export function AssignmentsListPage() {
             />
           </div>
           <label className="flex flex-col gap-1">
-            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Member (optional)</span>
-            <select
+            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+              Member (optional)
+            </span>
+            <Select
               value={memberId}
               onChange={(e) => setMemberId(e.target.value)}
               disabled={members.isLoading}
-              className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
             >
               <option value="">Unassigned</option>
               {(members.data ?? [])
@@ -119,7 +218,7 @@ export function AssignmentsListPage() {
                     {m.display_name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           <TextInput
             label="Planned minutes (optional)"
@@ -138,29 +237,33 @@ export function AssignmentsListPage() {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-4 items-end">
-        <label className="flex flex-col gap-1">
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Status</span>
-          <select
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Status
+          </span>
+          <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent"
+            onChange={(e) => applyStatus(e.target.value as StatusFilter)}
+            aria-label="Filter by status"
           >
             <option value="all">All</option>
-            <option value="open">Open</option>
-            <option value="assigned">Assigned</option>
-            <option value="in_progress">In progress</option>
-            <option value="done">Done</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            {ASSIGNMENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Member</span>
-          <select
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Member
+          </span>
+          <Select
             value={memberFilter}
-            onChange={(e) => setMemberFilter(e.target.value)}
+            onChange={(e) => applyMember(e.target.value)}
             disabled={members.isLoading}
-            className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+            aria-label="Filter by member"
           >
             <option value="">All members</option>
             {(members.data ?? []).map((m) => (
@@ -168,18 +271,17 @@ export function AssignmentsListPage() {
                 {m.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-      </div>
+      </FilterBar>
 
-      {assignments.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {assignments.error ? (
         <p className="text-accent font-sans text-sm">
-          {assignments.error instanceof Error ? assignments.error.message : 'Failed to load assignments.'}
+          {assignments.error instanceof Error
+            ? assignments.error.message
+            : 'Failed to load assignments.'}
         </p>
-      ) : null}
-
-      {!assignments.isLoading && (assignments.data ?? []).length === 0 && status === 'all' && !memberFilter ? (
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="assignment"
           explainer="Assignments are units of work you queue and route to a member. Create one to start tracking work."
@@ -188,50 +290,23 @@ export function AssignmentsListPage() {
           canAdd={false}
         />
       ) : (
-        <table className="w-full border border-line text-sm font-sans">
-          <thead className="bg-bg-2 text-left text-ink-dim">
-            <tr>
-              <th className="px-4 py-2">Title</th>
-              <th className="px-4 py-2">Member</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Planned min</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(assignments.data ?? []).length === 0 && !assignments.isLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-ink-dim text-sm">
-                  No assignments match the current filters.
-                </td>
-              </tr>
-            ) : (
-              (assignments.data ?? []).map((a) => (
-                <tr key={a.id} className="border-t border-line">
-                  <td className="px-4 py-2">
-                    <Link to={`/kitforce/assignments/${a.id}`} className="text-ink underline">
-                      {a.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {a.member_id ? memberName[a.member_id] ?? a.member_id.slice(0, 8) : 'Unassigned'}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
-                      {a.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim font-mono">{a.planned_minutes ?? ''}</td>
-                  <td className="px-4 py-2">
-                    <Link to={`/kitforce/assignments/${a.id}`} className="text-ink underline text-xs">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={columns}
+            rows={pageRows}
+            getRowKey={(a) => a.id}
+            loading={assignments.isLoading}
+            empty="No assignments match the current filters."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );
