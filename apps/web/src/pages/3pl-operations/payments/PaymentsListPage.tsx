@@ -1,11 +1,69 @@
+// PaymentsListPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + DataTable + Pagination replace the hand-rolled header, table,
+// and Prev / Next nav. No FilterBar and no status column for payments (the
+// inflow ledger has no state machine surfaced here). Behavior preserved:
+// inflow ledger by received_at desc, client-side PAGE_SIZE slicing, and the
+// number cell still deep-links to the invoicing apply route.
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
 import { usePayments } from '@/lib/hooks/usePayments';
 import { formatCents } from '@/lib/money';
 
 const PAGE_SIZE = 50;
+
+// Only the fields the list renders. amount_cents / unapplied_cents are
+// number | string off the wire (FinanceCentsSchema); formatCents accepts both.
+type PaymentRow = {
+  id: string;
+  payment_number: string;
+  received_at: string;
+  amount_cents: number | string;
+  unapplied_cents: number | string;
+  currency_code: string;
+};
+
+const COLUMNS: ReadonlyArray<DataColumn<PaymentRow>> = [
+  {
+    key: 'number',
+    header: 'Number',
+    cellClassName: 'font-mono',
+    render: (p) => (
+      <Link
+        to={`/invoicing/payments/${p.id}/apply`}
+        className="text-ink hover:text-accent"
+      >
+        {p.payment_number}
+      </Link>
+    ),
+  },
+  {
+    key: 'received',
+    header: 'Received',
+    cellClassName: 'text-ink-dim',
+    render: (p) => new Date(p.received_at).toLocaleDateString(),
+  },
+  {
+    key: 'amount',
+    header: 'Amount',
+    align: 'right',
+    cellClassName: 'font-mono',
+    render: (p) => formatCents(p.amount_cents, p.currency_code),
+  },
+  {
+    key: 'unapplied',
+    header: 'Unapplied',
+    align: 'right',
+    cellClassName: 'font-mono',
+    render: (p) => formatCents(p.unapplied_cents, p.currency_code),
+  },
+];
 
 /**
  * PaymentsListPage. Inflow ledger by received_at desc.
@@ -14,23 +72,34 @@ export function PaymentsListPage() {
   const [page, setPage] = useState(0);
   const { data, isLoading, error } = usePayments();
 
-  const totalCount = data?.length ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const pageStart = page * PAGE_SIZE;
-  const pageRows = (data ?? []).slice(pageStart, pageStart + PAGE_SIZE);
+  const rows = data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const showOnboardingEmpty = !isLoading && !error && totalCount === 0;
+
+  const meta =
+    !isLoading && !error
+      ? `${totalCount} ${totalCount === 1 ? 'payment' : 'payments'}`
+      : undefined;
 
   return (
-    <section className="px-8 py-8 flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">PAYMENTS</h1>
-        <Link to="/3pl-operations/payments/new" className="px-4 py-2 bg-accent text-on-primary font-sans text-sm">New payment</Link>
-      </header>
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Get paid / Payments"
+        title="Payments"
+        meta={meta}
+        actions={
+          <Link to="/3pl-operations/payments/new">
+            <Button variant="primary">New payment</Button>
+          </Link>
+        }
+      />
 
-      {isLoading ? (
-        <p className="text-ink-dim">Loading payments.</p>
-      ) : error ? (
-        <p className="text-accent">Failed to load payments.</p>
-      ) : (data?.length ?? 0) === 0 ? (
+      {error ? (
+        <p className="font-sans text-accent">Failed to load payments.</p>
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="payment"
           explainer="Payments record cash received against an invoice."
@@ -38,63 +107,24 @@ export function PaymentsListPage() {
           addTo="/3pl-operations/payments/new"
         />
       ) : (
-        <table className="w-full text-sm font-sans border-collapse">
-          <thead>
-            <tr className="text-left text-ink-dim border-b border-line">
-              <th className="py-2">Number</th>
-              <th className="py-2">Received</th>
-              <th className="py-2 text-right">Amount</th>
-              <th className="py-2 text-right">Unapplied</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((p) => (
-              <tr key={p.id} className="border-b border-line">
-                <td className="py-2">
-                  <Link
-                    to={`/invoicing/payments/${p.id}/apply`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {p.payment_number}
-                  </Link>
-                </td>
-                <td className="py-2 text-ink-dim">
-                  {new Date(p.received_at).toLocaleDateString()}
-                </td>
-                <td className="py-2 text-right">
-                  {formatCents(p.amount_cents as number | string, p.currency_code)}
-                </td>
-                <td className="py-2 text-right">
-                  {formatCents(p.unapplied_cents as number | string, p.currency_code)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={pageRows}
+            getRowKey={(p) => p.id}
+            loading={isLoading}
+            empty="No payments recorded."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
-      {totalCount > PAGE_SIZE ? (
-        <nav className="flex items-center gap-3 font-sans text-sm" aria-label="Pagination">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Prev
-          </button>
-          <span className="text-ink-dim">
-            {page + 1} of {pageCount}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            disabled={page >= pageCount - 1}
-            className="px-3 py-1 border border-line bg-bg-2 text-ink disabled:opacity-40"
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
     </section>
   );
 }
