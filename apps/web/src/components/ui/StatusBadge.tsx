@@ -74,6 +74,13 @@ const COLOR_MAP: Record<string, string> = {
   created: 'bg-ink-dim',
   picking: 'bg-yellow-500',
   in_progress: 'bg-yellow-500',
+
+  // Co-Pack order, kitting, and fulfillment statuses (F-Wave10-UI-KIT-01).
+  // draft / picking / shipped / cancelled / pending / completed are already
+  // mapped above and shared; only confirmed, packed, and started are new.
+  confirmed: 'bg-accent',
+  packed: 'bg-yellow-500',
+  started: 'bg-yellow-500',
 };
 
 /**
@@ -131,6 +138,11 @@ const LABEL_MAP: Record<string, string> = {
   created: 'Created',
   picking: 'Picking',
   in_progress: 'In progress',
+
+  // Co-Pack order, kitting, and fulfillment statuses (F-Wave10-UI-KIT-01).
+  confirmed: 'Confirmed',
+  packed: 'Packed',
+  started: 'Started',
 };
 
 /**

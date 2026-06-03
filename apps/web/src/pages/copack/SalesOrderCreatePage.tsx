@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateSalesOrder, useSalesChannelsList } from '@/lib/hooks/useCoPack';
@@ -9,7 +11,9 @@ import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { SalesOrderCreate } from '@/lib/types/copack';
 
 /**
- * SalesOrderCreatePage. Pillar 3. Mirrors ManufacturingRunCreatePage.
+ * SalesOrderCreatePage. Pillar 3. Migrated to the shared UI kit
+ * (F-Wave10-UI-KIT-01): PageHeader replaces the hand-rolled h1 and the channel
+ * select uses the shared Select primitive.
  *
  * All fields optional: order_number auto-assigned by the copack-api handler via
  * next_doc_number when left blank (SO- prefix). The order opens in draft; lines
@@ -62,7 +66,7 @@ export function SalesOrderCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW SALES ORDER</h1>
+      <PageHeader eyebrow="Sell / Sales Orders" title="New sales order" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create sales orders.
@@ -78,11 +82,10 @@ export function SalesOrderCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Channel (optional)
           </span>
-          <select
+          <Select
             value={channelId}
             onChange={(e) => setChannelId(e.target.value)}
             disabled={channels.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {channels.isLoading ? 'Loading.' : 'No channel'}
@@ -92,7 +95,7 @@ export function SalesOrderCreatePage() {
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <CustomerPicker
           value={customerId}

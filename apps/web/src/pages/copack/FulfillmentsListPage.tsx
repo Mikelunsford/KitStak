@@ -1,35 +1,44 @@
+// FulfillmentsListPage. Migrated to the shared UI kit (F-Wave10-UI-KIT-01):
+// PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination replace
+// the hand-rolled header, status select, inline status pill, and table. Behavior
+// preserved: the create CTA stays gated on copack.fulfillment.pick, the ?status=
+// deep-link still seeds the status filter, the filter drives the server query,
+// and the onboarding empty state is unchanged. The redundant trailing "View"
+// link column is dropped (the fulfillment number is already a link).
+
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Pagination, paginate } from '@/components/ui/Pagination';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useFulfillmentsList, useSalesOrdersList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatDateMedium } from '@/lib/dates';
-import type { FulfillmentStatus } from '@/lib/types/copack';
+import type { Fulfillment, FulfillmentStatus } from '@/lib/types/copack';
 
-/**
- * FulfillmentsListPage. Pillar 3 surface. Mirrors SalesOrdersListPage.
- *
- * The route is reachable today but the copack-api bundle gates on
- * plugins.copack_ecom and returns 404 for orgs without the flag. The Sidebar
- * entry that lands here is also flag-gated, so unauthorised orgs never see the
- * link. Supports ?status= deep-links from the home status cards.
- */
+const PAGE_SIZE = 50;
+
 type StatusFilter = FulfillmentStatus | 'all';
 
-const ALLOWED_FULFILLMENT_STATUSES = new Set<string>([
+const FULFILLMENT_STATUSES: ReadonlyArray<FulfillmentStatus> = [
   'pending',
   'picking',
   'packed',
   'shipped',
   'cancelled',
-]);
+];
+
+const ALLOWED_FULFILLMENT_STATUSES = new Set<string>(FULFILLMENT_STATUSES);
 
 function parseFulfillmentStatusParam(raw: string | null): StatusFilter {
-  if (raw && ALLOWED_FULFILLMENT_STATUSES.has(raw)) {
-    return raw as FulfillmentStatus;
-  }
+  if (raw && ALLOWED_FULFILLMENT_STATUSES.has(raw)) return raw as FulfillmentStatus;
   return 'all';
 }
 
@@ -38,6 +47,7 @@ export function FulfillmentsListPage() {
   const [status, setStatus] = useState<StatusFilter>(() =>
     parseFulfillmentStatusParam(searchParams.get('status')),
   );
+  const [page, setPage] = useState(0);
 
   const filters = useMemo(() => {
     const f: { status?: StatusFilter } = {};
@@ -55,48 +65,109 @@ export function FulfillmentsListPage() {
     return map;
   }, [orders.data]);
 
-  return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-4xl font-display tracking-wide text-ink">FULFILLMENTS</h1>
-        {caps.can('copack.fulfillment.pick') ? (
-          <Link
-            to="/copack/fulfillments/new"
-            className="px-4 py-2 bg-accent text-on-primary font-sans text-sm"
-          >
-            New fulfillment
+  const columns: ReadonlyArray<DataColumn<Fulfillment>> = useMemo(
+    () => [
+      {
+        key: 'fulfillment',
+        header: 'Fulfillment',
+        cellClassName: 'font-mono',
+        render: (f) => (
+          <Link to={`/copack/fulfillments/${f.id}`} className="text-ink hover:text-accent">
+            {f.fulfillment_number ?? f.id.slice(0, 8)}
           </Link>
-        ) : null}
-      </header>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (f) => <StatusBadge status={f.status} />,
+      },
+      {
+        key: 'order',
+        header: 'Sales order',
+        cellClassName: 'text-ink-dim',
+        render: (f) => orderNumber[f.sales_order_id] ?? f.sales_order_id.slice(0, 8),
+      },
+      {
+        key: 'warehouse',
+        header: 'Warehouse',
+        cellClassName: 'text-ink-dim',
+        render: (f) =>
+          f.warehouse_id ? <EntityLabel kind="copack_warehouse" id={f.warehouse_id} /> : '·',
+      },
+      {
+        key: 'created',
+        header: 'Created',
+        cellClassName: 'text-ink-dim',
+        render: (f) => formatDateMedium(f.created_at),
+      },
+    ],
+    [orderNumber],
+  );
 
-      <div className="flex flex-wrap gap-4 items-end">
-        <label className="flex flex-col gap-1">
-          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">Status</span>
-          <select
+  function applyStatus(next: StatusFilter) {
+    setStatus(next);
+    setPage(0);
+  }
+
+  const rows = fulfillments.data ?? [];
+  const totalCount = rows.length;
+  const { sliceStart, sliceEnd } = paginate(totalCount, PAGE_SIZE, page);
+  const pageRows = rows.slice(sliceStart, sliceEnd);
+
+  const chips: FilterChip[] =
+    status !== 'all'
+      ? [{ key: 'status', label: `Status: ${humaniseStatus(status)}`, onClear: () => applyStatus('all') }]
+      : [];
+
+  const showOnboardingEmpty =
+    !fulfillments.isLoading && !fulfillments.error && totalCount === 0 && status === 'all';
+
+  const meta =
+    !fulfillments.isLoading && !fulfillments.error
+      ? `${totalCount} ${totalCount === 1 ? 'fulfillment' : 'fulfillments'}`
+      : undefined;
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Ship / Fulfillments"
+        title="Fulfillments"
+        meta={meta}
+        actions={
+          caps.can('copack.fulfillment.pick') ? (
+            <Link to="/copack/fulfillments/new">
+              <Button variant="primary">New fulfillment</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">Status</span>
+          <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="bg-bg-2 border border-line text-ink px-3 py-2 font-sans focus:outline-none focus:border-accent"
+            onChange={(e) => applyStatus(e.target.value as StatusFilter)}
+            aria-label="Filter by status"
           >
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="picking">Picking</option>
-            <option value="packed">Packed</option>
-            <option value="shipped">Shipped</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            <option value="all">All statuses</option>
+            {FULFILLMENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
         </label>
-      </div>
+      </FilterBar>
 
-      {fulfillments.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
       {fulfillments.error ? (
-        <p className="text-accent font-sans text-sm">
+        <p className="font-sans text-sm text-accent">
           {fulfillments.error instanceof Error
             ? fulfillments.error.message
             : 'Failed to load fulfillments.'}
         </p>
-      ) : null}
-
-      {!fulfillments.isLoading && (fulfillments.data ?? []).length === 0 && status === 'all' ? (
+      ) : showOnboardingEmpty ? (
         <ListEmptyState
           entity="fulfillment"
           explainer="Fulfillments pick, pack, and ship the orders that are ready to go out the door."
@@ -105,57 +176,23 @@ export function FulfillmentsListPage() {
           canAdd={caps.can('copack.fulfillment.pick')}
         />
       ) : (
-        <table className="w-full border border-line text-sm font-sans">
-          <thead className="bg-bg-2 text-left text-ink-dim">
-            <tr>
-              <th className="px-4 py-2">Fulfillment</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Sales order</th>
-              <th className="px-4 py-2">Warehouse</th>
-              <th className="px-4 py-2">Created</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(fulfillments.data ?? []).length === 0 && !fulfillments.isLoading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-ink-dim text-sm">
-                  No fulfillments match the current filters.
-                </td>
-              </tr>
-            ) : (
-              (fulfillments.data ?? []).map((f) => (
-                <tr key={f.id} className="border-t border-line">
-                  <td className="px-4 py-2">
-                    <Link to={`/copack/fulfillments/${f.id}`} className="text-ink underline">
-                      {f.fulfillment_number ?? f.id.slice(0, 8)}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="inline-block px-2 py-0.5 border border-line text-xs font-mono uppercase text-ink-dim">
-                      {f.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {orderNumber[f.sales_order_id] ?? f.sales_order_id.slice(0, 8)}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">
-                    {f.warehouse_id ? <EntityLabel kind="copack_warehouse" id={f.warehouse_id} /> : '·'}
-                  </td>
-                  <td className="px-4 py-2 text-ink-dim">{formatDateMedium(f.created_at)}</td>
-                  <td className="px-4 py-2">
-                    <Link
-                      to={`/copack/fulfillments/${f.id}`}
-                      className="text-ink underline text-xs"
-                    >
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <>
+          <DataTable
+            columns={columns}
+            rows={pageRows}
+            getRowKey={(f) => f.id}
+            loading={fulfillments.isLoading}
+            empty="No fulfillments match the current filters."
+          />
+          {totalCount > PAGE_SIZE ? (
+            <Pagination
+              page={page}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
       )}
     </section>
   );

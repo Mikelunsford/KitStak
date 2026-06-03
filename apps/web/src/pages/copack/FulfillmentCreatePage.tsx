@@ -2,19 +2,25 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { useCreateFulfillment, useSalesOrdersList, useCoPackWarehousesList } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { FulfillmentCreate } from '@/lib/types/copack';
 
 /**
- * FulfillmentCreatePage. Pillar 3. A fulfillment is always opened against a
- * confirmed sales order, so sales_order_id is required. fulfillment_number is
- * auto-assigned by the copack-api handler via next_doc_number when left blank
- * (FUL- prefix). The fulfillment opens in pending; pick/pack/ship advance it on
- * the detail page. There is no copack.fulfillment.create capability, so the
- * create gate reuses copack.fulfillment.pick (the operator who can pick is the
- * operator who can open a fulfillment).
+ * FulfillmentCreatePage. Pillar 3. Migrated to the shared UI kit
+ * (F-Wave10-UI-KIT-01): PageHeader replaces the hand-rolled h1 and the sales
+ * order and warehouse selects use the shared Select primitive.
+ *
+ * A fulfillment is always opened against a confirmed sales order, so
+ * sales_order_id is required. fulfillment_number is auto-assigned by the
+ * copack-api handler via next_doc_number when left blank (FUL- prefix). The
+ * fulfillment opens in pending; pick/pack/ship advance it on the detail page.
+ * There is no copack.fulfillment.create capability, so the create gate reuses
+ * copack.fulfillment.pick (the operator who can pick is the operator who can
+ * open a fulfillment).
  */
 export function FulfillmentCreatePage() {
   const navigate = useNavigate();
@@ -53,7 +59,7 @@ export function FulfillmentCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW FULFILLMENT</h1>
+      <PageHeader eyebrow="Ship / Fulfillments" title="New fulfillment" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create fulfillments.
@@ -64,12 +70,11 @@ export function FulfillmentCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Sales order
           </span>
-          <select
+          <Select
             value={salesOrderId}
             onChange={(e) => setSalesOrderId(e.target.value)}
             disabled={orders.isLoading}
             required
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {orders.isLoading ? 'Loading.' : 'Select a sales order'}
@@ -79,7 +84,7 @@ export function FulfillmentCreatePage() {
                 {o.order_number ?? o.id.slice(0, 8)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <TextInput
           label="Fulfillment number (auto-assigned if blank, e.g. FUL-2026-00001)"
@@ -90,11 +95,10 @@ export function FulfillmentCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Warehouse (optional)
           </span>
-          <select
+          <Select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
             disabled={warehouses.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {warehouses.isLoading ? 'Loading.' : 'No warehouse'}
@@ -104,7 +108,7 @@ export function FulfillmentCreatePage() {
                 {w.code} · {w.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
