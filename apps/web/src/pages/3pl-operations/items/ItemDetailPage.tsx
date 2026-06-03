@@ -1,6 +1,9 @@
 import { Link, useParams } from 'react-router-dom';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useItem } from '@/lib/hooks/useItems';
 import { formatCents } from '@/lib/money';
 
@@ -17,15 +20,15 @@ export function ItemDetailPage() {
           { label: data.sku },
         ]}
       />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-4xl font-display tracking-wide text-ink">{data.name}</h1>
-        <Link
-          to={`/3pl-operations/items/${data.id}/edit`}
-          className="px-4 py-2 bg-bg-2 border border-line font-display tracking-wider"
-        >
-          EDIT
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Library / Items"
+        title={data.name}
+        actions={
+          <Link to={`/3pl-operations/items/${data.id}/edit`}>
+            <Button variant="secondary">Edit</Button>
+          </Link>
+        }
+      />
       <dl className="grid grid-cols-2 gap-x-8 gap-y-3 font-sans text-ink">
         <dt className="text-ink-dim">SKU</dt>
         <dd className="font-mono">{data.sku}</dd>
@@ -36,7 +39,7 @@ export function ItemDetailPage() {
         <dt className="text-ink-dim">Currency</dt>
         <dd>{data.currency_code}</dd>
         <dt className="text-ink-dim">Active</dt>
-        <dd>{data.is_active ? 'Yes' : 'No'}</dd>
+        <dd><StatusBadge status={data.is_active ? 'active' : 'inactive'} /></dd>
         <dt className="text-ink-dim">Taxable</dt>
         <dd>{data.is_taxable ? 'Yes' : 'No'}</dd>
       </dl>

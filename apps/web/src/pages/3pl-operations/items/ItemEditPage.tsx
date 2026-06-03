@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { PageHeader } from '@/components/ui/PageHeader';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { useItem, useUpdateItem } from '@/lib/hooks/useItems';
 import { ItemPatchSchema } from '@/lib/types/sales';
@@ -58,7 +59,7 @@ export function ItemEditPage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">EDIT ITEM</h1>
+      <PageHeader eyebrow="Library / Items" title="Edit item" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
         <label className="flex flex-col gap-1">
           <span className="text-sm text-ink-dim">SKU</span>
