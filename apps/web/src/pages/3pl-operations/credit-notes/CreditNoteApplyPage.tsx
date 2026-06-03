@@ -89,6 +89,7 @@ export function CreditNoteApplyPage() {
               value={a.invoice_id}
               onChange={(e) => setAlloc(i, 'invoice_id', e.target.value)}
               className="flex-1"
+              aria-label={`Invoice for allocation ${i + 1}`}
             >
               <option value="">Select invoice</option>
               {(invoices.data ?? []).map((inv) => (
@@ -102,6 +103,7 @@ export function CreditNoteApplyPage() {
               value={a.amount_cents}
               onChange={(e) => setAlloc(i, 'amount_cents', e.target.value)}
               placeholder="Amount cents"
+              aria-label={`Amount in cents for allocation ${i + 1}`}
               className="w-40 bg-bg-2 border border-line px-3 py-2 text-ink font-mono"
             />
           </div>
@@ -112,7 +114,7 @@ export function CreditNoteApplyPage() {
           onClick={addRow}
           className="self-start"
         >
-          + Add line
+          Add line
         </Button>
 
         {apply.error && (
