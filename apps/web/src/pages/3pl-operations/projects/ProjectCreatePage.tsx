@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { useCreateProject } from '@/lib/hooks/useProjects';
@@ -61,7 +63,7 @@ export function ProjectCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW PROJECT</h1>
+      <PageHeader eyebrow="Make / Projects" title="New project" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="Project number"
@@ -101,17 +103,16 @@ export function ProjectCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Currency
           </span>
-          <select
+          <Select
             value={currencyCode}
             onChange={(e) => setCurrencyCode(e.target.value)}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           >
             {(currencies ?? [{ code: 'USD' }]).map((c) => (
               <option key={c.code} value={c.code}>
                 {c.code}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <TextInput
           label="Budget (cents)"

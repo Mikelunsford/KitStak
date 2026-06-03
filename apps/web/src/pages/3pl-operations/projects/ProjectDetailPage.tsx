@@ -1,3 +1,17 @@
+// ProjectDetailPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01, 3PL
+// CRUD tail): PageHeader replaces the hand-rolled header (number title plus
+// name / customer / source-quote / budget meta), DetailLayout moves HISTORY
+// into the right rail, and the MATERIALS table becomes a DataTable (the
+// roundHalfEven subtotal lives in the Total column render, the per-row Remove
+// in an actions column gated on the editable states).
+//
+// Everything else is preserved verbatim: the FSM transition cluster, the
+// NextStepCTA, the lazy PhasesSection plus its Suspense fallback (dnd-kit stays
+// out of the index chunk per F-Wave2-DNDKIT-01), the receiving / manufacturing
+// / shipments / invoices sub-sections with their server-side project_id filters
+// and defense-in-depth client filters, the convert-to-invoice action, and the
+// source-quote-link data-testid.
+
 import { Suspense, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
@@ -17,6 +31,9 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailLayout } from '@/components/ui/DetailLayout';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { ItemPicker } from '@/components/ui/pickers';
 import {
@@ -44,7 +61,7 @@ import {
 import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents, roundHalfEven } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
-import type { ProjectPhase } from '@/lib/types/sales';
+import type { ProjectLineItem, ProjectPhase } from '@/lib/types/sales';
 
 // F-Wave2-DNDKIT-01: drag-and-drop phase reorder lives in its own lazy
 // chunk so that `@dnd-kit/*` (roughly 13 kB gzipped) does not push the
@@ -232,8 +249,58 @@ export function ProjectDetailPage() {
     (r) => r.project_id === projectId,
   );
 
+  const materialActionColumn: DataColumn<ProjectLineItem>[] = [
+    'pending',
+    'ready_to_build',
+  ].includes(state)
+    ? [
+        {
+          key: 'actions',
+          header: '',
+          align: 'right',
+          render: (l) => (
+            <Button variant="ghost" onClick={() => removeLine.mutate(l.id)}>
+              Remove
+            </Button>
+          ),
+        },
+      ]
+    : [];
+
+  const materialColumns: ReadonlyArray<DataColumn<ProjectLineItem>> = [
+    { key: 'name', header: 'Name', render: (l) => l.name },
+    {
+      key: 'qty',
+      header: 'Qty',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => Number(l.quantity).toFixed(2),
+    },
+    {
+      key: 'unit',
+      header: 'Unit price',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => formatCents(l.unit_price_cents, project.currency_code),
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      align: 'right',
+      cellClassName: 'font-mono',
+      render: (l) => {
+        const qty = Number(l.quantity);
+        const unit = Number(l.unit_price_cents);
+        const discount = Number(l.discount_percent);
+        const subtotal = roundHalfEven(qty * unit * (1 - discount / 100));
+        return formatCents(subtotal, project.currency_code);
+      },
+    },
+    ...materialActionColumn,
+  ];
+
   return (
-    <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-8">
+    <section className="mx-auto flex max-w-5xl flex-col gap-8 px-8 py-12">
       <Breadcrumbs
         items={[
           { label: 'Customers', to: '/crm/customers' },
@@ -261,11 +328,12 @@ export function ProjectDetailPage() {
           { label: project.number },
         ]}
       />
-      <header className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-4xl font-display tracking-wide text-ink">{project.number}</h1>
-          <p className="text-ink-dim">{project.name}</p>
-          <div className="text-ink-dim text-sm mt-2 flex flex-col gap-1">
+
+      <PageHeader
+        title={project.number}
+        meta={
+          <span className="flex flex-col gap-1">
+            <span>{project.name}</span>
             {customerId && (
               <span>
                 Customer:{' '}
@@ -282,14 +350,10 @@ export function ProjectDetailPage() {
                 Source quote:{' '}
                 {/*
                   PR-6 / B11: operator reported this link appeared red on
-                  the smoke walk. Investigation: the resting className is
-                  `text-ink hover:text-accent` (identical to the customer
-                  link two lines up), and there is no conditional class
-                  override anywhere. The "red" observation was the hover
-                  state (accent is #c8102e). No code change needed beyond
-                  the data-testid below so the next smoke pass can target
-                  the element precisely (resting vs hover) and avoid the
-                  same false positive.
+                  the smoke walk. The resting className is `text-ink
+                  hover:text-accent`; the "red" was the hover state (accent
+                  is #c8102e). The data-testid lets the next smoke pass
+                  target resting vs hover precisely.
                 */}
                 <Link
                   to={`/3pl-operations/quotes/${sourceQuoteId}`}
@@ -303,14 +367,11 @@ export function ProjectDetailPage() {
             <span className="font-mono">
               Budget: {formatCents(project.budget_cents, project.currency_code)}
             </span>
-          </div>
-        </div>
-      </header>
+          </span>
+        }
+      />
 
-      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
-          static state pill. Placed below header so the customer + budget
-          summary remain at the top of the page, and the stepper anchors
-          the workflow context immediately above the FSM CTA cluster. */}
+      {/* UX-Q7: display-only horizontal progress stepper. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.project.path]}
         current={state}
@@ -321,373 +382,332 @@ export function ProjectDetailPage() {
         }
       />
 
-      {/* UX-Q4: forward-transition CTA promoted to primary top placement
-          when state === 'ready_to_ship'. Predicate lives in
-          `@/lib/workflow/nextStepCTA` so the regression test can lock the
-          trigger state. Deep-links to the create-shipment form with
-          project_id pre-filled (ShipmentCreatePage already reads this
-          query param). */}
-      {shouldShowProjectNextStepCTA(state) && (
-        <NextStepCTA
-          label="Create shipment"
-          to={`/3pl-operations/shipments/new?project_id=${projectId}`}
-        />
-      )}
-
-      {/* Secondary cluster of FSM transitions. The new primary CTA above
-          replaces the equal-weight "Move to <state>" button that would
-          have read "Move to completed" from ready_to_ship; the other
-          targets stay so the operator can still complete or cancel. */}
-      <div className="flex flex-wrap gap-2">
-        {PROJECT_TARGETS
-          .filter((to) => to !== state && canTransition(PROJECT_FSM, state, to))
-          .map((to) => (
-            <Button
-              key={to}
-              variant="secondary"
-              onClick={async () => {
-                // UX-Q8: only the cancelled transition is destructive.
-                // Other targets ('pending', 'ready_to_build',
-                // 'in_production', 'ready_to_ship', 'completed') are
-                // forward movements through the project lifecycle.
-                if (to === 'cancelled' && !(await destructiveConfirm({
-                  action: 'Cancel this project',
-                  consequence: 'The project will move to cancelled and stop appearing in active work lists.',
-                }))) return;
-                transition.mutate({ to });
-              }}
-            >
-              Move to {to.replace(/_/g, ' ')}
-            </Button>
-          ))}
-        {state === 'completed' && (
-          <Button
-            onClick={onConvertToInvoice}
-            disabled={convertToInvoice.isPending}
-          >
-            {convertToInvoice.isPending ? 'Creating invoice.' : 'Create invoice'}
-          </Button>
-        )}
-      </div>
-
-      <section>
-        <h2 className="text-2xl font-display tracking-wider text-ink mb-3">MATERIALS</h2>
-        {lineItems.isLoading ? (
-          <p className="text-ink-dim text-sm">Loading materials.</p>
-        ) : lineItems.error ? (
-          <p className="text-ink-dim text-sm">No materials yet.</p>
-        ) : (lineItems.data ?? []).length === 0 ? (
-          <DetailSectionEmptyCoaching
-            entity="material"
-            explainer="Materials are the parts and goods this project consumes. Add them to build a bill of materials and roll cost up to the project budget."
-            icon={Package}
+      <DetailLayout
+        rail={
+          <section>
+            <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
+              HISTORY
+            </h2>
+            <AuditTimeline entityType="project" entityId={id ?? null} />
+          </section>
+        }
+      >
+        {/* UX-Q4: forward-transition CTA promoted to primary top placement
+            when state === 'ready_to_ship'. Predicate lives in
+            `@/lib/workflow/nextStepCTA` so the regression test can lock the
+            trigger state. Deep-links to the create-shipment form with
+            project_id pre-filled. */}
+        {shouldShowProjectNextStepCTA(state) && (
+          <NextStepCTA
+            label="Create shipment"
+            to={`/3pl-operations/shipments/new?project_id=${projectId}`}
           />
-        ) : (
-          <table className="w-full border border-line">
-            <thead className="bg-bg-2 text-left text-sm font-display tracking-wider text-ink">
-              <tr>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Qty</th>
-                <th className="px-4 py-2">Unit price</th>
-                <th className="px-4 py-2">Total</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(lineItems.data ?? []).map((l) => {
-                const qty = Number(l.quantity);
-                const unit = Number(l.unit_price_cents);
-                const discount = Number(l.discount_percent);
-                const subtotal = roundHalfEven(qty * unit * (1 - discount / 100));
-                return (
-                  <tr key={l.id} className="border-t border-line">
-                    <td className="px-4 py-2">{l.name}</td>
-                    <td className="px-4 py-2 font-mono text-sm">
-                      {qty.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-sm">
-                      {formatCents(l.unit_price_cents, project.currency_code)}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-sm">
-                      {formatCents(subtotal, project.currency_code)}
-                    </td>
-                    <td className="px-4 py-2">
-                      {['pending', 'ready_to_build'].includes(state) && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => removeLine.mutate(l.id)}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         )}
 
-        {['pending', 'ready_to_build'].includes(state) && (
-          <form
-            onSubmit={onAddMaterial}
-            className="flex flex-col gap-3 border border-line p-4 mt-4"
-          >
-            <h3 className="font-display tracking-wider text-ink">ADD MATERIAL</h3>
-            <ItemPicker
-              value={selectedItemId}
-              onChange={onPickItem}
-              label="Item (pre-fills name and price)"
-              filter={{ active: true }}
+        {/* Secondary cluster of FSM transitions. */}
+        <div className="flex flex-wrap gap-2">
+          {PROJECT_TARGETS
+            .filter((to) => to !== state && canTransition(PROJECT_FSM, state, to))
+            .map((to) => (
+              <Button
+                key={to}
+                variant="secondary"
+                onClick={async () => {
+                  // UX-Q8: only the cancelled transition is destructive.
+                  if (to === 'cancelled' && !(await destructiveConfirm({
+                    action: 'Cancel this project',
+                    consequence: 'The project will move to cancelled and stop appearing in active work lists.',
+                  }))) return;
+                  transition.mutate({ to });
+                }}
+              >
+                Move to {to.replace(/_/g, ' ')}
+              </Button>
+            ))}
+          {state === 'completed' && (
+            <Button
+              onClick={onConvertToInvoice}
+              disabled={convertToInvoice.isPending}
+            >
+              {convertToInvoice.isPending ? 'Creating invoice.' : 'Create invoice'}
+            </Button>
+          )}
+        </div>
+
+        <section>
+          <h2 className="text-2xl font-display tracking-wider text-ink mb-3">MATERIALS</h2>
+          {lineItems.isLoading ? (
+            <p className="text-ink-dim text-sm">Loading materials.</p>
+          ) : lineItems.error ? (
+            <p className="text-ink-dim text-sm">No materials yet.</p>
+          ) : (lineItems.data ?? []).length === 0 ? (
+            <DetailSectionEmptyCoaching
+              entity="material"
+              explainer="Materials are the parts and goods this project consumes. Add them to build a bill of materials and roll cost up to the project budget."
+              icon={Package}
             />
-            <div className="flex gap-3 flex-wrap items-end">
+          ) : (
+            <DataTable
+              columns={materialColumns}
+              rows={lineItems.data ?? []}
+              getRowKey={(l) => l.id}
+              empty="No materials yet."
+            />
+          )}
+
+          {['pending', 'ready_to_build'].includes(state) && (
+            <form
+              onSubmit={onAddMaterial}
+              className="flex flex-col gap-3 border border-line p-4 mt-4"
+            >
+              <h3 className="font-display tracking-wider text-ink">ADD MATERIAL</h3>
+              <ItemPicker
+                value={selectedItemId}
+                onChange={onPickItem}
+                label="Item (pre-fills name and price)"
+                filter={{ active: true }}
+              />
+              <div className="flex gap-3 flex-wrap items-end">
+                <TextInput
+                  label="Name"
+                  value={materialName}
+                  onChange={(e) => setMaterialName(e.target.value)}
+                  required
+                />
+                <TextInput
+                  label="Quantity"
+                  value={materialQty}
+                  onChange={(e) => setMaterialQty(e.target.value)}
+                  inputMode="decimal"
+                />
+                <DollarInput
+                  label="Unit price"
+                  value={materialPrice}
+                  onChange={setMaterialPrice}
+                />
+                <Button type="submit" disabled={addLine.isPending}>
+                  {addLine.isPending ? 'Adding.' : 'Add material'}
+                </Button>
+              </div>
+              {addLine.isError && (
+                <p className="text-accent font-sans text-sm">
+                  Add material failed:{' '}
+                  {addLine.error instanceof Error ? addLine.error.message : 'unknown error'}
+                </p>
+              )}
+            </form>
+          )}
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-display tracking-wider text-ink mb-3">PHASES</h2>
+          {phases.length === 0 ? (
+            <DetailSectionEmptyCoaching
+              entity="phase"
+              explainer="Phases break a project into trackable milestones. Use the form below to add the first one."
+              icon={Layers}
+            />
+          ) : (
+            <Suspense
+              fallback={
+                <PhasesFallback
+                  phases={phases}
+                  movePhase={movePhase}
+                  transitionPhase={transitionPhase}
+                />
+              }
+            >
+              <PhasesSection
+                phases={phases}
+                reorder={reorder}
+                transitionPhase={transitionPhase}
+              />
+            </Suspense>
+          )}
+
+          <form onSubmit={onAddPhase} className="flex flex-col gap-2 mt-4">
+            <div className="flex gap-3 items-end">
               <TextInput
-                label="Name"
-                value={materialName}
-                onChange={(e) => setMaterialName(e.target.value)}
+                label="New phase name"
+                value={phaseName}
+                onChange={(e) => setPhaseName(e.target.value)}
                 required
               />
-              <TextInput
-                label="Quantity"
-                value={materialQty}
-                onChange={(e) => setMaterialQty(e.target.value)}
-                inputMode="decimal"
-              />
-              <DollarInput
-                label="Unit price"
-                value={materialPrice}
-                onChange={setMaterialPrice}
-              />
-              <Button type="submit" disabled={addLine.isPending}>
-                {addLine.isPending ? 'Adding.' : 'Add material'}
+              <Button type="submit" disabled={createPhase.isPending}>
+                {createPhase.isPending ? 'Adding.' : 'Add phase'}
               </Button>
             </div>
-            {addLine.isError && (
-              <p className="text-accent font-sans text-sm">
-                Add material failed:{' '}
-                {addLine.error instanceof Error ? addLine.error.message : 'unknown error'}
+            {createPhase.error && (
+              <p className="font-sans text-sm text-accent">
+                {createPhase.error instanceof Error
+                  ? createPhase.error.message
+                  : 'Add phase failed.'}
               </p>
             )}
           </form>
-        )}
-      </section>
+        </section>
 
-      <section>
-        <h2 className="text-2xl font-display tracking-wider text-ink mb-3">PHASES</h2>
-        {phases.length === 0 ? (
-          <DetailSectionEmptyCoaching
-            entity="phase"
-            explainer="Phases break a project into trackable milestones. Use the form below to add the first one."
-            icon={Layers}
-          />
-        ) : (
-          <Suspense
-            fallback={
-              <PhasesFallback
-                phases={phases}
-                movePhase={movePhase}
-                transitionPhase={transitionPhase}
-              />
-            }
-          >
-            <PhasesSection
-              phases={phases}
-              reorder={reorder}
-              transitionPhase={transitionPhase}
-            />
-          </Suspense>
-        )}
-
-        <form onSubmit={onAddPhase} className="flex flex-col gap-2 mt-4">
-          <div className="flex gap-3 items-end">
-            <TextInput
-              label="New phase name"
-              value={phaseName}
-              onChange={(e) => setPhaseName(e.target.value)}
-              required
-            />
-            <Button type="submit" disabled={createPhase.isPending}>
-              {createPhase.isPending ? 'Adding.' : 'Add phase'}
-            </Button>
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-2xl font-display tracking-wider text-ink">RECEIVING</h2>
+            <Link
+              to={`/3pl-operations/receiving/new?project_id=${projectId}`}
+              className="text-sm text-accent hover:text-accent-bright"
+            >
+              New receiving order
+            </Link>
           </div>
-          {createPhase.error && (
-            <p className="font-sans text-sm text-accent">
-              {createPhase.error instanceof Error
-                ? createPhase.error.message
-                : 'Add phase failed.'}
+          {projectReceiving.length === 0 ? (
+            <DetailSectionEmptyCoaching
+              entity="receiving order"
+              explainer="Receiving orders track inbound stock for this project. Create one when materials are due to arrive at the warehouse."
+              ctaLabel="New receiving order"
+              ctaTo={`/3pl-operations/receiving/new?project_id=${projectId}`}
+              icon={Inbox}
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {projectReceiving.map((r) => (
+                <li key={r.id} className="border border-line p-3">
+                  <Link
+                    to={`/3pl-operations/receiving/${r.id}`}
+                    className="text-ink hover:text-accent font-mono text-sm"
+                  >
+                    {r.receiving_number ?? r.id}
+                  </Link>
+                  <span className="text-ink-dim text-sm ml-3">{r.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* F-Wave9-AUDIT-V3-WAVE-C4-01: MANUFACTURING RUNS section. Server
+            filtered by project_id. Mirrors the receiving + shipments
+            section layouts above and below. */}
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-2xl font-display tracking-wider text-ink">MANUFACTURING RUNS</h2>
+            <Link
+              to={buildNewManufacturingRunUrl(projectId)}
+              className="text-sm text-accent hover:text-accent-bright"
+              data-testid="project-mfg-new-link"
+            >
+              New manufacturing run
+            </Link>
+          </div>
+          {projectManufacturingRuns.length === 0 ? (
+            <DetailSectionEmptyCoaching
+              entity="manufacturing run"
+              explainer="Manufacturing runs convert raw materials into finished goods. Schedule one when the line is ready to start production."
+              ctaLabel="New manufacturing run"
+              ctaTo={buildNewManufacturingRunUrl(projectId)}
+              icon={Factory}
+            />
+          ) : (
+            <ul className="flex flex-col gap-2" data-testid="project-mfg-list">
+              {projectManufacturingRuns.map((r) => (
+                <li key={r.id} className="border border-line p-3">
+                  <Link
+                    to={buildManufacturingRunDetailUrl(r.id)}
+                    className="text-ink hover:text-accent font-mono text-sm"
+                  >
+                    {r.run_number ?? r.id}
+                  </Link>
+                  <span className="text-ink-dim text-sm ml-3">{r.status}</span>
+                  {r.planned_start_at && (
+                    <span className="text-ink-dim text-sm ml-3 font-mono">
+                      planned {r.planned_start_at.slice(0, 10)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-2xl font-display tracking-wider text-ink">SHIPMENTS</h2>
+            <Link
+              to={buildNewShipmentUrl(projectId)}
+              className="text-sm text-accent hover:text-accent-bright"
+              data-testid="project-shipment-new-link"
+            >
+              New shipment
+            </Link>
+          </div>
+          {projectShipments.length === 0 ? (
+            <DetailSectionEmptyCoaching
+              entity="shipment"
+              explainer="Shipments move finished goods out to the customer. Create one when the project is packed and ready to leave the dock."
+              ctaLabel="New shipment"
+              ctaTo={buildNewShipmentUrl(projectId)}
+              icon={Truck}
+            />
+          ) : (
+            <ul className="flex flex-col gap-2" data-testid="project-shipment-list">
+              {projectShipments.map((s) => (
+                <li key={s.id} className="border border-line p-3">
+                  <Link
+                    to={buildShipmentDetailUrl(s.id)}
+                    className="text-ink hover:text-accent font-mono text-sm"
+                  >
+                    {s.shipment_number ?? s.id}
+                  </Link>
+                  <span className="text-ink-dim text-sm ml-3">{s.status}</span>
+                  {s.ship_date && (
+                    <span className="text-ink-dim text-sm ml-3 font-mono">
+                      {s.ship_date.slice(0, 10)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-2xl font-display tracking-wider text-ink">INVOICES</h2>
+            {state === 'completed' && (
+              <Button onClick={onConvertToInvoice} disabled={convertToInvoice.isPending}>
+                {convertToInvoice.isPending ? 'Creating.' : 'Create invoice from project'}
+              </Button>
+            )}
+          </div>
+          {convertToInvoice.error && (
+            <p className="font-sans text-sm text-accent mb-3">
+              {convertToInvoice.error instanceof Error
+                ? convertToInvoice.error.message
+                : 'Create invoice failed.'}
             </p>
           )}
-        </form>
-      </section>
-
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-2xl font-display tracking-wider text-ink">RECEIVING</h2>
-          <Link
-            to={`/3pl-operations/receiving/new?project_id=${projectId}`}
-            className="text-sm text-accent hover:text-accent-bright"
-          >
-            New receiving order
-          </Link>
-        </div>
-        {projectReceiving.length === 0 ? (
-          <DetailSectionEmptyCoaching
-            entity="receiving order"
-            explainer="Receiving orders track inbound stock for this project. Create one when materials are due to arrive at the warehouse."
-            ctaLabel="New receiving order"
-            ctaTo={`/3pl-operations/receiving/new?project_id=${projectId}`}
-            icon={Inbox}
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {projectReceiving.map((r) => (
-              <li key={r.id} className="border border-line p-3">
-                <Link
-                  to={`/3pl-operations/receiving/${r.id}`}
-                  className="text-ink hover:text-accent font-mono text-sm"
-                >
-                  {r.receiving_number ?? r.id}
-                </Link>
-                <span className="text-ink-dim text-sm ml-3">{r.status}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* F-Wave9-AUDIT-V3-WAVE-C4-01: MANUFACTURING RUNS section. Server
-          filtered by project_id (manufacturing-api GET /manufacturing-runs
-          accepts ?project_id=). New CTA deep-links to the create form
-          with ?project_id= prefilled; the prefill behaviour itself lands
-          in the matching C3 PR. Mirrors the receiving + shipments
-          section layouts above and below. */}
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-2xl font-display tracking-wider text-ink">MANUFACTURING RUNS</h2>
-          <Link
-            to={buildNewManufacturingRunUrl(projectId)}
-            className="text-sm text-accent hover:text-accent-bright"
-            data-testid="project-mfg-new-link"
-          >
-            New manufacturing run
-          </Link>
-        </div>
-        {projectManufacturingRuns.length === 0 ? (
-          <DetailSectionEmptyCoaching
-            entity="manufacturing run"
-            explainer="Manufacturing runs convert raw materials into finished goods. Schedule one when the line is ready to start production."
-            ctaLabel="New manufacturing run"
-            ctaTo={buildNewManufacturingRunUrl(projectId)}
-            icon={Factory}
-          />
-        ) : (
-          <ul className="flex flex-col gap-2" data-testid="project-mfg-list">
-            {projectManufacturingRuns.map((r) => (
-              <li key={r.id} className="border border-line p-3">
-                <Link
-                  to={buildManufacturingRunDetailUrl(r.id)}
-                  className="text-ink hover:text-accent font-mono text-sm"
-                >
-                  {r.run_number ?? r.id}
-                </Link>
-                <span className="text-ink-dim text-sm ml-3">{r.status}</span>
-                {r.planned_start_at && (
-                  <span className="text-ink-dim text-sm ml-3 font-mono">
-                    planned {r.planned_start_at.slice(0, 10)}
+          {projectInvoices.length === 0 ? (
+            <DetailSectionEmptyCoaching
+              entity="invoice"
+              explainer="Invoices bill the customer for delivered work. Convert the project to an invoice once it reaches completed status."
+              icon={FileText}
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {projectInvoices.map((inv) => (
+                <li key={inv.id} className="border border-line p-3">
+                  <Link
+                    to={`/invoicing/invoices/${inv.id}`}
+                    className="text-ink hover:text-accent font-mono text-sm"
+                  >
+                    {inv.invoice_number}
+                  </Link>
+                  <span className="text-ink-dim text-sm ml-3">
+                    {inv.status} · {formatCents(inv.balance_cents, inv.currency_code)} due
                   </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-2xl font-display tracking-wider text-ink">SHIPMENTS</h2>
-          <Link
-            to={buildNewShipmentUrl(projectId)}
-            className="text-sm text-accent hover:text-accent-bright"
-            data-testid="project-shipment-new-link"
-          >
-            New shipment
-          </Link>
-        </div>
-        {projectShipments.length === 0 ? (
-          <DetailSectionEmptyCoaching
-            entity="shipment"
-            explainer="Shipments move finished goods out to the customer. Create one when the project is packed and ready to leave the dock."
-            ctaLabel="New shipment"
-            ctaTo={buildNewShipmentUrl(projectId)}
-            icon={Truck}
-          />
-        ) : (
-          <ul className="flex flex-col gap-2" data-testid="project-shipment-list">
-            {projectShipments.map((s) => (
-              <li key={s.id} className="border border-line p-3">
-                <Link
-                  to={buildShipmentDetailUrl(s.id)}
-                  className="text-ink hover:text-accent font-mono text-sm"
-                >
-                  {s.shipment_number ?? s.id}
-                </Link>
-                <span className="text-ink-dim text-sm ml-3">{s.status}</span>
-                {s.ship_date && (
-                  <span className="text-ink-dim text-sm ml-3 font-mono">
-                    {s.ship_date.slice(0, 10)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-2xl font-display tracking-wider text-ink">INVOICES</h2>
-          {state === 'completed' && (
-            <Button onClick={onConvertToInvoice} disabled={convertToInvoice.isPending}>
-              {convertToInvoice.isPending ? 'Creating.' : 'Create invoice from project'}
-            </Button>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-        {convertToInvoice.error && (
-          <p className="font-sans text-sm text-accent mb-3">
-            {convertToInvoice.error instanceof Error
-              ? convertToInvoice.error.message
-              : 'Create invoice failed.'}
-          </p>
-        )}
-        {projectInvoices.length === 0 ? (
-          <DetailSectionEmptyCoaching
-            entity="invoice"
-            explainer="Invoices bill the customer for delivered work. Convert the project to an invoice once it reaches completed status."
-            icon={FileText}
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {projectInvoices.map((inv) => (
-              <li key={inv.id} className="border border-line p-3">
-                <Link
-                  to={`/invoicing/invoices/${inv.id}`}
-                  className="text-ink hover:text-accent font-mono text-sm"
-                >
-                  {inv.invoice_number}
-                </Link>
-                <span className="text-ink-dim text-sm ml-3">
-                  {inv.status} · {formatCents(inv.balance_cents, inv.currency_code)} due
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mt-2">
-        <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
-        <AuditTimeline entityType="project" entityId={id ?? null} />
-      </section>
+        </section>
+      </DetailLayout>
     </section>
   );
 }
