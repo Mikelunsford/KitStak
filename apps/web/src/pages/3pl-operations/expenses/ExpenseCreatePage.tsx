@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
@@ -89,9 +91,7 @@ export function ExpenseCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">
-        NEW EXPENSE
-      </h1>
+      <PageHeader eyebrow="Library / Expenses" title="New expense" />
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-4 font-sans text-sm"
@@ -113,11 +113,10 @@ export function ExpenseCreatePage() {
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Category (optional)
           </span>
-          <select
+          <Select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             disabled={categories.isLoading}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
           >
             <option value="">
               {categories.isLoading ? 'Loading.' : 'Select a category.'}
@@ -127,7 +126,7 @@ export function ExpenseCreatePage() {
                 {c.code} {'·'} {c.display_name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <VendorPicker
           value={vendorId}

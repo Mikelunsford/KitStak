@@ -14,9 +14,11 @@
 // F-Wave10-UI-KIT-01 adds the operator quote states (submitted,
 // revise_requested) and the purchase order progress and terminal states
 // (partial_received, received, closed) so the Quotes and Purchase Orders
-// lists can render a badge instead of raw state text. New customer- or
-// operator-visible statuses must be added to both maps below when they land
-// in a database state machine.
+// lists can render a badge instead of raw state text. The 3PL CRUD tail batch
+// adds the credit note (issued, applied, voided), expense (reimbursed), and
+// vendor bill (partial_paid) finance states. New customer- or operator-visible
+// statuses must be added to both maps below when they land in a database state
+// machine.
 
 interface StatusBadgeProps {
   status: string;
@@ -81,6 +83,18 @@ const COLOR_MAP: Record<string, string> = {
   confirmed: 'bg-accent',
   packed: 'bg-yellow-500',
   started: 'bg-yellow-500',
+
+  // Credit note, expense, and vendor bill finance states (F-Wave10-UI-KIT-01,
+  // 3PL CRUD tail). draft / submitted / approved / paid / cancelled / closed
+  // are mapped above and shared. Distinct keys here: issued and applied (credit
+  // note), voided (credit note; separate from the invoice `void`), reimbursed
+  // (expense), partial_paid (vendor bill; separate from the invoice `partial` /
+  // `partially_paid`).
+  issued: 'bg-accent',
+  applied: 'bg-green-500',
+  voided: 'bg-ink-dim',
+  reimbursed: 'bg-green-500',
+  partial_paid: 'bg-yellow-500',
 };
 
 /**
@@ -143,6 +157,16 @@ const LABEL_MAP: Record<string, string> = {
   confirmed: 'Confirmed',
   packed: 'Packed',
   started: 'Started',
+
+  // Credit note, expense, and vendor bill finance states (F-Wave10-UI-KIT-01).
+  // partial_paid follows the invoice `partially_paid` vocabulary. A `rejected`
+  // expense still renders the shared "Declined" label (the map is keyed by
+  // status string, not entity; entity-aware vocab is a separate change).
+  issued: 'Issued',
+  applied: 'Applied',
+  voided: 'Voided',
+  reimbursed: 'Reimbursed',
+  partial_paid: 'Partially paid',
 };
 
 /**
