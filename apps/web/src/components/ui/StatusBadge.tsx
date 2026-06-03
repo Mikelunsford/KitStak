@@ -116,6 +116,12 @@ const COLOR_MAP: Record<string, string> = {
   reversed: 'bg-ink-dim',
   in_review: 'bg-yellow-500',
   reopened: 'bg-accent',
+
+  // Production run status (F-Wave10-UI-KIT-01). The production_run FSM is
+  // planned -> in_progress -> completed (off-path cancelled). in_progress /
+  // completed / cancelled are mapped above and shared; only the initial state
+  // `planned` is new (neutral, like draft).
+  planned: 'bg-ink-dim',
 };
 
 /**
@@ -202,6 +208,9 @@ const LABEL_MAP: Record<string, string> = {
   reversed: 'Reversed',
   in_review: 'In review',
   reopened: 'Reopened',
+
+  // Production run status (F-Wave10-UI-KIT-01).
+  planned: 'Planned',
 };
 
 /**

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { useCreateProductionRun } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
@@ -71,7 +72,7 @@ export function ProductionRunCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">NEW PRODUCTION RUN</h1>
+      <PageHeader eyebrow="Make / Production runs" title="New production run" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
         <TextInput
           label="Run number"
