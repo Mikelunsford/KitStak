@@ -1,8 +1,19 @@
+// StockMovementsPage. 3PL inventory ledger. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + DataTable replace the hand-rolled header
+// and table. The signed-qty coloring, the SourceCell linking, and the
+// onboarding ListEmptyState are preserved. Money fix: unit_cost_cents was
+// rendered as a raw String() (showing whole cents like "1250"); it now renders
+// through formatCents so the ledger reads "$12.50".
+
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { useStockMovements } from '@/lib/hooks/useInventory';
+import { formatCents } from '@/lib/money';
+import type { StockMovement } from '@/lib/types/vendors_inventory_ops';
 
 import {
   formatStockMovementQty,
@@ -67,13 +78,66 @@ function SourceCell({
   );
 }
 
+const COLUMNS: ReadonlyArray<DataColumn<StockMovement>> = [
+  {
+    key: 'when',
+    header: 'When',
+    cellClassName: 'text-ink-dim',
+    render: (m) => m.occurred_at,
+  },
+  {
+    key: 'type',
+    header: 'Type',
+    cellClassName: 'text-ink',
+    render: (m) => m.movement_type,
+  },
+  {
+    key: 'item',
+    header: 'Item',
+    cellClassName: 'text-ink-dim',
+    render: (m) => <EntityLabel kind="item" id={m.item_id} />,
+  },
+  {
+    key: 'qty',
+    header: 'Qty',
+    align: 'right',
+    cellClassName: 'font-mono',
+    render: (m) => {
+      const sign = signForMovementType(m.movement_type);
+      const qtyClass =
+        sign === -1 ? 'text-accent' : sign === 1 ? 'text-ink' : 'text-ink-dim';
+      return <span className={qtyClass}>{formatStockMovementQty(m)}</span>;
+    },
+  },
+  {
+    key: 'unit_cost',
+    header: 'Unit cost',
+    align: 'right',
+    cellClassName: 'font-mono text-ink-dim',
+    render: (m) =>
+      m.unit_cost_cents == null ? '' : formatCents(m.unit_cost_cents, 'USD'),
+  },
+  {
+    key: 'source',
+    header: 'Source',
+    cellClassName: 'text-ink-dim',
+    render: (m) => (
+      <SourceCell
+        entityType={m.source_entity_type}
+        entityId={m.source_entity_id}
+      />
+    ),
+  },
+];
+
 export function StockMovementsPage() {
   const { data, isLoading } = useStockMovements();
+  const rows = data ?? [];
+
   return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">STOCK MOVEMENTS</h1>
-      {isLoading ? <p className="text-ink-dim">Loading.</p> : null}
-      {!isLoading && (data ?? []).length === 0 ? (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Ship / Stock movements" title="Stock movements" />
+      {!isLoading && rows.length === 0 ? (
         <ListEmptyState
           entity="movement"
           explainer="Stock movements are the audit trail of every inventory change. They appear automatically when you receive, build, or ship items."
@@ -82,39 +146,13 @@ export function StockMovementsPage() {
           canAdd={false}
         />
       ) : (
-      <table className="w-full border border-line text-sm font-sans">
-        <thead className="bg-bg-2 text-left text-ink-dim">
-          <tr><th className="px-4 py-2">When</th><th className="px-4 py-2">Type</th><th className="px-4 py-2">Item</th><th className="px-4 py-2 text-right">Qty</th><th className="px-4 py-2">Unit cost</th><th className="px-4 py-2">Source</th></tr>
-        </thead>
-        <tbody>
-          {(data ?? []).map((m) => {
-            const sign = signForMovementType(m.movement_type);
-            const qtyClass =
-              sign === -1
-                ? 'text-accent'
-                : sign === 1
-                  ? 'text-ink'
-                  : 'text-ink-dim';
-            return (
-              <tr key={m.id} className="border-t border-line">
-                <td className="px-4 py-2 text-ink-dim">{m.occurred_at}</td>
-                <td className="px-4 py-2 text-ink">{m.movement_type}</td>
-                <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="item" id={m.item_id} /></td>
-                <td className={`px-4 py-2 text-right font-mono ${qtyClass}`}>
-                  {formatStockMovementQty(m)}
-                </td>
-                <td className="px-4 py-2 text-ink-dim">{String(m.unit_cost_cents)}</td>
-                <td className="px-4 py-2 text-ink-dim">
-                  <SourceCell
-                    entityType={m.source_entity_type}
-                    entityId={m.source_entity_id}
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+        <DataTable
+          columns={COLUMNS}
+          rows={rows}
+          getRowKey={(m) => m.id}
+          loading={isLoading}
+          empty="No stock movements yet."
+        />
       )}
     </section>
   );

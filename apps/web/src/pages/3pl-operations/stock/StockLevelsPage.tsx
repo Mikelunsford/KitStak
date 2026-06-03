@@ -1,7 +1,56 @@
+// StockLevelsPage. 3PL inventory. Migration to the shared UI kit
+// (F-Wave10-UI-KIT-01): PageHeader + FilterBar + Select + DataTable replace the
+// hand-rolled header, raw warehouse select, and per-warehouse tables. Behavior
+// preserved: rows stay grouped by warehouse (one table per warehouse), the
+// warehouse filter narrows the query, and quantity_available stays the
+// server-derived GENERATED column.
+
 import { useMemo, useState } from 'react';
+
 import { EntityLabel } from '@/components/data/EntityLabel';
-import { useStockLevels } from '@/lib/hooks/useInventory';
-import { useWarehousesList } from '@/lib/hooks/useInventory';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { Select } from '@/components/ui/Select';
+import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { useStockLevels, useWarehousesList } from '@/lib/hooks/useInventory';
+import type { StockLevel } from '@/lib/types/vendors_inventory_ops';
+
+const COLUMNS: ReadonlyArray<DataColumn<StockLevel>> = [
+  {
+    key: 'item',
+    header: 'Item',
+    cellClassName: 'text-ink-dim',
+    render: (r) => <EntityLabel kind="item" id={r.item_id} />,
+  },
+  {
+    key: 'on_hand',
+    header: 'On hand',
+    align: 'right',
+    cellClassName: 'font-mono text-ink',
+    render: (r) => String(r.quantity_on_hand),
+  },
+  {
+    key: 'reserved',
+    header: 'Reserved',
+    align: 'right',
+    cellClassName: 'font-mono text-ink-dim',
+    render: (r) => String(r.quantity_reserved),
+  },
+  {
+    key: 'in_transit',
+    header: 'In transit',
+    align: 'right',
+    cellClassName: 'font-mono text-ink-dim',
+    render: (r) => String(r.quantity_in_transit),
+  },
+  {
+    key: 'available',
+    header: 'Available',
+    align: 'right',
+    cellClassName: 'font-mono text-ink',
+    render: (r) => String(r.quantity_available),
+  },
+];
 
 /**
  * StockLevelsPage. Groups quantity_on_hand / reserved / in_transit /
@@ -15,10 +64,10 @@ export function StockLevelsPage() {
 
   const levelsData = levels.data;
   const grouped = useMemo(() => {
-    const m = new Map<string, typeof levelsData>();
+    const m = new Map<string, StockLevel[]>();
     for (const row of levelsData ?? []) {
       const existing = m.get(row.warehouse_id) ?? [];
-      m.set(row.warehouse_id, [...(existing ?? []), row]);
+      m.set(row.warehouse_id, [...existing, row]);
     }
     return m;
   }, [levelsData]);
@@ -29,41 +78,67 @@ export function StockLevelsPage() {
     return m;
   }, [warehouses.data]);
 
+  const groups = Array.from(grouped.entries());
+
+  const chips: FilterChip[] = [];
+  if (warehouseId) {
+    chips.push({
+      key: 'warehouse',
+      label: `Warehouse: ${whName.get(warehouseId) ?? warehouseId}`,
+      onClear: () => setWarehouseId(''),
+    });
+  }
+
   return (
-    <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-6">
-      <h1 className="text-4xl font-display tracking-wide text-ink">STOCK LEVELS</h1>
-      <div className="flex gap-2 items-center">
-        <label className="text-ink-dim font-sans text-sm">Warehouse</label>
-        <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
-          className="border border-line bg-bg-2 px-3 py-2 text-ink text-sm">
-          <option value="">All warehouses</option>
-          {(warehouses.data ?? []).map((w) => (
-            <option key={w.id} value={w.id}>{w.display_name}</option>
-          ))}
-        </select>
-      </div>
-      {levels.isLoading ? <p className="text-ink-dim">Loading.</p> : null}
-      {Array.from(grouped.entries()).map(([whId, rows]) => (
-        <div key={whId} className="flex flex-col gap-2">
-          <h2 className="text-xl font-display tracking-wider text-ink">{whName.get(whId) ?? whId.slice(0, 8)}</h2>
-          <table className="w-full border border-line text-sm font-sans">
-            <thead className="bg-bg-2 text-left text-ink-dim">
-              <tr><th className="px-4 py-2">Item</th><th className="px-4 py-2">On hand</th><th className="px-4 py-2">Reserved</th><th className="px-4 py-2">In transit</th><th className="px-4 py-2">Available</th></tr>
-            </thead>
-            <tbody>
-              {(rows ?? []).map((r) => (
-                <tr key={r.id} className="border-t border-line">
-                  <td className="px-4 py-2 text-ink-dim"><EntityLabel kind="item" id={r.item_id} /></td>
-                  <td className="px-4 py-2 text-ink">{String(r.quantity_on_hand)}</td>
-                  <td className="px-4 py-2 text-ink-dim">{String(r.quantity_reserved)}</td>
-                  <td className="px-4 py-2 text-ink-dim">{String(r.quantity_in_transit)}</td>
-                  <td className="px-4 py-2 text-ink">{String(r.quantity_available)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Ship / Stock levels" title="Stock levels" />
+
+      <FilterBar chips={chips}>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Warehouse
+          </span>
+          <Select
+            value={warehouseId}
+            onChange={(e) => setWarehouseId(e.target.value)}
+            disabled={warehouses.isLoading}
+            aria-label="Filter by warehouse"
+          >
+            <option value="">All warehouses</option>
+            {(warehouses.data ?? []).map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.display_name}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </FilterBar>
+
+      {levels.error ? (
+        <p className="font-sans text-sm text-accent">
+          {levels.error instanceof Error
+            ? levels.error.message
+            : 'Failed to load stock levels.'}
+        </p>
+      ) : levels.isLoading ? (
+        <DataTable columns={COLUMNS} rows={[]} getRowKey={(r) => r.id} loading />
+      ) : groups.length === 0 ? (
+        <DataTable
+          columns={COLUMNS}
+          rows={[]}
+          getRowKey={(r) => r.id}
+          empty="No stock levels found."
+        />
+      ) : (
+        groups.map(([whId, rows]) => (
+          <div key={whId} className="flex flex-col gap-2">
+            <h2 className="font-display text-xl tracking-wider text-ink">
+              {whName.get(whId) ?? whId.slice(0, 8)}
+            </h2>
+            <DataTable columns={COLUMNS} rows={rows} getRowKey={(r) => r.id} />
+          </div>
+        ))
+      )}
     </section>
   );
 }
