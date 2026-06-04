@@ -1162,11 +1162,15 @@ const TABLE: Route[] = [
         // default_hourly_rate_cents so labor cost rolls up correctly instead of
         // recording a $0 rate. The snapshot still reflects what was agreed at
         // clock-in: a deliberate override wins, otherwise the member default.
-        const overrideRate = body.hourly_rate_cents;
+        // hourly_rate_cents is the money wire type (integer or integer string),
+        // so coerce to a number before comparing and snapshotting. A positive
+        // override wins; otherwise snapshot the member default (also coerced),
+        // falling back to 0.
+        const overrideRate = Number(body.hourly_rate_cents);
         const snapshotRate =
-          overrideRate && overrideRate > 0
+          overrideRate > 0
             ? overrideRate
-            : member.default_hourly_rate_cents ?? 0;
+            : Number(member.default_hourly_rate_cents ?? 0);
         const insert: Record<string, unknown> = {
           org_id: caller.orgId,
           member_id: body.member_id,
