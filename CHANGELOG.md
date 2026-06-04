@@ -4,6 +4,27 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] · 2026-06-04 Cross-tenant FK security fix, edge Deno typecheck gate, FK-validation follow-ups (PRs #238, #240, #241, #242)
+
+A 73-agent read-only optimization audit confirmed the cross-tenant foreign-key class as the top risk (grade B plus; the constitution holds). Every foreign key in the schema is a plain single-column constraint that checks existence, not org, so a service-role write could persist a client-supplied FK pointing at another tenant's row. The proven breach: payment apply and credit-note apply accepted an `invoice_id` validated only as a UUID, after which the recompute triggers mutated the victim org's invoice and forged an `audit_log` row. Four PRs closed the gap and hardened the surrounding surface; #239 was superseded by #241. Closeout journal at `03-workspace/journal/2026-06-04-fk-security-deno-gate-closeout.md`.
+
+### Fixed / Security
+
+- **Cross-tenant FK validation (#238)**: new shared `assertRefInOrg(table, caller, id)` helper does an org-scoped existence check and returns `404 NOT_FOUND` (never 403) before every client-supplied foreign-key write across 14 edge bundles (about 129 call sites). The polymorphic `activities.entity_id` fails closed on an unmapped type; `owner_user_id` validates against `org_memberships.user_id`; `quote_line_items` is skipped (no `org_id`, parent-scoped). Coverage verified against the authoritative `pg_constraint` list, which caught gaps the scoping agents missed. Regression coverage added as a Category 12 block in `rls-probe.spec.ts`.
+- **Imports mass-assignment, MASSG-IMPORTS-01 (#242)**: the imports commit now inserts the Zod-parsed row (declared columns only) plus server-set `org_id` / `created_by` / `updated_by`, instead of the raw client row, so a client can no longer inject `created_by`, `id`, `status`, or any undeclared column.
+- **Soft-deleted-referent hardening (#242)**: `assertRefInOrg` filters soft-deleted parents by default; the three parent tables with no `deleted_at` column (`chart_of_accounts`, `expense_categories`, `org_memberships`) opt out with `softDelete: false`.
+- **Edge type fixes (#240)**: corrected a `stripe-webhook` `apiVersion` pin (cast to `Stripe.LatestApiVersion`, the deliberate `2024-09-30.acacia` pin kept, zero runtime change) and a `kitforce` clock-in rate compared as `string | number > 0` (coerced to a number for the comparison and the snapshot).
+
+### Changed
+
+- **Edge Deno typecheck gate (#241)**: `ci.yml` now runs `deno check` over every edge-function bundle entry point on every PR, since `supabase functions deploy` transpiles with esbuild and never typechecks. Enabling it required resolving 47 pre-existing type errors (44 the untyped service-role client cast pattern resolved with `as unknown as`, plus a `dashboard-api` `PostgrestQueryBuilder` versus `PostgrestFilterBuilder` helper mistype and a `leads` `'converted'` status backstop).
+- **Batch FK validation (#242)**: new `assertRefsInOrg` validates many ids in one `IN` query; used by journal-entry line validation and the imports commit.
+
+### Notes
+
+- The import `RowSchemas` declare column names that do not match the target tables (`number` vs `invoice_number`, `email` / `phone` vs `primary_email` / `primary_phone`, `unit_of_measure` vs `unit_id`), so the import feature is likely broken for four of five entities. Filed as a separate follow-up; #242 changed only the insert allowlist, not the import wire contract.
+- No migration, schema, RLS, money, idempotency, or `audit_log` change in any of the four PRs. No new dependency. Verified locally with Deno 2.1.4 (`deno check` exit 0 on all 28 bundles) and `pnpm --filter web test` (724 src plus 438 regression green).
+
 ## [0.14.0] · 2026-06-02 Codebase review remediation (39 findings) + repository housekeeping (PR #208)
 
 A 55-agent adversarial codebase review surfaced 39 confirmed findings (4 HIGH, 14 MEDIUM, 21 LOW, no CRITICAL), all remediated across six workstreams on one branch, independently re-reviewed, and shipped via squash PR #208. Both migrations applied to staging then prod and verified live. Closeout journal at `03-workspace/journal/2026-06-01-wave10-review-remediation-closeout.md`.
