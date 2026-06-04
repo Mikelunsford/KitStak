@@ -80,6 +80,10 @@ function makeMfgState(extra: Record<string, Array<Record<string, unknown>>> = {}
         config: {},
       },
     ],
+    // FK validation parents for manufacturing-runs create (warehouse_id,
+    // project_id) which assertRefInOrg now org-checks before insert.
+    warehouses: [{ id: WAREHOUSE_ID, org_id: ORG_A }],
+    projects: [{ id: PROJECT_ID, org_id: ORG_A }],
     doc_number_sequences: [],
     ...extra,
   });
@@ -249,6 +253,10 @@ function makeShipState(extra: Record<string, Array<Record<string, unknown>>> = {
         config: {},
       },
     ],
+    // FK validation parents for shipments create (warehouse_id, project_id)
+    // which assertRefInOrg now org-checks before insert.
+    warehouses: [{ id: WAREHOUSE_ID, org_id: ORG_A }],
+    projects: [{ id: PROJECT_ID, org_id: ORG_A }],
     doc_number_sequences: [],
     ...extra,
   });

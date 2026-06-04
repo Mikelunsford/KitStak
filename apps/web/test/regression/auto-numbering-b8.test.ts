@@ -57,6 +57,9 @@ function withThreePlFlag(extra: Record<string, Array<Record<string, unknown>>> =
         config: {},
       },
     ],
+    // FK validation parent: ops-api receiving/shipment create org-checks
+    // warehouse_id via assertRefInOrg before insert.
+    warehouses: [{ id: WAREHOUSE_ID, org_id: ORG_A }],
     ...extra,
   });
 }
