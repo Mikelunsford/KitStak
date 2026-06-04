@@ -212,10 +212,26 @@ const summary: Route = {
     ] = await Promise.all([
       countTable(client, 'invoices', orgId, [['status', 'open']]).catch(() => 0),
       countTable(client, 'invoices', orgId, [['status', 'overdue']]).catch(() => 0),
-      countTable(client, 'quotes', orgId, [['status', 'open']]).catch(() => 0),
+      // quotes and projects key their lifecycle off a `state` column, not
+      // `status`. The old [['status','open'|'active']] predicates matched a
+      // non-existent column value and silently returned 0 (open_quotes_count /
+      // active_projects_count). Count the non-terminal states off `state`:
+      // open quotes = everything except converted (project_pending) and
+      // cancelled; active projects = everything except completed and cancelled.
+      countByStates(client, 'quotes', 'state', orgId, [
+        'draft',
+        'submitted',
+        'approved',
+        'revise_requested',
+      ]).catch(() => 0),
       countTable(client, 'receiving_orders', orgId, [['status', 'in_progress']]).catch(() => 0),
       countTable(client, 'shipments', orgId, [['status', 'in_transit']]).catch(() => 0),
-      countTable(client, 'projects', orgId, [['status', 'active']]).catch(() => 0),
+      countByStates(client, 'projects', 'state', orgId, [
+        'pending',
+        'ready_to_build',
+        'in_production',
+        'ready_to_ship',
+      ]).catch(() => 0),
       sumColumn(client, 'invoices', 'balance_cents', orgId, [['status', 'open']]).catch(() => 0n),
       countByStates(client, 'quotes', 'state', orgId, [
         'submitted',
