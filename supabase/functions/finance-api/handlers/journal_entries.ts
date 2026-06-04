@@ -124,7 +124,7 @@ export async function listJournalEntries({ req, url }: RouteCtx): Promise<Respon
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as Array<{ id: string; created_at: string }>;
+  const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToJe), next_cursor ? { next_cursor } : undefined);
 }
@@ -198,7 +198,7 @@ export async function createJournalEntry(ctx: RouteCtx): Promise<Response> {
         });
       }
 
-      const entryId = (entryRow as { id: string }).id;
+      const entryId = (entryRow as unknown as { id: string }).id;
       const lineRows = body.lines.map((l) => ({
         entry_id: entryId,
         account_id: l.account_id,
@@ -233,7 +233,7 @@ export async function patchJournalEntry(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /journal-entries/:id`,
     body,
     async () => {
-      const row = await fetchJe(caller.orgId, id) as { status?: string };
+      const row = await fetchJe(caller.orgId, id) as unknown as { status?: string };
       if (row.status !== 'draft') {
         throw new ApiError(
           'STATE_CONFLICT',
@@ -274,7 +274,7 @@ export async function deleteJournalEntry(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /journal-entries/:id`,
     null,
     async () => {
-      const row = await fetchJe(caller.orgId, id) as { status?: string };
+      const row = await fetchJe(caller.orgId, id) as unknown as { status?: string };
       if (row.status !== 'draft') {
         throw new ApiError(
           'STATE_CONFLICT',

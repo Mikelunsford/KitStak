@@ -55,7 +55,7 @@ export async function listOrgScoped<T extends { id: string; created_at: string }
   if (error) {
     throw internalError(`crud:listOrgScoped:${table}`, error);
   }
-  return paginate<T>((data ?? []) as T[], limit);
+  return paginate<T>((data ?? []) as unknown as T[], limit);
 }
 
 export async function getByIdOrgScoped<T>(

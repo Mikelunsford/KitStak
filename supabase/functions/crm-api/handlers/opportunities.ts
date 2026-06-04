@@ -76,7 +76,7 @@ async function fetchOpportunityRow(
     });
   }
   if (!data) throw new ApiError('NOT_FOUND', 404, 'opportunity not found');
-  return data as OpportunityRow;
+  return data as unknown as OpportunityRow;
 }
 
 export async function listOpportunities({ req, url }: RouteCtx): Promise<Response> {
@@ -113,7 +113,7 @@ export async function listOpportunities({ req, url }: RouteCtx): Promise<Respons
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as OpportunityRow[];
+  const rows = (data ?? []) as unknown as OpportunityRow[];
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToOpportunity), { next_cursor });
 }
@@ -184,7 +184,7 @@ export async function createOpportunity({ req }: RouteCtx): Promise<Response> {
         detail: error?.message,
       });
     }
-    return created(rowToOpportunity(data as OpportunityRow));
+    return created(rowToOpportunity(data as unknown as OpportunityRow));
   });
 }
 
@@ -255,7 +255,7 @@ export async function patchOpportunity({ req, params }: RouteCtx): Promise<Respo
           detail: error?.message,
         });
       }
-      return ok(rowToOpportunity(data as OpportunityRow));
+      return ok(rowToOpportunity(data as unknown as OpportunityRow));
     },
   );
 }
@@ -309,7 +309,7 @@ export async function transitionOpportunityStage(
           detail: error?.message,
         });
       }
-      return ok(rowToOpportunity(data as OpportunityRow));
+      return ok(rowToOpportunity(data as unknown as OpportunityRow));
     },
   );
 }

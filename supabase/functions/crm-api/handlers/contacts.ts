@@ -60,7 +60,7 @@ async function fetchContactRow(caller: Caller, id: string): Promise<ContactRow> 
     });
   }
   if (!data) throw new ApiError('NOT_FOUND', 404, 'contact not found');
-  return data as ContactRow;
+  return data as unknown as ContactRow;
 }
 
 export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
@@ -95,7 +95,7 @@ export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as ContactRow[];
+  const rows = (data ?? []) as unknown as ContactRow[];
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToContact), { next_cursor });
 }
@@ -152,7 +152,7 @@ export async function createContact({ req }: RouteCtx): Promise<Response> {
         detail: error?.message,
       });
     }
-    return created(rowToContact(data as ContactRow));
+    return created(rowToContact(data as unknown as ContactRow));
   });
 }
 
@@ -190,7 +190,7 @@ export async function patchContact({ req, params }: RouteCtx): Promise<Response>
           detail: error?.message,
         });
       }
-      return ok(rowToContact(data as ContactRow));
+      return ok(rowToContact(data as unknown as ContactRow));
     },
   );
 }

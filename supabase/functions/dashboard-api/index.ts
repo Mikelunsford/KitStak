@@ -61,16 +61,36 @@ async function countByStates(
 // payload at zero bytes. Soft-delete aware via the deleted_at NULL guard.
 // Falls back to false on any error so the dashboard never 500s on a fresh
 // org missing an upstream table.
+// The filter-builder type that flows through applyFilters. `from(table)`
+// returns a PostgrestQueryBuilder, but `.select(...).eq(...)` narrows it to a
+// PostgrestFilterBuilder, which is what every callsite chains (.is/.in/.eq/
+// .not). The previous param type was the query-builder (the `from` return),
+// which is why every callsite tripped TS2339 on the filter methods. Widen the
+// param to the filter-builder type produced by the org-scoped select chain so
+// the helper matches the runtime value. OrgScopedQuery captures the exact
+// local builder so the reassignment round-trips without a row-shape mismatch.
+type OrgScopedQuery = ReturnType<typeof buildOrgScopedQuery>;
+type OrgScopedFilter = (q: OrgScopedQuery) => OrgScopedQuery;
+
+function buildOrgScopedQuery(
+  client: ReturnType<typeof admin>,
+  table: string,
+  orgId: string,
+) {
+  return client
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId);
+}
+
 async function existsRowForOrg(
   client: ReturnType<typeof admin>,
   table: string,
   orgId: string,
-  applyFilters: (
-    q: ReturnType<ReturnType<typeof admin>['from']>,
-  ) => ReturnType<ReturnType<typeof admin>['from']> = (q) => q,
+  applyFilters: OrgScopedFilter = (q) => q,
 ): Promise<boolean> {
   try {
-    let q = client.from(table).select('id', { count: 'exact', head: true }).eq('org_id', orgId);
+    let q = buildOrgScopedQuery(client, table, orgId);
     q = applyFilters(q);
     const { count, error } = await q;
     if (error) return false;
@@ -102,7 +122,7 @@ async function sumColumn(
   const { data, error } = await q;
   if (error || !data) return 0n;
   let total = 0n;
-  for (const row of data as Array<Record<string, unknown>>) {
+  for (const row of data as unknown as Array<Record<string, unknown>>) {
     const v = row[column];
     if (typeof v === 'string') total += BigInt(v);
     else if (typeof v === 'number') total += BigInt(Math.trunc(v));
