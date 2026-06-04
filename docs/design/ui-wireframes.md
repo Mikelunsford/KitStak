@@ -633,7 +633,9 @@ Invoice from their own chrome.
   the shared UI layer and adopt it app-wide.
 - Money formatting is inconsistent: the Opportunities pipeline renders raw
   amount_cents (font-mono), while the portal and the quote/invoice detail pages use
-  formatCents. Standardize on formatCents in every operator surface.
+  formatCents. Standardize on formatCents in every operator surface. (RESOLVED
+  2026-06-03 in #235: the pipeline renders formatCents on the per-card amount and
+  the per-column total; formatCents is now standard on every operator surface.)
 - Heading style is inconsistent: CRUD and Team pages use a 4xl uppercase display
   headline; Settings, Feature flags, and Numbering use a 3xl sentence-case headline.
   Pick one heading scale and case for the overhaul.
@@ -658,6 +660,16 @@ Non-negotiables carried in: server is authority (gates unchanged), money via
 formatCents, dense and fast (this is a tool, not a marketing site), WCAG 2.2 baked
 into the primitives.
 
+**STATUS: SHIPPED (F-Wave10-UI-KIT-01, complete 2026-06-03).** The kit below was
+built and adopted across the entire operator app over 2026-06-02 and 2026-06-03
+(PRs #213 to #235). Every list, FSM detail, create/edit form, config surface, CRM
+board, and pillar home now composes the shared kit; the main DashboardPage already
+composed shared components. Two tile primitives were added beyond the original 9a
+list below: ActionTile and StatCard (pillar-home tiles). Three latent raw-cents
+money bugs were fixed in passing (stock movements, the Opportunities pipeline
+amount and column total). See STATUS.md and the closeout journal
+03-workspace/journal/2026-06-03-ui-kit-overhaul-closeout.md.
+
 ### 9a. The shared primitive kit (build these first)
 
 ```
@@ -671,6 +683,8 @@ Money          formatCents everywhere; never raw amount_cents in UI
 Button         one component for every CTA; ButtonLink variant for nav CTAs
 Card / Section consistent surface, header, and padding rhythm
 DetailLayout   two-column: main content + right rail (status, facts, activity)
+ActionTile     pillar-home nav tile: bordered link, display title + body
+StatCard       pillar-home count tile: big count + label, links to a filtered list
 ```
 
 Semantic status tokens (within the existing palette, not new hues invented ad hoc):
@@ -827,3 +841,11 @@ and server pagination replacing the client-side slice.
 Each step is independently shippable and keeps CI green (bundle budget: the kit
 must stay out of the index chunk or be tiny; byte-mirrored canon untouched).
 ```
+
+**Sequence complete 2026-06-03.** Steps 1 to 4 shipped across PRs #213 to #235
+(the boards and pillar homes landed in #235). Step 6 shipped for the boards and
+pillar homes; the main dashboard already composed shared components, and kanban
+drag-drop stays deferred (the boards keep their hand-rolled columns). Step 5
+(server pagination) is the carried follow-up F-WS7-SERVER-PAGINATION, and column
+sort is F-Wave10-UI-KIT-DATATABLE-SORT-01. Step 7 (token and chrome pass) is now
+unblocked.
