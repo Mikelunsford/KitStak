@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, KeyRound, LogOut, Menu, UserCircle2 } from 'lucide-react';
 
 import { useAuth } from '@/auth/AuthContext';
@@ -38,6 +38,51 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  const orgMenuRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const { pathname } = useLocation();
+
+  // Dismiss both menus on route change. Navigating via the sidebar (or any
+  // link outside the Topbar) must not leave a menu hanging open; without this
+  // the open state survives the navigation and the operator has to re-click
+  // the toggle to clear it.
+  useEffect(() => {
+    setOrgMenuOpen(false);
+    setProfileMenuOpen(false);
+  }, [pathname]);
+
+  // Dismiss on outside pointer-down and on Escape, scoped to whichever menu the
+  // interaction fell outside of. The listeners only attach while a menu is open
+  // so the closed Topbar adds no document-level work.
+  useEffect(() => {
+    if (!orgMenuOpen && !profileMenuOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (target && orgMenuRef.current && !orgMenuRef.current.contains(target)) {
+        setOrgMenuOpen(false);
+      }
+      if (
+        target &&
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(target)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOrgMenuOpen(false);
+        setProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [orgMenuOpen, profileMenuOpen]);
+
   const memberships = me.data?.memberships ?? [];
   const activeOrgId = me.data?.active_org_id;
   const activeOrg =
@@ -69,7 +114,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
 
       <div className="flex items-center gap-3">
         {/* Workspace switcher */}
-        <div className="relative">
+        <div className="relative" ref={orgMenuRef}>
           <button
             type="button"
             onClick={() => setOrgMenuOpen((v) => !v)}
@@ -127,7 +172,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
         </div>
 
         {/* Profile menu */}
-        <div className="relative">
+        <div className="relative" ref={profileMenuRef}>
           <button
             type="button"
             onClick={() => setProfileMenuOpen((v) => !v)}
