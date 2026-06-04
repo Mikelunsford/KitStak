@@ -50,6 +50,11 @@ function makeBaseState() {
         config: {},
       },
     ],
+    // FK validation parents: POST /receiving-orders org-checks warehouse_id
+    // and project_id via assertRefInOrg before insert, so the referenced rows
+    // must exist in the caller org.
+    warehouses: [{ id: WAREHOUSE_ID, org_id: ORG_A }],
+    projects: [{ id: PROJECT_ID, org_id: ORG_A }],
     // Numbering chassis lookup expected by POST /receiving-orders. The
     // shim's next_doc_number RPC returns a deterministic stub when no
     // sequence row is present.
@@ -70,6 +75,12 @@ function makeStateWithReceiving(rows: Array<{
         is_enabled: true,
         config: {},
       },
+    ],
+    // FK validation parents for the PATCH-link path (assertRefInOrg).
+    warehouses: [{ id: WAREHOUSE_ID, org_id: ORG_A }],
+    projects: [
+      { id: PROJECT_ID, org_id: ORG_A },
+      { id: PROJECT_ID_OTHER, org_id: ORG_A },
     ],
     receiving_orders: rows.map((r) => ({
       id: r.id,

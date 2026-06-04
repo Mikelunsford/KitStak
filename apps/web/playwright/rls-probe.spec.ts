@@ -1129,4 +1129,57 @@ test.describe('@rls cross-tenant probe matrix', () => {
       ).toEqual([]);
     });
   }
+
+  // --- Category 12: cross-tenant FK reference on a write -> 404 ----------
+  //
+  // The systemic FK-validation fix. Every handler that persists a
+  // client-supplied foreign-key id now calls assertRefInOrg() first, so a
+  // reference to another tenant's row returns 404 NOT_FOUND (never 403) before
+  // the write. These probes lock the highest-impact paths. The payment and
+  // credit-note apply endpoints are the proven breach: their allocation insert
+  // fired recompute triggers that mutated the victim org's invoice paid_cents
+  // and status and forged a row into its append-only audit_log. assertRefInOrg
+  // now rejects the foreign invoice_id before the allocation is written.
+
+  test('@rls invoicing-api payment apply with a cross-tenant invoice_id 404s', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'POST',
+      `/invoicing-api/payments/${orgB!.paymentId}/apply`,
+      { allocations: [{ invoice_id: orgA!.invoiceId, amount_cents: 1 }] },
+    );
+    expect(
+      res.status,
+      'cross-tenant payment allocation MUST 404 and never mutate orgA invoice',
+    ).toBe(404);
+  });
+
+  test('@rls invoicing-api credit-note apply with a cross-tenant invoice_id 404s', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'POST',
+      `/invoicing-api/credit-notes/${orgB!.creditNoteId}/apply`,
+      { allocations: [{ invoice_id: orgA!.invoiceId, amount_cents: 1 }] },
+    );
+    expect(
+      res.status,
+      'cross-tenant credit-note allocation MUST 404 and never mutate orgA invoice',
+    ).toBe(404);
+  });
+
+  test('@rls vendors-api purchase-order create with a cross-tenant vendor_id 404s', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'POST',
+      `/vendors-api/purchase-orders`,
+      { vendor_id: orgA!.vendorId },
+    );
+    expect(
+      res.status,
+      'cross-tenant vendor reference on create MUST 404',
+    ).toBe(404);
+  });
 });

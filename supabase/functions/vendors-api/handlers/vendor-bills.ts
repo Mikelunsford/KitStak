@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
-  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
+  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped, assertRefInOrg,
   assertTransition,
 } from '../shared.ts';
 import {
@@ -63,6 +63,8 @@ export function handleVendorBills(): Route[] {
         requireCap(caller, 'vendor_bills.vendor_bill.create');
         const body = await parseBody(req, BillCreateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills', body, async () => {
+          if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
+          if (body.purchase_order_id) { await assertRefInOrg('purchase_orders', caller, body.purchase_order_id); }
           const { data, error } = await admin()
             .from('vendor_bills')
             .insert({
@@ -93,6 +95,8 @@ export function handleVendorBills(): Route[] {
         parseUuidParam(params.id);
         const body = await parseBody(req, BillUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/vendor-bills/:id', body, async () => {
+          if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
+          if (body.purchase_order_id) { await assertRefInOrg('purchase_orders', caller, body.purchase_order_id); }
           const { data, error } = await admin()
             .from('vendor_bills')
             .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })

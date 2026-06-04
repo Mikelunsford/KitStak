@@ -27,6 +27,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   JournalEntrySchema,
   JournalEntryLineSchema,
@@ -163,6 +164,13 @@ export async function createJournalEntry(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /journal-entries`,
     body,
     async () => {
+      // Validate each line's account belongs to the caller's org before any
+      // insert persists a cross-tenant reference.
+      for (const line of body.lines) {
+        await assertRefInOrg('chart_of_accounts', caller, line.account_id);
+      }
+      // source_id varies by source_type and may point at an external reference;
+      // cross-tenant validation deferred.
       const insert = {
         org_id: caller.orgId,
         entry_number: body.entry_number,

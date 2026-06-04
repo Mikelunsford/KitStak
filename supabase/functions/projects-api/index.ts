@@ -14,6 +14,7 @@ import {
   requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError, internalError } from '../_shared/responses.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -91,6 +92,8 @@ const createProject = async (ctx: RouteCtx) => {
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects', body,
     async () => {
+      if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+      if (body.job_type_id) { await assertRefInOrg('job_types', caller, body.job_type_id); }
       const client = admin();
       const { data, error } = await client
         .from('projects')
@@ -115,6 +118,8 @@ const updateProject = async (ctx: RouteCtx) => {
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/projects/:id', body,
     async () => {
+      if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+      if (body.job_type_id) { await assertRefInOrg('job_types', caller, body.job_type_id); }
       const client = admin();
       const { data, error } = await client
         .from('projects')
@@ -383,6 +388,10 @@ const createLineItem = async (ctx: RouteCtx) => {
         .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
       if (!parent) throw new ApiError('NOT_FOUND', 404);
 
+      if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+      if (body.tax_rate_id) { await assertRefInOrg('taxes', caller, body.tax_rate_id); }
+      // quote_line_items has no org_id; parent-scoped via its quote, cross-tenant validation deferred (low impact provenance field).
+
       let position = body.position;
       if (position === undefined) {
         const { data: maxRow } = await client
@@ -429,6 +438,8 @@ const updateLineItem = async (ctx: RouteCtx) => {
         .from('projects').select('id')
         .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
       if (!parent) throw new ApiError('NOT_FOUND', 404);
+      if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+      if (body.tax_rate_id) { await assertRefInOrg('taxes', caller, body.tax_rate_id); }
       const { data, error } = await client
         .from('project_line_items')
         .update({ ...body, updated_by: caller.userId })

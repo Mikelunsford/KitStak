@@ -78,3 +78,43 @@ export async function getByIdOrgScoped<T>(
   }
   return data as T;
 }
+
+/**
+ * Assert a client-supplied foreign-key id references a row in the caller's
+ * org, before a write persists that reference. Defense-in-depth for Pattern
+ * A: a service-role insert or update can otherwise store a cross-tenant
+ * foreign key, because every FK constraint in this schema is a plain
+ * single-column reference that checks existence, not org.
+ *
+ * Throws NOT_FOUND (404) when the referenced row is absent or belongs to
+ * another org. That is the constitutional answer for a cross-tenant
+ * reference on a write (never 403). The same 404 covers "does not exist" and
+ * "exists in another org", so it leaks no cross-tenant existence oracle.
+ *
+ * `column` overrides the matched column for references that point at a
+ * non-id column (for example org_memberships.user_id). `softDelete` adds a
+ * `deleted_at is null` filter for soft-deleting parents.
+ */
+export async function assertRefInOrg(
+  table: string,
+  caller: Caller,
+  id: string,
+  options: { column?: string; softDelete?: boolean } = {},
+): Promise<void> {
+  const column = options.column ?? 'id';
+  let q = admin()
+    .from(table)
+    .select(column)
+    .eq('org_id', caller.orgId)
+    .eq(column, id);
+  if (options.softDelete) {
+    q = q.is('deleted_at', null);
+  }
+  const { data, error } = await q.limit(1);
+  if (error) {
+    throw internalError(`crud:assertRefInOrg:${table}`, error);
+  }
+  if (!data || data.length === 0) {
+    throw new ApiError('NOT_FOUND', 404, `referenced ${table} not found in org`);
+  }
+}

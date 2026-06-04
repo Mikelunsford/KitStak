@@ -14,6 +14,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   ActivityCreateSchema,
   ActivityPatchSchema,
@@ -22,6 +23,14 @@ import {
 } from '../../_shared/types/crm.ts';
 import { BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
+
+// Polymorphic entity_type to table map for cross-tenant FK validation.
+const ENTITY_TABLE: Record<string, string> = {
+  customer: 'customers',
+  contact: 'contacts',
+  lead: 'leads',
+  opportunity: 'opportunities',
+};
 
 const ACTIVITY_COLS =
   'id, org_id, entity_type, entity_id, kind, subject, body, status, ' +
@@ -119,6 +128,18 @@ export async function createActivity({ req }: RouteCtx): Promise<Response> {
   const body = await parseBody(req, ActivityCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /activities', body, async () => {
+    // Polymorphic entity_id must reference a row in the caller's org. Map the
+    // entity_type to its table, then verify before insert so a cross-tenant
+    // reference returns 404 instead of persisting.
+    const entityTable = ENTITY_TABLE[body.entity_type];
+    if (!entityTable) {
+      // Fail closed. An entity_type with no table mapping must never skip the
+      // org-scope check, or a future enum value would persist an unvalidated
+      // cross-tenant reference.
+      throw new ApiError('VALIDATION_ERROR', 422, 'unknown entity_type');
+    }
+    await assertRefInOrg(entityTable, caller, body.entity_id);
+
     const insertRow = {
       org_id: caller.orgId,
       entity_type: body.entity_type,

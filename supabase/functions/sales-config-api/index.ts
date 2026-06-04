@@ -27,6 +27,7 @@ import {
   created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError, internalError } from '../_shared/responses.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -198,6 +199,40 @@ function capForWrite(table: string): Capability {
   }
 }
 
+// Per-entity client-supplied foreign keys. Each plain single-column FK
+// constraint checks existence, not org, so a service-role insert or update
+// could persist a cross-tenant reference. Validate each FK against the
+// caller's org before the write. Nullable or PATCH-absent fields are skipped
+// when not present (see validateConfigRefs).
+const CONFIG_FK_MAP: Record<string, Array<{ field: string; table: string }>> = {
+  items: [
+    { field: 'category_id', table: 'item_categories' },
+    { field: 'unit_id', table: 'units' },
+    { field: 'default_tax_id', table: 'taxes' },
+  ],
+  item_categories: [
+    { field: 'parent_id', table: 'item_categories' },
+  ],
+  value_added_services: [
+    { field: 'default_tax_id', table: 'taxes' },
+  ],
+};
+
+async function validateConfigRefs(
+  table: string,
+  caller: ReturnType<typeof requireCaller>,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const refs = CONFIG_FK_MAP[table];
+  if (!refs) return;
+  for (const { field, table: refTable } of refs) {
+    const value = body[field];
+    if (value) {
+      await assertRefInOrg(refTable, caller, value as string);
+    }
+  }
+}
+
 function genericCreate<S extends z.ZodTypeAny>(table: string, schema: S, route: string) {
   return async (ctx: RouteCtx) => {
     const caller = requireCaller(ctx.req);
@@ -206,6 +241,7 @@ function genericCreate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
     return respondWithIdempotency(
       ctx.req, caller, BUNDLE, route, body,
       async () => {
+        await validateConfigRefs(table, caller, body as Record<string, unknown>);
         const client = admin();
         const insert = {
           ...(body as Record<string, unknown>),
@@ -231,6 +267,7 @@ function genericUpdate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
     return respondWithIdempotency(
       ctx.req, caller, BUNDLE, route, body,
       async () => {
+        await validateConfigRefs(table, caller, body as Record<string, unknown>);
         const client = admin();
         const patch = {
           ...(body as Record<string, unknown>),

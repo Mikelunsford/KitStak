@@ -8,7 +8,7 @@
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import { admin, parseLimit, decodeCursor, paginate, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
-import { listOrgScoped, getByIdOrgScoped } from '../_shared/crud.ts';
+import { listOrgScoped, getByIdOrgScoped, assertRefInOrg } from '../_shared/crud.ts';
 import {
   canTransitionVio,
   type Fsm,
@@ -20,7 +20,7 @@ export {
   internalError,
   // E6: relocated to _shared/crud.ts; re-exported so the vendors-api bundle
   // keeps its existing import surface unchanged.
-  listOrgScoped, getByIdOrgScoped,
+  listOrgScoped, getByIdOrgScoped, assertRefInOrg,
 };
 export type { Caller };
 

@@ -15,6 +15,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   OpportunityCreateSchema,
   OpportunityPatchSchema,
@@ -147,6 +148,17 @@ export async function createOpportunity({ req }: RouteCtx): Promise<Response> {
     }
     if (!parent) throw new ApiError('NOT_FOUND', 404, 'customer not found');
 
+    // lead_id references a lead in the caller's org; owner_user_id references
+    // a member via org_memberships.user_id. Verify both in-org before insert.
+    if (body.lead_id) {
+      await assertRefInOrg('leads', caller, body.lead_id);
+    }
+    if (body.owner_user_id) {
+      await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
+        column: 'user_id',
+      });
+    }
+
     const insertRow = {
       org_id: caller.orgId,
       customer_id: body.customer_id,
@@ -200,6 +212,22 @@ export async function patchOpportunity({ req, params }: RouteCtx): Promise<Respo
           409,
           'use POST /opportunities/:id/transition to change stage',
         );
+      }
+
+      // customer_id, lead_id, and owner_user_id can each repoint the row. Verify
+      // any supplied value belongs to the caller's org before update.
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id, {
+          softDelete: true,
+        });
+      }
+      if (body.lead_id) {
+        await assertRefInOrg('leads', caller, body.lead_id);
+      }
+      if (body.owner_user_id) {
+        await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
+          column: 'user_id',
+        });
       }
 
       const patch: Record<string, unknown> = { updated_by: caller.userId };

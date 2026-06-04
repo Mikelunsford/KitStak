@@ -17,6 +17,7 @@ import {
 } from '../_shared/handler-helpers.ts';
 import { ApiError, ok, noContent, internalError } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import {
   AttachmentCreateSchema,
   CommentCreateSchema,
@@ -24,6 +25,33 @@ import {
 } from '../_shared/types/cross_cutting.ts';
 
 const BUNDLE = 'collaboration-api';
+
+// Polymorphic entity_type to table map for cross-tenant FK validation.
+// attachments and comments carry a free-form entity_type plus an entity_id.
+// When the type maps to a known org-scoped table, the entity_id must reference
+// a row in the caller's org. Types not in this map are skipped (no table to
+// scope against). Keys follow the singular entity_type vocabulary the SPA uses.
+const ENTITY_TABLE: Record<string, string> = {
+  customer: 'customers',
+  contact: 'contacts',
+  lead: 'leads',
+  opportunity: 'opportunities',
+  invoice: 'invoices',
+  quote: 'quotes',
+  sales_order: 'sales_orders',
+  project: 'projects',
+  purchase_order: 'purchase_orders',
+  vendor_bill: 'vendor_bills',
+  credit_note: 'credit_notes',
+  shipment: 'shipments',
+  receiving_order: 'receiving_orders',
+  expense: 'expenses',
+  kitting_job: 'kitting_jobs',
+  fulfillment: 'fulfillments',
+  manufacturing_run: 'manufacturing_runs',
+  production_run: 'production_runs',
+  journal_entry: 'journal_entries',
+};
 
 // ---------------------------------------------------------------------------
 // Attachments
@@ -71,6 +99,15 @@ const createAttachment: Route = {
     const body = await parseBody(req, AttachmentCreateSchema);
 
     return respondWithIdempotency(req, caller, BUNDLE, '/attachments', body, async () => {
+      // Polymorphic entity_id must reference a row in the caller's org. Map the
+      // entity_type to its table, then verify before insert so a cross-tenant
+      // reference returns 404 instead of persisting. Types not in the map carry
+      // no org-scoped table to validate against and are skipped.
+      const entityTable = ENTITY_TABLE[body.entity_type];
+      if (entityTable) {
+        await assertRefInOrg(entityTable, caller, body.entity_id);
+      }
+
       const { data, error } = await admin()
         .from('attachments')
         .insert({
@@ -167,6 +204,19 @@ const createComment: Route = {
     const body = await parseBody(req, CommentCreateSchema);
 
     return respondWithIdempotency(req, caller, BUNDLE, '/comments', body, async () => {
+      // Polymorphic entity_id must reference a row in the caller's org. Map the
+      // entity_type to its table, then verify before insert so a cross-tenant
+      // reference returns 404 instead of persisting. Types not in the map carry
+      // no org-scoped table to validate against and are skipped.
+      const entityTable = ENTITY_TABLE[body.entity_type];
+      if (entityTable) {
+        await assertRefInOrg(entityTable, caller, body.entity_id);
+      }
+      // parent_id, when present, must reference a comment in the caller's org.
+      if (body.parent_id) {
+        await assertRefInOrg('comments', caller, body.parent_id);
+      }
+
       const { data, error } = await admin()
         .from('comments')
         .insert({

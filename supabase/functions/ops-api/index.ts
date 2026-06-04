@@ -46,6 +46,7 @@ import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -247,6 +248,12 @@ const TABLE: Route[] = [
       requireCap(caller, 'receiving.order.create');
       const body = await parseBody(req, ReceivingCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders', body, async () => {
+        // Cross-tenant FK guard: every client-supplied reference must belong to
+        // the caller's org. assertRefInOrg 404s on a cross-tenant id.
+        await assertRefInOrg('warehouses', caller, body.warehouse_id);
+        if (body.purchase_order_id) { await assertRefInOrg('purchase_orders', caller, body.purchase_order_id); }
+        if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         // F-Wave9-AUTO-NUMBERING-01 (B8): operator may pass a `receiving_number`
         // to override; otherwise allocate the next RCV-YYYY-NNNNN via the
         // org-scoped numbering chassis (next_doc_number / 0038). Mirrors the
@@ -282,6 +289,11 @@ const TABLE: Route[] = [
       parseUuidParam(params.id);
       const body = await parseBody(req, ReceivingUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id', body, async () => {
+        // Cross-tenant FK guard on any client-supplied reference in this PATCH.
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        if (body.purchase_order_id) { await assertRefInOrg('purchase_orders', caller, body.purchase_order_id); }
+        if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         const { data, error } = await admin().from('receiving_orders')
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
@@ -378,6 +390,7 @@ const TABLE: Route[] = [
         req, caller, 'ops-api', '/receiving-orders/:id/line-items', body,
         async () => {
           await assertReceivingParent(caller, params.id);
+          await assertRefInOrg('items', caller, body.item_id);
           const position = body.position ?? await nextPositionFor(
             'receiving_order_line_items', 'receiving_order_id', caller, params.id,
           );
@@ -414,6 +427,7 @@ const TABLE: Route[] = [
         req, caller, 'ops-api', '/receiving-orders/:id/line-items/:lineId', body,
         async () => {
           await assertReceivingParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const patch: Record<string, unknown> = {
             updated_by: caller.userId,
           };
@@ -481,6 +495,9 @@ const TABLE: Route[] = [
       requireCap(caller, 'production.run.create');
       const body = await parseBody(req, ProductionCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs', body, async () => {
+        // Cross-tenant FK guard on client-supplied references.
+        await assertRefInOrg('warehouses', caller, body.warehouse_id);
+        await assertRefInOrg('items', caller, body.output_item_id);
         const { data, error } = await admin().from('production_runs').insert({
           ...body, status: 'planned', org_id: caller.orgId,
           created_by: caller.userId, updated_by: caller.userId,
@@ -508,6 +525,9 @@ const TABLE: Route[] = [
       parseUuidParam(params.id);
       const body = await parseBody(req, ProductionUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id', body, async () => {
+        // Cross-tenant FK guard on any client-supplied reference in this PATCH.
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        if (body.output_item_id) { await assertRefInOrg('items', caller, body.output_item_id); }
         const { data, error } = await admin().from('production_runs')
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
@@ -550,6 +570,9 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id/complete', body, async () => {
         const cur = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
         assertTransition(PRODUCTION_RUN_FSM, cur.status, 'completed');
+        // Cross-tenant FK guard on every consumed line and the produced line.
+        for (const c of body.consumed) { await assertRefInOrg('items', caller, c.item_id); }
+        if (body.produced?.item_id) { await assertRefInOrg('items', caller, body.produced.item_id); }
         const merged = {
           ...(cur.payload as Record<string, unknown>),
           consumed: body.consumed,
@@ -605,6 +628,11 @@ const TABLE: Route[] = [
       requireCap(caller, 'shipments.shipment.create');
       const body = await parseBody(req, ShipmentCreate);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments', body, async () => {
+        // Cross-tenant FK guard on client-supplied references.
+        await assertRefInOrg('warehouses', caller, body.warehouse_id);
+        if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+        if (body.sales_order_id) { await assertRefInOrg('sales_orders', caller, body.sales_order_id); }
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         // F-Wave9-AUTO-NUMBERING-01 (B8): operator may pass a `shipment_number`
         // to override; otherwise allocate the next SHP-YYYY-NNNNN via the
         // org-scoped numbering chassis (next_doc_number / 0038). Mirrors the
@@ -640,6 +668,11 @@ const TABLE: Route[] = [
       parseUuidParam(params.id);
       const body = await parseBody(req, ShipmentUpdate);
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id', body, async () => {
+        // Cross-tenant FK guard on any client-supplied reference in this PATCH.
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+        if (body.sales_order_id) { await assertRefInOrg('sales_orders', caller, body.sales_order_id); }
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         const { data, error } = await admin().from('shipments')
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
@@ -731,6 +764,7 @@ const TABLE: Route[] = [
         req, caller, 'ops-api', '/shipments/:id/line-items', body,
         async () => {
           await assertShipmentParent(caller, params.id);
+          await assertRefInOrg('items', caller, body.item_id);
           const position = body.position ?? await nextPositionFor(
             'shipment_line_items', 'shipment_id', caller, params.id,
           );
@@ -767,6 +801,7 @@ const TABLE: Route[] = [
         req, caller, 'ops-api', '/shipments/:id/line-items/:lineId', body,
         async () => {
           await assertShipmentParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const patch: Record<string, unknown> = {
             updated_by: caller.userId,
           };

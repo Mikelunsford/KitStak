@@ -32,7 +32,7 @@ import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ApiError, ok, admin, parseBody, parseLimit, paginate, paginateByUpdatedAt,
   parseUuidParam, respondWithIdempotency, created,
-  requireCaller, requireCap, internalError,
+  requireCaller, requireCap, internalError, assertRefInOrg,
 } from './shared.ts';
 import {
   WarehouseSchema, StockLevelSchema, StockMovementSchema, BomItemSchema,
@@ -221,6 +221,8 @@ const TABLE: Route[] = [
       requireCap(caller, 'stock.bom.write');
       const body = await parseBody(req, BomInput);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items', body, async () => {
+        await assertRefInOrg('items', caller, body.parent_item_id);
+        await assertRefInOrg('items', caller, body.component_item_id);
         const { data, error } = await admin()
           .from('bom_items')
           .insert({ ...body, org_id: caller.orgId, created_by: caller.userId, updated_by: caller.userId })
@@ -238,6 +240,8 @@ const TABLE: Route[] = [
       parseUuidParam(params.id);
       const body = await parseBody(req, BomUpdate);
       return respondWithIdempotency(req, caller, 'inventory-api', '/bom-items/:id', body, async () => {
+        if (body.parent_item_id) { await assertRefInOrg('items', caller, body.parent_item_id); }
+        if (body.component_item_id) { await assertRefInOrg('items', caller, body.component_item_id); }
         const { data, error } = await admin()
           .from('bom_items')
           .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })

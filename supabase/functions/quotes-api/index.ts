@@ -20,6 +20,7 @@ import {
   requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError, internalError } from '../_shared/responses.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -92,6 +93,10 @@ const createQuote = async (ctx: RouteCtx) => {
       // next Q-YYYY-NNNNN string via next_doc_number. Mirrors the
       // manufacturing-api pattern from 0054. Empty string is treated as
       // absent so the SPA can drop the field entirely.
+      if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+      if (body.default_tax_id) { await assertRefInOrg('taxes', caller, body.default_tax_id); }
+      if (body.payment_method_id) { await assertRefInOrg('payment_methods', caller, body.payment_method_id); }
+      if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }
       const supplied = body.number?.trim();
       const number = supplied
         ? supplied
@@ -122,6 +127,10 @@ const updateQuote = async (ctx: RouteCtx) => {
   return respondWithIdempotency(
     ctx.req, caller, BUNDLE, '/quotes/:id', body,
     async () => {
+      if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+      if (body.default_tax_id) { await assertRefInOrg('taxes', caller, body.default_tax_id); }
+      if (body.payment_method_id) { await assertRefInOrg('payment_methods', caller, body.payment_method_id); }
+      if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }
       const client = admin();
       const { data, error } = await client
         .from('quotes')
@@ -205,6 +214,10 @@ const addLineItem = async (ctx: RouteCtx) => {
       if (!['draft', 'revise_requested'].includes(parent.state as string)) {
         throw new ApiError('STATE_CONFLICT', 409, 'quote is not editable in current state');
       }
+
+      if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+      if (body.vas_id) { await assertRefInOrg('value_added_services', caller, body.vas_id); }
+      if (body.tax_id) { await assertRefInOrg('taxes', caller, body.tax_id); }
 
       // Snapshot the tax rate now if tax_id is provided; the DB trigger
       // also enforces this, but we precompute math here.
