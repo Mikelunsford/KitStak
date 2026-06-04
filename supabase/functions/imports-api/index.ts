@@ -13,6 +13,7 @@ import {
   respondWithIdempotency,
   requireCap,
 } from '../_shared/handler-helpers.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import {
@@ -64,6 +65,45 @@ const TableForEntity: Record<string, string> = {
   invoice: 'invoices',
   expense: 'expenses',
 };
+
+// Org-scoped foreign-key columns per importable entity, mapped to the table
+// each id must belong to within the caller org. Used to reject cross-tenant ids
+// before the bulk insert. The commit insert spreads the raw row, so this MUST
+// list every org-scoped FK column on the target table; an unlisted column could
+// otherwise carry a cross-tenant id straight through the spread. Distinct
+// non-null ids per field are validated once each.
+const ForeignKeysForEntity: Record<string, Record<string, string>> = {
+  item: { category_id: 'item_categories', unit_id: 'units', default_tax_id: 'taxes' },
+  invoice: { customer_id: 'customers', project_id: 'projects', quote_id: 'quotes' },
+  expense: {
+    vendor_id: 'vendors',
+    project_id: 'projects',
+    expense_category_id: 'expense_categories',
+  },
+};
+
+async function assertRowRefsInOrg(
+  entity: string,
+  caller: Parameters<typeof assertRefInOrg>[1],
+  rows: Array<Record<string, unknown>>,
+  validIdx: Set<number>,
+): Promise<void> {
+  const fkFields = ForeignKeysForEntity[entity];
+  if (!fkFields) return;
+  for (const [field, table] of Object.entries(fkFields)) {
+    const distinctIds = new Set<string>();
+    rows.forEach((row, i) => {
+      if (!validIdx.has(i)) return;
+      const value = row[field];
+      if (typeof value === 'string' && value.length > 0) {
+        distinctIds.add(value);
+      }
+    });
+    for (const id of distinctIds) {
+      await assertRefInOrg(table, caller, id);
+    }
+  }
+}
 
 function validateRows(
   entity: string,
@@ -155,6 +195,9 @@ const commit: Route = {
         const { errors, validIdx } = validateRows(entity.data, body.rows);
         const table = TableForEntity[entity.data];
         if (!table) throw new ApiError('NOT_FOUND', 404);
+        // Reject any cross-tenant foreign-key id before the bulk insert. A 404
+        // from assertRefInOrg aborts the commit so no rows are written.
+        await assertRowRefsInOrg(entity.data, caller, body.rows, validIdx);
         const insertRows = body.rows
           .map((r, i) => ({ ...r, org_id: caller.orgId, idx: i }))
           .filter((r) => validIdx.has(r.idx as number))

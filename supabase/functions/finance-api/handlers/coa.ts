@@ -17,6 +17,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   AccountTypeSchema,
   ChartOfAccountSchema,
@@ -94,6 +95,9 @@ export async function createCoa(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /coa`,
     body,
     async () => {
+      if (body.parent_account_id) {
+        await assertRefInOrg('chart_of_accounts', caller, body.parent_account_id);
+      }
       const insert = {
         org_id: caller.orgId,
         code: body.code,
@@ -133,6 +137,9 @@ export async function patchCoa(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await fetchCoa(caller.orgId, id);
+      if (body.parent_account_id) {
+        await assertRefInOrg('chart_of_accounts', caller, body.parent_account_id);
+      }
       const patch: Record<string, unknown> = { updated_by: caller.userId };
       for (const [k, v] of Object.entries(body)) {
         if (v !== undefined) patch[k] = v;

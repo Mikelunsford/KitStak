@@ -15,6 +15,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   LeadConvertResultSchema,
   LeadConvertSchema,
@@ -131,6 +132,14 @@ export async function createLead({ req }: RouteCtx): Promise<Response> {
   const body = await parseBody(req, LeadCreateSchema);
 
   return respondWithIdempotency(req, caller, BUNDLE, 'POST /leads', body, async () => {
+    // owner_user_id references a member of the caller's org via
+    // org_memberships.user_id. Verify in-org before insert.
+    if (body.owner_user_id) {
+      await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
+        column: 'user_id',
+      });
+    }
+
     const insertRow = {
       org_id: caller.orgId,
       display_name: body.display_name,
@@ -194,6 +203,14 @@ export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
             'use POST /leads/:id/convert to convert a lead',
           );
         }
+      }
+
+      // owner_user_id references a member of the caller's org via
+      // org_memberships.user_id. Verify in-org before update.
+      if (body.owner_user_id) {
+        await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
+          column: 'user_id',
+        });
       }
 
       const patch: Record<string, unknown> = { updated_by: caller.userId };

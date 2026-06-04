@@ -52,6 +52,7 @@ import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { nextDocNumber } from '../_shared/numbering.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -178,6 +179,15 @@ const TABLE: Route[] = [
       requireCap(caller, 'manufacturing.run.create');
       const body = await parseBody(req, ManufacturingRunCreateSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/manufacturing-runs', body, async () => {
+        // Cross-tenant FK guard: a client-supplied warehouse_id / project_id
+        // must belong to the caller's org. Absent / null both skip the probe.
+        // Cross-tenant ids resolve to NOT_FOUND 404.
+        if (body.warehouse_id) {
+          await assertRefInOrg('warehouses', caller, body.warehouse_id);
+        }
+        if (body.project_id) {
+          await assertRefInOrg('projects', caller, body.project_id);
+        }
         // Operator may pass a `run_number` to override; otherwise the
         // org-scoped numbering chassis (next_doc_number RPC) allocates the
         // next MFG-YYYY-NNNNN string. Seeded with prefix MFG- + yearly reset
@@ -233,6 +243,15 @@ const TABLE: Route[] = [
             'STATE_CONFLICT', 409,
             `manufacturing_run cannot be edited from status=${cur.status}`,
           );
+        }
+        // Cross-tenant FK guard: validate a re-pointed warehouse_id /
+        // project_id only when the PATCH supplies a non-null value. Explicit
+        // null clears the linkage and needs no probe. Cross-tenant ids 404.
+        if (body.warehouse_id) {
+          await assertRefInOrg('warehouses', caller, body.warehouse_id);
+        }
+        if (body.project_id) {
+          await assertRefInOrg('projects', caller, body.project_id);
         }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
@@ -404,6 +423,9 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/manufacturing-runs/:id/consumed', body,
         async () => {
           await assertRunParent(caller, params.id);
+          // Cross-tenant FK guard: item_id is required on a consumed line.
+          // A cross-tenant item resolves to NOT_FOUND 404.
+          await assertRefInOrg('items', caller, body.item_id);
           const position = body.position ?? await nextLinePosition(
             'manufacturing_run_consumed_line_items', caller, params.id,
           );
@@ -440,6 +462,11 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/manufacturing-runs/:id/consumed/:lineId', body,
         async () => {
           await assertRunParent(caller, params.id);
+          // Cross-tenant FK guard: validate a re-pointed item_id only when
+          // the PATCH supplies a non-null value. Cross-tenant ids 404.
+          if (body.item_id) {
+            await assertRefInOrg('items', caller, body.item_id);
+          }
           const patch: Record<string, unknown> = { updated_by: caller.userId };
           if (body.item_id !== undefined) patch.item_id = body.item_id;
           if (body.quantity !== undefined) patch.quantity = body.quantity;
@@ -515,6 +542,12 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/manufacturing-runs/:id/produced', body,
         async () => {
           await assertRunParent(caller, params.id);
+          // Cross-tenant FK guard: item_id is nullable on a produced line.
+          // Validate only when a non-null value is supplied. Cross-tenant
+          // ids resolve to NOT_FOUND 404.
+          if (body.item_id) {
+            await assertRefInOrg('items', caller, body.item_id);
+          }
           const position = body.position ?? await nextLinePosition(
             'manufacturing_run_produced_line_items', caller, params.id,
           );
@@ -551,6 +584,11 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/manufacturing-runs/:id/produced/:lineId', body,
         async () => {
           await assertRunParent(caller, params.id);
+          // Cross-tenant FK guard: validate a re-pointed item_id only when
+          // the PATCH supplies a non-null value. Cross-tenant ids 404.
+          if (body.item_id) {
+            await assertRefInOrg('items', caller, body.item_id);
+          }
           const patch: Record<string, unknown> = { updated_by: caller.userId };
           if (body.item_id !== undefined) patch.item_id = body.item_id;
           if (body.quantity !== undefined) patch.quantity = body.quantity;

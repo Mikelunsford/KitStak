@@ -33,6 +33,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   CreditNoteSchema,
   CreditNoteAllocationSchema,
@@ -158,6 +159,12 @@ export async function createCreditNote(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /credit-notes`,
     body,
     async () => {
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id);
+      }
+      if (body.source_invoice_id) {
+        await assertRefInOrg('invoices', caller, body.source_invoice_id);
+      }
       const insert = {
         org_id: caller.orgId,
         credit_note_number: body.credit_note_number,
@@ -198,6 +205,12 @@ export async function patchCreditNote(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await fetchCN(caller.orgId, id);
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id);
+      }
+      if (body.source_invoice_id) {
+        await assertRefInOrg('invoices', caller, body.source_invoice_id);
+      }
       const patch: Record<string, unknown> = { updated_by: caller.userId };
       for (const [k, v] of Object.entries(body)) {
         if (v !== undefined) patch[k] = v;
@@ -260,6 +273,9 @@ export async function applyCreditNote(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await fetchCN(caller.orgId, id);
+      for (const a of body.allocations) {
+        await assertRefInOrg('invoices', caller, a.invoice_id);
+      }
       const rows = body.allocations.map((a) => ({
         credit_note_id: id,
         invoice_id: a.invoice_id,

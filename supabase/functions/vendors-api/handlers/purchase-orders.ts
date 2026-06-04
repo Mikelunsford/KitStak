@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
-  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
+  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped, assertRefInOrg,
   assertTransition,
 } from '../shared.ts';
 import {
@@ -87,6 +87,7 @@ export function handlePurchaseOrders(): Route[] {
         requireCap(caller, 'purchase_orders.purchase_order.create');
         const body = await parseBody(req, PoCreateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders', body, async () => {
+          if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
           const { data, error } = await admin()
             .from('purchase_orders')
             .insert({
@@ -121,6 +122,7 @@ export function handlePurchaseOrders(): Route[] {
         parseUuidParam(params.id);
         const body = await parseBody(req, PoUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id', body, async () => {
+          if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
           const { data, error } = await admin()
             .from('purchase_orders')
             .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })
@@ -177,6 +179,7 @@ export function handlePurchaseOrders(): Route[] {
         const body = await parseBody(req, PoLineInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id/line-items', body, async () => {
           await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const computed = lineComputed(body);
           const { data, error } = await admin()
             .from('po_line_items')
@@ -201,6 +204,7 @@ export function handlePurchaseOrders(): Route[] {
         const body = await parseBody(req, PoLineUpdateInput);
         return respondWithIdempotency(req, caller, 'vendors-api', '/purchase-orders/:id/line-items/:lid', body, async () => {
           await getByIdOrgScoped<PurchaseOrder>('purchase_orders', caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const existing = await admin().from('po_line_items').select('*')
             .eq('id', params.lid).eq('purchase_order_id', params.id).maybeSingle();
           if (existing.error) throw internalError('vendors-api/purchase-orders', existing.error);

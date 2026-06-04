@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
   ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
-  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
+  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped, assertRefInOrg,
   assertTransition,
 } from '../shared.ts';
 import {
@@ -70,6 +70,9 @@ export function handleExpenses(): Route[] {
         requireCap(caller, 'expenses.expense.create');
         const body = await parseBody(req, ExpCreate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses', body, async () => {
+          if (body.expense_category_id) { await assertRefInOrg('expense_categories', caller, body.expense_category_id); }
+          if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
+          if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
           const { data, error } = await admin()
             .from('expenses')
             .insert({
@@ -101,6 +104,9 @@ export function handleExpenses(): Route[] {
         parseUuidParam(params.id);
         const body = await parseBody(req, ExpUpdate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses/:id', body, async () => {
+          if (body.expense_category_id) { await assertRefInOrg('expense_categories', caller, body.expense_category_id); }
+          if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
+          if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
           const { data, error } = await admin()
             .from('expenses')
             .update({ ...body, updated_by: caller.userId, updated_at: new Date().toISOString() })

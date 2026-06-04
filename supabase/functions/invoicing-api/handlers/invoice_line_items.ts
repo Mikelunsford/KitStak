@@ -19,6 +19,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   InvoiceLineItemSchema,
   type InvoiceLineItem,
@@ -193,6 +194,9 @@ export async function createLineItem(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await ensureInvoiceForCaller(caller.orgId, invoiceId);
+      if (body.item_id) {
+        await assertRefInOrg('items', caller, body.item_id);
+      }
       // A1: ignore client-supplied tax_amount_cents / line_total_cents and
       // persist the server-recomputed values from the trusted inputs.
       const computed = invoiceLineMath({
@@ -245,6 +249,9 @@ export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       const invoiceId = await ensureInvoiceForLine(caller.orgId, lineId);
+      if (body.item_id) {
+        await assertRefInOrg('items', caller, body.item_id);
+      }
 
       // A1: PATCH is partial, so load the current row, overlay the supplied
       // input fields, then server-recompute. Any client-supplied

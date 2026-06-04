@@ -90,6 +90,7 @@ import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { nextDocNumber } from '../_shared/numbering.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -693,6 +694,8 @@ const TABLE: Route[] = [
         // The rostered member must exist in-org; a missing member resolves to
         // NOT_FOUND 404 before any insert.
         await assertMemberParent(caller, body.member_id);
+        if (body.team_id) { await assertTeamParent(caller, body.team_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
         // Numbering: the operator may pass a shift_number override; otherwise
         // allocate the next SHF- string (Decision N1, seeded 0082). Written to
         // the dedicated shift_number column added in migration 0084 (mirrors
@@ -751,6 +754,8 @@ const TABLE: Route[] = [
         if (body.member_id !== undefined && body.member_id !== null) {
           await assertMemberParent(caller, body.member_id);
         }
+        if (body.team_id) { await assertTeamParent(caller, body.team_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
           updated_at: nowIso(),
@@ -900,6 +905,10 @@ const TABLE: Route[] = [
         }
         // If a member is named at create time, it must exist in-org.
         if (body.member_id) await assertMemberParent(caller, body.member_id);
+        // A named shift must belong to this org; cross-tenant resolves 404.
+        if (body.shift_id) {
+          await assertRefInOrg('shifts', caller, body.shift_id, { softDelete: true });
+        }
         // Numbering: allocate the next WA- string (Decision N1, seeded 0082).
         const assignmentNumber = body.assignment_number?.trim()
           ? body.assignment_number.trim()
@@ -970,6 +979,10 @@ const TABLE: Route[] = [
         }
         if (body.member_id !== undefined && body.member_id !== null) {
           await assertMemberParent(caller, body.member_id);
+        }
+        // A re-pointed shift must belong to this org; cross-tenant resolves 404.
+        if (body.shift_id !== undefined && body.shift_id !== null) {
+          await assertRefInOrg('shifts', caller, body.shift_id, { softDelete: true });
         }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
@@ -1155,6 +1168,14 @@ const TABLE: Route[] = [
         // existence) so we can snapshot the member's current default rate when
         // the caller does not supply a positive override.
         const member = await loadMember(caller, body.member_id);
+        // A named shift or assignment must belong to this org; cross-tenant
+        // references resolve to NOT_FOUND 404 before any insert.
+        if (body.shift_id) {
+          await assertRefInOrg('shifts', caller, body.shift_id, { softDelete: true });
+        }
+        if (body.assignment_id) {
+          await assertRefInOrg('work_assignments', caller, body.assignment_id, { softDelete: true });
+        }
         // hourly_rate_cents is the rate snapshotted at clock-in. A caller may
         // pass a positive per-entry override; when they do not (the common
         // case: the SPA posts 0 for callers without the rate-read cap, and the
@@ -1230,6 +1251,14 @@ const TABLE: Route[] = [
       const body = await parseBody(req, TimeEntryPatchSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/time-entries/:id', body, async () => {
         const cur = await loadTimeEntry(caller, params.id);
+        // A re-pointed shift or assignment must belong to this org; cross-tenant
+        // references resolve to NOT_FOUND 404.
+        if (body.shift_id !== undefined && body.shift_id !== null) {
+          await assertRefInOrg('shifts', caller, body.shift_id, { softDelete: true });
+        }
+        if (body.assignment_id !== undefined && body.assignment_id !== null) {
+          await assertRefInOrg('work_assignments', caller, body.assignment_id, { softDelete: true });
+        }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
           updated_at: nowIso(),

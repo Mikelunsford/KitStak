@@ -84,6 +84,7 @@ import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { nextDocNumber } from '../_shared/numbering.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
@@ -355,6 +356,9 @@ const TABLE: Route[] = [
       requireCap(caller, 'copack.order.create');
       const body = await parseBody(req, SalesOrderCreateSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/sales-orders', body, async () => {
+        if (body.channel_id) { await assertRefInOrg('sales_channels', caller, body.channel_id); }
+        if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         // Operator may pass an `order_number` to override; otherwise the
         // org-scoped numbering chassis allocates the next SO- string (seeded
         // by migration 0077).
@@ -408,6 +412,9 @@ const TABLE: Route[] = [
             `sales_order cannot be edited from status=${cur.status}`,
           );
         }
+        if (body.channel_id) { await assertRefInOrg('sales_channels', caller, body.channel_id); }
+        if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
           updated_at: nowIso(),
@@ -542,6 +549,7 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/sales-orders/:id/lines', body,
         async () => {
           await assertOrderParent(caller, params.id);
+          await assertRefInOrg('items', caller, body.item_id);
           const position = body.position ?? await nextOrderLinePosition(caller, params.id);
           const insert = {
             org_id: caller.orgId,
@@ -576,6 +584,7 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/sales-orders/:id/lines/:lineId', body,
         async () => {
           await assertOrderParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const patch: Record<string, unknown> = { updated_by: caller.userId };
           if (body.item_id !== undefined) patch.item_id = body.item_id;
           if (body.quantity !== undefined) patch.quantity = body.quantity;
@@ -676,6 +685,8 @@ const TABLE: Route[] = [
       requireCap(caller, 'copack.kitting_job.create');
       const body = await parseBody(req, KittingJobCreateSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/kitting-jobs', body, async () => {
+        if (body.sales_order_id) { await assertRefInOrg('sales_orders', caller, body.sales_order_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
         // Operator may pass a `job_number` to override; otherwise the
         // org-scoped numbering chassis allocates the next KIT- string (seeded
         // by migration 0077).
@@ -726,6 +737,8 @@ const TABLE: Route[] = [
             `kitting_job cannot be edited from status=${cur.status}`,
           );
         }
+        if (body.sales_order_id) { await assertRefInOrg('sales_orders', caller, body.sales_order_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
           updated_at: nowIso(),
@@ -894,6 +907,7 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/kitting-jobs/:id/consumed', body,
         async () => {
           await assertKittingJobParent(caller, params.id);
+          await assertRefInOrg('items', caller, body.item_id);
           const position = body.position ?? await nextKittingLinePosition(
             'kitting_job_consumed_line_items', caller, params.id,
           );
@@ -930,6 +944,7 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/kitting-jobs/:id/consumed/:lineId', body,
         async () => {
           await assertKittingJobParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const patch: Record<string, unknown> = { updated_by: caller.userId };
           if (body.item_id !== undefined) patch.item_id = body.item_id;
           if (body.quantity !== undefined) patch.quantity = body.quantity;
@@ -1005,6 +1020,7 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/kitting-jobs/:id/produced', body,
         async () => {
           await assertKittingJobParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const position = body.position ?? await nextKittingLinePosition(
             'kitting_job_produced_line_items', caller, params.id,
           );
@@ -1041,6 +1057,7 @@ const TABLE: Route[] = [
         req, caller, BUNDLE, '/kitting-jobs/:id/produced/:lineId', body,
         async () => {
           await assertKittingJobParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
           const patch: Record<string, unknown> = { updated_by: caller.userId };
           if (body.item_id !== undefined) patch.item_id = body.item_id;
           if (body.quantity !== undefined) patch.quantity = body.quantity;
@@ -1122,6 +1139,8 @@ const TABLE: Route[] = [
         // The parent sales_order must exist in-org and not be soft-deleted;
         // a cross-tenant or missing parent resolves to NOT_FOUND 404.
         await assertOrderParent(caller, body.sales_order_id);
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        if (body.shipment_id) { await assertRefInOrg('shipments', caller, body.shipment_id); }
         const fulfillmentNumber = body.fulfillment_number?.trim()
           ? body.fulfillment_number.trim()
           : await nextDocNumber(caller.orgId, 'fulfillment');

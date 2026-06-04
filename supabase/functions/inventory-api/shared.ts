@@ -8,11 +8,12 @@ import {
 } from '../_shared/handler-helpers.ts';
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
+import { assertRefInOrg } from '../_shared/crud.ts';
 
 export {
   ApiError, ok, admin, parseLimit, decodeCursor, encodeCursor, paginate, parseBody,
   parseUuidParam, respondWithIdempotency, created, requireCaller, requireCap,
-  internalError,
+  internalError, assertRefInOrg,
 };
 export type { Caller };
 

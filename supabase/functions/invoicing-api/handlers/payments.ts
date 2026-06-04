@@ -25,6 +25,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   PaymentSchema,
   PaymentAllocationSchema,
@@ -208,6 +209,9 @@ export async function createPayment(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /payments`,
     body,
     async () => {
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id);
+      }
       // B8 completion (v2 smoke 2026-05-22): operator may pass a
       // payment_number to override; otherwise the org-scoped numbering
       // chassis allocates the next PMT-YYYY-NNNNN string via
@@ -265,6 +269,9 @@ export async function patchPayment(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await fetchPayment(caller.orgId, id);
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id);
+      }
       const patch: Record<string, unknown> = { updated_by: caller.userId };
       for (const [k, v] of Object.entries(body)) {
         if (v !== undefined) patch[k] = v;
@@ -327,6 +334,9 @@ export async function applyPayment(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await fetchPayment(caller.orgId, id);
+      for (const a of body.allocations) {
+        await assertRefInOrg('invoices', caller, a.invoice_id);
+      }
       const rows = body.allocations.map((a) => ({
         payment_id: id,
         invoice_id: a.invoice_id,

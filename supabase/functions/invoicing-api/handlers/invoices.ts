@@ -24,6 +24,7 @@ import {
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
+import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
   InvoiceSchema,
   InvoiceStatusSchema,
@@ -177,6 +178,15 @@ export async function createInvoice(ctx: RouteCtx): Promise<Response> {
     `${ctx.req.method} /invoices`,
     body,
     async () => {
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id);
+      }
+      if (body.project_id) {
+        await assertRefInOrg('projects', caller, body.project_id);
+      }
+      if (body.quote_id) {
+        await assertRefInOrg('quotes', caller, body.quote_id);
+      }
       // BNEW-4 (v2 smoke 2026-05-22): operator may pass an invoice_number to
       // override; otherwise the org-scoped numbering chassis allocates the
       // next INV-YYYY-NNNNN string via next_doc_number. Empty / whitespace-
@@ -230,6 +240,15 @@ export async function patchInvoice(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       await fetchInvoiceRow(caller, id);
+      if (body.customer_id) {
+        await assertRefInOrg('customers', caller, body.customer_id);
+      }
+      if (body.project_id) {
+        await assertRefInOrg('projects', caller, body.project_id);
+      }
+      if (body.quote_id) {
+        await assertRefInOrg('quotes', caller, body.quote_id);
+      }
       const patch: Record<string, unknown> = { updated_by: caller.userId };
       for (const [k, v] of Object.entries(body)) {
         if (v !== undefined) patch[k] = v;
