@@ -31,7 +31,11 @@ jobs:
         with:
           deno-version: v2.x
       - name: Typecheck edge functions (Deno)
-        run: deno check --import-map=supabase/functions/deno.json $(find supabase/functions -maxdepth 2 -name index.ts)
+        # node-modules-dir=none: ignore the pnpm-created node_modules and resolve
+        # the npm: import-map specifiers from Deno's own cache, matching how the
+        # Supabase edge runtime loads them. Without it Deno picks manual mode off
+        # the existing node_modules and fails to find the npm packages.
+        run: deno check --node-modules-dir=none --import-map=supabase/functions/deno.json $(find supabase/functions -maxdepth 2 -name index.ts)
       # F-Wave7-CANON-STEWARD-01 + F-Wave7-TRIGGER-AUDIT-01 grep guardrails.
       # Run before tests so a wave of stale TODO markers or a buggy trigger
       # migration fails fast (sub-1s each) without paying for the full test
