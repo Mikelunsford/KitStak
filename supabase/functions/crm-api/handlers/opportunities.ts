@@ -156,6 +156,7 @@ export async function createOpportunity({ req }: RouteCtx): Promise<Response> {
     if (body.owner_user_id) {
       await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
         column: 'user_id',
+        softDelete: false,
       });
     }
 
@@ -227,6 +228,7 @@ export async function patchOpportunity({ req, params }: RouteCtx): Promise<Respo
       if (body.owner_user_id) {
         await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
           column: 'user_id',
+          softDelete: false,
         });
       }
 

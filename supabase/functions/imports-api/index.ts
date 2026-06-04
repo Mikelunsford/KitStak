@@ -13,7 +13,7 @@ import {
   respondWithIdempotency,
   requireCap,
 } from '../_shared/handler-helpers.ts';
-import { assertRefInOrg } from '../_shared/crud.ts';
+import { assertRefsInOrg } from '../_shared/crud.ts';
 import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import {
@@ -67,53 +67,40 @@ const TableForEntity: Record<string, string> = {
 };
 
 // Org-scoped foreign-key columns per importable entity, mapped to the table
-// each id must belong to within the caller org. Used to reject cross-tenant ids
-// before the bulk insert. The commit insert spreads the raw row, so this MUST
-// list every org-scoped FK column on the target table; an unlisted column could
-// otherwise carry a cross-tenant id straight through the spread. Distinct
-// non-null ids per field are validated once each.
+// each id must belong to within the caller org. Only columns DECLARED in the
+// RowSchemas reach the insert (the commit handler inserts the Zod-parsed row,
+// not the raw row), so this lists just the schema-declared FK columns;
+// undeclared FK columns are stripped before insert and need no check. Distinct
+// non-null ids per field are validated in a single batched query.
 const ForeignKeysForEntity: Record<string, Record<string, string>> = {
-  item: { category_id: 'item_categories', unit_id: 'units', default_tax_id: 'taxes' },
-  invoice: { customer_id: 'customers', project_id: 'projects', quote_id: 'quotes' },
-  expense: {
-    vendor_id: 'vendors',
-    project_id: 'projects',
-    expense_category_id: 'expense_categories',
-  },
+  invoice: { customer_id: 'customers' },
+  expense: { vendor_id: 'vendors' },
 };
 
 async function assertRowRefsInOrg(
   entity: string,
-  caller: Parameters<typeof assertRefInOrg>[1],
+  caller: Parameters<typeof assertRefsInOrg>[1],
   rows: Array<Record<string, unknown>>,
-  validIdx: Set<number>,
 ): Promise<void> {
   const fkFields = ForeignKeysForEntity[entity];
   if (!fkFields) return;
   for (const [field, table] of Object.entries(fkFields)) {
-    const distinctIds = new Set<string>();
-    rows.forEach((row, i) => {
-      if (!validIdx.has(i)) return;
-      const value = row[field];
-      if (typeof value === 'string' && value.length > 0) {
-        distinctIds.add(value);
-      }
-    });
-    for (const id of distinctIds) {
-      await assertRefInOrg(table, caller, id);
-    }
+    const ids = rows
+      .map((row) => row[field])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+    await assertRefsInOrg(table, caller, ids);
   }
 }
 
 function validateRows(
   entity: string,
   rows: Array<Record<string, unknown>>,
-): { errors: ImportRowError[]; validIdx: Set<number> } {
+): { errors: ImportRowError[]; validRows: Array<Record<string, unknown>> } {
   const schema = RowSchemas[entity];
   const errors: ImportRowError[] = [];
-  const validIdx = new Set<number>();
+  const validRows: Array<Record<string, unknown>> = [];
   if (!schema) {
-    return { errors: [{ row_number: 0, field: null, message: 'unsupported entity' }], validIdx };
+    return { errors: [{ row_number: 0, field: null, message: 'unsupported entity' }], validRows };
   }
   rows.forEach((row, i) => {
     const parsed = schema.safeParse(row);
@@ -130,10 +117,12 @@ function validateRows(
         }
       }
     } else {
-      validIdx.add(i);
+      // Push the Zod-parsed row (unknown fields stripped) so the commit insert
+      // is an allowlist of declared columns, not the raw client payload.
+      validRows.push(parsed.data as Record<string, unknown>);
     }
   });
-  return { errors, validIdx };
+  return { errors, validRows };
 }
 
 const validate: Route = {
@@ -161,10 +150,10 @@ const validate: Route = {
       '/imports/:entity/validate',
       body,
       async () => {
-        const { errors, validIdx } = validateRows(entity.data, body.rows);
+        const { errors, validRows } = validateRows(entity.data, body.rows);
         return ok({
           total_rows: body.rows.length,
-          valid_rows: validIdx.size,
+          valid_rows: validRows.length,
           errors,
         });
       },
@@ -192,16 +181,22 @@ const commit: Route = {
       '/imports/:entity/commit',
       body,
       async () => {
-        const { errors, validIdx } = validateRows(entity.data, body.rows);
+        const { errors, validRows } = validateRows(entity.data, body.rows);
         const table = TableForEntity[entity.data];
         if (!table) throw new ApiError('NOT_FOUND', 404);
         // Reject any cross-tenant foreign-key id before the bulk insert. A 404
-        // from assertRefInOrg aborts the commit so no rows are written.
-        await assertRowRefsInOrg(entity.data, caller, body.rows, validIdx);
-        const insertRows = body.rows
-          .map((r, i) => ({ ...r, org_id: caller.orgId, idx: i }))
-          .filter((r) => validIdx.has(r.idx as number))
-          .map(({ idx: _idx, ...r }) => r);
+        // from assertRefsInOrg aborts the commit so no rows are written.
+        await assertRowRefsInOrg(entity.data, caller, validRows);
+        // Allowlist insert: validRows holds the Zod-parsed rows (unknown fields
+        // already stripped), so the spread carries only declared columns. The
+        // server sets org and audit columns; a client cannot inject created_by,
+        // id, status, or any other column through the import payload.
+        const insertRows = validRows.map((r) => ({
+          ...r,
+          org_id: caller.orgId,
+          created_by: caller.userId,
+          updated_by: caller.userId,
+        }));
         let inserted = 0;
         if (insertRows.length > 0) {
           const { error, count } = await admin()

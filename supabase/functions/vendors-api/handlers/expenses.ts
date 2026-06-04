@@ -70,7 +70,7 @@ export function handleExpenses(): Route[] {
         requireCap(caller, 'expenses.expense.create');
         const body = await parseBody(req, ExpCreate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses', body, async () => {
-          if (body.expense_category_id) { await assertRefInOrg('expense_categories', caller, body.expense_category_id); }
+          if (body.expense_category_id) { await assertRefInOrg('expense_categories', caller, body.expense_category_id, { softDelete: false }); }
           if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
           if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
           const { data, error } = await admin()
@@ -104,7 +104,7 @@ export function handleExpenses(): Route[] {
         parseUuidParam(params.id);
         const body = await parseBody(req, ExpUpdate);
         return respondWithIdempotency(req, caller, 'vendors-api', '/expenses/:id', body, async () => {
-          if (body.expense_category_id) { await assertRefInOrg('expense_categories', caller, body.expense_category_id); }
+          if (body.expense_category_id) { await assertRefInOrg('expense_categories', caller, body.expense_category_id, { softDelete: false }); }
           if (body.vendor_id) { await assertRefInOrg('vendors', caller, body.vendor_id); }
           if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
           const { data, error } = await admin()

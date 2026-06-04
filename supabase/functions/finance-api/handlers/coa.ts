@@ -96,7 +96,7 @@ export async function createCoa(ctx: RouteCtx): Promise<Response> {
     body,
     async () => {
       if (body.parent_account_id) {
-        await assertRefInOrg('chart_of_accounts', caller, body.parent_account_id);
+        await assertRefInOrg('chart_of_accounts', caller, body.parent_account_id, { softDelete: false });
       }
       const insert = {
         org_id: caller.orgId,
@@ -138,7 +138,7 @@ export async function patchCoa(ctx: RouteCtx): Promise<Response> {
     async () => {
       await fetchCoa(caller.orgId, id);
       if (body.parent_account_id) {
-        await assertRefInOrg('chart_of_accounts', caller, body.parent_account_id);
+        await assertRefInOrg('chart_of_accounts', caller, body.parent_account_id, { softDelete: false });
       }
       const patch: Record<string, unknown> = { updated_by: caller.userId };
       for (const [k, v] of Object.entries(body)) {
