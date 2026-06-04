@@ -136,7 +136,7 @@ export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response>
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as Array<{ id: string; created_at: string }>;
+  const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToCN), next_cursor ? { next_cursor } : undefined);
 }
@@ -310,7 +310,7 @@ async function transitionCreditNoteTo(
   to: CreditNoteState,
 ): Promise<CreditNote> {
   const row = await fetchCN(caller.orgId, id);
-  const from = (row as { status: string }).status as CreditNoteState;
+  const from = (row as unknown as { status: string }).status as CreditNoteState;
   // Issue and Void are explicit forward actions, not idempotent self-loops.
   // canFinanceTransition treats `from === to` as allowed (so the generic FSM
   // predicate stays useful for button-gating), but re-issuing an already

@@ -114,7 +114,7 @@ async function fetchInvoiceRow(caller: Caller, id: string): Promise<InvoiceRow> 
     });
   }
   if (!data) throw new ApiError('NOT_FOUND', 404, 'invoice not found');
-  return data as InvoiceRow;
+  return data as unknown as InvoiceRow;
 }
 
 export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
@@ -153,7 +153,7 @@ export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as InvoiceRow[];
+  const rows = (data ?? []) as unknown as InvoiceRow[];
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToInvoice), next_cursor ? { next_cursor } : undefined);
 }
@@ -221,7 +221,7 @@ export async function createInvoice(ctx: RouteCtx): Promise<Response> {
           detail: error.message,
         });
       }
-      return created(rowToInvoice(data as InvoiceRow));
+      return created(rowToInvoice(data as unknown as InvoiceRow));
     },
   );
 }
@@ -265,7 +265,7 @@ export async function patchInvoice(ctx: RouteCtx): Promise<Response> {
           detail: error.message,
         });
       }
-      return ok(rowToInvoice(data as InvoiceRow));
+      return ok(rowToInvoice(data as unknown as InvoiceRow));
     },
   );
 }
@@ -336,7 +336,7 @@ async function transitionInvoiceTo(
       detail: error.message,
     });
   }
-  return rowToInvoice(data as InvoiceRow);
+  return rowToInvoice(data as unknown as InvoiceRow);
 }
 
 // SendInvoice resolves the customer's email (override > customer.primary_email),

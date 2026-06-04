@@ -93,7 +93,7 @@ async function fetchCustomerRow(
     });
   }
   if (!data) throw new ApiError('NOT_FOUND', 404, 'customer not found');
-  return data as CustomerRow;
+  return data as unknown as CustomerRow;
 }
 
 export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
@@ -130,7 +130,7 @@ export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as CustomerRow[];
+  const rows = (data ?? []) as unknown as CustomerRow[];
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToCustomer), { next_cursor });
 }
@@ -175,7 +175,7 @@ export async function createCustomer({ req }: RouteCtx): Promise<Response> {
         detail: error?.message,
       });
     }
-    return created(rowToCustomer(data as CustomerRow));
+    return created(rowToCustomer(data as unknown as CustomerRow));
   });
 }
 
@@ -222,7 +222,7 @@ export async function patchCustomer({ req, params }: RouteCtx): Promise<Response
           detail: error?.message,
         });
       }
-      return ok(rowToCustomer(data as CustomerRow));
+      return ok(rowToCustomer(data as unknown as CustomerRow));
     },
   );
 }

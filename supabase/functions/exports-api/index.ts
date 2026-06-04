@@ -127,7 +127,7 @@ const exportEntity: Route = {
 
     const header = spec.columns.join(',');
     const lines = [header];
-    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
       lines.push(spec.columns.map((c) => csvEscape(row[c])).join(','));
     }
     const csv = lines.join('\n') + '\n';

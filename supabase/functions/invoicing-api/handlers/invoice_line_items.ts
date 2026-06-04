@@ -266,7 +266,7 @@ export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
           detail: loadError.message,
         });
       }
-      const current = existing as Record<string, unknown>;
+      const current = existing as unknown as Record<string, unknown>;
 
       const patch: Record<string, unknown> = { updated_by: caller.userId };
       // Persist only the trusted input fields the caller actually sent.

@@ -72,7 +72,7 @@ async function fetchActivityRow(
     });
   }
   if (!data) throw new ApiError('NOT_FOUND', 404, 'activity not found');
-  return data as ActivityRow;
+  return data as unknown as ActivityRow;
 }
 
 export async function listActivities({ req, url }: RouteCtx): Promise<Response> {
@@ -109,7 +109,7 @@ export async function listActivities({ req, url }: RouteCtx): Promise<Response> 
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as ActivityRow[];
+  const rows = (data ?? []) as unknown as ActivityRow[];
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToActivity), { next_cursor });
 }
@@ -163,7 +163,7 @@ export async function createActivity({ req }: RouteCtx): Promise<Response> {
         detail: error?.message,
       });
     }
-    return created(rowToActivity(data as ActivityRow));
+    return created(rowToActivity(data as unknown as ActivityRow));
   });
 }
 
@@ -200,7 +200,7 @@ export async function patchActivity({ req, params }: RouteCtx): Promise<Response
           detail: error?.message,
         });
       }
-      return ok(rowToActivity(data as ActivityRow));
+      return ok(rowToActivity(data as unknown as ActivityRow));
     },
   );
 }

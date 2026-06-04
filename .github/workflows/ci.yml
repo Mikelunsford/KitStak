@@ -22,6 +22,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web typecheck
       - run: pnpm --filter web lint
+      # Typecheck the Supabase edge functions. `supabase functions deploy`
+      # transpiles with esbuild and does NOT typecheck, so without this gate a
+      # Deno-side type error only surfaces post-merge at deploy. Each bundle
+      # entry point is checked; imported handlers and _shared are covered
+      # transitively. node-modules-dir=none resolves the npm: import map from
+      # Deno's own cache, ignoring the pnpm node_modules.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck edge functions (Deno)
+        run: deno check --node-modules-dir=none --import-map=supabase/functions/deno.json $(find supabase/functions -maxdepth 2 -name index.ts)
       # F-Wave7-CANON-STEWARD-01 + F-Wave7-TRIGGER-AUDIT-01 grep guardrails.
       # Run before tests so a wave of stale TODO markers or a buggy trigger
       # migration fails fast (sub-1s each) without paying for the full test

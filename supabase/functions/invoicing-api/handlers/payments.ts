@@ -159,7 +159,7 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
         detail: error.message,
       });
     }
-    const rows = (data ?? []) as Array<{ id: string; created_at: string }>;
+    const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
     const { items, next_cursor } = paginate(rows, limit);
     return ok(items.map(rowToPayment), next_cursor ? { next_cursor } : undefined);
   }
@@ -185,7 +185,7 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as Array<{ id: string; created_at: string }>;
+  const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToPayment), next_cursor ? { next_cursor } : undefined);
 }

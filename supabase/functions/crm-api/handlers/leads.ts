@@ -76,7 +76,7 @@ async function fetchLeadRow(caller: Caller, id: string): Promise<LeadRow> {
     });
   }
   if (!data) throw new ApiError('NOT_FOUND', 404, 'lead not found');
-  return data as LeadRow;
+  return data as unknown as LeadRow;
 }
 
 export async function listLeads({ req, url }: RouteCtx): Promise<Response> {
@@ -113,7 +113,7 @@ export async function listLeads({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as LeadRow[];
+  const rows = (data ?? []) as unknown as LeadRow[];
   const { items, next_cursor } = paginate(rows, limit);
   return ok(items.map(rowToLead), { next_cursor });
 }
@@ -165,7 +165,7 @@ export async function createLead({ req }: RouteCtx): Promise<Response> {
         detail: error?.message,
       });
     }
-    return created(rowToLead(data as LeadRow));
+    return created(rowToLead(data as unknown as LeadRow));
   });
 }
 
@@ -195,8 +195,10 @@ export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
             `illegal lead transition ${before.status} -> ${body.status}`,
           );
         }
-        // Convert is gated by the dedicated endpoint; refuse it here.
-        if (body.status === 'converted') {
+        // Convert is gated by the dedicated endpoint; refuse it here. The patch
+        // schema omits 'converted', so this guard is a backstop the types do not
+        // capture; cast to LeadState to compare without dropping the check.
+        if ((body.status as LeadState) === 'converted') {
           throw new ApiError(
             'STATE_CONFLICT',
             409,
@@ -239,7 +241,7 @@ export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
           detail: error?.message,
         });
       }
-      return ok(rowToLead(data as LeadRow));
+      return ok(rowToLead(data as unknown as LeadRow));
     },
   );
 }
