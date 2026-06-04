@@ -78,6 +78,7 @@ export function DataTable<T>({
             {columns.map((col) => (
               <th
                 key={col.key}
+                scope="col"
                 className={`px-4 py-2.5 font-mono text-xs uppercase tracking-wide text-ink-dim ${alignClass(
                   col.align,
                 )}`}
