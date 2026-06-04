@@ -137,6 +137,7 @@ export async function createLead({ req }: RouteCtx): Promise<Response> {
     if (body.owner_user_id) {
       await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
         column: 'user_id',
+        softDelete: false,
       });
     }
 
@@ -212,6 +213,7 @@ export async function patchLead({ req, params }: RouteCtx): Promise<Response> {
       if (body.owner_user_id) {
         await assertRefInOrg('org_memberships', caller, body.owner_user_id, {
           column: 'user_id',
+          softDelete: false,
         });
       }
 

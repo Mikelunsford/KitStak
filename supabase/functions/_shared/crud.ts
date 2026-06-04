@@ -92,8 +92,11 @@ export async function getByIdOrgScoped<T>(
  * "exists in another org", so it leaks no cross-tenant existence oracle.
  *
  * `column` overrides the matched column for references that point at a
- * non-id column (for example org_memberships.user_id). `softDelete` adds a
- * `deleted_at is null` filter for soft-deleting parents.
+ * non-id column (for example org_memberships.user_id). Soft-deleted parents
+ * are rejected by default (a `deleted_at is null` filter). Pass
+ * `softDelete: false` for the parent tables with no `deleted_at` column
+ * (chart_of_accounts, expense_categories, org_memberships, journal_entries),
+ * otherwise the filter errors at the database.
  */
 export async function assertRefInOrg(
   table: string,
@@ -107,7 +110,7 @@ export async function assertRefInOrg(
     .select(column)
     .eq('org_id', caller.orgId)
     .eq(column, id);
-  if (options.softDelete) {
+  if (options.softDelete !== false) {
     q = q.is('deleted_at', null);
   }
   const { data, error } = await q.limit(1);
@@ -116,5 +119,44 @@ export async function assertRefInOrg(
   }
   if (!data || data.length === 0) {
     throw new ApiError('NOT_FOUND', 404, `referenced ${table} not found in org`);
+  }
+}
+
+/**
+ * Batch variant of assertRefInOrg. Verifies that every id in `ids` references a
+ * row in the caller's org with a single `where in (...)` query instead of one
+ * round-trip per id. Throws NOT_FOUND (404) if any distinct non-null id is
+ * missing. `column` and `softDelete` behave as in assertRefInOrg.
+ */
+export async function assertRefsInOrg(
+  table: string,
+  caller: Caller,
+  ids: ReadonlyArray<string>,
+  options: { column?: string; softDelete?: boolean } = {},
+): Promise<void> {
+  const column = options.column ?? 'id';
+  const distinct = [
+    ...new Set(ids.filter((v) => typeof v === 'string' && v.length > 0)),
+  ];
+  if (distinct.length === 0) return;
+  let q = admin()
+    .from(table)
+    .select(column)
+    .eq('org_id', caller.orgId)
+    .in(column, distinct);
+  if (options.softDelete !== false) {
+    q = q.is('deleted_at', null);
+  }
+  const { data, error } = await q;
+  if (error) {
+    throw internalError(`crud:assertRefsInOrg:${table}`, error);
+  }
+  const found = new Set(
+    (data ?? []).map((r) => (r as unknown as Record<string, unknown>)[column]),
+  );
+  for (const id of distinct) {
+    if (!found.has(id)) {
+      throw new ApiError('NOT_FOUND', 404, `referenced ${table} not found in org`);
+    }
   }
 }
