@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { useMe } from '@/lib/hooks/useMe';
+import { NoActiveOrgPage } from '@/pages/NoActiveOrgPage';
+import { hasActiveOrgClaim } from './activeOrgClaim';
 import { useAuth } from './AuthContext';
 
 /**
@@ -33,6 +35,17 @@ export function PortalRoute({ children }: { children: ReactNode }) {
         state={{ from: location.pathname }}
       />
     );
+  }
+
+  // A customer_user whose JWT carries no kitstak_org_id claim would otherwise
+  // fall through to the portal and fire org-scoped calls that 401 NO_ACTIVE_ORG,
+  // rendering an empty shell (the same symptom the staff ProtectedRoute fixed
+  // for F-Wave9-COWORK-SMOKE-03). Render the no-org surface INLINE rather than
+  // redirecting: the portal sign-in bounces any authenticated session back to
+  // /portal, so a redirect here would infinite-loop. The claim check is
+  // synchronous, so this renders before useMe runs.
+  if (!hasActiveOrgClaim(state.user)) {
+    return <NoActiveOrgPage />;
   }
 
   if (me.isLoading) {
