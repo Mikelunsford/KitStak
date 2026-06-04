@@ -234,7 +234,12 @@ function stripeClient(): Stripe {
       'Missing STRIPE_SECRET_KEY',
     );
   }
-  cachedStripe = new Stripe(key, { apiVersion: '2024-09-30.acacia' });
+  // The cast keeps the intentional 2024-09-30.acacia pin (see above) valid when
+  // the SDK types advance their LatestApiVersion literal. We pin the wire
+  // version on purpose; we do not adopt the SDK default.
+  cachedStripe = new Stripe(key, {
+    apiVersion: '2024-09-30.acacia' as Stripe.LatestApiVersion,
+  });
   return cachedStripe;
 }
 
