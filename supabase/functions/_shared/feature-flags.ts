@@ -3,8 +3,9 @@
 // Source of truth: public.org_feature_flags(org_id, flag_key, is_enabled,
 // config). Bundle-level gates (e.g. plugins.three_pl on the ops-api bundle)
 // return 404 NOT_FOUND to hide the surface entirely. Per-route gates (e.g.
-// finance.expenses inside an active bundle) return 403 FEATURE_DISABLED
-// with details.flag so the SPA can route to /feature-unavailable.
+// finance.journal_entries.enabled inside an active bundle) return 403
+// FEATURE_DISABLED with details.flag so the SPA can route to
+// /feature-unavailable.
 //
 // Cache: 5-minute in-memory Map per Deno instance. Eviction is lazy on read.
 // Org admins flipping a flag via settings-api can bound staleness to 5 min;
@@ -39,7 +40,7 @@ function cacheKey(orgId: string, flagKey: string): string {
  *   plugins.three_pl, plugins.manufacturing, plugins.copack_ecom,
  *   plugins.kitforce, plugins.kitcost,
  *   addons.whitelabel, addons.kitforce, addons.kitcost,
- *   finance.journal_entries.enabled, finance.expenses,
+ *   finance.journal_entries.enabled,
  *   auth.sso_saml.
  */
 export async function getFlag(

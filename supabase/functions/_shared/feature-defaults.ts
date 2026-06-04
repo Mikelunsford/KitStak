@@ -11,7 +11,8 @@
 //   starter        single plugin (3PL by default), no whitelabel, manual
 //                  invoicing (no JE), no KitForce, no KitCost.
 //   professional   all three core plugins, whitelabel included, journal
-//                  entries on, expenses on.
+//                  entries on. (Expenses and chart-of-accounts are core ERP,
+//                  available on every tier, so they are not flag-gated.)
 //   enterprise     everything above plus KitForce, KitCost, and SSO.
 //
 // Adding a new flag in a future wave: append to this map under each tier and
@@ -37,10 +38,10 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
     [FEATURE_FLAGS.ADDONS_WHITELABEL]: false,
     [FEATURE_FLAGS.ADDONS_KITFORCE]: false,
     [FEATURE_FLAGS.ADDONS_KITCOST]: false,
-    // Finance (manual invoicing per decision D-004)
+    // Finance: journal entries are the advanced/pro accounting surface
+    // (manual invoicing per decision D-004). Expenses and chart-of-accounts
+    // are core ERP and always available, so they are not flag-gated.
     [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: false,
-    [FEATURE_FLAGS.FINANCE_EXPENSES]: false,
-    [FEATURE_FLAGS.FINANCE_CHART_OF_ACCOUNTS]: false,
     // Auth
     [FEATURE_FLAGS.AUTH_SSO_SAML]: false,
   },
@@ -55,10 +56,9 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
     [FEATURE_FLAGS.ADDONS_WHITELABEL]: true,
     [FEATURE_FLAGS.ADDONS_KITFORCE]: false,
     [FEATURE_FLAGS.ADDONS_KITCOST]: false,
-    // Finance
+    // Finance (journal entries; expenses + chart-of-accounts are core ERP,
+    // ungated)
     [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: true,
-    [FEATURE_FLAGS.FINANCE_EXPENSES]: true,
-    [FEATURE_FLAGS.FINANCE_CHART_OF_ACCOUNTS]: true,
     // Auth
     [FEATURE_FLAGS.AUTH_SSO_SAML]: false,
   },
@@ -73,10 +73,9 @@ export const DEFAULT_FLAGS_BY_TIER: Record<
     [FEATURE_FLAGS.ADDONS_WHITELABEL]: true,
     [FEATURE_FLAGS.ADDONS_KITFORCE]: true,
     [FEATURE_FLAGS.ADDONS_KITCOST]: true,
-    // Finance
+    // Finance (journal entries; expenses + chart-of-accounts are core ERP,
+    // ungated)
     [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: true,
-    [FEATURE_FLAGS.FINANCE_EXPENSES]: true,
-    [FEATURE_FLAGS.FINANCE_CHART_OF_ACCOUNTS]: true,
     // Auth
     [FEATURE_FLAGS.AUTH_SSO_SAML]: true,
   },
