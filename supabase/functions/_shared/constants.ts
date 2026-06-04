@@ -45,8 +45,6 @@ export const FEATURE_FLAGS = {
   ADDONS_KITCOST: 'addons.kitcost',
   // Finance (per-route gates).
   FINANCE_JOURNAL_ENTRIES_ENABLED: 'finance.journal_entries.enabled',
-  FINANCE_EXPENSES: 'finance.expenses',
-  FINANCE_CHART_OF_ACCOUNTS: 'finance.chart_of_accounts',
   // Auth.
   AUTH_SSO_SAML: 'auth.sso_saml',
   // Platform admin (bundle-level 404 gate for admin-console-api).

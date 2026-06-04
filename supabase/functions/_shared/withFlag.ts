@@ -2,7 +2,7 @@
 // Keeps per-route flag checks out of handler bodies so a route table reads
 // declaratively:
 //
-//   { method: 'GET', path: '/expenses', handler: withFlag('finance.expenses', listExpenses) }
+//   { method: 'GET', path: '/journal-entries', handler: withFlag('finance.journal_entries.enabled', listJournalEntries) }
 //
 // The wrapped handler MUST already accept a Caller. The wrapper calls
 // requireCaller(req) to resolve the caller before the flag check, so the
