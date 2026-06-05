@@ -8,6 +8,8 @@ Date: 2026-06-04
 Author: planning session (build agent)
 Pillar plugins touched: a new `plugins.wms` (the sixth add-on) plus new surfaces
 under the existing `plugins.three_pl`.
+Delivery wave: 12 (Wave 11 is the KitForce pillar). Risk and follow-up ids below
+use the W12 / Wave12 prefix accordingly.
 
 ## 0. What this is and what it is not
 
@@ -443,32 +445,32 @@ likely require KitLink connectors and a dependency review when they come.
 
 ### Closed by this plan
 
-- R-W11-PIVOT-01. Ambiguity over who owns warehouses and stock. Closed: spine owns,
+- R-W12-PIVOT-01. Ambiguity over who owns warehouses and stock. Closed: spine owns,
   WMS deepens, grounded in migration 0030.
-- R-W11-PIVOT-02. URL churn from the pivot. Closed: build on the shipped spine plus
+- R-W12-PIVOT-02. URL churn from the pivot. Closed: build on the shipped spine plus
   add-ons URLs; new paths only; no rename.
-- R-W11-PIVOT-03. WMS scope blowout. Closed: Phase 1 is the deepening core; the
+- R-W12-PIVOT-03. WMS scope blowout. Closed: Phase 1 is the deepening core; the
   rest is named, not promised.
 
 ### Carried
 
-- R-W11-CO-01. The canon amendment for six add-ons and spine language is not yet
+- R-W12-CO-01. The canon amendment for six add-ons and spine language is not yet
   landed. Carried to Phase A0.
-- R-W11-CO-02. The additive `location_id` column touches the load-bearing spine
+- R-W12-CO-02. The additive `location_id` column touches the load-bearing spine
   `stock_movements` ledger. Carried to Phase B2 with a sum-reconcile contract test
   and explicit operator confirmation.
-- R-W11-CO-03. The Billing Review versus KitMeter boundary. Carried: light billing
+- R-W12-CO-03. The Billing Review versus KitMeter boundary. Carried: light billing
   now, metered events and activity rate cards to a future KitMeter add-on.
-- R-W11-CO-04. The pillar-grouped sidebar supersedes the UX-Q1 job-mode decision.
+- R-W12-CO-04. The pillar-grouped sidebar supersedes the UX-Q1 job-mode decision.
   Carried: a decision note plus a nav and accessibility re-test in Phase A1.
-- R-W11-CO-05. Labor reconcile to KitForce deferred behind a nullable forward link.
-- R-W11-CO-06. Account model generality. `three_pl_accounts` is 3PL-scoped for now;
+- R-W12-CO-05. Labor reconcile to KitForce deferred behind a nullable forward link.
+- R-W12-CO-06. Account model generality. `three_pl_accounts` is 3PL-scoped for now;
   if other add-ons need accounts later, it may generalize to a neutral root with a
   redirect.
 
-Proposed follow-up ids: F-Wave11-3PL-COMMERCIAL-01 through 07 for Body A phases,
-F-Wave11-WMS-01 through B4 for Body B, F-Wave11-CANON-SPINE-ADDONS-ADR-01 for A0,
-and F-Wave11-SIDEBAR-PILLAR-REGROUP-01 for the sidebar.
+Proposed follow-up ids: F-Wave12-3PL-COMMERCIAL-01 through 07 for Body A phases,
+F-Wave12-WMS-01 through B4 for Body B, F-Wave12-CANON-SPINE-ADDONS-ADR-01 for A0,
+and F-Wave12-SIDEBAR-PILLAR-REGROUP-01 for the sidebar.
 
 ## 9. Open product questions, recommended and open to override
 
