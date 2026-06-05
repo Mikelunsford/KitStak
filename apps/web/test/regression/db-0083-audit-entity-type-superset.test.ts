@@ -119,9 +119,19 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0083 is the current authoritative redefinition', () => {
+  it('0089 is the current authoritative redefinition', () => {
+    // This pin moves forward each time a migration redefines the constraint.
+    // 0089 (3PL commercial layer) supersedes 0083 by adding three_pl_account
+    // and account_service_definition on top of the full 0083 list.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(83);
-    expect(latest.file).toBe('0083_audit_log_entity_type_restore_copack.sql');
+    expect(latest.num).toBe(89);
+    expect(latest.file).toBe('0089_threepl_accounts.sql');
+  });
+
+  it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    for (const t of ['three_pl_account', 'account_service_definition']) {
+      expect(latest.types.has(t)).toBe(true);
+    }
   });
 });
