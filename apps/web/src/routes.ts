@@ -40,6 +40,14 @@ export interface RouteSpec {
    * active org. Distinct from per-route feature flag gating.
    */
   requiresPlugin?: string;
+  /**
+   * Marks a deep-link redirect entry (see pages/_redirects/SpineMoveRedirect).
+   * Redirect entries are never plugin-gated: inferPluginForPath returns
+   * undefined for them, so a legacy path that still lives under a gated
+   * prefix redirects to its new spine home instead of rendering NotFound
+   * when the pillar plugin is off. Part of the spine plus add-ons re-route.
+   */
+  isRedirect?: boolean;
 }
 
 // Lazy code splits. keep imports inside the lazy() callback so each route
@@ -1330,12 +1338,18 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
  *
  * Returns the pre-existing `requiresPlugin` value when explicitly set so
  * a route can opt out of auto-gating by declaring its own value.
+ *
+ * Redirect entries (`spec.isRedirect`) are never gated: they resolve to
+ * undefined so a legacy path that still sits under a gated prefix
+ * redirects to its new spine home rather than rendering NotFound when the
+ * plugin is off. Part of the spine plus add-ons re-route.
  */
 function inPillar(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
 
 function inferPluginForPath(spec: RouteSpec): string | undefined {
+  if (spec.isRedirect) return undefined;
   if (spec.requiresPlugin !== undefined) return spec.requiresPlugin;
   if (inPillar(spec.path, '/3pl-operations')) {
     return FEATURE_FLAGS.PLUGINS_THREE_PL;
