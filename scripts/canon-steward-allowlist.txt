@@ -28,11 +28,11 @@
 # should get their own collapsible Sidebar section in Phase 8 or remain
 # linked from the admin / items surfaces only).
 # ---------------------------------------------------------------------------
-orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/taxes
-orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/currencies
-orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/exchange-rates
-orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/payment-methods
-orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/pricing-tiers
+orphan-route|apps/web/src/routes.ts|/settings/sales-config/taxes
+orphan-route|apps/web/src/routes.ts|/settings/sales-config/currencies
+orphan-route|apps/web/src/routes.ts|/settings/sales-config/exchange-rates
+orphan-route|apps/web/src/routes.ts|/settings/sales-config/payment-methods
+orphan-route|apps/web/src/routes.ts|/settings/sales-config/pricing-tiers
 orphan-route|apps/web/src/routes.ts|/catalog/vas
 
 # ---------------------------------------------------------------------------
@@ -142,3 +142,8 @@ orphan-route|apps/web/src/routes.ts|/3pl-operations/stock/movements
 orphan-route|apps/web/src/routes.ts|/3pl-operations/items
 orphan-route|apps/web/src/routes.ts|/3pl-operations/boms
 orphan-route|apps/web/src/routes.ts|/3pl-operations/vas
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/taxes
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/currencies
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/exchange-rates
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/payment-methods
+orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/pricing-tiers

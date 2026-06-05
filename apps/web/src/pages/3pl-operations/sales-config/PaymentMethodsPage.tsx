@@ -47,7 +47,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PaymentMethod>> = [
     align: 'right',
     render: (m) => (
       <Link
-        to={`/3pl-operations/sales-config/payment-methods/${m.id}/edit`}
+        to={`/settings/sales-config/payment-methods/${m.id}/edit`}
         className="text-xs text-ink-dim hover:text-accent"
       >
         Edit
@@ -79,7 +79,7 @@ export function PaymentMethodsPage() {
         title="Payment methods"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/sales-config/payment-methods/new">
+          <Link to="/settings/sales-config/payment-methods/new">
             <Button variant="primary">Add method</Button>
           </Link>
         }

@@ -34,7 +34,7 @@ export function ExchangeRateCreatePage() {
     mutationFn: (body: ExchangeRateCreate) => createExchangeRate(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: exchangeRatesKeys.all });
-      navigate('/3pl-operations/sales-config/exchange-rates');
+      navigate('/settings/sales-config/exchange-rates');
     },
     onError: (e) =>
       setError(e instanceof Error ? e.message : 'Failed to create exchange rate.'),
@@ -120,7 +120,7 @@ export function ExchangeRateCreatePage() {
             type="button"
             variant="secondary"
             onClick={() =>
-              navigate('/3pl-operations/sales-config/exchange-rates')
+              navigate('/settings/sales-config/exchange-rates')
             }
           >
             Cancel

@@ -1072,77 +1072,77 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/taxes',
+    path: '/settings/sales-config/taxes',
     element: TaxesPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: taxes create/edit
   {
-    path: '/3pl-operations/sales-config/taxes/new',
+    path: '/settings/sales-config/taxes/new',
     element: TaxCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/taxes/:id/edit',
+    path: '/settings/sales-config/taxes/:id/edit',
     element: TaxEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/currencies',
+    path: '/settings/sales-config/currencies',
     element: CurrenciesPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/exchange-rates',
+    path: '/settings/sales-config/exchange-rates',
     element: ExchangeRatesPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: exchange-rates create (no edit - API has no PATCH)
   {
-    path: '/3pl-operations/sales-config/exchange-rates/new',
+    path: '/settings/sales-config/exchange-rates/new',
     element: ExchangeRateCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/payment-methods',
+    path: '/settings/sales-config/payment-methods',
     element: PaymentMethodsPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: payment-methods create/edit
   {
-    path: '/3pl-operations/sales-config/payment-methods/new',
+    path: '/settings/sales-config/payment-methods/new',
     element: PaymentMethodCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/payment-methods/:id/edit',
+    path: '/settings/sales-config/payment-methods/:id/edit',
     element: PaymentMethodEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/pricing-tiers',
+    path: '/settings/sales-config/pricing-tiers',
     element: PricingTiersPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: pricing-tiers create/edit
   {
-    path: '/3pl-operations/sales-config/pricing-tiers/new',
+    path: '/settings/sales-config/pricing-tiers/new',
     element: PricingTierCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/pricing-tiers/:id/edit',
+    path: '/settings/sales-config/pricing-tiers/:id/edit',
     element: PricingTierEditPage,
     guard: 'protected',
     layout: 'shell',
@@ -1357,6 +1357,18 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/vas',                 element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/vas/new',             element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/vas/:id/edit',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/taxes',                    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/taxes/new',                element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/taxes/:id/edit',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/currencies',               element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/exchange-rates',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/exchange-rates/new',       element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/payment-methods',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/payment-methods/new',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/payment-methods/:id/edit', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/pricing-tiers',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/pricing-tiers/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/pricing-tiers/:id/edit',   element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   // === End spine re-route redirects ===
 ] as const;
 

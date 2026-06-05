@@ -34,7 +34,7 @@ export function TaxCreatePage() {
     mutationFn: (body: TaxCreate) => createTax(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: taxesKeys.all });
-      navigate('/3pl-operations/sales-config/taxes');
+      navigate('/settings/sales-config/taxes');
     },
     onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create tax.'),
   });
@@ -125,7 +125,7 @@ export function TaxCreatePage() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/3pl-operations/sales-config/taxes')}
+            onClick={() => navigate('/settings/sales-config/taxes')}
           >
             Cancel
           </Button>

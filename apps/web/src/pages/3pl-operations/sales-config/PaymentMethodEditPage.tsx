@@ -61,7 +61,7 @@ export function PaymentMethodEditPage() {
       updatePaymentMethod(id as string, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: paymentMethodsKeys.all });
-      navigate('/3pl-operations/sales-config/payment-methods');
+      navigate('/settings/sales-config/payment-methods');
     },
     onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save.'),
   });
@@ -163,7 +163,7 @@ export function PaymentMethodEditPage() {
             type="button"
             variant="secondary"
             onClick={() =>
-              navigate('/3pl-operations/sales-config/payment-methods')
+              navigate('/settings/sales-config/payment-methods')
             }
           >
             Cancel
