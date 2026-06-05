@@ -66,7 +66,7 @@ export function ExpenseEditPage() {
     // Zod has validated the shape; cast to the service Partial type.
     const patch: Partial<Expense> = parsed.data as Partial<Expense>;
     update.mutate(patch, {
-      onSuccess: () => navigate(`/3pl-operations/expenses/${id}`),
+      onSuccess: () => navigate(`/purchasing/expenses/${id}`),
     });
   }
 

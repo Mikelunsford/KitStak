@@ -38,7 +38,7 @@ export interface ListEmptyStateProps {
    */
   addLabel: string;
   /**
-   * Path the CTA navigates to. Example: "/3pl-operations/vendors/new".
+   * Path the CTA navigates to. Example: "/purchasing/vendors/new".
    */
   addTo: string;
   /**

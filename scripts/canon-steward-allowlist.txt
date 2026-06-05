@@ -147,3 +147,7 @@ orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/currencies
 orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/exchange-rates
 orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/payment-methods
 orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/pricing-tiers
+orphan-route|apps/web/src/routes.ts|/3pl-operations/vendors
+orphan-route|apps/web/src/routes.ts|/3pl-operations/purchase-orders
+orphan-route|apps/web/src/routes.ts|/3pl-operations/vendor-bills
+orphan-route|apps/web/src/routes.ts|/3pl-operations/expenses

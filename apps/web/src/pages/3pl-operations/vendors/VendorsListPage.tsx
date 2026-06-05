@@ -26,7 +26,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Vendor>> = [
     header: 'Name',
     render: (v) => (
       <Link
-        to={`/3pl-operations/vendors/${v.id}`}
+        to={`/purchasing/vendors/${v.id}`}
         className="text-ink hover:text-accent"
       >
         {v.display_name}
@@ -92,7 +92,7 @@ export function VendorsListPage() {
         meta={meta}
         actions={
           caps.can('vendors.vendor.create') ? (
-            <Link to="/3pl-operations/vendors/new">
+            <Link to="/purchasing/vendors/new">
               <Button variant="primary">New vendor</Button>
             </Link>
           ) : null
@@ -120,7 +120,7 @@ export function VendorsListPage() {
           entity="vendor"
           explainer="Vendors are the companies you buy materials from."
           addLabel="Add vendor"
-          addTo="/3pl-operations/vendors/new"
+          addTo="/purchasing/vendors/new"
           canAdd={caps.can('vendors.vendor.create')}
         />
       ) : (

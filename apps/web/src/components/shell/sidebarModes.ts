@@ -229,18 +229,18 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       },
       { path: '/catalog/items', label: 'Items', icon: Package },
       { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse },
-      { path: '/3pl-operations/vendors', label: 'Vendors', icon: Building2 },
+      { path: '/purchasing/vendors', label: 'Vendors', icon: Building2 },
       {
-        path: '/3pl-operations/purchase-orders',
+        path: '/purchasing/purchase-orders',
         label: 'Purchase orders',
         icon: Receipt,
       },
       {
-        path: '/3pl-operations/vendor-bills',
+        path: '/purchasing/vendor-bills',
         label: 'Vendor bills',
         icon: Receipt,
       },
-      { path: '/3pl-operations/expenses', label: 'Expenses', icon: CreditCard },
+      { path: '/purchasing/expenses', label: 'Expenses', icon: CreditCard },
     ],
   },
   {

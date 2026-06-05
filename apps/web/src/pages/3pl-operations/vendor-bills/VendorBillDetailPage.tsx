@@ -101,12 +101,12 @@ export function VendorBillDetailPage() {
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
-          { label: 'Vendors', to: '/3pl-operations/vendors' },
+          { label: 'Vendors', to: '/purchasing/vendors' },
           {
             label: fallbackLabel(vendor.data?.display_name, d.vendor_id),
-            to: `/3pl-operations/vendors/${d.vendor_id}`,
+            to: `/purchasing/vendors/${d.vendor_id}`,
           },
-          { label: 'Bills', to: '/3pl-operations/vendor-bills' },
+          { label: 'Bills', to: '/purchasing/vendor-bills' },
           { label: d.bill_number ?? d.id.slice(0, 8) },
         ]}
       />
@@ -126,7 +126,7 @@ export function VendorBillDetailPage() {
       <PageHeader
         title={`Bill ${d.bill_number ?? d.id.slice(0, 8)}`}
         actions={
-          <Link to={`/3pl-operations/vendor-bills/${d.id}/edit`}>
+          <Link to={`/purchasing/vendor-bills/${d.id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>
         }
@@ -179,7 +179,7 @@ export function VendorBillDetailPage() {
           <dt className="text-ink-dim">Vendor</dt>
           <dd className="text-ink">
             <Link
-              to={`/3pl-operations/vendors/${d.vendor_id}`}
+              to={`/purchasing/vendors/${d.vendor_id}`}
               className="text-accent hover:underline"
             >
               {vendorLabel}

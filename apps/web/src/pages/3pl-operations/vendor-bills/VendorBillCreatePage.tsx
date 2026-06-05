@@ -65,7 +65,7 @@ export function VendorBillCreatePage() {
     if (notes) body.notes = notes;
 
     const out = await create.mutateAsync(body);
-    navigate(`/3pl-operations/vendor-bills/${out.id}`);
+    navigate(`/purchasing/vendor-bills/${out.id}`);
   }
 
   return (
@@ -155,7 +155,7 @@ export function VendorBillCreatePage() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/3pl-operations/vendor-bills')}
+            onClick={() => navigate('/purchasing/vendor-bills')}
           >
             Cancel
           </Button>

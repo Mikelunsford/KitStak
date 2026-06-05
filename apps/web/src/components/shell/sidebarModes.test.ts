@@ -119,10 +119,10 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(paths).toContain('/catalog/items');
     expect(paths).toContain('/inventory/warehouses');
     // AP (no separate BUY mode — documented compromise).
-    expect(paths).toContain('/3pl-operations/vendors');
-    expect(paths).toContain('/3pl-operations/purchase-orders');
-    expect(paths).toContain('/3pl-operations/vendor-bills');
-    expect(paths).toContain('/3pl-operations/expenses');
+    expect(paths).toContain('/purchasing/vendors');
+    expect(paths).toContain('/purchasing/purchase-orders');
+    expect(paths).toContain('/purchasing/vendor-bills');
+    expect(paths).toContain('/purchasing/expenses');
   });
 
   it('Manufacturing route is gated behind plugins.manufacturing', () => {

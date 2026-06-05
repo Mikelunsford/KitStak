@@ -28,7 +28,7 @@ const COLUMNS: ReadonlyArray<DataColumn<VendorBill>> = [
     cellClassName: 'font-mono',
     render: (b) => (
       <Link
-        to={`/3pl-operations/vendor-bills/${b.id}`}
+        to={`/purchasing/vendor-bills/${b.id}`}
         className="text-ink hover:text-accent"
       >
         {b.bill_number ?? b.id.slice(0, 8)}
@@ -95,7 +95,7 @@ export function VendorBillsListPage() {
         meta={meta}
         actions={
           caps.can('vendor_bills.vendor_bill.create') ? (
-            <Link to="/3pl-operations/vendor-bills/new">
+            <Link to="/purchasing/vendor-bills/new">
               <Button variant="primary">New vendor bill</Button>
             </Link>
           ) : undefined
@@ -109,7 +109,7 @@ export function VendorBillsListPage() {
           entity="vendor bill"
           explainer="Vendor bills are invoices from your vendors."
           addLabel="Add vendor bill"
-          addTo="/3pl-operations/vendor-bills/new"
+          addTo="/purchasing/vendor-bills/new"
           canAdd={caps.can('vendor_bills.vendor_bill.create')}
         />
       ) : (

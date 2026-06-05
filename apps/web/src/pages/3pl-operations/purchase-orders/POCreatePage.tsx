@@ -116,7 +116,7 @@ export function POCreatePage() {
         );
       }
 
-      navigate(`/3pl-operations/purchase-orders/${out.id}`);
+      navigate(`/purchasing/purchase-orders/${out.id}`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -237,7 +237,7 @@ export function POCreatePage() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/3pl-operations/purchase-orders')}
+            onClick={() => navigate('/purchasing/purchase-orders')}
           >
             Cancel
           </Button>

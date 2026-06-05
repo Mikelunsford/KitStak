@@ -120,7 +120,7 @@ function VendorLabel({ id }: { id: string }) {
   const row = items?.find((v) => v.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/vendors/${id}`} className="text-ink underline">
+    <Link to={`/purchasing/vendors/${id}`} className="text-ink underline">
       {format(row.vendor_number, row.display_name)}
     </Link>
   );

@@ -55,13 +55,13 @@ describe('list-page empty-state wiring (representative)', () => {
       entity: 'vendor',
       explainer: 'Vendors are the companies you buy materials from.',
       addLabel: 'Add vendor',
-      addTo: '/3pl-operations/vendors/new',
+      addTo: '/purchasing/vendors/new',
     });
     expect(explainerOf(nodes)).toBe(
       'Vendors are the companies you buy materials from.',
     );
     const cta = ctaOf(nodes);
-    expect(cta?.props.to).toBe('/3pl-operations/vendors/new');
+    expect(cta?.props.to).toBe('/purchasing/vendors/new');
     expect(cta?.props.children).toBe('Add vendor');
   });
 
