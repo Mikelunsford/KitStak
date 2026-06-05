@@ -30,7 +30,7 @@ const COLUMNS: ReadonlyArray<DataColumn<BomRow>> = [
     header: 'Finished item',
     render: (row) => (
       <Link
-        to={`/3pl-operations/boms/${row.parentItemId}`}
+        to={`/catalog/boms/${row.parentItemId}`}
         className="text-ink hover:text-accent"
       >
         {row.label}
@@ -90,7 +90,7 @@ export function BomsListPage() {
         meta={meta}
         actions={
           caps.can('stock.bom.write') ? (
-            <Link to="/3pl-operations/boms/new">
+            <Link to="/catalog/boms/new">
               <Button variant="primary">New BOM</Button>
             </Link>
           ) : undefined
@@ -102,7 +102,7 @@ export function BomsListPage() {
           entity="bill of materials"
           explainer="A bill of materials lists the component items and quantities that go into building a finished product."
           addLabel="Add BOM"
-          addTo="/3pl-operations/boms/new"
+          addTo="/catalog/boms/new"
           canAdd={caps.can('stock.bom.write')}
         />
       ) : (

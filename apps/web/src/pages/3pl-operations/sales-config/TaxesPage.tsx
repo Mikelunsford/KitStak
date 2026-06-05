@@ -47,7 +47,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Tax>> = [
     align: 'right',
     render: (tax) => (
       <Link
-        to={`/3pl-operations/sales-config/taxes/${tax.id}/edit`}
+        to={`/settings/sales-config/taxes/${tax.id}/edit`}
         className="text-xs text-ink-dim hover:text-accent"
       >
         Edit
@@ -77,7 +77,7 @@ export function TaxesPage() {
         title="Taxes"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/sales-config/taxes/new">
+          <Link to="/settings/sales-config/taxes/new">
             <Button variant="primary">Add tax</Button>
           </Link>
         }

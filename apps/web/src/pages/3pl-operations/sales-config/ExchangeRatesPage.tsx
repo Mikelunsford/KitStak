@@ -69,7 +69,7 @@ export function ExchangeRatesPage() {
         title="Exchange rates"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/sales-config/exchange-rates/new">
+          <Link to="/settings/sales-config/exchange-rates/new">
             <Button variant="primary">Add rate</Button>
           </Link>
         }

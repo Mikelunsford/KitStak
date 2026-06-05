@@ -24,7 +24,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Project>> = [
     cellClassName: 'font-mono',
     render: (p) => (
       <Link
-        to={`/3pl-operations/projects/${p.id}`}
+        to={`/projects/${p.id}`}
         className="text-ink hover:text-accent"
       >
         {p.number}
@@ -72,7 +72,7 @@ export function ProjectsListPage() {
         title="Projects"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/projects/new">
+          <Link to="/projects/new">
             <Button variant="primary">New project</Button>
           </Link>
         }
@@ -85,7 +85,7 @@ export function ProjectsListPage() {
           entity="project"
           explainer="Projects are accepted quotes you are delivering."
           addLabel="Add project"
-          addTo="/3pl-operations/projects/new"
+          addTo="/projects/new"
         />
       ) : (
         <>

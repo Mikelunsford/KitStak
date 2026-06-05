@@ -26,7 +26,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Warehouse>> = [
     cellClassName: 'font-mono',
     render: (w) => (
       <Link
-        to={`/3pl-operations/warehouses/${w.id}`}
+        to={`/inventory/warehouses/${w.id}`}
         className="text-ink hover:text-accent"
       >
         {w.code}
@@ -73,7 +73,7 @@ export function WarehousesListPage() {
         meta={meta}
         actions={
           caps.can('warehouses.warehouse.create') ? (
-            <Link to="/3pl-operations/warehouses/new">
+            <Link to="/inventory/warehouses/new">
               <Button variant="primary">New warehouse</Button>
             </Link>
           ) : null
@@ -85,7 +85,7 @@ export function WarehousesListPage() {
           entity="warehouse"
           explainer="Warehouses are the physical locations where your inventory lives."
           addLabel="Add warehouse"
-          addTo="/3pl-operations/warehouses/new"
+          addTo="/inventory/warehouses/new"
           canAdd={caps.can('warehouses.warehouse.create')}
         />
       ) : (

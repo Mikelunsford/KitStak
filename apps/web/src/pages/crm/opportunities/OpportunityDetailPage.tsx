@@ -65,7 +65,7 @@ export function OpportunityDetailPage() {
   // G-OPP-FLOW-01: "Create quote from opportunity" carries the customer_id
   // through the query string to QuoteCreatePage, which reads it via
   // useSearchParams().get('customer_id') and pre-fills the customer picker.
-  const createQuoteHref = `/3pl-operations/quotes/new?customer_id=${o.customer_id}`;
+  const createQuoteHref = `/quotes/new?customer_id=${o.customer_id}`;
 
   return (
     <section className="px-8 py-10 max-w-3xl mx-auto flex flex-col gap-6">

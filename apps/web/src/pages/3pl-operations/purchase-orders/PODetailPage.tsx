@@ -92,12 +92,12 @@ export function PODetailPage() {
     <section className="px-8 py-12 max-w-5xl mx-auto flex flex-col gap-6">
       <Breadcrumbs
         items={[
-          { label: 'Vendors', to: '/3pl-operations/vendors' },
+          { label: 'Vendors', to: '/purchasing/vendors' },
           {
             label: fallbackLabel(vendor.data?.display_name, data.vendor_id),
-            to: `/3pl-operations/vendors/${data.vendor_id}`,
+            to: `/purchasing/vendors/${data.vendor_id}`,
           },
-          { label: 'POs', to: '/3pl-operations/purchase-orders' },
+          { label: 'POs', to: '/purchasing/purchase-orders' },
           { label: data.po_number ?? data.id.slice(0, 8) },
         ]}
       />

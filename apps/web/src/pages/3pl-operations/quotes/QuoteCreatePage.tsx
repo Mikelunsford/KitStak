@@ -58,7 +58,7 @@ export function QuoteCreatePage() {
     // and surfaced in the inline error renderer below.
     create.mutate(body, {
       onSuccess: (result) => {
-        navigate(`/3pl-operations/quotes/${result.id}`);
+        navigate(`/quotes/${result.id}`);
       },
     });
   };

@@ -47,7 +47,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Quote>> = [
     cellClassName: 'font-mono',
     render: (q) => (
       <Link
-        to={`/3pl-operations/quotes/${q.id}`}
+        to={`/quotes/${q.id}`}
         className="text-ink hover:text-accent"
       >
         {q.number}
@@ -138,7 +138,7 @@ export function QuotesListPage() {
         title="Quotes"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/quotes/new">
+          <Link to="/quotes/new">
             <Button variant="primary">New quote</Button>
           </Link>
         }
@@ -171,7 +171,7 @@ export function QuotesListPage() {
           entity="quote"
           explainer="Quotes are priced proposals for a customer order."
           addLabel="Add quote"
-          addTo="/3pl-operations/quotes/new"
+          addTo="/quotes/new"
         />
       ) : (
         <>

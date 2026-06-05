@@ -78,7 +78,7 @@ describe('buildWorkCards', () => {
   it('produces stable deep-link routes matching the UX revision spec', () => {
     const byKey = new Map(buildWorkCards(summary()).map((c) => [c.key, c.to]));
     expect(byKey.get('quotes_awaiting_approval')).toBe(
-      '/3pl-operations/quotes?state=submitted',
+      '/quotes?state=submitted',
     );
     expect(byKey.get('runs_in_production')).toBe(
       '/manufacturing/runs?status=started',
@@ -147,8 +147,8 @@ describe('buildOnboardingCards', () => {
     // Routes must exist in apps/web/src/routes.ts; the spec is explicit
     // that we do not invent destinations.
     expect(routes).toContain('/crm/customers/new');
-    expect(routes).toContain('/3pl-operations/items/new');
-    expect(routes).toContain('/3pl-operations/quotes/new');
+    expect(routes).toContain('/catalog/items/new');
+    expect(routes).toContain('/quotes/new');
     // F-Wave9-STAFF-INVITE-CHASSIS-01: the invite_teammate card now routes
     // to the dedicated /admin/members surface instead of dead-ending on
     // /admin/settings.

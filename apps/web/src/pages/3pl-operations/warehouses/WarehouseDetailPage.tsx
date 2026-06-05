@@ -14,7 +14,7 @@ export function WarehouseDetailPage() {
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
       <Breadcrumbs
         items={[
-          { label: 'Warehouses', to: '/3pl-operations/warehouses' },
+          { label: 'Warehouses', to: '/inventory/warehouses' },
           { label: data.display_name },
         ]}
       />
@@ -22,7 +22,7 @@ export function WarehouseDetailPage() {
         eyebrow="Library / Warehouses"
         title={data.display_name}
         actions={
-          <Link to={`/3pl-operations/warehouses/${data.id}/edit`}>
+          <Link to={`/inventory/warehouses/${data.id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>
         }

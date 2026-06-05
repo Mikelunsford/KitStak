@@ -29,7 +29,7 @@ export function ItemCreatePage() {
       },
       {
         onSuccess: (result) => {
-          navigate(`/3pl-operations/items/${result.id}`);
+          navigate(`/catalog/items/${result.id}`);
         },
       },
     );

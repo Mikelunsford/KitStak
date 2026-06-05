@@ -50,7 +50,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PurchaseOrder>> = [
     cellClassName: 'font-mono',
     render: (po) => (
       <Link
-        to={`/3pl-operations/purchase-orders/${po.id}`}
+        to={`/purchasing/purchase-orders/${po.id}`}
         className="text-ink hover:text-accent"
       >
         {po.po_number ?? po.id.slice(0, 8)}
@@ -133,7 +133,7 @@ export function POsListPage() {
         meta={meta}
         actions={
           caps.can('purchase_orders.purchase_order.create') ? (
-            <Link to="/3pl-operations/purchase-orders/new">
+            <Link to="/purchasing/purchase-orders/new">
               <Button variant="primary">New PO</Button>
             </Link>
           ) : null
@@ -167,7 +167,7 @@ export function POsListPage() {
           entity="purchase order"
           explainer="Purchase orders commit to buying from a vendor."
           addLabel="Add purchase order"
-          addTo="/3pl-operations/purchase-orders/new"
+          addTo="/purchasing/purchase-orders/new"
           canAdd={caps.can('purchase_orders.purchase_order.create')}
         />
       ) : (

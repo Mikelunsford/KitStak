@@ -144,7 +144,7 @@ function WorkCardGrid({ loading, errored, summary }: WorkCardGridProps) {
           loading
           count={0}
           label="Quotes awaiting approval"
-          to="/3pl-operations/quotes?state=submitted"
+          to="/quotes?state=submitted"
         />
         <WorkCard
           loading

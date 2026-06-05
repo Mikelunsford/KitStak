@@ -48,7 +48,7 @@ const BASE: ListEmptyStateProps = {
   entity: 'vendor',
   explainer: 'Vendors are the companies you buy materials from.',
   addLabel: 'Add vendor',
-  addTo: '/3pl-operations/vendors/new',
+  addTo: '/purchasing/vendors/new',
 };
 
 describe('ListEmptyState', () => {

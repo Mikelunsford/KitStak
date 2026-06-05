@@ -43,7 +43,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PricingTier>> = [
     align: 'right',
     render: (t) => (
       <Link
-        to={`/3pl-operations/sales-config/pricing-tiers/${t.id}/edit`}
+        to={`/settings/sales-config/pricing-tiers/${t.id}/edit`}
         className="text-xs text-ink-dim hover:text-accent"
       >
         Edit
@@ -75,7 +75,7 @@ export function PricingTiersPage() {
         title="Pricing tiers"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/sales-config/pricing-tiers/new">
+          <Link to="/settings/sales-config/pricing-tiers/new">
             <Button variant="primary">Add tier</Button>
           </Link>
         }

@@ -27,7 +27,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Expense>> = [
     cellClassName: 'font-mono',
     render: (e) => (
       <Link
-        to={`/3pl-operations/expenses/${e.id}`}
+        to={`/purchasing/expenses/${e.id}`}
         className="text-ink hover:text-accent"
       >
         {e.expense_number ?? e.id.slice(0, 8)}
@@ -80,7 +80,7 @@ export function ExpensesListPage() {
         meta={meta}
         actions={
           caps.can('expenses.expense.create') ? (
-            <Link to="/3pl-operations/expenses/new">
+            <Link to="/purchasing/expenses/new">
               <Button variant="primary">New expense</Button>
             </Link>
           ) : undefined
@@ -94,7 +94,7 @@ export function ExpensesListPage() {
           entity="expense"
           explainer="Expenses are operating costs outside of vendor bills."
           addLabel="Add expense"
-          addTo="/3pl-operations/expenses/new"
+          addTo="/purchasing/expenses/new"
           canAdd={caps.can('expenses.expense.create')}
         />
       ) : (

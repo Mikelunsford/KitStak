@@ -49,7 +49,7 @@ export function VendorDetailPage() {
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-8">
       <Breadcrumbs
         items={[
-          { label: 'Vendors', to: '/3pl-operations/vendors' },
+          { label: 'Vendors', to: '/purchasing/vendors' },
           { label: data.display_name },
         ]}
       />
@@ -57,7 +57,7 @@ export function VendorDetailPage() {
         eyebrow="Library / Vendors"
         title={data.display_name}
         actions={
-          <Link to={`/3pl-operations/vendors/${data.id}/edit`}>
+          <Link to={`/purchasing/vendors/${data.id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>
         }
@@ -81,7 +81,7 @@ export function VendorDetailPage() {
       <RelatedSection
         title="PURCHASE ORDERS"
         ctaLabel="New PO"
-        ctaHref={`/3pl-operations/purchase-orders/new?vendor_id=${vendorId}`}
+        ctaHref={`/purchasing/purchase-orders/new?vendor_id=${vendorId}`}
         isLoading={purchaseOrders.isLoading}
         emptyMessage="No purchase orders for this vendor."
         count={relatedPOs.length}
@@ -92,7 +92,7 @@ export function VendorDetailPage() {
             className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
           >
             <Link
-              to={`/3pl-operations/purchase-orders/${po.id}`}
+              to={`/purchasing/purchase-orders/${po.id}`}
               className="underline"
             >
               {po.po_number ?? po.id.slice(0, 8)}
@@ -107,7 +107,7 @@ export function VendorDetailPage() {
       <RelatedSection
         title="VENDOR BILLS"
         ctaLabel="New bill"
-        ctaHref={`/3pl-operations/vendor-bills/new?vendor_id=${vendorId}`}
+        ctaHref={`/purchasing/vendor-bills/new?vendor_id=${vendorId}`}
         isLoading={vendorBills.isLoading}
         emptyMessage="No vendor bills for this vendor."
         count={relatedBills.length}
@@ -118,7 +118,7 @@ export function VendorDetailPage() {
             className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
           >
             <Link
-              to={`/3pl-operations/vendor-bills/${b.id}`}
+              to={`/purchasing/vendor-bills/${b.id}`}
               className="underline"
             >
               {b.bill_number ?? b.id.slice(0, 8)}
@@ -133,7 +133,7 @@ export function VendorDetailPage() {
       <RelatedSection
         title="EXPENSES"
         ctaLabel="New expense"
-        ctaHref={`/3pl-operations/expenses/new?vendor_id=${vendorId}`}
+        ctaHref={`/purchasing/expenses/new?vendor_id=${vendorId}`}
         isLoading={expenses.isLoading}
         emptyMessage="No expenses for this vendor."
         count={relatedExpenses.length}
@@ -144,7 +144,7 @@ export function VendorDetailPage() {
             className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
           >
             <Link
-              to={`/3pl-operations/expenses/${e.id}`}
+              to={`/purchasing/expenses/${e.id}`}
               className="underline"
             >
               {e.expense_number ?? e.id.slice(0, 8)}

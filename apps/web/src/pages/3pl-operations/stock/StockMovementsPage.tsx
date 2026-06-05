@@ -142,7 +142,7 @@ export function StockMovementsPage() {
           entity="movement"
           explainer="Stock movements are the audit trail of every inventory change. They appear automatically when you receive, build, or ship items."
           addLabel="Add movement"
-          addTo="/3pl-operations/stock/movements"
+          addTo="/inventory/stock/movements"
           canAdd={false}
         />
       ) : (

@@ -55,7 +55,7 @@ const COLUMNS: ReadonlyArray<DataColumn<ReceivingOrder>> = [
     render: (r) =>
       r.project_id ? (
         <Link
-          to={`/3pl-operations/projects/${r.project_id}`}
+          to={`/projects/${r.project_id}`}
           className="text-ink hover:text-accent"
         >
           <EntityLabel kind="project" id={r.project_id} />

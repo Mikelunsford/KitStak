@@ -60,7 +60,7 @@ export function ExpenseDetailPage() {
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
-          { label: 'Expenses', to: '/3pl-operations/expenses' },
+          { label: 'Expenses', to: '/purchasing/expenses' },
           { label: d.expense_number ?? d.id.slice(0, 8) },
         ]}
       />
@@ -80,7 +80,7 @@ export function ExpenseDetailPage() {
       <PageHeader
         title={`Expense ${d.expense_number ?? d.id.slice(0, 8)}`}
         actions={
-          <Link to={`/3pl-operations/expenses/${d.id}/edit`}>
+          <Link to={`/purchasing/expenses/${d.id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>
         }

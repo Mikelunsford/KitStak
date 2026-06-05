@@ -41,7 +41,7 @@ export function ValueAddedServiceCreatePage() {
     mutationFn: (body: ValueAddedServiceCreate) => createValueAddedService(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: vasKeys.all });
-      navigate('/3pl-operations/vas');
+      navigate('/catalog/vas');
     },
     onError: (e) =>
       setError(e instanceof Error ? e.message : 'Failed to create service.'),
@@ -137,7 +137,7 @@ export function ValueAddedServiceCreatePage() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/3pl-operations/vas')}
+            onClick={() => navigate('/catalog/vas')}
           >
             Cancel
           </Button>

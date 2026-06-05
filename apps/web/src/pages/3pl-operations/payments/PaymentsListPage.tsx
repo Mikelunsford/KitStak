@@ -91,7 +91,7 @@ export function PaymentsListPage() {
         title="Payments"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/payments/new">
+          <Link to="/invoicing/payments/new">
             <Button variant="primary">New payment</Button>
           </Link>
         }
@@ -104,7 +104,7 @@ export function PaymentsListPage() {
           entity="payment"
           explainer="Payments record cash received against an invoice."
           addLabel="Add payment"
-          addTo="/3pl-operations/payments/new"
+          addTo="/invoicing/payments/new"
         />
       ) : (
         <>

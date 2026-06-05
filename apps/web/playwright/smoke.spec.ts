@@ -161,7 +161,7 @@ test.describe('@smoke pillar-1 flow', () => {
     // QUOTE_FSM.
     let quoteUrl = '';
     await test.step('create a quote, submit, approve, send', async () => {
-      await page.goto('/3pl-operations/quotes/new');
+      await page.goto('/quotes/new');
       // TODO(F-Wave5-TEST-02-CHAIN-01): drive CustomerPicker via typeahead
       // and select the seeded customer. Single-FK pickers do not expose a
       // name="" attribute; a data-testid contract on CustomerPicker is the
@@ -207,7 +207,7 @@ test.describe('@smoke pillar-1 flow', () => {
     await test.step('post a payment', async () => {
       // PaymentCreatePage requires payment_number + customer_id picker +
       // amount_cents. Spec previously only filled amount_cents.
-      await page.goto('/3pl-operations/payments/new');
+      await page.goto('/invoicing/payments/new');
       await page.locator('input[name="amount_cents"]').fill('1000');
       await page.locator('button[type="submit"]').click();
       // PaymentCreatePage navigates to /invoicing/invoices/:id when an

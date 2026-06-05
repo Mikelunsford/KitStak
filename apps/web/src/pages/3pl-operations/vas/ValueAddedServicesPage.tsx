@@ -50,7 +50,7 @@ const COLUMNS: ReadonlyArray<DataColumn<ValueAddedService>> = [
     align: 'right',
     render: (v) => (
       <Link
-        to={`/3pl-operations/vas/${v.id}/edit`}
+        to={`/catalog/vas/${v.id}/edit`}
         className="text-xs text-ink-dim hover:text-accent"
       >
         Edit
@@ -82,7 +82,7 @@ export function ValueAddedServicesPage() {
         title="Value added services"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/vas/new">
+          <Link to="/catalog/vas/new">
             <Button variant="primary">Add service</Button>
           </Link>
         }

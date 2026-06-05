@@ -86,7 +86,7 @@ export function ExpenseCreatePage() {
     if (vendorId) body.vendor_id = vendorId;
     if (projectId) body.project_id = projectId;
     const out = await create.mutateAsync(body);
-    navigate(`/3pl-operations/expenses/${out.id}`);
+    navigate(`/purchasing/expenses/${out.id}`);
   }
 
   return (
@@ -172,7 +172,7 @@ export function ExpenseCreatePage() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/3pl-operations/expenses')}
+            onClick={() => navigate('/purchasing/expenses')}
           >
             Cancel
           </Button>

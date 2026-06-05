@@ -7,7 +7,7 @@
 // `lib/hooks/featureFlagResolver.ts` per the repo's no-jsdom convention).
 //
 // Predicates and routes match the UX revision spec (Q5, 2026-05-21):
-//   - Quotes awaiting approval -> /3pl-operations/quotes?state=submitted
+//   - Quotes awaiting approval -> /quotes?state=submitted
 //   - Runs in production       -> /manufacturing/runs?status=started
 //   - Shipments ready to ship  -> /3pl-operations/shipments?status=picking
 //   - Unpaid invoices          -> /invoicing/invoices?status=sent
@@ -60,7 +60,7 @@ export function buildWorkCards(summary: DashboardSummary): WorkCardSpec[] {
       key: 'quotes_awaiting_approval',
       count: summary.quotes_awaiting_approval_count,
       label: 'Quotes awaiting approval',
-      to: '/3pl-operations/quotes?state=submitted',
+      to: '/quotes?state=submitted',
     },
     {
       key: 'runs_in_production',
@@ -112,13 +112,13 @@ export function buildOnboardingCards(): OnboardingCardSpec[] {
     {
       key: 'add_inventory_item',
       label: 'Add an inventory item',
-      to: '/3pl-operations/items/new',
+      to: '/catalog/items/new',
       helperText: 'Define the SKU you will move first.',
     },
     {
       key: 'create_quote',
       label: 'Create your first quote',
-      to: '/3pl-operations/quotes/new',
+      to: '/quotes/new',
       helperText: 'Draft a quote the customer can approve.',
     },
     {

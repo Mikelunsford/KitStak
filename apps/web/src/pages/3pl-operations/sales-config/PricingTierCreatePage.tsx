@@ -34,7 +34,7 @@ export function PricingTierCreatePage() {
     mutationFn: (body: PricingTierCreate) => createPricingTier(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: pricingTiersKeys.all });
-      navigate('/3pl-operations/sales-config/pricing-tiers');
+      navigate('/settings/sales-config/pricing-tiers');
     },
     onError: (e) =>
       setError(e instanceof Error ? e.message : 'Failed to create pricing tier.'),
@@ -113,7 +113,7 @@ export function PricingTierCreatePage() {
             type="button"
             variant="secondary"
             onClick={() =>
-              navigate('/3pl-operations/sales-config/pricing-tiers')
+              navigate('/settings/sales-config/pricing-tiers')
             }
           >
             Cancel

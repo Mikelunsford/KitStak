@@ -16,7 +16,7 @@ export function ItemDetailPage() {
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
       <Breadcrumbs
         items={[
-          { label: 'Items', to: '/3pl-operations/items' },
+          { label: 'Items', to: '/catalog/items' },
           { label: data.sku },
         ]}
       />
@@ -24,7 +24,7 @@ export function ItemDetailPage() {
         eyebrow="Library / Items"
         title={data.name}
         actions={
-          <Link to={`/3pl-operations/items/${data.id}/edit`}>
+          <Link to={`/catalog/items/${data.id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>
         }

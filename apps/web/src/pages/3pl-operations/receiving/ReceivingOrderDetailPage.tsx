@@ -144,7 +144,7 @@ export function ReceivingOrderDetailPage() {
           <dd className="text-ink">
             {d.project_id ? (
               <Link
-                to={`/3pl-operations/projects/${d.project_id}`}
+                to={`/projects/${d.project_id}`}
                 className="text-ink hover:text-accent"
               >
                 <EntityLabel kind="project" id={d.project_id} />

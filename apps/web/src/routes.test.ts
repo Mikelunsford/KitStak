@@ -1,9 +1,14 @@
 // F-Wave9-COWORK-SMOKE-06 regression suite.
 //
 // Locks in the SPA mirror of the Edge bundle-level plugin gate. The
-// ROUTES export must carry `requiresPlugin` for every /3pl-operations/*,
-// /manufacturing/*, /kitcost/*, and /copack/* route so RequirePlugin
-// renders the NotFoundPage when the pillar plugin flag is off.
+// ROUTES export must carry `requiresPlugin` for every non-redirect
+// /3pl-operations/*, /manufacturing/*, /kitcost/*, and /copack/* route so
+// RequirePlugin renders the NotFoundPage when the pillar plugin flag is off.
+//
+// Spine plus add-ons re-route: spine and shared-block surfaces moved to
+// neutral ungated roots (/quotes, /projects, /purchasing/*, /catalog/*,
+// /inventory/*, /settings/*). Redirect entries (isRedirect) sit at the old
+// /3pl-operations paths and are never gated, so they are excluded here.
 
 import { describe, expect, it } from 'vitest';
 
@@ -25,14 +30,17 @@ function specFor(path: string): RouteSpec {
 }
 
 describe('inferPluginForPath', () => {
-  it('returns PLUGINS_THREE_PL for /3pl-operations/* routes', () => {
-    expect(inferPluginForPath(specFor('/3pl-operations/quotes'))).toBe(
+  it('returns PLUGINS_THREE_PL for the /3pl-operations add-on routes', () => {
+    // After the spine re-route, only the true 3PL add-on surfaces stay
+    // under /3pl-operations: receiving and shipments. The prefix rule
+    // still gates anything beneath the namespace.
+    expect(inferPluginForPath(specFor('/3pl-operations/receiving'))).toBe(
       FEATURE_FLAGS.PLUGINS_THREE_PL,
     );
-    expect(inferPluginForPath(specFor('/3pl-operations/projects/abc'))).toBe(
+    expect(inferPluginForPath(specFor('/3pl-operations/shipments/abc'))).toBe(
       FEATURE_FLAGS.PLUGINS_THREE_PL,
     );
-    expect(inferPluginForPath(specFor('/3pl-operations/warehouses/new'))).toBe(
+    expect(inferPluginForPath(specFor('/3pl-operations/receiving/new'))).toBe(
       FEATURE_FLAGS.PLUGINS_THREE_PL,
     );
   });
@@ -92,6 +100,27 @@ describe('inferPluginForPath', () => {
     expect(inferPluginForPath(specFor('/account/security'))).toBeUndefined();
   });
 
+  it('returns undefined for the new ungated spine roots (re-route targets)', () => {
+    expect(inferPluginForPath(specFor('/quotes'))).toBeUndefined();
+    expect(inferPluginForPath(specFor('/quotes/abc/send'))).toBeUndefined();
+    expect(inferPluginForPath(specFor('/projects'))).toBeUndefined();
+    expect(inferPluginForPath(specFor('/purchasing/vendors'))).toBeUndefined();
+    expect(
+      inferPluginForPath(specFor('/purchasing/purchase-orders')),
+    ).toBeUndefined();
+    expect(inferPluginForPath(specFor('/catalog/items'))).toBeUndefined();
+    expect(inferPluginForPath(specFor('/catalog/boms'))).toBeUndefined();
+    expect(
+      inferPluginForPath(specFor('/inventory/warehouses')),
+    ).toBeUndefined();
+    expect(
+      inferPluginForPath(specFor('/inventory/stock/levels')),
+    ).toBeUndefined();
+    expect(
+      inferPluginForPath(specFor('/settings/sales-config/taxes')),
+    ).toBeUndefined();
+  });
+
   it('preserves an explicitly set requiresPlugin (opt-out / override)', () => {
     const spec: RouteSpec = {
       ...specFor('/dashboard'),
@@ -99,12 +128,37 @@ describe('inferPluginForPath', () => {
     };
     expect(inferPluginForPath(spec)).toBe(FEATURE_FLAGS.PLUGINS_KITFORCE);
   });
+
+  it('returns undefined for a redirect entry even under a gated prefix', () => {
+    const spec: RouteSpec = {
+      ...specFor('/3pl-operations/quotes'),
+      isRedirect: true,
+    };
+    expect(inferPluginForPath(spec)).toBeUndefined();
+  });
+
+  it('treats isRedirect as a higher-priority opt-out than requiresPlugin', () => {
+    const spec: RouteSpec = {
+      ...specFor('/3pl-operations/quotes'),
+      requiresPlugin: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      isRedirect: true,
+    };
+    expect(inferPluginForPath(spec)).toBeUndefined();
+  });
 });
 
 describe('withPluginGate', () => {
-  it('annotates 3PL routes with PLUGINS_THREE_PL', () => {
-    const gated = withPluginGate(specFor('/3pl-operations/items'));
+  it('annotates 3PL add-on routes with PLUGINS_THREE_PL', () => {
+    const gated = withPluginGate(specFor('/3pl-operations/receiving'));
     expect(gated.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_THREE_PL);
+  });
+
+  it('leaves a redirect entry ungated even under the /3pl-operations prefix', () => {
+    const gated = withPluginGate({
+      ...specFor('/3pl-operations/quotes'),
+      isRedirect: true,
+    });
+    expect(gated.requiresPlugin).toBeUndefined();
   });
 
   it('annotates Manufacturing routes with PLUGINS_MANUFACTURING', () => {
@@ -119,10 +173,11 @@ describe('withPluginGate', () => {
 });
 
 describe('ROUTES — pillar gating coverage', () => {
-  it('every /3pl-operations/* route carries requiresPlugin = PLUGINS_THREE_PL', () => {
+  it('every non-redirect /3pl-operations/* route carries requiresPlugin = PLUGINS_THREE_PL', () => {
     const offenders = ROUTES.filter(
       (r) =>
         r.path.startsWith('/3pl-operations/') &&
+        !r.isRedirect &&
         r.requiresPlugin !== FEATURE_FLAGS.PLUGINS_THREE_PL,
     );
     expect(offenders).toEqual([]);

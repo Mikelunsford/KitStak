@@ -87,15 +87,15 @@ describe('buildSetupSteps', () => {
     // Step 1 routes to the warehouses LIST (not /new) because the default
     // warehouse already exists; the operator wants to rename or add a peer,
     // not create another DEFAULT.
-    expect(byKey.get('warehouse_added')).toBe('/3pl-operations/warehouses');
+    expect(byKey.get('warehouse_added')).toBe('/inventory/warehouses');
     expect(byKey.get('customer_added')).toBe('/crm/customers/new');
-    expect(byKey.get('item_added')).toBe('/3pl-operations/items/new');
-    expect(byKey.get('quote_created')).toBe('/3pl-operations/quotes/new');
+    expect(byKey.get('item_added')).toBe('/catalog/items/new');
+    expect(byKey.get('quote_created')).toBe('/quotes/new');
     expect(byKey.get('receiving_received')).toBe(
       '/3pl-operations/receiving/new',
     );
     expect(byKey.get('invoice_sent')).toBe('/invoicing/invoices/new');
-    expect(byKey.get('payment_received')).toBe('/3pl-operations/payments/new');
+    expect(byKey.get('payment_received')).toBe('/invoicing/payments/new');
     expect(byKey.get('team_invited')).toBe('/admin/members');
   });
 

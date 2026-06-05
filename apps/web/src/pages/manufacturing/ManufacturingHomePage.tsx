@@ -99,7 +99,7 @@ export function ManufacturingHomePage() {
             />
           ) : null}
           <ActionTile
-            to="/3pl-operations/boms"
+            to="/catalog/boms"
             title="BILLS OF MATERIALS"
             body="Define what each finished item is made of."
           />

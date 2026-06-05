@@ -58,7 +58,7 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       label: 'Set up your warehouse',
       helperCopy:
         'A default warehouse is created during setup. Rename it or add more in Library.',
-      to: '/3pl-operations/warehouses',
+      to: '/inventory/warehouses',
       isComplete: summary.setup_warehouse_added,
     },
     {
@@ -72,14 +72,14 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       key: 'item_added',
       label: 'Add an inventory item',
       helperCopy: 'The SKU you will receive, move, or ship first.',
-      to: '/3pl-operations/items/new',
+      to: '/catalog/items/new',
       isComplete: summary.setup_item_added,
     },
     {
       key: 'quote_created',
       label: 'Create your first quote',
       helperCopy: 'Draft a quote the customer can approve.',
-      to: '/3pl-operations/quotes/new',
+      to: '/quotes/new',
       isComplete: summary.setup_quote_created,
     },
     {
@@ -100,7 +100,7 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       key: 'payment_received',
       label: 'Record a payment',
       helperCopy: 'Close the loop and light up your revenue KPIs.',
-      to: '/3pl-operations/payments/new',
+      to: '/invoicing/payments/new',
       isComplete: summary.setup_payment_received,
     },
     {

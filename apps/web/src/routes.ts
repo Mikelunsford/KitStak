@@ -40,6 +40,14 @@ export interface RouteSpec {
    * active org. Distinct from per-route feature flag gating.
    */
   requiresPlugin?: string;
+  /**
+   * Marks a deep-link redirect entry (see pages/_redirects/SpineMoveRedirect).
+   * Redirect entries are never plugin-gated: inferPluginForPath returns
+   * undefined for them, so a legacy path that still lives under a gated
+   * prefix redirects to its new spine home instead of rendering NotFound
+   * when the pillar plugin is off. Part of the spine plus add-ons re-route.
+   */
+  isRedirect?: boolean;
 }
 
 // Lazy code splits. keep imports inside the lazy() callback so each route
@@ -467,6 +475,14 @@ const LegacyProductionListRedirect = lazy(() =>
 const LegacyProductionCreateRedirect = lazy(() =>
   import('./pages/3pl-operations/production/LegacyProductionRedirect').then((m) => ({
     default: m.LegacyProductionCreateRedirect,
+  })),
+);
+// Spine plus add-ons re-route: one generic redirect serves every moved spine
+// path. See pages/_redirects/SpineMoveRedirect and the redirect block at the
+// tail of RAW_ROUTES.
+const SpineMoveRedirect = lazy(() =>
+  import('./pages/_redirects/SpineMoveRedirect').then((m) => ({
+    default: m.SpineMoveRedirect,
   })),
 );
 const ShipmentsListPage = lazy(() =>
@@ -1032,191 +1048,191 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   // === End Agent F ===
   // === Agent C: Sales routes ===
   {
-    path: '/3pl-operations/items',
+    path: '/catalog/items',
     element: ItemsListPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/items/new',
+    path: '/catalog/items/new',
     element: ItemCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/items/:id',
+    path: '/catalog/items/:id',
     element: ItemDetailPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/items/:id/edit',
+    path: '/catalog/items/:id/edit',
     element: ItemEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/taxes',
+    path: '/settings/sales-config/taxes',
     element: TaxesPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: taxes create/edit
   {
-    path: '/3pl-operations/sales-config/taxes/new',
+    path: '/settings/sales-config/taxes/new',
     element: TaxCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/taxes/:id/edit',
+    path: '/settings/sales-config/taxes/:id/edit',
     element: TaxEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/currencies',
+    path: '/settings/sales-config/currencies',
     element: CurrenciesPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/exchange-rates',
+    path: '/settings/sales-config/exchange-rates',
     element: ExchangeRatesPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: exchange-rates create (no edit - API has no PATCH)
   {
-    path: '/3pl-operations/sales-config/exchange-rates/new',
+    path: '/settings/sales-config/exchange-rates/new',
     element: ExchangeRateCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/payment-methods',
+    path: '/settings/sales-config/payment-methods',
     element: PaymentMethodsPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: payment-methods create/edit
   {
-    path: '/3pl-operations/sales-config/payment-methods/new',
+    path: '/settings/sales-config/payment-methods/new',
     element: PaymentMethodCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/payment-methods/:id/edit',
+    path: '/settings/sales-config/payment-methods/:id/edit',
     element: PaymentMethodEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/pricing-tiers',
+    path: '/settings/sales-config/pricing-tiers',
     element: PricingTiersPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: pricing-tiers create/edit
   {
-    path: '/3pl-operations/sales-config/pricing-tiers/new',
+    path: '/settings/sales-config/pricing-tiers/new',
     element: PricingTierCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/sales-config/pricing-tiers/:id/edit',
+    path: '/settings/sales-config/pricing-tiers/:id/edit',
     element: PricingTierEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/vas',
+    path: '/catalog/vas',
     element: ValueAddedServicesPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: VAS create/edit
   {
-    path: '/3pl-operations/vas/new',
+    path: '/catalog/vas/new',
     element: ValueAddedServiceCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/vas/:id/edit',
+    path: '/catalog/vas/:id/edit',
     element: ValueAddedServiceEditPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes',
+    path: '/quotes',
     element: QuotesListPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes/new',
+    path: '/quotes/new',
     element: QuoteCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes/:id',
+    path: '/quotes/:id',
     element: QuoteDetailPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes/:id/send',
+    path: '/quotes/:id/send',
     element: QuoteSendPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/projects',
+    path: '/projects',
     element: ProjectsListPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/projects/new',
+    path: '/projects/new',
     element: ProjectCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/projects/:id',
+    path: '/projects/:id',
     element: ProjectDetailPage,
     guard: 'protected',
     layout: 'shell',
   },
   // === End Agent C ===
   // === Agent E: Vendors/Inventory/Ops routes ===
-  { path: '/3pl-operations/vendors',                element: VendorsListPage,           guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendors/new',            element: VendorCreatePage,          guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendors/:id',            element: VendorDetailPage,          guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendors/:id/edit',       element: VendorEditPage,            guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/purchase-orders',        element: POsListPage,               guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/purchase-orders/new',    element: POCreatePage,              guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/purchase-orders/:id',    element: PODetailPage,              guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendor-bills',           element: VendorBillsListPage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendor-bills/:id',       element: VendorBillDetailPage,      guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendor-bills/:id/edit',  element: VendorBillEditPage,        guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/expenses',               element: ExpensesListPage,          guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/expenses/new',           element: ExpenseCreatePage,         guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/expenses/:id',           element: ExpenseDetailPage,         guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/expenses/:id/edit',      element: ExpenseEditPage,           guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses',             element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses/new',         element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses/:id',         element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses/:id/edit',    element: WarehouseEditPage,         guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/boms',                   element: BomsListPage,              guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/boms/new',               element: BomCreatePage,             guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/boms/:id',               element: BomDetailPage,             guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/stock/levels',           element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/stock/movements',        element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendors',                element: VendorsListPage,           guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendors/new',                element: VendorCreatePage,          guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendors/:id',                element: VendorDetailPage,          guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendors/:id/edit',           element: VendorEditPage,            guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/purchase-orders',            element: POsListPage,               guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/purchase-orders/new',        element: POCreatePage,              guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/purchase-orders/:id',        element: PODetailPage,              guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendor-bills',               element: VendorBillsListPage,       guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendor-bills/:id',           element: VendorBillDetailPage,      guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendor-bills/:id/edit',      element: VendorBillEditPage,        guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/expenses',                   element: ExpensesListPage,          guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/expenses/new',               element: ExpenseCreatePage,         guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/expenses/:id',               element: ExpenseDetailPage,         guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/expenses/:id/edit',          element: ExpenseEditPage,           guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses',                  element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses/new',              element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses/:id',              element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses/:id/edit',         element: WarehouseEditPage,         guard: 'protected', layout: 'shell' },
+  { path: '/catalog/boms',                          element: BomsListPage,              guard: 'protected', layout: 'shell' },
+  { path: '/catalog/boms/new',                      element: BomCreatePage,             guard: 'protected', layout: 'shell' },
+  { path: '/catalog/boms/:id',                      element: BomDetailPage,             guard: 'protected', layout: 'shell' },
+  { path: '/inventory/stock/levels',                element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
+  { path: '/inventory/stock/movements',             element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving',              element: ReceivingOrdersListPage,   guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving/:id',          element: ReceivingOrderDetailPage,  guard: 'protected', layout: 'shell' },
   // BNEW-2 (PR-A): legacy production list + create -> /manufacturing/runs.
@@ -1245,8 +1261,8 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/finance/period-close',             element: PeriodClosePage,         guard: 'admin',     layout: 'shell' },
   // === End Agent D ===
   // === Agent 6.5-A: quote-to-cash create routes ===
-  { path: '/3pl-operations/payments/new',      element: PaymentCreatePage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/credit-notes/new',  element: CreditNoteCreatePage,    guard: 'protected', layout: 'shell' },
+  { path: '/invoicing/payments/new',           element: PaymentCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/invoicing/credit-notes/new',       element: CreditNoteCreatePage,    guard: 'protected', layout: 'shell' },
   { path: '/finance/journal-entries/new',      element: JournalEntryCreatePage,  guard: 'protected', layout: 'shell' },
   // === End Agent 6.5-A ===
   // === Agent 6.5-D: crm routes ===
@@ -1257,7 +1273,7 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   // === Agent 6.5-C: ops + procurement routes ===
   { path: '/3pl-operations/receiving/new',     element: ReceivingOrderCreatePage, guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments/new',     element: ShipmentCreatePage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/vendor-bills/new',  element: VendorBillCreatePage,     guard: 'protected', layout: 'shell' },
+  { path: '/purchasing/vendor-bills/new',      element: VendorBillCreatePage,     guard: 'protected', layout: 'shell' },
   // === End Agent 6.5-C ===
   // === Path A5: Manufacturing pillar routes ===
   // /new MUST precede /:id (F-Wave6-WAREHOUSE-CREATE-01 trap: react-router v6
@@ -1317,25 +1333,94 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/account/security',       element: SecurityPage,                guard: 'protected', layout: 'shell' },
   { path: '/auth/recovery',          element: RecoveryPage,                guard: 'public',    layout: 'unauthenticated' },
   // === End F-Wave9-INVITE-PASSWORD-SETUP-01 ===
+
+  // === Spine plus add-ons re-route: legacy path redirects ===
+  // Each entry preserves a pre-re-route deep link. SpineMoveRedirect rewrites
+  // the /3pl-operations prefix to the new spine home (REDIRECT_PREFIX_MAP) and
+  // keeps the dynamic segments, query string, and hash. isRedirect keeps these
+  // ungated even though they still sit under the /3pl-operations prefix.
+  // Follow-up F-Wave10-SPINE-REROUTE-REDIRECT-RETIRE-01 drops them once
+  // analytics confirm no live bookmarks land on the old paths.
+  { path: '/3pl-operations/warehouses',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/warehouses/new',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/warehouses/:id',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/warehouses/:id/edit', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/stock/levels',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/stock/movements',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items',               element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items/new',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items/:id',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items/:id/edit',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/boms',                element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/boms/new',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/boms/:id',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vas',                 element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vas/new',             element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vas/:id/edit',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/taxes',                    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/taxes/new',                element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/taxes/:id/edit',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/currencies',               element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/exchange-rates',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/exchange-rates/new',       element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/payment-methods',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/payment-methods/new',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/payment-methods/:id/edit', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/pricing-tiers',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/pricing-tiers/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/sales-config/pricing-tiers/:id/edit',   element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendors',             element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendors/new',         element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendors/:id',         element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendors/:id/edit',    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/purchase-orders',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/purchase-orders/new', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/purchase-orders/:id', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendor-bills',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendor-bills/new',    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendor-bills/:id',    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vendor-bills/:id/edit', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/expenses',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/expenses/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/expenses/:id',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/expenses/:id/edit',   element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes',              element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes/new',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes/:id',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes/:id/send',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/projects',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/projects/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/projects/:id',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/payments/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/credit-notes/new',    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  // === End spine re-route redirects ===
 ] as const;
 
 /**
- * Resolve the pillar plugin flag a given path belongs to, or null if the
- * path is plugin-agnostic. The mapping mirrors the URL pillar surface
- * declared in 00-canon/01-architecture.md: /3pl-operations/* is the 3PL
- * pillar; /manufacturing/* is the Manufacturing pillar; /kitcost/* is
- * the KitCost pillar (already gated by capability + per-route render in
- * KitCostDashboardPage, retained here for completeness); /copack/* is
- * the Co-Pack and Ecom pillar.
+ * Resolve the pillar plugin flag a given path belongs to, or undefined if
+ * the path is plugin-agnostic spine. After the spine plus add-ons re-route
+ * the gated namespaces hold ONLY true add-on surfaces: /3pl-operations/* is
+ * the 3PL add-on (receiving, shipments, and the production redirects);
+ * /manufacturing/* is Manufacturing; /kitcost/* is KitCost; /copack/* is
+ * Co-Pack and Ecom; /kitforce/* is KitForce. The spine and shared building
+ * blocks moved to ungated neutral roots (/quotes, /projects, /purchasing/*,
+ * /catalog/*, /inventory/*, /settings/sales-config/*, /invoicing/*), which
+ * fall through to undefined here.
  *
  * Returns the pre-existing `requiresPlugin` value when explicitly set so
  * a route can opt out of auto-gating by declaring its own value.
+ *
+ * Redirect entries (`spec.isRedirect`) are never gated: they resolve to
+ * undefined so a legacy path that still sits under a gated prefix
+ * redirects to its new spine home rather than rendering NotFound when the
+ * plugin is off. Part of the spine plus add-ons re-route.
  */
 function inPillar(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
 
 function inferPluginForPath(spec: RouteSpec): string | undefined {
+  if (spec.isRedirect) return undefined;
   if (spec.requiresPlugin !== undefined) return spec.requiresPlugin;
   if (inPillar(spec.path, '/3pl-operations')) {
     return FEATURE_FLAGS.PLUGINS_THREE_PL;

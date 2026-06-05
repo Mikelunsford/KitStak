@@ -55,7 +55,7 @@ export function VendorCreatePage() {
       },
       {
         onSuccess: (created) => {
-          navigate(`/3pl-operations/vendors/${created.id}`);
+          navigate(`/purchasing/vendors/${created.id}`);
         },
       },
     );

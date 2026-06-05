@@ -9,9 +9,12 @@
 //     the sidebar reorg groups routes by workflow stage regardless of
 //     pillar identity.
 //
-// URLs do NOT change. /manufacturing/runs stays at /manufacturing/runs.
-// Only the nav grouping changes; the flat ROUTES table is untouched
-// (per the constitutional "flat ROUTES table" rule in CLAUDE.md).
+// UX-Q1 itself did NOT change URLs; it only changed the nav grouping.
+// The later spine plus add-ons re-route (2026-06-04) moved several surfaces
+// to neutral spine roots (e.g. Quotes -> /quotes, Items -> /catalog/items,
+// Vendors -> /purchasing/vendors), and this file's paths were updated to
+// match. The flat ROUTES table stays the source of truth (per the CLAUDE.md
+// "flat ROUTES table" rule); old paths still resolve via SpineMoveRedirect.
 //
 // Six modes, in workflow order:
 //   1. SELL      — quote, qualify, and close work
@@ -125,7 +128,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/crm/leads', label: 'Leads', icon: TrendingUp },
       { path: '/crm/opportunities', label: 'Opportunities', icon: Target },
       { path: '/crm/activities', label: 'Activities', icon: CalendarCheck },
-      { path: '/3pl-operations/quotes', label: 'Quotes', icon: FileText },
+      { path: '/quotes', label: 'Quotes', icon: FileText },
       {
         path: '/copack/orders',
         label: 'Sales orders',
@@ -140,8 +143,8 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     subtitle: 'Build it. Track the lines.',
     icon: Factory,
     routes: [
-      { path: '/3pl-operations/projects', label: 'Projects', icon: Briefcase },
-      { path: '/3pl-operations/boms', label: 'Bills of materials', icon: Layers },
+      { path: '/projects', label: 'Projects', icon: Briefcase },
+      { path: '/catalog/boms', label: 'Bills of materials', icon: Layers },
       {
         path: '/manufacturing/runs',
         label: 'Manufacturing runs',
@@ -182,12 +185,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
       },
       {
-        path: '/3pl-operations/stock/levels',
+        path: '/inventory/stock/levels',
         label: 'Stock levels',
         icon: Package,
       },
       {
-        path: '/3pl-operations/stock/movements',
+        path: '/inventory/stock/movements',
         label: 'Stock movements',
         icon: ArrowLeftRight,
       },
@@ -227,20 +230,20 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Store,
         requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
       },
-      { path: '/3pl-operations/items', label: 'Items', icon: Package },
-      { path: '/3pl-operations/warehouses', label: 'Warehouses', icon: Warehouse },
-      { path: '/3pl-operations/vendors', label: 'Vendors', icon: Building2 },
+      { path: '/catalog/items', label: 'Items', icon: Package },
+      { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse },
+      { path: '/purchasing/vendors', label: 'Vendors', icon: Building2 },
       {
-        path: '/3pl-operations/purchase-orders',
+        path: '/purchasing/purchase-orders',
         label: 'Purchase orders',
         icon: Receipt,
       },
       {
-        path: '/3pl-operations/vendor-bills',
+        path: '/purchasing/vendor-bills',
         label: 'Vendor bills',
         icon: Receipt,
       },
-      { path: '/3pl-operations/expenses', label: 'Expenses', icon: CreditCard },
+      { path: '/purchasing/expenses', label: 'Expenses', icon: CreditCard },
     ],
   },
   {
@@ -313,7 +316,7 @@ export function visibleRoutesForMode(
  * mode that contains the active route on first render.
  *
  * Matches by exact path or prefix-with-slash, mirroring the v1
- * sidebar's behaviour so deep-link nav (e.g. /3pl-operations/quotes/:id)
+ * sidebar's behaviour so deep-link nav (e.g. /quotes/:id)
  * still highlights the right mode.
  */
 export function findActiveMode(pathname: string): ModeKey | null {

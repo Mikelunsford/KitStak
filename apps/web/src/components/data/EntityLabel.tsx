@@ -79,7 +79,7 @@ function WarehouseLabel({ id }: { id: string }) {
   const row = q.data?.find((w) => w.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/warehouses/${id}`} className="text-ink underline">
+    <Link to={`/inventory/warehouses/${id}`} className="text-ink underline">
       {format(row.code, row.display_name)}
     </Link>
   );
@@ -92,7 +92,7 @@ function ItemLabel({ id }: { id: string }) {
   const row = q.data?.find((it) => it.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/items/${id}`} className="text-ink underline">
+    <Link to={`/catalog/items/${id}`} className="text-ink underline">
       {format(row.sku, row.name)}
     </Link>
   );
@@ -120,7 +120,7 @@ function VendorLabel({ id }: { id: string }) {
   const row = items?.find((v) => v.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/vendors/${id}`} className="text-ink underline">
+    <Link to={`/purchasing/vendors/${id}`} className="text-ink underline">
       {format(row.vendor_number, row.display_name)}
     </Link>
   );
@@ -133,7 +133,7 @@ function ProjectLabel({ id }: { id: string }) {
   const row = q.data?.find((p) => p.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/projects/${id}`} className="text-ink underline">
+    <Link to={`/projects/${id}`} className="text-ink underline">
       {format(row.number, row.name)}
     </Link>
   );
@@ -199,7 +199,8 @@ function SalesOrderLabel({ id }: { id: string }) {
 // Co-Pack-scoped warehouse label. Resolves through the copack_ecom bundle
 // (useCoPackWarehousesList) instead of the 3PL-gated inventory-api, so a
 // Co-Pack-only org sees the warehouse name, not a raw UUID. Rendered as plain
-// text (no link) because the warehouse detail route lives under 3PL.
+// text (no link) because the warehouse detail route reads through the
+// 3PL-gated inventory-api, which a Co-Pack-only org cannot call.
 function CoPackWarehouseLabel({ id }: { id: string }) {
   const q = useCoPackWarehousesList();
   const state = classifyEntityLabel(q.data, id);

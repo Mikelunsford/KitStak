@@ -242,7 +242,7 @@ export function QuoteDetailPage() {
                 },
               ]
             : []),
-          { label: 'Quotes', to: '/3pl-operations/quotes' },
+          { label: 'Quotes', to: '/quotes' },
           { label: quote.number },
         ]}
       />
