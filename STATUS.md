@@ -1,5 +1,19 @@
 # Kitstak Status
 
+## 2026-06-04 3PL commercial pivot and WMS add-on (planning landed, execution started)
+
+Moved the parked 3PL Job Builder pivot and the new WMS (warehouse execution) add-on from parked to planned, and started execution. The consolidated plan is `03-workspace/specs/2026-06-04-3pl-commercial-pivot-and-wms-pillar-plan.md`. Direction approved by the operator 2026-06-04.
+
+Shape. 3PL Operations pivots from being thought of as the warehouse engine to being the commercial and operational planning layer (Accounts, Job Builders, Job Runs, Supply Plans, Billing Review, Job Profitability), keeping its light execution surfaces (receiving, shipments) under the existing gated `/3pl-operations/*`. WMS is a new sixth add-on, gated `plugins.wms` at a new `/wms/*` root, that deepens the spine's warehouse-level stock to bin level and never replaces it (a nullable `location_id` dimension on the existing `stock_movements` ledger; sum of bins equals the warehouse `quantity_on_hand`; turn it off and the totals are untouched). The five pillars are reframed as add-ons on the spine, matching the white paper V2 and the shipped spine reroute.
+
+Decisions resolved 2026-06-04: spine plus add-ons framing with WMS as add-on six; 3PL commercial layer first, then the WMS deepening core; pillar-grouped sidebar (supersedes the UX-Q1 job-mode decision); name the service-relationship surface Accounts; reserve stock at project release and Supply Plan; manual Job Run scheduling first; simple Job-Run labor logging first.
+
+Phase A0 (this entry): the canon amendment. ADR `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`, the CLAUDE.md intro and branding rules, and `00-canon/01-architecture.md` updated to the spine plus add-ons framing and the WMS deepening contract. No app code, edge functions, or migrations in this phase.
+
+Next: Phase A1, the Accounts model and the pillar-grouped sidebar.
+
+Carried stop-points: the constitution amendment lands with operator review here (A0); the additive `location_id` column on `stock_movements` is a WMS Phase B2 stop-point with a sum-reconcile contract test; the Billing Review versus KitMeter boundary stays light now.
+
 ## 2026-06-04 Spine plus add-ons SPA re-route (Phase 1)
 
 Re-routed the SPA to the white-paper V2 "spine plus add-ons" IA. Spine and shared-building-block surfaces moved out of the plugin-gated `/3pl-operations/*` namespace to ungated neutral roots, so quoting, projects, vendors/POs/bills/expenses, catalog (items/BOMs/VAS), inventory (warehouses/stock), and sales-config are no longer gated by `plugins.three_pl`. Only the true 3PL add-on surfaces (receiving, shipments, and the production redirects) stay under `/3pl-operations/*`. Eight green commits on `claude/vigorous-stonebraker-24d5df`: redirect scaffolding (`RouteSpec.isRedirect` plus the generic `SpineMoveRedirect` that preserves params, query, and hash, plus a reframed `routes.test.ts`), then one commit per namespace (`/inventory`, `/catalog`, `/settings/sales-config`, `/purchasing`, `/quotes`, `/projects`, `/invoicing` creates). `inferPluginForPath` now gates only true add-on namespaces; every moved path keeps a `SpineMoveRedirect` entry so deep links survive. Every commit stayed green on typecheck, lint (max-warnings 0), 438 unit and regression tests, canon-steward, build, and size-limit. Front-end only: no edge, migration, money, audit, or idempotency changes. Page files stayed in place (lazy imports still point at `pages/3pl-operations/*`).
