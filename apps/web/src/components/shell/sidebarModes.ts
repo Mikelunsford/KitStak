@@ -140,7 +140,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     subtitle: 'Build it. Track the lines.',
     icon: Factory,
     routes: [
-      { path: '/3pl-operations/projects', label: 'Projects', icon: Briefcase },
+      { path: '/projects', label: 'Projects', icon: Briefcase },
       { path: '/catalog/boms', label: 'Bills of materials', icon: Layers },
       {
         path: '/manufacturing/runs',

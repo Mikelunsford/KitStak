@@ -110,7 +110,7 @@ export function useConvertQuoteToProject() {
       // can immediately continue the chain instead of staying on the source
       // quote with no breadcrumb forward.
       if (result?.project_id) {
-        navigate(`/3pl-operations/projects/${result.project_id}`);
+        navigate(`/projects/${result.project_id}`);
       }
     },
   });

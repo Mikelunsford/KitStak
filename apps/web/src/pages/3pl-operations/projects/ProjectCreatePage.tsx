@@ -56,7 +56,7 @@ export function ProjectCreatePage() {
     // renderer below instead of silently failing.
     create.mutate(body, {
       onSuccess: (r) => {
-        navigate(`/3pl-operations/projects/${r.id}`);
+        navigate(`/projects/${r.id}`);
       },
     });
   };

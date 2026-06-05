@@ -73,7 +73,7 @@ describe('representative detail-page breadcrumb shapes (UX-Q10 smoke)', () => {
       { label: 'Smoke Co.', to: `/crm/customers/${customerId}` },
       { label: 'Quotes', to: '/quotes' },
       { label: 'SMOKE-001', to: `/quotes/${sourceQuoteId}` },
-      { label: 'Projects', to: '/3pl-operations/projects' },
+      { label: 'Projects', to: '/projects' },
       { label: 'PRJ-001' },
     ];
     // 5 ancestor links + 1 current label.

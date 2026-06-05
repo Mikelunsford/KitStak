@@ -324,7 +324,7 @@ export function ProjectDetailPage() {
                 },
               ]
             : []),
-          { label: 'Projects', to: '/3pl-operations/projects' },
+          { label: 'Projects', to: '/projects' },
           { label: project.number },
         ]}
       />

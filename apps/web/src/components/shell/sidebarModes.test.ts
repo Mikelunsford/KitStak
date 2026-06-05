@@ -79,7 +79,7 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
 
   it('MAKE groups projects + manufacturing + receiving (legacy production route excluded post-BNEW-2)', () => {
     const paths = pathsFor('make');
-    expect(paths).toContain('/3pl-operations/projects');
+    expect(paths).toContain('/projects');
     expect(paths).toContain('/manufacturing/runs');
     expect(paths).toContain('/3pl-operations/receiving');
   });
@@ -238,7 +238,7 @@ describe('visibleRoutesForMode (UX-Q1)', () => {
     const paths = visible.map((r) => r.path);
     expect(paths).not.toContain('/manufacturing/runs');
     // Other routes still present.
-    expect(paths).toContain('/3pl-operations/projects');
+    expect(paths).toContain('/projects');
     expect(paths).toContain('/3pl-operations/receiving');
   });
 

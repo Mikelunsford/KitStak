@@ -133,7 +133,7 @@ function ProjectLabel({ id }: { id: string }) {
   const row = q.data?.find((p) => p.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/projects/${id}`} className="text-ink underline">
+    <Link to={`/projects/${id}`} className="text-ink underline">
       {format(row.number, row.name)}
     </Link>
   );

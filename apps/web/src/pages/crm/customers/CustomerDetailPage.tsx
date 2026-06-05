@@ -153,7 +153,7 @@ export function CustomerDetailPage() {
         title="PROJECTS"
         entity="project"
         ctaLabel="New project"
-        ctaHref={`/3pl-operations/projects/new?customer_id=${c.id}`}
+        ctaHref={`/projects/new?customer_id=${c.id}`}
         isLoading={projectsQuery.isLoading}
         emptyExplainer="Projects are the units of work you deliver to this customer. Each one tracks materials, phases, and shipments."
         emptyIcon={Folder}
@@ -161,7 +161,7 @@ export function CustomerDetailPage() {
       >
         {relatedProjects.map((p) => (
           <li key={p.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
-            <Link to={`/3pl-operations/projects/${p.id}`} className="underline">
+            <Link to={`/projects/${p.id}`} className="underline">
               {p.number}
               {p.name ? ` . ${p.name}` : ''}
             </Link>

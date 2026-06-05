@@ -1191,19 +1191,19 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/projects',
+    path: '/projects',
     element: ProjectsListPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/projects/new',
+    path: '/projects/new',
     element: ProjectCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/projects/:id',
+    path: '/projects/:id',
     element: ProjectDetailPage,
     guard: 'protected',
     layout: 'shell',
@@ -1388,6 +1388,9 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/quotes/new',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/quotes/:id',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/quotes/:id/send',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/projects',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/projects/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/projects/:id',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   // === End spine re-route redirects ===
 ] as const;
 

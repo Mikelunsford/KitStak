@@ -76,14 +76,14 @@ describe('DetailSectionEmptyCoaching', () => {
     const nodes = render({
       ...BASE,
       ctaLabel: 'Add phase',
-      ctaTo: '/3pl-operations/projects/abc#add-phase',
+      ctaTo: '/projects/abc#add-phase',
     });
     const cta = find(
       nodes,
       (n) => n.props['data-testid'] === 'detail-section-empty-coaching-cta',
     );
     expect(cta).toBeDefined();
-    expect(cta?.props.to).toBe('/3pl-operations/projects/abc#add-phase');
+    expect(cta?.props.to).toBe('/projects/abc#add-phase');
     expect(cta?.props.children).toBe('Add phase');
     expect(cta?.props['aria-label']).toBe('Add phase');
   });
@@ -169,7 +169,7 @@ describe('DetailSectionEmptyCoaching copy discipline', () => {
       entity: 'phase',
       explainer: 'Phases break a project into trackable milestones.',
       ctaLabel: 'Add phase',
-      ctaTo: '/3pl-operations/projects/abc',
+      ctaTo: '/projects/abc',
     });
     for (const s of copyStrings(nodes)) {
       expect(s).not.toMatch(EM_DASH);

@@ -274,7 +274,7 @@ export function InvoiceDetailPage() {
                 <span>
                   Project:{' '}
                   <Link
-                    to={`/3pl-operations/projects/${projectId}`}
+                    to={`/projects/${projectId}`}
                     className="text-ink hover:text-accent"
                   >
                     {project.data?.project.number ?? projectId}
