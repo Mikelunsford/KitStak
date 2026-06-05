@@ -84,7 +84,7 @@ describe('list-page empty-state wiring (representative)', () => {
       explainer:
         'Stock movements are the audit trail of every inventory change. They appear automatically when you receive, build, or ship items.',
       addLabel: 'Add movement',
-      addTo: '/3pl-operations/stock/movements',
+      addTo: '/inventory/stock/movements',
       canAdd: false,
     });
     expect(explainerOf(nodes)).toMatch(/audit trail/);

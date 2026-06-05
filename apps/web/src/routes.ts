@@ -477,6 +477,14 @@ const LegacyProductionCreateRedirect = lazy(() =>
     default: m.LegacyProductionCreateRedirect,
   })),
 );
+// Spine plus add-ons re-route: one generic redirect serves every moved spine
+// path. See pages/_redirects/SpineMoveRedirect and the redirect block at the
+// tail of RAW_ROUTES.
+const SpineMoveRedirect = lazy(() =>
+  import('./pages/_redirects/SpineMoveRedirect').then((m) => ({
+    default: m.SpineMoveRedirect,
+  })),
+);
 const ShipmentsListPage = lazy(() =>
   import('./pages/3pl-operations/shipments/ShipmentsListPage').then((m) => ({ default: m.ShipmentsListPage })),
 );
@@ -1216,15 +1224,15 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/expenses/new',           element: ExpenseCreatePage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/expenses/:id',           element: ExpenseDetailPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/expenses/:id/edit',      element: ExpenseEditPage,           guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses',             element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses/new',         element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses/:id',         element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/warehouses/:id/edit',    element: WarehouseEditPage,         guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses',                  element: WarehousesListPage,        guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses/new',              element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses/:id',              element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
+  { path: '/inventory/warehouses/:id/edit',         element: WarehouseEditPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/boms',                   element: BomsListPage,              guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/boms/new',               element: BomCreatePage,             guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/boms/:id',               element: BomDetailPage,             guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/stock/levels',           element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/stock/movements',        element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
+  { path: '/inventory/stock/levels',                element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
+  { path: '/inventory/stock/movements',             element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving',              element: ReceivingOrdersListPage,   guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving/:id',          element: ReceivingOrderDetailPage,  guard: 'protected', layout: 'shell' },
   // BNEW-2 (PR-A): legacy production list + create -> /manufacturing/runs.
@@ -1325,6 +1333,21 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/account/security',       element: SecurityPage,                guard: 'protected', layout: 'shell' },
   { path: '/auth/recovery',          element: RecoveryPage,                guard: 'public',    layout: 'unauthenticated' },
   // === End F-Wave9-INVITE-PASSWORD-SETUP-01 ===
+
+  // === Spine plus add-ons re-route: legacy path redirects ===
+  // Each entry preserves a pre-re-route deep link. SpineMoveRedirect rewrites
+  // the /3pl-operations prefix to the new spine home (REDIRECT_PREFIX_MAP) and
+  // keeps the dynamic segments, query string, and hash. isRedirect keeps these
+  // ungated even though they still sit under the /3pl-operations prefix.
+  // Follow-up F-Wave10-SPINE-REROUTE-REDIRECT-RETIRE-01 drops them once
+  // analytics confirm no live bookmarks land on the old paths.
+  { path: '/3pl-operations/warehouses',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/warehouses/new',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/warehouses/:id',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/warehouses/:id/edit', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/stock/levels',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/stock/movements',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  // === End spine re-route redirects ===
 ] as const;
 
 /**

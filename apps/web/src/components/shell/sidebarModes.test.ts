@@ -99,7 +99,7 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
   it('SHIP groups shipments and stock movements only', () => {
     const paths = pathsFor('ship');
     expect(paths).toContain('/3pl-operations/shipments');
-    expect(paths).toContain('/3pl-operations/stock/movements');
+    expect(paths).toContain('/inventory/stock/movements');
   });
 
   it('GET PAID groups invoices, credit notes, payments, journal entries', () => {
@@ -117,7 +117,7 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(paths).toContain('/crm/contacts');
     // Reference data.
     expect(paths).toContain('/3pl-operations/items');
-    expect(paths).toContain('/3pl-operations/warehouses');
+    expect(paths).toContain('/inventory/warehouses');
     // AP (no separate BUY mode — documented compromise).
     expect(paths).toContain('/3pl-operations/vendors');
     expect(paths).toContain('/3pl-operations/purchase-orders');

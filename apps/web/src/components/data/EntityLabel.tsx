@@ -79,7 +79,7 @@ function WarehouseLabel({ id }: { id: string }) {
   const row = q.data?.find((w) => w.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/warehouses/${id}`} className="text-ink underline">
+    <Link to={`/inventory/warehouses/${id}`} className="text-ink underline">
       {format(row.code, row.display_name)}
     </Link>
   );
@@ -199,7 +199,8 @@ function SalesOrderLabel({ id }: { id: string }) {
 // Co-Pack-scoped warehouse label. Resolves through the copack_ecom bundle
 // (useCoPackWarehousesList) instead of the 3PL-gated inventory-api, so a
 // Co-Pack-only org sees the warehouse name, not a raw UUID. Rendered as plain
-// text (no link) because the warehouse detail route lives under 3PL.
+// text (no link) because the warehouse detail route reads through the
+// 3PL-gated inventory-api, which a Co-Pack-only org cannot call.
 function CoPackWarehouseLabel({ id }: { id: string }) {
   const q = useCoPackWarehousesList();
   const state = classifyEntityLabel(q.data, id);

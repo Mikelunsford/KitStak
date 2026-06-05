@@ -58,7 +58,7 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       label: 'Set up your warehouse',
       helperCopy:
         'A default warehouse is created during setup. Rename it or add more in Library.',
-      to: '/3pl-operations/warehouses',
+      to: '/inventory/warehouses',
       isComplete: summary.setup_warehouse_added,
     },
     {

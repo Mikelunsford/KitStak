@@ -83,7 +83,7 @@ export function WarehouseCreatePage() {
       is_default: parsed.data.is_default,
       is_active: parsed.data.is_active,
     });
-    navigate(`/3pl-operations/warehouses/${created.id}`);
+    navigate(`/inventory/warehouses/${created.id}`);
   }
 
   return (

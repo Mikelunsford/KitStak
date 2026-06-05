@@ -63,7 +63,7 @@ export function WarehouseEditPage() {
     // Zod has validated the shape; cast to the service Partial type.
     const patch: Partial<Warehouse> = parsed.data as Partial<Warehouse>;
     update.mutate(patch, {
-      onSuccess: () => navigate(`/3pl-operations/warehouses/${id}`),
+      onSuccess: () => navigate(`/inventory/warehouses/${id}`),
     });
   }
 

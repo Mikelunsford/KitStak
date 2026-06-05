@@ -123,3 +123,19 @@ orphan-route|apps/web/src/routes.ts|/kitforce
 # once the BOM-to-run flow is validated with the first operator).
 # ---------------------------------------------------------------------------
 orphan-route|apps/web/src/routes.ts|/manufacturing/runs/from-bom
+
+# ---------------------------------------------------------------------------
+# orphan-route: spine plus add-ons re-route legacy redirects.
+# The white paper V2 re-route moves spine and shared-building-block surfaces
+# out of the plugin-gated /3pl-operations/* namespace to neutral ungated
+# roots (/quotes, /projects, /purchasing/*, /catalog/*, /inventory/*,
+# /settings/*). Each old list path stays registered as a SpineMoveRedirect
+# (isRedirect) so existing bookmarks and emailed links still resolve. The
+# new homes ARE in the sidebar; these old paths are redirect-only and
+# intentionally absent from it. The /new and /:id variants are auto-exempt.
+# Follow-up: F-Wave10-SPINE-REROUTE-REDIRECT-RETIRE-01 — drop the redirects
+# once analytics confirm no live bookmarks land on the old paths.
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/3pl-operations/warehouses
+orphan-route|apps/web/src/routes.ts|/3pl-operations/stock/levels
+orphan-route|apps/web/src/routes.ts|/3pl-operations/stock/movements

@@ -182,12 +182,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
       },
       {
-        path: '/3pl-operations/stock/levels',
+        path: '/inventory/stock/levels',
         label: 'Stock levels',
         icon: Package,
       },
       {
-        path: '/3pl-operations/stock/movements',
+        path: '/inventory/stock/movements',
         label: 'Stock movements',
         icon: ArrowLeftRight,
       },
@@ -228,7 +228,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
       },
       { path: '/3pl-operations/items', label: 'Items', icon: Package },
-      { path: '/3pl-operations/warehouses', label: 'Warehouses', icon: Warehouse },
+      { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse },
       { path: '/3pl-operations/vendors', label: 'Vendors', icon: Building2 },
       {
         path: '/3pl-operations/purchase-orders',
