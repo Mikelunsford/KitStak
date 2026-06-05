@@ -207,7 +207,7 @@ test.describe('@smoke pillar-1 flow', () => {
     await test.step('post a payment', async () => {
       // PaymentCreatePage requires payment_number + customer_id picker +
       // amount_cents. Spec previously only filled amount_cents.
-      await page.goto('/3pl-operations/payments/new');
+      await page.goto('/invoicing/payments/new');
       await page.locator('input[name="amount_cents"]').fill('1000');
       await page.locator('button[type="submit"]').click();
       // PaymentCreatePage navigates to /invoicing/invoices/:id when an

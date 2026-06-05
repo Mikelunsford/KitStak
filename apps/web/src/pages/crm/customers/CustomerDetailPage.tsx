@@ -197,7 +197,7 @@ export function CustomerDetailPage() {
         title="PAYMENTS"
         entity="payment"
         ctaLabel="Receive payment"
-        ctaHref={`/3pl-operations/payments/new?customer_id=${c.id}`}
+        ctaHref={`/invoicing/payments/new?customer_id=${c.id}`}
         isLoading={paymentsQuery.isLoading}
         emptyExplainer="Payments record money received against this customer's invoices. Log them to close out receivables."
         emptyIcon={CreditCard}

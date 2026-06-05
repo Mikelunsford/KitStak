@@ -1261,8 +1261,8 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/finance/period-close',             element: PeriodClosePage,         guard: 'admin',     layout: 'shell' },
   // === End Agent D ===
   // === Agent 6.5-A: quote-to-cash create routes ===
-  { path: '/3pl-operations/payments/new',      element: PaymentCreatePage,       guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/credit-notes/new',  element: CreditNoteCreatePage,    guard: 'protected', layout: 'shell' },
+  { path: '/invoicing/payments/new',           element: PaymentCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/invoicing/credit-notes/new',       element: CreditNoteCreatePage,    guard: 'protected', layout: 'shell' },
   { path: '/finance/journal-entries/new',      element: JournalEntryCreatePage,  guard: 'protected', layout: 'shell' },
   // === End Agent 6.5-A ===
   // === Agent 6.5-D: crm routes ===
@@ -1391,6 +1391,8 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/projects',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/projects/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/projects/:id',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/payments/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/credit-notes/new',    element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   // === End spine re-route redirects ===
 ] as const;
 

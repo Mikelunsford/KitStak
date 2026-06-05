@@ -100,7 +100,7 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       key: 'payment_received',
       label: 'Record a payment',
       helperCopy: 'Close the loop and light up your revenue KPIs.',
-      to: '/3pl-operations/payments/new',
+      to: '/invoicing/payments/new',
       isComplete: summary.setup_payment_received,
     },
     {

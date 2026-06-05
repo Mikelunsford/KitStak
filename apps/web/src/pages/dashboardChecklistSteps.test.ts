@@ -95,7 +95,7 @@ describe('buildSetupSteps', () => {
       '/3pl-operations/receiving/new',
     );
     expect(byKey.get('invoice_sent')).toBe('/invoicing/invoices/new');
-    expect(byKey.get('payment_received')).toBe('/3pl-operations/payments/new');
+    expect(byKey.get('payment_received')).toBe('/invoicing/payments/new');
     expect(byKey.get('team_invited')).toBe('/admin/members');
   });
 

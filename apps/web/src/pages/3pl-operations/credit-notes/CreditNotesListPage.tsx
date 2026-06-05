@@ -3,7 +3,7 @@
 // hand-rolled header, the raw uppercase status text, and the hand-rolled pager.
 // Behavior preserved: the number link still targets the canonical
 // /invoicing/credit-notes detail path while the create CTA targets
-// /3pl-operations/credit-notes/new, and the onboarding ListEmptyState still
+// /invoicing/credit-notes/new, and the onboarding ListEmptyState still
 // renders on a true empty list.
 
 import { useState } from 'react';
@@ -84,7 +84,7 @@ export function CreditNotesListPage() {
         title="Credit notes"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/credit-notes/new">
+          <Link to="/invoicing/credit-notes/new">
             <Button variant="primary">New credit note</Button>
           </Link>
         }
@@ -97,7 +97,7 @@ export function CreditNotesListPage() {
           entity="credit note"
           explainer="Credit notes reverse part or all of an invoice."
           addLabel="Add credit note"
-          addTo="/3pl-operations/credit-notes/new"
+          addTo="/invoicing/credit-notes/new"
         />
       ) : (
         <>
