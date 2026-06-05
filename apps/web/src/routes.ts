@@ -1397,13 +1397,15 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
 ] as const;
 
 /**
- * Resolve the pillar plugin flag a given path belongs to, or null if the
- * path is plugin-agnostic. The mapping mirrors the URL pillar surface
- * declared in 00-canon/01-architecture.md: /3pl-operations/* is the 3PL
- * pillar; /manufacturing/* is the Manufacturing pillar; /kitcost/* is
- * the KitCost pillar (already gated by capability + per-route render in
- * KitCostDashboardPage, retained here for completeness); /copack/* is
- * the Co-Pack and Ecom pillar.
+ * Resolve the pillar plugin flag a given path belongs to, or undefined if
+ * the path is plugin-agnostic spine. After the spine plus add-ons re-route
+ * the gated namespaces hold ONLY true add-on surfaces: /3pl-operations/* is
+ * the 3PL add-on (receiving, shipments, and the production redirects);
+ * /manufacturing/* is Manufacturing; /kitcost/* is KitCost; /copack/* is
+ * Co-Pack and Ecom; /kitforce/* is KitForce. The spine and shared building
+ * blocks moved to ungated neutral roots (/quotes, /projects, /purchasing/*,
+ * /catalog/*, /inventory/*, /settings/sales-config/*, /invoicing/*), which
+ * fall through to undefined here.
  *
  * Returns the pre-existing `requiresPlugin` value when explicitly set so
  * a route can opt out of auto-gating by declaring its own value.

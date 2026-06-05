@@ -9,9 +9,12 @@
 //     the sidebar reorg groups routes by workflow stage regardless of
 //     pillar identity.
 //
-// URLs do NOT change. /manufacturing/runs stays at /manufacturing/runs.
-// Only the nav grouping changes; the flat ROUTES table is untouched
-// (per the constitutional "flat ROUTES table" rule in CLAUDE.md).
+// UX-Q1 itself did NOT change URLs; it only changed the nav grouping.
+// The later spine plus add-ons re-route (2026-06-04) moved several surfaces
+// to neutral spine roots (e.g. Quotes -> /quotes, Items -> /catalog/items,
+// Vendors -> /purchasing/vendors), and this file's paths were updated to
+// match. The flat ROUTES table stays the source of truth (per the CLAUDE.md
+// "flat ROUTES table" rule); old paths still resolve via SpineMoveRedirect.
 //
 // Six modes, in workflow order:
 //   1. SELL      — quote, qualify, and close work
