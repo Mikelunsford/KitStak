@@ -141,7 +141,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     icon: Factory,
     routes: [
       { path: '/3pl-operations/projects', label: 'Projects', icon: Briefcase },
-      { path: '/3pl-operations/boms', label: 'Bills of materials', icon: Layers },
+      { path: '/catalog/boms', label: 'Bills of materials', icon: Layers },
       {
         path: '/manufacturing/runs',
         label: 'Manufacturing runs',
@@ -227,7 +227,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Store,
         requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
       },
-      { path: '/3pl-operations/items', label: 'Items', icon: Package },
+      { path: '/catalog/items', label: 'Items', icon: Package },
       { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse },
       { path: '/3pl-operations/vendors', label: 'Vendors', icon: Building2 },
       {

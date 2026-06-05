@@ -1048,25 +1048,25 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   // === End Agent F ===
   // === Agent C: Sales routes ===
   {
-    path: '/3pl-operations/items',
+    path: '/catalog/items',
     element: ItemsListPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/items/new',
+    path: '/catalog/items/new',
     element: ItemCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/items/:id',
+    path: '/catalog/items/:id',
     element: ItemDetailPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/items/:id/edit',
+    path: '/catalog/items/:id/edit',
     element: ItemEditPage,
     guard: 'protected',
     layout: 'shell',
@@ -1148,20 +1148,20 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/vas',
+    path: '/catalog/vas',
     element: ValueAddedServicesPage,
     guard: 'protected',
     layout: 'shell',
   },
   // WS4: VAS create/edit
   {
-    path: '/3pl-operations/vas/new',
+    path: '/catalog/vas/new',
     element: ValueAddedServiceCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/vas/:id/edit',
+    path: '/catalog/vas/:id/edit',
     element: ValueAddedServiceEditPage,
     guard: 'protected',
     layout: 'shell',
@@ -1228,9 +1228,9 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/inventory/warehouses/new',              element: WarehouseCreatePage,       guard: 'protected', layout: 'shell' },
   { path: '/inventory/warehouses/:id',              element: WarehouseDetailPage,       guard: 'protected', layout: 'shell' },
   { path: '/inventory/warehouses/:id/edit',         element: WarehouseEditPage,         guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/boms',                   element: BomsListPage,              guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/boms/new',               element: BomCreatePage,             guard: 'protected', layout: 'shell' },
-  { path: '/3pl-operations/boms/:id',               element: BomDetailPage,             guard: 'protected', layout: 'shell' },
+  { path: '/catalog/boms',                          element: BomsListPage,              guard: 'protected', layout: 'shell' },
+  { path: '/catalog/boms/new',                      element: BomCreatePage,             guard: 'protected', layout: 'shell' },
+  { path: '/catalog/boms/:id',                      element: BomDetailPage,             guard: 'protected', layout: 'shell' },
   { path: '/inventory/stock/levels',                element: StockLevelsPage,           guard: 'protected', layout: 'shell' },
   { path: '/inventory/stock/movements',             element: StockMovementsPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/receiving',              element: ReceivingOrdersListPage,   guard: 'protected', layout: 'shell' },
@@ -1347,6 +1347,16 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/warehouses/:id/edit', element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/stock/levels',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/stock/movements',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items',               element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items/new',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items/:id',           element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/items/:id/edit',      element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/boms',                element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/boms/new',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/boms/:id',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vas',                 element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vas/new',             element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/vas/:id/edit',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   // === End spine re-route redirects ===
 ] as const;
 

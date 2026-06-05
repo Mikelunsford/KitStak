@@ -72,7 +72,7 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       key: 'item_added',
       label: 'Add an inventory item',
       helperCopy: 'The SKU you will receive, move, or ship first.',
-      to: '/3pl-operations/items/new',
+      to: '/catalog/items/new',
       isComplete: summary.setup_item_added,
     },
     {

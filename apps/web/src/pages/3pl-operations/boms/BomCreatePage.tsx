@@ -84,7 +84,7 @@ export function BomCreatePage() {
         : null,
       notes: parsed.data.notes ? parsed.data.notes : null,
     });
-    navigate(`/3pl-operations/boms/${parsed.data.parent_item_id}`);
+    navigate(`/catalog/boms/${parsed.data.parent_item_id}`);
   }
 
   return (

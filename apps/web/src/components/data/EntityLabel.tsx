@@ -92,7 +92,7 @@ function ItemLabel({ id }: { id: string }) {
   const row = q.data?.find((it) => it.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/3pl-operations/items/${id}`} className="text-ink underline">
+    <Link to={`/catalog/items/${id}`} className="text-ink underline">
       {format(row.sku, row.name)}
     </Link>
   );

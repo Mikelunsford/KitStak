@@ -99,7 +99,7 @@ describe('isPathAllowlistedForGate', () => {
 
   it('does NOT allowlist gated pillar surfaces', () => {
     expect(isPathAllowlistedForGate('/dashboard')).toBe(false);
-    expect(isPathAllowlistedForGate('/3pl-operations/items')).toBe(false);
+    expect(isPathAllowlistedForGate('/catalog/items')).toBe(false);
     expect(isPathAllowlistedForGate('/manufacturing/runs')).toBe(false);
     expect(isPathAllowlistedForGate('/admin/settings')).toBe(false);
   });

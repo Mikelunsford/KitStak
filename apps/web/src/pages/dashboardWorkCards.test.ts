@@ -147,7 +147,7 @@ describe('buildOnboardingCards', () => {
     // Routes must exist in apps/web/src/routes.ts; the spec is explicit
     // that we do not invent destinations.
     expect(routes).toContain('/crm/customers/new');
-    expect(routes).toContain('/3pl-operations/items/new');
+    expect(routes).toContain('/catalog/items/new');
     expect(routes).toContain('/3pl-operations/quotes/new');
     // F-Wave9-STAFF-INVITE-CHASSIS-01: the invite_teammate card now routes
     // to the dedicated /admin/members surface instead of dead-ending on

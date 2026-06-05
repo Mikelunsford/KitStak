@@ -65,7 +65,7 @@ export function ValueAddedServiceEditPage() {
       updateValueAddedService(id as string, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: vasKeys.all });
-      navigate('/3pl-operations/vas');
+      navigate('/catalog/vas');
     },
     onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save.'),
   });
@@ -167,7 +167,7 @@ export function ValueAddedServiceEditPage() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/3pl-operations/vas')}
+            onClick={() => navigate('/catalog/vas')}
           >
             Cancel
           </Button>

@@ -112,7 +112,7 @@ export function buildOnboardingCards(): OnboardingCardSpec[] {
     {
       key: 'add_inventory_item',
       label: 'Add an inventory item',
-      to: '/3pl-operations/items/new',
+      to: '/catalog/items/new',
       helperText: 'Define the SKU you will move first.',
     },
     {

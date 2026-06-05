@@ -31,7 +31,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Item>> = [
     header: 'Name',
     render: (item) => (
       <Link
-        to={`/3pl-operations/items/${item.id}`}
+        to={`/catalog/items/${item.id}`}
         className="text-ink hover:text-accent"
       >
         {item.name}
@@ -82,7 +82,7 @@ export function ItemsListPage() {
         title="Items"
         meta={meta}
         actions={
-          <Link to="/3pl-operations/items/new">
+          <Link to="/catalog/items/new">
             <Button variant="primary">New item</Button>
           </Link>
         }
@@ -95,7 +95,7 @@ export function ItemsListPage() {
           entity="item"
           explainer="Items are the SKUs you receive, build, and ship."
           addLabel="Add item"
-          addTo="/3pl-operations/items/new"
+          addTo="/catalog/items/new"
         />
       ) : (
         <>

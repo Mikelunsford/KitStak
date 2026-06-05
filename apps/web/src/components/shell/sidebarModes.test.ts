@@ -116,7 +116,7 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(paths).toContain('/crm/customers');
     expect(paths).toContain('/crm/contacts');
     // Reference data.
-    expect(paths).toContain('/3pl-operations/items');
+    expect(paths).toContain('/catalog/items');
     expect(paths).toContain('/inventory/warehouses');
     // AP (no separate BUY mode — documented compromise).
     expect(paths).toContain('/3pl-operations/vendors');
@@ -316,7 +316,7 @@ describe('findActiveMode (UX-Q1)', () => {
     expect(findActiveMode('/manufacturing/runs/abc-123')).toBe('make');
     expect(findActiveMode('/3pl-operations/quotes/xyz/send')).toBe('sell');
     expect(findActiveMode('/invoicing/invoices/i_1/send')).toBe('get_paid');
-    expect(findActiveMode('/3pl-operations/items/new')).toBe('library');
+    expect(findActiveMode('/catalog/items/new')).toBe('library');
     expect(findActiveMode('/kitforce/members/new')).toBe('workforce');
     expect(findActiveMode('/kitforce/assignments/a_1')).toBe('workforce');
   });

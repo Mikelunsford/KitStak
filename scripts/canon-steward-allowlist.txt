@@ -17,7 +17,7 @@
 # DO NOT add new entries without a follow-up ID and a one-line reason.
 
 # ---------------------------------------------------------------------------
-# orphan-route: sales-config sub-pages.
+# orphan-route: sales-config sub-pages and the value-added services catalog.
 # These six routes are deep settings reachable from the items / quotes /
 # admin surfaces rather than from the primary Sidebar. They are NOT silent
 # orphans of the PR #27 / PR #34 class because no `<Link to="..."/new">`
@@ -33,7 +33,7 @@ orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/currencies
 orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/exchange-rates
 orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/payment-methods
 orphan-route|apps/web/src/routes.ts|/3pl-operations/sales-config/pricing-tiers
-orphan-route|apps/web/src/routes.ts|/3pl-operations/vas
+orphan-route|apps/web/src/routes.ts|/catalog/vas
 
 # ---------------------------------------------------------------------------
 # orphan-route: /imports/history.
@@ -139,3 +139,6 @@ orphan-route|apps/web/src/routes.ts|/manufacturing/runs/from-bom
 orphan-route|apps/web/src/routes.ts|/3pl-operations/warehouses
 orphan-route|apps/web/src/routes.ts|/3pl-operations/stock/levels
 orphan-route|apps/web/src/routes.ts|/3pl-operations/stock/movements
+orphan-route|apps/web/src/routes.ts|/3pl-operations/items
+orphan-route|apps/web/src/routes.ts|/3pl-operations/boms
+orphan-route|apps/web/src/routes.ts|/3pl-operations/vas

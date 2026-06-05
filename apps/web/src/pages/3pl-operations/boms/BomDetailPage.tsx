@@ -134,7 +134,7 @@ export function BomDetailPage() {
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
         items={[
-          { label: 'Bills of materials', to: '/3pl-operations/boms' },
+          { label: 'Bills of materials', to: '/catalog/boms' },
           { label: parentLabel },
         ]}
       />
