@@ -314,13 +314,13 @@ export function ProjectDetailPage() {
             : []),
           ...(sourceQuoteId
             ? [
-                { label: 'Quotes', to: '/3pl-operations/quotes' },
+                { label: 'Quotes', to: '/quotes' },
                 {
                   label: fallbackLabel(
                     sourceQuote.data?.quote.number,
                     sourceQuoteId,
                   ),
-                  to: `/3pl-operations/quotes/${sourceQuoteId}`,
+                  to: `/quotes/${sourceQuoteId}`,
                 },
               ]
             : []),
@@ -369,7 +369,7 @@ export function ProjectDetailPage() {
                   target resting vs hover precisely.
                 */}
                 <Link
-                  to={`/3pl-operations/quotes/${sourceQuoteId}`}
+                  to={`/quotes/${sourceQuoteId}`}
                   className="text-ink hover:text-accent"
                   data-testid="source-quote-link"
                 >

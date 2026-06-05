@@ -106,12 +106,12 @@ describe('detail-page section coaching wiring (representative)', () => {
       explainer:
         'Quotes are priced proposals you send to win the work. Approved quotes convert to projects.',
       ctaLabel: 'New quote',
-      ctaTo: `/3pl-operations/quotes/new?customer_id=${customerId}`,
+      ctaTo: `/quotes/new?customer_id=${customerId}`,
     });
     expect(explainerOf(nodes)).toMatch(/priced proposals/);
     const cta = ctaOf(nodes);
     expect(cta?.props.to).toBe(
-      `/3pl-operations/quotes/new?customer_id=${customerId}`,
+      `/quotes/new?customer_id=${customerId}`,
     );
   });
 

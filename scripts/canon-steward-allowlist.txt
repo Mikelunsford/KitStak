@@ -151,3 +151,4 @@ orphan-route|apps/web/src/routes.ts|/3pl-operations/vendors
 orphan-route|apps/web/src/routes.ts|/3pl-operations/purchase-orders
 orphan-route|apps/web/src/routes.ts|/3pl-operations/vendor-bills
 orphan-route|apps/web/src/routes.ts|/3pl-operations/expenses
+orphan-route|apps/web/src/routes.ts|/3pl-operations/quotes

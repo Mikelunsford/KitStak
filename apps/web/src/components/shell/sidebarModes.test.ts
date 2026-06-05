@@ -74,7 +74,7 @@ describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
     expect(paths).toContain('/crm/leads');
     expect(paths).toContain('/crm/opportunities');
     expect(paths).toContain('/crm/activities');
-    expect(paths).toContain('/3pl-operations/quotes');
+    expect(paths).toContain('/quotes');
   });
 
   it('MAKE groups projects + manufacturing + receiving (legacy production route excluded post-BNEW-2)', () => {
@@ -303,7 +303,7 @@ describe('findActiveMode (UX-Q1)', () => {
 
   it('matches exact path to its owning mode', () => {
     expect(findActiveMode('/crm/leads')).toBe('sell');
-    expect(findActiveMode('/3pl-operations/quotes')).toBe('sell');
+    expect(findActiveMode('/quotes')).toBe('sell');
     expect(findActiveMode('/manufacturing/runs')).toBe('make');
     expect(findActiveMode('/3pl-operations/shipments')).toBe('ship');
     expect(findActiveMode('/invoicing/invoices')).toBe('get_paid');
@@ -314,7 +314,7 @@ describe('findActiveMode (UX-Q1)', () => {
 
   it('matches detail/subpath URLs via prefix-with-slash', () => {
     expect(findActiveMode('/manufacturing/runs/abc-123')).toBe('make');
-    expect(findActiveMode('/3pl-operations/quotes/xyz/send')).toBe('sell');
+    expect(findActiveMode('/quotes/xyz/send')).toBe('sell');
     expect(findActiveMode('/invoicing/invoices/i_1/send')).toBe('get_paid');
     expect(findActiveMode('/catalog/items/new')).toBe('library');
     expect(findActiveMode('/kitforce/members/new')).toBe('workforce');
@@ -322,10 +322,10 @@ describe('findActiveMode (UX-Q1)', () => {
   });
 
   it('does NOT confuse prefix-without-slash matches', () => {
-    // /3pl-operations/quotesomething should not match /3pl-operations/quotes.
+    // /quotesomething should not match /quotes.
     // (No real route exists at this path, but the prefix-with-slash rule
     // is what makes the test meaningful.)
-    expect(findActiveMode('/3pl-operations/quotesextra')).toBe(null);
+    expect(findActiveMode('/quotesextra')).toBe(null);
   });
 });
 

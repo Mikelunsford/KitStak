@@ -1167,25 +1167,25 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes',
+    path: '/quotes',
     element: QuotesListPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes/new',
+    path: '/quotes/new',
     element: QuoteCreatePage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes/:id',
+    path: '/quotes/:id',
     element: QuoteDetailPage,
     guard: 'protected',
     layout: 'shell',
   },
   {
-    path: '/3pl-operations/quotes/:id/send',
+    path: '/quotes/:id/send',
     element: QuoteSendPage,
     guard: 'protected',
     layout: 'shell',
@@ -1384,6 +1384,10 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/expenses/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/expenses/:id',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/expenses/:id/edit',   element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes',              element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes/new',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes/:id',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
+  { path: '/3pl-operations/quotes/:id/send',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   // === End spine re-route redirects ===
 ] as const;
 

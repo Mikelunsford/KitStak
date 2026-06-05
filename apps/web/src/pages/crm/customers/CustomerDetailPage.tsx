@@ -132,7 +132,7 @@ export function CustomerDetailPage() {
         title="QUOTES"
         entity="quote"
         ctaLabel="New quote"
-        ctaHref={`/3pl-operations/quotes/new?customer_id=${c.id}`}
+        ctaHref={`/quotes/new?customer_id=${c.id}`}
         isLoading={quotesQuery.isLoading}
         emptyExplainer="Quotes are priced proposals you send to win the work. Approved quotes convert to projects."
         emptyIcon={FileText}
@@ -140,7 +140,7 @@ export function CustomerDetailPage() {
       >
         {relatedQuotes.map((q) => (
           <li key={q.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
-            <Link to={`/3pl-operations/quotes/${q.id}`} className="underline">
+            <Link to={`/quotes/${q.id}`} className="underline">
               {q.number}
               {q.title ? ` . ${q.title}` : ''}
             </Link>

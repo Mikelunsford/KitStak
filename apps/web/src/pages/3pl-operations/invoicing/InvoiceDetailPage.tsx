@@ -285,7 +285,7 @@ export function InvoiceDetailPage() {
                 <span>
                   Source quote:{' '}
                   <Link
-                    to={`/3pl-operations/quotes/${sourceQuoteId}`}
+                    to={`/quotes/${sourceQuoteId}`}
                     className="text-ink hover:text-accent"
                   >
                     {sourceQuote.data?.quote.number ?? sourceQuoteId}

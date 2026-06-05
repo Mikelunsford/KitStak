@@ -161,7 +161,7 @@ test.describe('@smoke pillar-1 flow', () => {
     // QUOTE_FSM.
     let quoteUrl = '';
     await test.step('create a quote, submit, approve, send', async () => {
-      await page.goto('/3pl-operations/quotes/new');
+      await page.goto('/quotes/new');
       // TODO(F-Wave5-TEST-02-CHAIN-01): drive CustomerPicker via typeahead
       // and select the seeded customer. Single-FK pickers do not expose a
       // name="" attribute; a data-testid contract on CustomerPicker is the

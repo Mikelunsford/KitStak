@@ -54,13 +54,13 @@ describe('representative detail-page breadcrumb shapes (UX-Q10 smoke)', () => {
     const items: BreadcrumbItem[] = [
       { label: 'Customers', to: '/crm/customers' },
       { label: customerName, to: `/crm/customers/${customerId}` },
-      { label: 'Quotes', to: '/3pl-operations/quotes' },
+      { label: 'Quotes', to: '/quotes' },
       { label: quoteNumber },
     ];
     expect(items).toHaveLength(4);
     expect(items[0]!.to).toBe('/crm/customers');
     expect(items[1]!.to).toBe(`/crm/customers/${customerId}`);
-    expect(items[2]!.to).toBe('/3pl-operations/quotes');
+    expect(items[2]!.to).toBe('/quotes');
     expect(items[3]!.to).toBeUndefined();
     expect(items[3]!.label).toBe(quoteNumber);
   });
@@ -71,8 +71,8 @@ describe('representative detail-page breadcrumb shapes (UX-Q10 smoke)', () => {
     const items: BreadcrumbItem[] = [
       { label: 'Customers', to: '/crm/customers' },
       { label: 'Smoke Co.', to: `/crm/customers/${customerId}` },
-      { label: 'Quotes', to: '/3pl-operations/quotes' },
-      { label: 'SMOKE-001', to: `/3pl-operations/quotes/${sourceQuoteId}` },
+      { label: 'Quotes', to: '/quotes' },
+      { label: 'SMOKE-001', to: `/quotes/${sourceQuoteId}` },
       { label: 'Projects', to: '/3pl-operations/projects' },
       { label: 'PRJ-001' },
     ];

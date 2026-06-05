@@ -125,7 +125,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/crm/leads', label: 'Leads', icon: TrendingUp },
       { path: '/crm/opportunities', label: 'Opportunities', icon: Target },
       { path: '/crm/activities', label: 'Activities', icon: CalendarCheck },
-      { path: '/3pl-operations/quotes', label: 'Quotes', icon: FileText },
+      { path: '/quotes', label: 'Quotes', icon: FileText },
       {
         path: '/copack/orders',
         label: 'Sales orders',
@@ -313,7 +313,7 @@ export function visibleRoutesForMode(
  * mode that contains the active route on first render.
  *
  * Matches by exact path or prefix-with-slash, mirroring the v1
- * sidebar's behaviour so deep-link nav (e.g. /3pl-operations/quotes/:id)
+ * sidebar's behaviour so deep-link nav (e.g. /quotes/:id)
  * still highlights the right mode.
  */
 export function findActiveMode(pathname: string): ModeKey | null {

@@ -79,7 +79,7 @@ export function buildSetupSteps(summary: DashboardSummary): SetupStepSpec[] {
       key: 'quote_created',
       label: 'Create your first quote',
       helperCopy: 'Draft a quote the customer can approve.',
-      to: '/3pl-operations/quotes/new',
+      to: '/quotes/new',
       isComplete: summary.setup_quote_created,
     },
     {

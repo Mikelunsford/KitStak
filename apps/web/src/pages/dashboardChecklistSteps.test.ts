@@ -90,7 +90,7 @@ describe('buildSetupSteps', () => {
     expect(byKey.get('warehouse_added')).toBe('/inventory/warehouses');
     expect(byKey.get('customer_added')).toBe('/crm/customers/new');
     expect(byKey.get('item_added')).toBe('/catalog/items/new');
-    expect(byKey.get('quote_created')).toBe('/3pl-operations/quotes/new');
+    expect(byKey.get('quote_created')).toBe('/quotes/new');
     expect(byKey.get('receiving_received')).toBe(
       '/3pl-operations/receiving/new',
     );
