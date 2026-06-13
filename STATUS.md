@@ -1,5 +1,13 @@
 # Kitstak Status
 
+## 2026-06-13 3PL Job Builder UI shipped (Phase A2 complete)
+
+The 3PL commercial layer's Phase A2 (Job Builder) is fully shipped to prod. The backend landed earlier in PR #252 (migrations 0091 `job_templates` and `job_template_lines`, 0092 `JB-` numbering, the byte-mirror `threepl` types, the six `threepl.job_template.*` capabilities, and the `three-pl-api` job-template routes). The UI layer landed in PR #254 (squash `873e254`), mirroring the A1 Accounts UI file-for-file: `jobTemplatesService`, `useJobTemplates`, the `jobTemplatesKeys` and `jobTemplateLinesKeys` query keys, the SPA pages under `/3pl-operations/job-builders` (list with status and variant filters, the hub detail with a HISTORY rail, the component/service/step builder-lines section, and the create form), the lazy routes, and the "Job Builders" sidebar entry (second in 3PL OPERATIONS, gated `plugins.three_pl`). UI only: no migrations and no edge functions, so the merge fired only the Vercel deploy.
+
+Verified: SPA typecheck, lint (max-warnings 0), 440 tests, contract parity (byte-mirror intact), build, size-limit (SPA index 39.45 kB gzipped, under 40). A `code-reviewer` pass returned APPROVE with 0 critical and 0 high; one fix folded in (the VAS service-line list now loads only when a service line exists or is being edited).
+
+Phase state (Body A, the 3PL commercial layer): A0 canon DONE (#249, #251), A1 Accounts DONE (#249), A2 Job Builder DONE (#252 backend, #254 UI). Next is A3 (Quote integration), then A4 project conversion with template snapshotting, A5 Supply Plan, A6 Job Runs, A7 Billing Review and Profitability, then WMS Body B (B0 to B4) behind the B2 `stock_movements` `location_id` operator stop-point. A3 is new design work, not a mirror, and wants a short planning pass first; the closeout and A3 handoff is `03-workspace/specs/2026-06-13-3pl-a2-ui-closeout-and-a3-handoff.md`.
+
 ## 2026-06-04 3PL commercial pivot and WMS add-on (planning landed, execution started)
 
 Moved the parked 3PL Job Builder pivot and the new WMS (warehouse execution) add-on from parked to planned, and started execution. The consolidated plan is `03-workspace/specs/2026-06-04-3pl-commercial-pivot-and-wms-pillar-plan.md`. Direction approved by the operator 2026-06-04.
