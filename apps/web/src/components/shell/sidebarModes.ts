@@ -34,6 +34,7 @@
 
 import {
   ArrowLeftRight,
+  Blocks,
   Boxes,
   Briefcase,
   Building,
@@ -175,16 +176,22 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   {
     key: 'three_pl',
     label: '3PL OPERATIONS',
-    subtitle: 'Accounts, receiving, and shipping.',
+    subtitle: 'Accounts, job builders, receiving, and shipping.',
     icon: Truck,
     routes: [
-      // Accounts is the Wave 12 commercial-layer entry (Phase A1). Job
-      // Builders, Job Runs, Supply Plans, Billing Review, and Profitability
-      // join this section as their A-phases ship.
+      // Accounts is the Wave 12 commercial-layer entry (Phase A1); Job Builders
+      // is the Phase A2 entry. Job Runs, Supply Plans, Billing Review, and
+      // Profitability join this section as their A-phases ship.
       {
         path: '/3pl-operations/accounts',
         label: 'Accounts',
         icon: Building,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/job-builders',
+        label: 'Job Builders',
+        icon: Blocks,
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
       },
       {
