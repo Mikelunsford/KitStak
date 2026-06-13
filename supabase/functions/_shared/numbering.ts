@@ -36,7 +36,8 @@ export type DocType =
   | 'workforce_member'
   | 'shift'
   | 'work_assignment'
-  | 'three_pl_account';
+  | 'three_pl_account'
+  | 'job_template';
 
 /**
  * Allocate the next document number for (org, docType). Returns the

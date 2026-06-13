@@ -305,13 +305,20 @@ export type Capability =
   | 'kitforce.time_entry.clock_out'
   | 'kitforce.time_entry.update'
   | 'kitforce.time_entry.delete'
-  // threepl.* (6) 3PL commercial layer
+  // threepl.account.* (6) 3PL commercial layer accounts
   | 'threepl.account.create'
   | 'threepl.account.update'
   | 'threepl.account.deactivate'
   | 'threepl.account.service_definition.create'
   | 'threepl.account.service_definition.update'
-  | 'threepl.account.service_definition.delete';
+  | 'threepl.account.service_definition.delete'
+  // threepl.job_template.* (6) 3PL Job Builder (Phase A2)
+  | 'threepl.job_template.create'
+  | 'threepl.job_template.update'
+  | 'threepl.job_template.deactivate'
+  | 'threepl.job_template.line.create'
+  | 'threepl.job_template.line.update'
+  | 'threepl.job_template.line.delete';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -601,6 +608,13 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'threepl.account.service_definition.create',
   'threepl.account.service_definition.update',
   'threepl.account.service_definition.delete',
+  // threepl.job_template.* 3PL Job Builder (Phase A2)
+  'threepl.job_template.create',
+  'threepl.job_template.update',
+  'threepl.job_template.deactivate',
+  'threepl.job_template.line.create',
+  'threepl.job_template.line.update',
+  'threepl.job_template.line.delete',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -875,6 +889,13 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'threepl.account.service_definition.create',
   'threepl.account.service_definition.update',
   'threepl.account.service_definition.delete',
+  // threepl.job_template.* 3PL Job Builder (Phase A2)
+  'threepl.job_template.create',
+  'threepl.job_template.update',
+  'threepl.job_template.deactivate',
+  'threepl.job_template.line.create',
+  'threepl.job_template.line.update',
+  'threepl.job_template.line.delete',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1002,6 +1023,13 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'threepl.account.service_definition.create',
   'threepl.account.service_definition.update',
   'threepl.account.service_definition.delete',
+  // threepl.job_template.* 3PL Job Builder (Phase A2)
+  'threepl.job_template.create',
+  'threepl.job_template.update',
+  'threepl.job_template.deactivate',
+  'threepl.job_template.line.create',
+  'threepl.job_template.line.update',
+  'threepl.job_template.line.delete',
 ];
 
 const OPS_CAPS: ReadonlyArray<Capability> = [
@@ -1174,6 +1202,13 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'threepl.account.service_definition.create',
   'threepl.account.service_definition.update',
   'threepl.account.service_definition.delete',
+  // threepl.job_template.* 3PL Job Builder (Phase A2)
+  'threepl.job_template.create',
+  'threepl.job_template.update',
+  'threepl.job_template.deactivate',
+  'threepl.job_template.line.create',
+  'threepl.job_template.line.update',
+  'threepl.job_template.line.delete',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
