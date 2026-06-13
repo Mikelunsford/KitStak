@@ -17,23 +17,23 @@
 # DO NOT add new entries without a follow-up ID and a one-line reason.
 
 # ---------------------------------------------------------------------------
-# orphan-route: sales-config sub-pages and the value-added services catalog.
-# These six routes are deep settings reachable from the items / quotes /
-# admin surfaces rather than from the primary Sidebar. They are NOT silent
-# orphans of the PR #27 / PR #34 class because no `<Link to="..."/new">`
-# points at a missing /new route; the static route is registered and the
-# detail surfaces link to them. The Sidebar IA intentionally does not
-# surface every config sub-page.
-# Follow-up: F-Wave7-SIDEBAR-IA-01 (decide whether sales-config and VAS
-# should get their own collapsible Sidebar section in Phase 8 or remain
-# linked from the admin / items surfaces only).
+# orphan-route: the remaining sales-config sub-pages.
+# The Wave 12 pillar-grouped sidebar (plan section 5.5) surfaces the Catalog
+# domain (including Value-added services at /catalog/vas) and a Settings
+# domain whose "Sales config" entry lands on /settings/sales-config/taxes, so
+# those two are no longer orphans and have been removed from this list. The
+# four remaining sales-config sub-pages (currencies, exchange rates, payment
+# methods, pricing tiers) are still reached from the sales-config surface, not
+# the Sidebar, and stay allowlisted. They are NOT silent orphans of the
+# PR #27 / PR #34 class: no `<Link to="...">` points at a missing /new route.
+# Follow-up: F-Wave7-SIDEBAR-IA-01 (decide whether the remaining sales-config
+# sub-pages get individual Sidebar entries or stay linked from the sales-config
+# surface).
 # ---------------------------------------------------------------------------
-orphan-route|apps/web/src/routes.ts|/settings/sales-config/taxes
 orphan-route|apps/web/src/routes.ts|/settings/sales-config/currencies
 orphan-route|apps/web/src/routes.ts|/settings/sales-config/exchange-rates
 orphan-route|apps/web/src/routes.ts|/settings/sales-config/payment-methods
 orphan-route|apps/web/src/routes.ts|/settings/sales-config/pricing-tiers
-orphan-route|apps/web/src/routes.ts|/catalog/vas
 
 # ---------------------------------------------------------------------------
 # orphan-route: /imports/history.

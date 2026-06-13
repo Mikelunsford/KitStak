@@ -1,9 +1,12 @@
-// UX-Q1: pin the job-mode sidebar IA.
+// Wave 12: pin the pillar-grouped sidebar IA (plan section 5.5, decision D4).
 //
-// Tests the pure SIDEBAR_MODES export plus its helpers
-// (isRouteVisible, visibleRoutesForMode, findActiveMode) without a
-// React renderer (mirrors the precedent in sidebarGating.test.ts and
-// featureFlagResolver.test.ts).
+// Tests the pure SIDEBAR_MODES export plus its helpers (isRouteVisible,
+// visibleRoutesForMode, findActiveMode) without a React renderer (mirrors the
+// precedent in sidebarGating.test.ts and featureFlagResolver.test.ts).
+//
+// This supersedes the UX-Q1 six-job-mode assertions; the sidebar now has one
+// always-on SPINE section (sub-grouped by domain) plus one section per lit
+// add-on (3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost).
 
 import { describe, it, expect } from 'vitest';
 import { Factory, Target } from 'lucide-react';
@@ -17,30 +20,30 @@ import {
 } from './sidebarModes';
 import { FEATURE_FLAGS } from '@/lib/constants';
 
-describe('SIDEBAR_MODES shape (UX-Q1)', () => {
-  it('contains exactly six modes', () => {
+describe('SIDEBAR_MODES shape (Wave 12 pillar IA)', () => {
+  it('contains exactly six sections', () => {
     expect(SIDEBAR_MODES).toHaveLength(6);
   });
 
-  it('modes are SELL / MAKE / SHIP / GET PAID / LIBRARY / WORKFORCE in workflow order', () => {
+  it('sections are SPINE then one per lit add-on, in order', () => {
     const keys = SIDEBAR_MODES.map((m) => m.key);
     expect(keys).toEqual<ModeKey[]>([
-      'sell',
-      'make',
-      'ship',
-      'get_paid',
-      'library',
-      'workforce',
+      'spine',
+      'three_pl',
+      'manufacturing',
+      'copack',
+      'kitforce',
+      'kitcost',
     ]);
   });
 
-  it('every mode has at least one route', () => {
+  it('every section has at least one route', () => {
     for (const mode of SIDEBAR_MODES) {
-      expect(mode.routes.length, `mode ${mode.key}`).toBeGreaterThan(0);
+      expect(mode.routes.length, `section ${mode.key}`).toBeGreaterThan(0);
     }
   });
 
-  it('every mode has a branded uppercase label and a period-ending subtitle', () => {
+  it('every section has a branded uppercase label and a period-ending subtitle', () => {
     for (const mode of SIDEBAR_MODES) {
       // No em dashes, no double-hyphens, no emojis (branding rules).
       expect(mode.label, `${mode.key} label`).toBe(mode.label.toUpperCase());
@@ -50,7 +53,7 @@ describe('SIDEBAR_MODES shape (UX-Q1)', () => {
     }
   });
 
-  it('no duplicate routes across modes (every path lives in exactly one mode)', () => {
+  it('no duplicate routes across sections (every path lives in exactly one section)', () => {
     const allPaths: string[] = [];
     for (const mode of SIDEBAR_MODES) {
       for (const route of mode.routes) {
@@ -60,126 +63,174 @@ describe('SIDEBAR_MODES shape (UX-Q1)', () => {
     const dupes = allPaths.filter((p, i) => allPaths.indexOf(p) !== i);
     expect(dupes, `duplicate paths: ${dupes.join(', ')}`).toEqual([]);
   });
+
+  it('does NOT contain a WMS section (the sixth add-on is not built yet)', () => {
+    const keys = SIDEBAR_MODES.map((m) => m.key as string);
+    expect(keys).not.toContain('wms');
+  });
 });
 
-describe('SIDEBAR_MODES routing decisions (UX-Q1)', () => {
+describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
   function pathsFor(key: ModeKey): string[] {
     const mode = SIDEBAR_MODES.find((m) => m.key === key);
-    if (!mode) throw new Error(`mode not found: ${key}`);
+    if (!mode) throw new Error(`section not found: ${key}`);
     return mode.routes.map((r) => r.path);
   }
 
-  it('SELL groups CRM funnel routes plus quotes', () => {
-    const paths = pathsFor('sell');
+  it('SPINE holds the always-on backbone surfaces across every domain', () => {
+    const paths = pathsFor('spine');
+    // CRM
+    expect(paths).toContain('/crm/customers');
+    expect(paths).toContain('/crm/contacts');
     expect(paths).toContain('/crm/leads');
     expect(paths).toContain('/crm/opportunities');
     expect(paths).toContain('/crm/activities');
+    // Quotes + Projects
     expect(paths).toContain('/quotes');
-  });
-
-  it('MAKE groups projects + manufacturing + receiving (legacy production route excluded post-BNEW-2)', () => {
-    const paths = pathsFor('make');
     expect(paths).toContain('/projects');
-    expect(paths).toContain('/manufacturing/runs');
-    expect(paths).toContain('/3pl-operations/receiving');
-  });
-
-  it('MAKE does NOT contain the legacy /3pl-operations/production sidebar entry (BNEW-2, 2026-05-22 v2 smoke)', () => {
-    // The legacy production-runs surface rendered an older form (raw UUID
-    // inputs, no warehouse dropdown, no auto-number, no item picker). The
-    // canonical surface is /manufacturing/runs. The legacy routes stay
-    // registered as <Navigate> redirects in routes.ts so deep links land
-    // on the new surface; they MUST NOT appear in the sidebar.
-    // Follow-up: F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01.
-    const paths = pathsFor('make');
-    expect(paths).not.toContain('/3pl-operations/production');
-    expect(paths).not.toContain('/3pl-operations/production/new');
-  });
-
-  it('SHIP groups shipments and stock movements only', () => {
-    const paths = pathsFor('ship');
-    expect(paths).toContain('/3pl-operations/shipments');
-    expect(paths).toContain('/inventory/stock/movements');
-  });
-
-  it('GET PAID groups invoices, credit notes, payments, journal entries', () => {
-    const paths = pathsFor('get_paid');
-    expect(paths).toContain('/invoicing/invoices');
-    expect(paths).toContain('/invoicing/credit-notes');
-    expect(paths).toContain('/invoicing/payments');
-    expect(paths).toContain('/finance/journal-entries');
-  });
-
-  it('LIBRARY holds customers + reference data + procurement (AP-in-Library compromise)', () => {
-    const paths = pathsFor('library');
-    // Customers + Contacts are reference data, not transactional.
-    expect(paths).toContain('/crm/customers');
-    expect(paths).toContain('/crm/contacts');
-    // Reference data.
+    // Catalog (Items, BOMs, VAS)
     expect(paths).toContain('/catalog/items');
+    expect(paths).toContain('/catalog/boms');
+    expect(paths).toContain('/catalog/vas');
+    // Inventory
     expect(paths).toContain('/inventory/warehouses');
-    // AP (no separate BUY mode — documented compromise).
+    expect(paths).toContain('/inventory/stock/levels');
+    expect(paths).toContain('/inventory/stock/movements');
+    // Purchasing
     expect(paths).toContain('/purchasing/vendors');
     expect(paths).toContain('/purchasing/purchase-orders');
     expect(paths).toContain('/purchasing/vendor-bills');
     expect(paths).toContain('/purchasing/expenses');
+    // Invoicing
+    expect(paths).toContain('/invoicing/invoices');
+    expect(paths).toContain('/invoicing/credit-notes');
+    expect(paths).toContain('/invoicing/payments');
+    // Finance
+    expect(paths).toContain('/finance/coa');
+    expect(paths).toContain('/finance/period-close');
+    expect(paths).toContain('/finance/journal-entries');
+    // Settings
+    expect(paths).toContain('/settings/sales-config/taxes');
   });
 
-  it('Manufacturing route is gated behind plugins.manufacturing', () => {
-    const make = SIDEBAR_MODES.find((m) => m.key === 'make');
-    expect(make).toBeDefined();
-    const mfg = make!.routes.find((r) => r.path === '/manufacturing/runs');
-    expect(mfg?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_MANUFACTURING);
+  it('every SPINE route carries a domain sub-group label', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    for (const route of spine.routes) {
+      expect(route.group, `group on ${route.path}`).toBeTruthy();
+    }
   });
 
-  it('Co-Pack surfaces sit in their workflow modes and are gated behind plugins.copack_ecom', () => {
-    const expectations: ReadonlyArray<[ModeKey, string]> = [
-      ['sell', '/copack/orders'],
-      ['make', '/copack/kitting'],
-      ['ship', '/copack/fulfillments'],
-      ['library', '/copack/channels'],
-    ];
-    for (const [key, path] of expectations) {
-      const mode = SIDEBAR_MODES.find((m) => m.key === key);
-      expect(mode, `mode ${key}`).toBeDefined();
-      const route = mode!.routes.find((r) => r.path === path);
-      expect(route, `route ${path} in ${key}`).toBeDefined();
-      expect(route?.requiresFlag, `flag on ${path}`).toBe(
+  it('SPINE sub-groups cover the nine plan domains, in order', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    const seen: string[] = [];
+    for (const route of spine.routes) {
+      if (route.group && seen[seen.length - 1] !== route.group) {
+        seen.push(route.group);
+      }
+    }
+    expect(seen).toEqual([
+      'CRM',
+      'Quotes',
+      'Projects',
+      'Catalog',
+      'Inventory',
+      'Purchasing',
+      'Invoicing',
+      'Finance',
+      'Settings',
+    ]);
+  });
+
+  it('SPINE is always-on: no plugin flag gates a backbone route (only the journal-entries feature flag)', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    for (const route of spine.routes) {
+      if (route.requiresFlag === undefined) continue;
+      // The one allowed gate on the spine is the journal-entries feature flag,
+      // never a pillar plugin flag.
+      expect(route.requiresFlag, `gate on ${route.path}`).toBe(
+        FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
+      );
+    }
+  });
+
+  it('3PL OPERATIONS holds Accounts, Receiving, Shipments, each gated plugins.three_pl', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    const paths = mode.routes.map((r) => r.path);
+    expect(paths).toEqual([
+      '/3pl-operations/accounts',
+      '/3pl-operations/receiving',
+      '/3pl-operations/shipments',
+    ]);
+    for (const route of mode.routes) {
+      expect(route.requiresFlag, `flag on ${route.path}`).toBe(
+        FEATURE_FLAGS.PLUGINS_THREE_PL,
+      );
+    }
+  });
+
+  it('Accounts (Wave 12 Phase A1) is the first 3PL Operations entry', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    expect(mode.routes[0]?.path).toBe('/3pl-operations/accounts');
+    expect(mode.routes[0]?.label).toBe('Accounts');
+  });
+
+  it('MANUFACTURING holds Runs, gated plugins.manufacturing', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'manufacturing')!;
+    const run = mode.routes.find((r) => r.path === '/manufacturing/runs');
+    expect(run).toBeDefined();
+    expect(run?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_MANUFACTURING);
+  });
+
+  it('CO-PACK AND ECOM holds its four surfaces, each gated plugins.copack_ecom', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'copack')!;
+    const paths = mode.routes.map((r) => r.path);
+    expect(paths).toContain('/copack/orders');
+    expect(paths).toContain('/copack/kitting');
+    expect(paths).toContain('/copack/fulfillments');
+    expect(paths).toContain('/copack/channels');
+    for (const route of mode.routes) {
+      expect(route.requiresFlag, `flag on ${route.path}`).toBe(
         FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
       );
     }
   });
 
-  it('Journal entries route is gated behind finance.journal_entries.enabled', () => {
-    const gp = SIDEBAR_MODES.find((m) => m.key === 'get_paid');
-    expect(gp).toBeDefined();
-    const je = gp!.routes.find((r) => r.path === '/finance/journal-entries');
-    expect(je?.requiresFlag).toBe(
-      FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
-    );
-  });
-
-  it('WORKFORCE groups the KitForce people-and-labor surfaces (S1, 2026-05-31)', () => {
-    const paths = pathsFor('workforce');
+  it('KITFORCE holds the five people-and-labor surfaces, each gated plugins.kitforce', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'kitforce')!;
+    const paths = mode.routes.map((r) => r.path);
     expect(paths).toContain('/kitforce/members');
     expect(paths).toContain('/kitforce/teams');
     expect(paths).toContain('/kitforce/shifts');
     expect(paths).toContain('/kitforce/assignments');
     expect(paths).toContain('/kitforce/time-entries');
-  });
-
-  it('every WORKFORCE route is gated behind plugins.kitforce (S1 SPA-render gate)', () => {
-    const wf = SIDEBAR_MODES.find((m) => m.key === 'workforce');
-    expect(wf).toBeDefined();
-    for (const route of wf!.routes) {
+    for (const route of mode.routes) {
       expect(route.requiresFlag, `flag on ${route.path}`).toBe(
         FEATURE_FLAGS.PLUGINS_KITFORCE,
       );
     }
   });
+
+  it('KITCOST holds the cost dashboard, gated plugins.kitcost', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'kitcost')!;
+    const dash = mode.routes.find((r) => r.path === '/kitcost/dashboard');
+    expect(dash).toBeDefined();
+    expect(dash?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_KITCOST);
+  });
+
+  it('Journal entries route is gated behind finance.journal_entries.enabled', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    const je = spine.routes.find((r) => r.path === '/finance/journal-entries');
+    expect(je?.requiresFlag).toBe(FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED);
+  });
+
+  it('does NOT surface the legacy /3pl-operations/production entry (BNEW-2)', () => {
+    const allPaths = SIDEBAR_MODES.flatMap((m) => m.routes.map((r) => r.path));
+    expect(allPaths).not.toContain('/3pl-operations/production');
+    expect(allPaths).not.toContain('/3pl-operations/production/new');
+  });
 });
 
-describe('isRouteVisible (UX-Q1)', () => {
+describe('isRouteVisible (Wave 12 pillar IA)', () => {
   it('returns true when route has no flag requirement', () => {
     expect(
       isRouteVisible({ path: '/crm/leads', label: 'Leads', icon: Target }, {}),
@@ -191,7 +242,7 @@ describe('isRouteVisible (UX-Q1)', () => {
       isRouteVisible(
         {
           path: '/manufacturing/runs',
-          label: 'Manufacturing runs',
+          label: 'Runs',
           icon: Factory,
           requiresFlag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
         },
@@ -205,7 +256,7 @@ describe('isRouteVisible (UX-Q1)', () => {
       isRouteVisible(
         {
           path: '/manufacturing/runs',
-          label: 'Manufacturing runs',
+          label: 'Runs',
           icon: Factory,
           requiresFlag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
         },
@@ -219,7 +270,7 @@ describe('isRouteVisible (UX-Q1)', () => {
       isRouteVisible(
         {
           path: '/manufacturing/runs',
-          label: 'Manufacturing runs',
+          label: 'Runs',
           icon: Factory,
           requiresFlag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
         },
@@ -229,107 +280,85 @@ describe('isRouteVisible (UX-Q1)', () => {
   });
 });
 
-describe('visibleRoutesForMode (UX-Q1)', () => {
-  it('filters out manufacturing route when plugins.manufacturing is off', () => {
-    const make = SIDEBAR_MODES.find((m) => m.key === 'make')!;
-    const visible = visibleRoutesForMode(make, {
-      [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: false,
+describe('visibleRoutesForMode (Wave 12 pillar IA)', () => {
+  it('hides every 3PL Operations route when plugins.three_pl is off', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    const visible = visibleRoutesForMode(mode, {
+      [FEATURE_FLAGS.PLUGINS_THREE_PL]: false,
     });
+    expect(visible).toHaveLength(0);
+  });
+
+  it('shows every 3PL Operations route when plugins.three_pl is on', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    const visible = visibleRoutesForMode(mode, {
+      [FEATURE_FLAGS.PLUGINS_THREE_PL]: true,
+    });
+    expect(visible.length).toBe(mode.routes.length);
+    expect(visible.map((r) => r.path)).toContain('/3pl-operations/accounts');
+  });
+
+  it('keeps the SPINE backbone visible even with no flags set, minus the gated journal entries', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    const visible = visibleRoutesForMode(spine, {});
     const paths = visible.map((r) => r.path);
-    expect(paths).not.toContain('/manufacturing/runs');
-    // Other routes still present.
-    expect(paths).toContain('/projects');
-    expect(paths).toContain('/3pl-operations/receiving');
+    // Ungated backbone stays.
+    expect(paths).toContain('/crm/customers');
+    expect(paths).toContain('/catalog/items');
+    expect(paths).toContain('/finance/coa');
+    // The one flag-gated spine route drops when its flag is absent.
+    expect(paths).not.toContain('/finance/journal-entries');
   });
 
-  it('includes manufacturing route when plugins.manufacturing is on', () => {
-    const make = SIDEBAR_MODES.find((m) => m.key === 'make')!;
-    const visible = visibleRoutesForMode(make, {
-      [FEATURE_FLAGS.PLUGINS_MANUFACTURING]: true,
+  it('shows journal entries on the spine when its flag is on', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    const visible = visibleRoutesForMode(spine, {
+      [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: true,
     });
-    expect(visible.map((r) => r.path)).toContain('/manufacturing/runs');
+    expect(visible.map((r) => r.path)).toContain('/finance/journal-entries');
   });
 
-  it('filters out journal entries when its flag is off', () => {
-    const gp = SIDEBAR_MODES.find((m) => m.key === 'get_paid')!;
-    const visible = visibleRoutesForMode(gp, {
-      [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: false,
-    });
-    expect(visible.map((r) => r.path)).not.toContain('/finance/journal-entries');
-  });
-
-  it('keeps every route when all gating flags for the mode are satisfied', () => {
-    const ship = SIDEBAR_MODES.find((m) => m.key === 'ship')!;
-    const allFlagsOn = {
-      [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: true,
-    };
-    expect(visibleRoutesForMode(ship, allFlagsOn).length).toBe(
-      ship.routes.length,
-    );
-  });
-
-  it('filters out the copack fulfillments route when plugins.copack_ecom is off', () => {
-    const ship = SIDEBAR_MODES.find((m) => m.key === 'ship')!;
-    const visible = visibleRoutesForMode(ship, {
-      [FEATURE_FLAGS.PLUGINS_COPACK_ECOM]: false,
-    });
-    const paths = visible.map((r) => r.path);
-    expect(paths).not.toContain('/copack/fulfillments');
-    // Unflagged routes stay.
-    expect(paths).toContain('/3pl-operations/shipments');
-  });
-
-  it('hides every WORKFORCE route when plugins.kitforce is off', () => {
-    const wf = SIDEBAR_MODES.find((m) => m.key === 'workforce')!;
+  it('hides every KITFORCE route when plugins.kitforce is off', () => {
+    const wf = SIDEBAR_MODES.find((m) => m.key === 'kitforce')!;
     const visible = visibleRoutesForMode(wf, {
       [FEATURE_FLAGS.PLUGINS_KITFORCE]: false,
     });
     expect(visible).toHaveLength(0);
   });
-
-  it('shows every WORKFORCE route when plugins.kitforce is on', () => {
-    const wf = SIDEBAR_MODES.find((m) => m.key === 'workforce')!;
-    const visible = visibleRoutesForMode(wf, {
-      [FEATURE_FLAGS.PLUGINS_KITFORCE]: true,
-    });
-    expect(visible.length).toBe(wf.routes.length);
-  });
 });
 
-describe('findActiveMode (UX-Q1)', () => {
+describe('findActiveMode (Wave 12 pillar IA)', () => {
   it('returns null when pathname matches no route', () => {
     expect(findActiveMode('/some/unknown/path')).toBe(null);
   });
 
-  it('matches exact path to its owning mode', () => {
-    expect(findActiveMode('/crm/leads')).toBe('sell');
-    expect(findActiveMode('/quotes')).toBe('sell');
-    expect(findActiveMode('/manufacturing/runs')).toBe('make');
-    expect(findActiveMode('/3pl-operations/shipments')).toBe('ship');
-    expect(findActiveMode('/invoicing/invoices')).toBe('get_paid');
-    expect(findActiveMode('/crm/customers')).toBe('library');
-    expect(findActiveMode('/kitforce/members')).toBe('workforce');
-    expect(findActiveMode('/kitforce/time-entries')).toBe('workforce');
+  it('matches exact path to its owning section', () => {
+    expect(findActiveMode('/crm/leads')).toBe('spine');
+    expect(findActiveMode('/quotes')).toBe('spine');
+    expect(findActiveMode('/finance/coa')).toBe('spine');
+    expect(findActiveMode('/3pl-operations/accounts')).toBe('three_pl');
+    expect(findActiveMode('/3pl-operations/shipments')).toBe('three_pl');
+    expect(findActiveMode('/manufacturing/runs')).toBe('manufacturing');
+    expect(findActiveMode('/copack/orders')).toBe('copack');
+    expect(findActiveMode('/kitforce/members')).toBe('kitforce');
+    expect(findActiveMode('/kitcost/dashboard')).toBe('kitcost');
   });
 
   it('matches detail/subpath URLs via prefix-with-slash', () => {
-    expect(findActiveMode('/manufacturing/runs/abc-123')).toBe('make');
-    expect(findActiveMode('/quotes/xyz/send')).toBe('sell');
-    expect(findActiveMode('/invoicing/invoices/i_1/send')).toBe('get_paid');
-    expect(findActiveMode('/catalog/items/new')).toBe('library');
-    expect(findActiveMode('/kitforce/members/new')).toBe('workforce');
-    expect(findActiveMode('/kitforce/assignments/a_1')).toBe('workforce');
+    expect(findActiveMode('/quotes/xyz/send')).toBe('spine');
+    expect(findActiveMode('/3pl-operations/accounts/abc-123')).toBe('three_pl');
+    expect(findActiveMode('/3pl-operations/accounts/new')).toBe('three_pl');
+    expect(findActiveMode('/manufacturing/runs/abc-123')).toBe('manufacturing');
+    expect(findActiveMode('/kitforce/members/new')).toBe('kitforce');
   });
 
   it('does NOT confuse prefix-without-slash matches', () => {
     // /quotesomething should not match /quotes.
-    // (No real route exists at this path, but the prefix-with-slash rule
-    // is what makes the test meaningful.)
     expect(findActiveMode('/quotesextra')).toBe(null);
   });
 });
 
-describe('mode label copy follows branding rules (UX-Q1)', () => {
+describe('section label copy follows branding rules (Wave 12 pillar IA)', () => {
   it('no em dashes in any label or subtitle', () => {
     for (const mode of SIDEBAR_MODES) {
       expect(mode.label).not.toMatch(/—/);
@@ -344,8 +373,8 @@ describe('mode label copy follows branding rules (UX-Q1)', () => {
     }
   });
 
-  it('mode labels are GET PAID with a space (not GET-PAID or GETPAID)', () => {
-    const gp = SIDEBAR_MODES.find((m) => m.key === 'get_paid');
-    expect(gp?.label).toBe('GET PAID');
+  it('the co-pack section label is CO-PACK AND ECOM', () => {
+    const cp = SIDEBAR_MODES.find((m) => m.key === 'copack');
+    expect(cp?.label).toBe('CO-PACK AND ECOM');
   });
 });
