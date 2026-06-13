@@ -6,7 +6,7 @@ If a request conflicts with this constitution, stop and ask. Asking is not failu
 
 ## What you are working on
 
-Kitstak. The operating system for small-to-medium operators in 3PL, manufacturing, co-pack, and ecommerce fulfillment. Five pillars in order: 3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost. Business goal: $250K ARR within 18 months by landing 10 paying customers at $2K average.
+Kitstak. The operating system for small-to-medium operators in 3PL, manufacturing, co-pack, and ecommerce fulfillment. One spine (the always-on business backbone plus shared building blocks) plus composable add-ons. The add-ons, in order: 3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost, and WMS (warehouse execution), the sixth add-on added 2026-06-04. See `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md` and `03-workspace/specs/2026-06-04-3pl-commercial-pivot-and-wms-pillar-plan.md`. Business goal: $250K ARR within 18 months by landing 10 paying customers at $2K average.
 
 Ship fast, validate with the first operator, defer perfection where the chassis is already solid.
 
@@ -91,7 +91,7 @@ Enforced by ESLint `no-restricted-imports`. Adding any of these triggers a const
 
 - Product name: Kitstak. One word, capital K only.
 - Tagline: "Built to Ship."
-- Five pillars in order: 3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost.
+- Product shape: one spine plus composable add-ons. The add-ons, in order: 3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost, and WMS (warehouse execution). See `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`.
 - Colors: navy `#0a1628`, ink `#f5f1e8`, accent `#c8102e`. Full tokens in `apps/web/tailwind.config.js`.
 - Type: Bebas Neue (display), Inter Tight (body), JetBrains Mono (code).
 

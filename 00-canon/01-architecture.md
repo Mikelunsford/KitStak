@@ -2,6 +2,14 @@
 
 The architectural lock-ins. This file is the single source of truth for "what runs on what." Changes require an ADR and operator approval.
 
+## Product shape: spine plus add-ons
+
+Kitstak is one spine plus composable add-ons (white paper V2, 2026-06-03; ADR 0002, 2026-06-04). The spine is always on: the business backbone plus the shared building blocks (orders, catalog, kits and BOMs, inventory and stock, warehouses, job types, production, pricing, value-added services, materials). Each add-on adds one clean slice and reads the spine instead of copying it.
+
+Add-ons gate at the bundle level (404 when off) and at the SPA route level (NotFoundPage when off), inferred from the URL prefix in `routes.ts` `inferPluginForPath`. The add-on flags: `plugins.three_pl`, `plugins.manufacturing`, `plugins.copack_ecom`, `plugins.kitforce`, `plugins.kitcost`, and `plugins.wms` (warehouse execution, the sixth add-on, defaults off).
+
+WMS deepens, it never replaces. WMS adds bin-level execution on top of the spine's warehouse-level stock. The contract: the spine `stock_levels` (generated `quantity_available`, derived from the `stock_movements` ledger) stays the warehouse-grain truth; WMS adds a nullable `location_id` dimension to the same ledger and derives a bin-level rollup, so the sum of bin quantities equals the warehouse `quantity_on_hand` by construction. Turn WMS off and `location_id` stays null, exactly as every pre-WMS row already is, and the warehouse totals are untouched. Detail and phasing in `03-workspace/specs/2026-06-04-3pl-commercial-pivot-and-wms-pillar-plan.md`.
+
 ## Stack lock-ins
 
 | Layer | Kitstak uses | Kitstak refuses |

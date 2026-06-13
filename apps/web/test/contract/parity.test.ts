@@ -79,6 +79,13 @@ const BESPOKE_PAIRS: ReadonlyArray<Pair> = [
     spa: 'src/lib/types/kitforce.ts',
     shared: '../../supabase/functions/_shared/types/kitforce.ts',
   },
+  // 3PL commercial layer (Phase A1). Types-only side-car; the three-pl-api
+  // handler keeps any transition rules, not a workflow canon, matching copack.
+  {
+    name: 'types/threepl',
+    spa: 'src/lib/types/threepl.ts',
+    shared: '../../supabase/functions/_shared/types/threepl.ts',
+  },
 ];
 
 const here = dirname(fileURLToPath(import.meta.url));

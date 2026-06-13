@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
@@ -25,26 +25,27 @@ import {
 } from './sidebarModes';
 
 /**
- * Sidebar. UX-Q1: job-mode IA. Five collapsible mode entries
- * (SELL, MAKE, SHIP, GET PAID, LIBRARY) replace the prior pillar
- * sections; the URLs of underlying routes are unchanged. See
- * sidebarModes.ts for the mode-to-route mapping and rationale.
+ * Sidebar. Pillar-grouped IA (Wave 12, plan section 5.5). A single always-on
+ * SPINE section (sub-grouped by domain) followed by one collapsible section
+ * per lit add-on (3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce,
+ * KitCost). This supersedes the UX-Q1 job-mode IA. See sidebarModes.ts for the
+ * section-to-route mapping and rationale; the URLs of underlying routes are
+ * unchanged.
  *
- * Per-route flag gating (UX-Q3 carry): manufacturing runs are hidden
- * inside MAKE when plugins.manufacturing is off; journal entries are
- * hidden inside GET PAID when finance.journal_entries.enabled is off.
- * Co-Pack and KitForce do not yet have user-facing routes, so they do
- * not appear in any mode until those pillars ship.
+ * Per-route flag gating: add-on routes carry requiresFlag so the link hides
+ * when the org lacks the plugin, and journal entries hide inside SPINE when
+ * finance.journal_entries.enabled is off. The constitutional 403
+ * FEATURE_DISABLED / 404 bundle-gate API guards are unchanged; this is a pure
+ * SPA-render adjustment.
  *
- * The constitutional 403 FEATURE_DISABLED API guard is unchanged --
- * this is a pure SPA-render adjustment. Dashboard pillar tiles
- * (UX-Q5 / UX-Q3 territory) are NOT touched here; pillar identity
- * stays intact at /dashboard per the Q2 decision.
+ * Within the SPINE section, routes carry a `group` label (CRM, Catalog,
+ * Inventory, etc.); a sub-header renders each time the group changes so the
+ * long backbone list reads as domains rather than a flat wall of links.
  *
- * Below the `md:` breakpoint this renders as a slide-in drawer driven
- * by AppShell. At md and above it stays a fixed `w-56` rail. The Admin
- * section remains below the modes so settings stay reachable without
- * being part of the five-mode job IA.
+ * Below the `md:` breakpoint this renders as a slide-in drawer driven by
+ * AppShell. At md and above it stays a fixed `w-56` rail. The Admin section
+ * remains below the sections so settings stay reachable without being part of
+ * the pillar IA.
  */
 
 interface AdminLink {
@@ -78,7 +79,14 @@ function readPersistedExpanded(): Set<ModeKey> | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid: ModeKey[] = ['sell', 'make', 'ship', 'get_paid', 'library'];
+    const valid: ModeKey[] = [
+      'spine',
+      'three_pl',
+      'manufacturing',
+      'copack',
+      'kitforce',
+      'kitcost',
+    ];
     const filtered = parsed.filter((v): v is ModeKey =>
       typeof v === 'string' && (valid as string[]).includes(v),
     );
@@ -202,25 +210,43 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
             </button>
             {isOpen && (
               <div className="ml-6 flex flex-col border-l border-line pl-2">
-                {visibleRoutes.map((route) => {
+                {visibleRoutes.map((route, i) => {
                   const RouteIcon = route.icon;
+                  // SPINE sub-grouping: emit a domain sub-header whenever the
+                  // group changes so the backbone reads as CRM / Catalog /
+                  // Inventory rather than one flat list. Add-on sections leave
+                  // group undefined and render flat.
+                  const prevGroup = i > 0 ? visibleRoutes[i - 1]?.group : undefined;
+                  const showGroupHeader =
+                    route.group !== undefined && route.group !== prevGroup;
                   return (
-                    <NavLink
-                      key={route.path}
-                      to={route.path}
-                      onClick={onNavClick}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex items-center gap-2 px-2 py-1.5 text-xs font-sans tracking-wide',
-                          isActive
-                            ? 'bg-accent/10 text-ink'
-                            : 'text-ink-dim hover:text-ink hover:bg-bg-2',
-                        )
-                      }
-                    >
-                      <RouteIcon className="h-3.5 w-3.5" />
-                      {route.label}
-                    </NavLink>
+                    <Fragment key={route.path}>
+                      {showGroupHeader ? (
+                        <div
+                          className={cn(
+                            'px-2 pb-0.5 font-display text-[10px] tracking-wider uppercase text-ink-dim',
+                            i === 0 ? 'pt-0.5' : 'pt-2',
+                          )}
+                        >
+                          {route.group}
+                        </div>
+                      ) : null}
+                      <NavLink
+                        to={route.path}
+                        onClick={onNavClick}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-2 px-2 py-1.5 text-xs font-sans tracking-wide',
+                            isActive
+                              ? 'bg-accent/10 text-ink'
+                              : 'text-ink-dim hover:text-ink hover:bg-bg-2',
+                          )
+                        }
+                      >
+                        <RouteIcon className="h-3.5 w-3.5" />
+                        {route.label}
+                      </NavLink>
+                    </Fragment>
                   );
                 })}
               </div>

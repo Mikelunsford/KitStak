@@ -491,6 +491,16 @@ const ShipmentsListPage = lazy(() =>
 const ShipmentDetailPage = lazy(() =>
   import('./pages/3pl-operations/shipments/ShipmentDetailPage').then((m) => ({ default: m.ShipmentDetailPage })),
 );
+// Wave 12 Phase A1: 3PL commercial layer (Accounts).
+const AccountsListPage = lazy(() =>
+  import('./pages/3pl-operations/accounts/AccountsListPage').then((m) => ({ default: m.AccountsListPage })),
+);
+const AccountDetailPage = lazy(() =>
+  import('./pages/3pl-operations/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
+);
+const AccountCreatePage = lazy(() =>
+  import('./pages/3pl-operations/accounts/AccountCreatePage').then((m) => ({ default: m.AccountCreatePage })),
+);
 // === End Agent E ===
 
 // === Agent D: Invoicing + Finance routes ===
@@ -1242,6 +1252,13 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/production/:id',         element: ProductionRunDetailPage,        guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments',              element: ShipmentsListPage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/shipments/:id',          element: ShipmentDetailPage,        guard: 'protected', layout: 'shell' },
+  // Wave 12 Phase A1: 3PL commercial layer (Accounts). /new precedes /:id
+  // (react-router v6 matches the first hit; a literal beats a param, but the
+  // order keeps it honest). Gated on plugins.three_pl via inferPluginForPath
+  // (the /3pl-operations prefix), so no explicit requiresPlugin.
+  { path: '/3pl-operations/accounts',               element: AccountsListPage,          guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/accounts/new',           element: AccountCreatePage,         guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/accounts/:id',           element: AccountDetailPage,         guard: 'protected', layout: 'shell' },
   // === End Agent E ===
   // === Agent D: Invoicing + Finance routes ===
   { path: '/invoicing/invoices',               element: InvoicesListPage,        guard: 'protected', layout: 'shell' },

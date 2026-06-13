@@ -304,7 +304,14 @@ export type Capability =
   | 'kitforce.time_entry.clock_in'
   | 'kitforce.time_entry.clock_out'
   | 'kitforce.time_entry.update'
-  | 'kitforce.time_entry.delete';
+  | 'kitforce.time_entry.delete'
+  // threepl.* (6) 3PL commercial layer
+  | 'threepl.account.create'
+  | 'threepl.account.update'
+  | 'threepl.account.deactivate'
+  | 'threepl.account.service_definition.create'
+  | 'threepl.account.service_definition.update'
+  | 'threepl.account.service_definition.delete';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -587,6 +594,13 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'kitforce.time_entry.clock_out',
   'kitforce.time_entry.update',
   'kitforce.time_entry.delete',
+  // threepl.* commercial layer (owner / admin / ops / sales)
+  'threepl.account.create',
+  'threepl.account.update',
+  'threepl.account.deactivate',
+  'threepl.account.service_definition.create',
+  'threepl.account.service_definition.update',
+  'threepl.account.service_definition.delete',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -854,6 +868,13 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'kitforce.time_entry.clock_out',
   'kitforce.time_entry.update',
   'kitforce.time_entry.delete',
+  // threepl.* commercial layer (owner / admin / ops / sales)
+  'threepl.account.create',
+  'threepl.account.update',
+  'threepl.account.deactivate',
+  'threepl.account.service_definition.create',
+  'threepl.account.service_definition.update',
+  'threepl.account.service_definition.delete',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -974,6 +995,13 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'copack.order.line_item.create',
   'copack.order.line_item.update',
   'copack.order.line_item.delete',
+  // threepl.* commercial layer (owner / admin / ops / sales)
+  'threepl.account.create',
+  'threepl.account.update',
+  'threepl.account.deactivate',
+  'threepl.account.service_definition.create',
+  'threepl.account.service_definition.update',
+  'threepl.account.service_definition.delete',
 ];
 
 const OPS_CAPS: ReadonlyArray<Capability> = [
@@ -1139,6 +1167,13 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'kitforce.time_entry.clock_out',
   'kitforce.time_entry.update',
   'kitforce.time_entry.delete',
+  // threepl.* commercial layer (owner / admin / ops / sales)
+  'threepl.account.create',
+  'threepl.account.update',
+  'threepl.account.deactivate',
+  'threepl.account.service_definition.create',
+  'threepl.account.service_definition.update',
+  'threepl.account.service_definition.delete',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
