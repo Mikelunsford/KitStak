@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
@@ -20,6 +20,7 @@ import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import {
   SIDEBAR_MODES,
   findActiveMode,
+  groupRoutesByDomain,
   visibleRoutesForMode,
   type ModeKey,
 } from './sidebarModes';
@@ -210,43 +211,52 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
             </button>
             {isOpen && (
               <div className="ml-6 flex flex-col border-l border-line pl-2">
-                {visibleRoutes.map((route, i) => {
-                  const RouteIcon = route.icon;
-                  // SPINE sub-grouping: emit a domain sub-header whenever the
-                  // group changes so the backbone reads as CRM / Catalog /
-                  // Inventory rather than one flat list. Add-on sections leave
-                  // group undefined and render flat.
-                  const prevGroup = i > 0 ? visibleRoutes[i - 1]?.group : undefined;
-                  const showGroupHeader =
-                    route.group !== undefined && route.group !== prevGroup;
+                {groupRoutesByDomain(visibleRoutes).map((grp, gi) => {
+                  // SPINE domains render as a labelled role="group" with a
+                  // sub-header so the backbone reads (and is announced to
+                  // assistive tech) as CRM / Catalog / Inventory rather than
+                  // one flat list. Add-on sections have no group label and
+                  // render their links flat.
+                  const labelled = grp.label !== undefined;
                   return (
-                    <Fragment key={route.path}>
-                      {showGroupHeader ? (
+                    <div
+                      key={grp.label ?? `addon-${gi}`}
+                      className="flex flex-col"
+                      role={labelled ? 'group' : undefined}
+                      aria-label={labelled ? grp.label : undefined}
+                    >
+                      {labelled ? (
                         <div
                           className={cn(
                             'px-2 pb-0.5 font-display text-[10px] tracking-wider uppercase text-ink-dim',
-                            i === 0 ? 'pt-0.5' : 'pt-2',
+                            gi === 0 ? 'pt-0.5' : 'pt-2',
                           )}
                         >
-                          {route.group}
+                          {grp.label}
                         </div>
                       ) : null}
-                      <NavLink
-                        to={route.path}
-                        onClick={onNavClick}
-                        className={({ isActive }) =>
-                          cn(
-                            'flex items-center gap-2 px-2 py-1.5 text-xs font-sans tracking-wide',
-                            isActive
-                              ? 'bg-accent/10 text-ink'
-                              : 'text-ink-dim hover:text-ink hover:bg-bg-2',
-                          )
-                        }
-                      >
-                        <RouteIcon className="h-3.5 w-3.5" />
-                        {route.label}
-                      </NavLink>
-                    </Fragment>
+                      {grp.routes.map((route) => {
+                        const RouteIcon = route.icon;
+                        return (
+                          <NavLink
+                            key={route.path}
+                            to={route.path}
+                            onClick={onNavClick}
+                            className={({ isActive }) =>
+                              cn(
+                                'flex items-center gap-2 px-2 py-1.5 text-xs font-sans tracking-wide',
+                                isActive
+                                  ? 'bg-accent/10 text-ink'
+                                  : 'text-ink-dim hover:text-ink hover:bg-bg-2',
+                              )
+                            }
+                          >
+                            <RouteIcon className="h-3.5 w-3.5" />
+                            {route.label}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
                   );
                 })}
               </div>

@@ -326,6 +326,35 @@ export function visibleRoutesForMode(
   return mode.routes.filter((r) => isRouteVisible(r, flags));
 }
 
+export interface SidebarRouteGroup {
+  /** Domain sub-group label (SPINE), or undefined for ungrouped add-on routes. */
+  label: string | undefined;
+  routes: ReadonlyArray<ModeRoute>;
+}
+
+/**
+ * Collapse an ordered, already-flag-filtered route list into consecutive runs
+ * that share a `group` label. SPINE routes split into one run per domain (CRM,
+ * Catalog, ...); add-on routes (no group) collect into a single
+ * label-undefined run. Sidebar.tsx renders each labelled run as a
+ * `role="group"` with `aria-label` so the domain sub-grouping is announced to
+ * assistive tech, not just shown visually.
+ */
+export function groupRoutesByDomain(
+  routes: ReadonlyArray<ModeRoute>,
+): ReadonlyArray<SidebarRouteGroup> {
+  const out: SidebarRouteGroup[] = [];
+  for (const route of routes) {
+    const last = out[out.length - 1];
+    if (last && last.label === route.group) {
+      last.routes = [...last.routes, route];
+    } else {
+      out.push({ label: route.group, routes: [route] });
+    }
+  }
+  return out;
+}
+
 /**
  * Find which section owns a pathname. Used by Sidebar to auto-expand the
  * section that contains the active route on first render.

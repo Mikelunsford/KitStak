@@ -16,6 +16,7 @@ import {
   isRouteVisible,
   visibleRoutesForMode,
   findActiveMode,
+  groupRoutesByDomain,
   type ModeKey,
 } from './sidebarModes';
 import { FEATURE_FLAGS } from '@/lib/constants';
@@ -376,5 +377,42 @@ describe('section label copy follows branding rules (Wave 12 pillar IA)', () => 
   it('the co-pack section label is CO-PACK AND ECOM', () => {
     const cp = SIDEBAR_MODES.find((m) => m.key === 'copack');
     expect(cp?.label).toBe('CO-PACK AND ECOM');
+  });
+});
+
+describe('groupRoutesByDomain (SPINE sub-grouping for a11y)', () => {
+  it('splits the SPINE section into one labelled run per domain, in order', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    const groups = groupRoutesByDomain(spine.routes);
+    expect(groups.map((g) => g.label)).toEqual([
+      'CRM',
+      'Quotes',
+      'Projects',
+      'Catalog',
+      'Inventory',
+      'Purchasing',
+      'Invoicing',
+      'Finance',
+      'Settings',
+    ]);
+  });
+
+  it('partitions every SPINE route with none dropped or reordered', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+    const groups = groupRoutesByDomain(spine.routes);
+    const flattened = groups.flatMap((g) => g.routes.map((r) => r.path));
+    expect(flattened).toEqual(spine.routes.map((r) => r.path));
+  });
+
+  it('collects ungrouped add-on routes into a single label-undefined run', () => {
+    const threePl = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    const groups = groupRoutesByDomain(threePl.routes);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBeUndefined();
+    expect(groups[0]?.routes.length).toBe(threePl.routes.length);
+  });
+
+  it('returns an empty array for no routes', () => {
+    expect(groupRoutesByDomain([])).toEqual([]);
   });
 });
