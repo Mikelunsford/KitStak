@@ -8,9 +8,9 @@ Shape. 3PL Operations pivots from being thought of as the warehouse engine to be
 
 Decisions resolved 2026-06-04: spine plus add-ons framing with WMS as add-on six; 3PL commercial layer first, then the WMS deepening core; pillar-grouped sidebar (supersedes the UX-Q1 job-mode decision); name the service-relationship surface Accounts; reserve stock at project release and Supply Plan; manual Job Run scheduling first; simple Job-Run labor logging first.
 
-Phase A0 (this entry): the canon amendment. ADR `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`, the CLAUDE.md intro and branding rules, and `00-canon/01-architecture.md` updated to the spine plus add-ons framing and the WMS deepening contract. No app code, edge functions, or migrations in this phase.
+Progress on branch `feat/spine-addons-canon-wms-adr` (PR #249, not merged): Phase A0 (canon: ADR 0002 plus the CLAUDE.md and 00-canon reframe) plus the Phase A1 Accounts backend, all green. The A1 backend is migrations 0089 (three_pl_accounts and account_service_definitions) and 0090 (ACC- numbering), both staging-validated in a rollback transaction; the types/threepl byte-mirror pair; the three-pl-api edge bundle; and the threepl.account.* capabilities. Verified: deno check across all bundles, SPA typecheck, lint, contract parity, 439 tests, build, size-limit.
 
-Next: Phase A1, the Accounts model and the pillar-grouped sidebar.
+Next: the Phase A1 UI layer (the SPA Accounts pages plus the pillar-grouped sidebar), handed off to a fresh session in `03-workspace/specs/2026-06-04-3pl-accounts-ui-layer-handoff.md`. Stack onto the same branch; do not merge until the operator reviews.
 
 Carried stop-points: the constitution amendment lands with operator review here (A0); the additive `location_id` column on `stock_movements` is a WMS Phase B2 stop-point with a sum-reconcile contract test; the Billing Review versus KitMeter boundary stays light now.
 
