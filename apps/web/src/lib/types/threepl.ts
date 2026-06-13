@@ -1,11 +1,15 @@
-// Side-car canon: 3PL commercial layer Zod types (Accounts model, Phase A1).
+// Side-car canon: 3PL commercial layer Zod types (Accounts Phase A1, Job
+// Builder Phase A2).
 // Byte-identical pair: apps/web/src/lib/types/threepl.ts.
 // Drift is a release blocker.
 //
 // Tables (migration 0089): three_pl_accounts (the service-relationship layer
 // over a CRM customer; status active/inactive flag, not a registered FSM) and
-// account_service_definitions (the per-account Rate Card overlay). Money is
-// BIGINT _cents carried on the wire as number or numeric-string.
+// account_service_definitions (the per-account Rate Card overlay).
+// Tables (migration 0091): job_templates (the Job Builder engine; variant
+// preset, status active/inactive flag) and job_template_lines (component,
+// service, and step lines). Money is BIGINT _cents carried on the wire as a
+// number or numeric-string; quantities are numeric.
 
 import { z } from 'zod';
 
@@ -100,3 +104,102 @@ export type AccountServiceDefinitionCreate = z.infer<typeof AccountServiceDefini
 export const AccountServiceDefinitionUpdateSchema =
   AccountServiceDefinitionCreateSchema.partial();
 export type AccountServiceDefinitionUpdate = z.infer<typeof AccountServiceDefinitionUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// job_templates (parent; the Job Builder engine; status active/inactive flag,
+// no rich FSM). template_number is filled by the numbering chassis (JB-, 0092).
+// job_type_id references the spine job_types; default_bom_item_id references the
+// parent item whose bom_items compose the default BOM (BOMs are item-keyed).
+// ---------------------------------------------------------------------------
+
+export const JobTemplateVariantSchema = z.enum([
+  'kit',
+  'sidekick',
+  'repack',
+  'labeling',
+  'inspection',
+  'custom',
+]);
+export type JobTemplateVariant = z.infer<typeof JobTemplateVariantSchema>;
+
+export const JobTemplateStatusSchema = z.enum(['active', 'inactive']);
+export type JobTemplateStatus = z.infer<typeof JobTemplateStatusSchema>;
+
+export const JobTemplateSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  template_number: z.string().nullable(),
+  name: z.string(),
+  variant: JobTemplateVariantSchema,
+  job_type_id: Uuid.nullable(),
+  default_bom_item_id: Uuid.nullable(),
+  status: JobTemplateStatusSchema,
+  notes: z.string().nullable(),
+  payload: z.record(z.unknown()),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type JobTemplate = z.infer<typeof JobTemplateSchema>;
+
+export const JobTemplateCreateSchema = z.object({
+  name: z.string().min(1),
+  variant: JobTemplateVariantSchema.optional(),
+  job_type_id: Uuid.optional().nullable(),
+  default_bom_item_id: Uuid.optional().nullable(),
+  template_number: z.string().optional().nullable(),
+  status: JobTemplateStatusSchema.optional(),
+  notes: z.string().optional().nullable(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type JobTemplateCreate = z.infer<typeof JobTemplateCreateSchema>;
+
+export const JobTemplatePatchSchema = JobTemplateCreateSchema.partial();
+export type JobTemplatePatch = z.infer<typeof JobTemplatePatchSchema>;
+
+// ---------------------------------------------------------------------------
+// job_template_lines (child; builder definition lines). line_kind partitions
+// component (item_id), service (vas_id), and step lines. rate_cents is BIGINT
+// cents; quantity is numeric (number or numeric-string on the wire).
+// ---------------------------------------------------------------------------
+
+export const JobTemplateLineKindSchema = z.enum([
+  'component',
+  'service',
+  'step',
+]);
+export type JobTemplateLineKind = z.infer<typeof JobTemplateLineKindSchema>;
+
+export const JobTemplateLineSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  template_id: Uuid,
+  line_kind: JobTemplateLineKindSchema,
+  item_id: Uuid.nullable(),
+  vas_id: Uuid.nullable(),
+  name: z.string(),
+  quantity: z.union([z.number(), z.string()]).nullable(),
+  rate_cents: Cents.nullable(),
+  rate_uom: z.string().nullable(),
+  currency_code: Currency.nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type JobTemplateLine = z.infer<typeof JobTemplateLineSchema>;
+
+export const JobTemplateLineCreateSchema = z.object({
+  line_kind: JobTemplateLineKindSchema.default('component'),
+  name: z.string().min(1),
+  item_id: Uuid.optional().nullable(),
+  vas_id: Uuid.optional().nullable(),
+  quantity: z.union([z.number(), z.string()]).optional().nullable(),
+  rate_cents: Cents.optional().nullable(),
+  rate_uom: z.string().min(1).max(16).optional().nullable(),
+  currency_code: Currency.optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type JobTemplateLineCreate = z.infer<typeof JobTemplateLineCreateSchema>;
+
+export const JobTemplateLineUpdateSchema =
+  JobTemplateLineCreateSchema.partial();
+export type JobTemplateLineUpdate = z.infer<typeof JobTemplateLineUpdateSchema>;
