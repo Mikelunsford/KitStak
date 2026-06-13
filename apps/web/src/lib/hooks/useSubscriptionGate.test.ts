@@ -10,8 +10,10 @@ import { describe, it, expect } from 'vitest';
 import {
   SUBSCRIPTION_ALLOWLIST,
   SUBSCRIPTION_ALLOWLIST_PREFIXES,
+  TRIAL_GATE_FLAG,
   isPathAllowlistedForGate,
   isSubscriptionExpired,
+  shouldBlockForTrial,
   trialDaysRemainingFor,
 } from './subscriptionGateHelpers';
 
@@ -116,5 +118,52 @@ describe('SUBSCRIPTION_ALLOWLIST surface', () => {
 
   it('exports /account/ as the prefix allowlist', () => {
     expect(SUBSCRIPTION_ALLOWLIST_PREFIXES).toEqual(['/account/']);
+  });
+});
+
+describe('shouldBlockForTrial', () => {
+  const EXPIRED = '2026-05-26T12:00:00.000Z'; // before NOW
+  const FUTURE = '2026-06-10T12:00:00.000Z'; // after NOW
+
+  it('never blocks when enforcement is disabled, even on a lapsed trial', () => {
+    expect(
+      shouldBlockForTrial(false, 'trialing', EXPIRED, '/dashboard', NOW),
+    ).toBe(false);
+  });
+
+  it('blocks a lapsed trial on a non-allowlisted path when enforcement is on', () => {
+    expect(
+      shouldBlockForTrial(true, 'trialing', EXPIRED, '/dashboard', NOW),
+    ).toBe(true);
+  });
+
+  it('does not block an allowlisted path even with enforcement on and a lapsed trial', () => {
+    expect(
+      shouldBlockForTrial(true, 'trialing', EXPIRED, '/admin/billing', NOW),
+    ).toBe(false);
+  });
+
+  it('does not block when the trial has not lapsed', () => {
+    expect(
+      shouldBlockForTrial(true, 'trialing', FUTURE, '/dashboard', NOW),
+    ).toBe(false);
+  });
+
+  it('does not block a non-trialing status (active)', () => {
+    expect(
+      shouldBlockForTrial(true, 'active', EXPIRED, '/dashboard', NOW),
+    ).toBe(false);
+  });
+
+  it('does not block when status is null', () => {
+    expect(
+      shouldBlockForTrial(true, null, EXPIRED, '/dashboard', NOW),
+    ).toBe(false);
+  });
+});
+
+describe('TRIAL_GATE_FLAG', () => {
+  it('is the billing.trial_gate.enabled org flag key', () => {
+    expect(TRIAL_GATE_FLAG).toBe('billing.trial_gate.enabled');
   });
 });

@@ -9,11 +9,13 @@ import {
   type PlanCode,
   type Subscription,
 } from '@/lib/services/billingService';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 
 import {
-  isPathAllowlistedForGate,
   isSubscriptionExpired,
+  shouldBlockForTrial,
   trialDaysRemainingFor,
+  TRIAL_GATE_FLAG,
   type SubscriptionStatus,
 } from './subscriptionGateHelpers';
 
@@ -22,8 +24,10 @@ import {
 export {
   SUBSCRIPTION_ALLOWLIST,
   SUBSCRIPTION_ALLOWLIST_PREFIXES,
+  TRIAL_GATE_FLAG,
   isPathAllowlistedForGate,
   isSubscriptionExpired,
+  shouldBlockForTrial,
   trialDaysRemainingFor,
 } from './subscriptionGateHelpers';
 export type { SubscriptionStatus } from './subscriptionGateHelpers';
@@ -86,14 +90,30 @@ export function useSubscriptionGate(): SubscriptionGateState {
 
 export function SubscriptionGate({ children }: { children: ReactNode }) {
   const gate = useSubscriptionGate();
+  const orgFlags = useOrgFlags();
   const { pathname } = useLocation();
 
   // Loading or unauthenticated -> render children. ProtectedRoute /
   // AdminProtectedRoute will have already redirected unauthenticated
   // callers; rendering children during the loading window keeps the
-  // shell from flashing.
-  if (gate.isLoading || !gate.status) return <>{children}</>;
-  if (!gate.isExpired) return <>{children}</>;
-  if (isPathAllowlistedForGate(pathname)) return <>{children}</>;
-  return <Navigate to="/admin/billing?gated=true" replace />;
+  // shell from flashing. The flag query is awaited too so we never flash
+  // the billing redirect before enforcement state is known.
+  if (gate.isLoading || orgFlags.isLoading || !gate.status) {
+    return <>{children}</>;
+  }
+
+  // Trial enforcement is opt-in per org via TRIAL_GATE_FLAG (default off),
+  // so the wall never fires until the operator turns it on to monetize.
+  const enforcementEnabled = orgFlags.data[TRIAL_GATE_FLAG] === true;
+  if (
+    shouldBlockForTrial(
+      enforcementEnabled,
+      gate.status,
+      gate.data?.trial_ends_at ?? null,
+      pathname,
+    )
+  ) {
+    return <Navigate to="/admin/billing?gated=true" replace />;
+  }
+  return <>{children}</>;
 }
