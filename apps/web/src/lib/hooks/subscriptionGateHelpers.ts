@@ -14,6 +14,15 @@ export type SubscriptionStatus =
   | 'unpaid'
   | 'paused';
 
+/**
+ * Org feature-flag key that ENABLES trial-gate enforcement. Absent or false
+ * (the default for every org) means the trial wall and the trial banner never
+ * fire, so pre-revenue dogfooding and demos are never interrupted. Flip it on
+ * per org from /admin/flags when ready to monetize. SPA-only: no edge bundle
+ * reads it, so it stays out of the cross-boundary FEATURE_FLAGS canon.
+ */
+export const TRIAL_GATE_FLAG = 'billing.trial_gate.enabled';
+
 export const SUBSCRIPTION_ALLOWLIST: ReadonlyArray<string> = [
   '/admin/billing',
   '/signin',
@@ -78,4 +87,26 @@ export function isSubscriptionExpired(
   const end = new Date(trialEndsAt).getTime();
   if (!Number.isFinite(end)) return false;
   return end <= now.getTime();
+}
+
+/**
+ * Single decision point for the trial wall. Returns true only when the org has
+ * trial-gate enforcement turned on AND the trial has lapsed AND the current
+ * path is not allowlisted. Enforcement defaults off (TRIAL_GATE_FLAG absent),
+ * so this returns false for every org until the operator opts in. Pure so the
+ * SubscriptionGate component stays a thin wrapper and the policy is unit-tested
+ * without a React tree.
+ */
+export function shouldBlockForTrial(
+  enforcementEnabled: boolean,
+  status: SubscriptionStatus | null,
+  trialEndsAt: string | null,
+  pathname: string,
+  now: Date = new Date(),
+): boolean {
+  if (!enforcementEnabled) return false;
+  if (!status) return false;
+  if (!isSubscriptionExpired(status, trialEndsAt, now)) return false;
+  if (isPathAllowlistedForGate(pathname)) return false;
+  return true;
 }

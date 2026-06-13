@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
 
-import { useSubscriptionGate } from '@/lib/hooks/useSubscriptionGate';
+import {
+  useSubscriptionGate,
+  TRIAL_GATE_FLAG,
+} from '@/lib/hooks/useSubscriptionGate';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 
 // ---------------------------------------------------------------------------
 // Pure copy helper. Centralised so tests can pin the wording without
@@ -15,14 +19,19 @@ export function trialBannerCopy(daysRemaining: number): string {
 }
 
 /**
- * Visibility predicate. Banner is shown only while the org is trialing
- * AND has three or fewer days left. Lapsed trials are handled by the
- * <SubscriptionGate> redirect, not by this banner.
+ * Visibility predicate. Banner is shown only when trial-gate enforcement is
+ * turned on for the org AND the org is trialing AND has three or fewer days
+ * left. Enforcement defaults off (TRIAL_GATE_FLAG absent), so the nag stays
+ * silent until the operator opts in to monetize, matching the
+ * <SubscriptionGate> wall. Lapsed trials are walled by that redirect, not by
+ * this banner.
  */
 export function shouldShowTrialBanner(input: {
+  enforcementEnabled: boolean;
   isTrialing: boolean;
   trialDaysRemaining: number;
 }): boolean {
+  if (!input.enforcementEnabled) return false;
   return input.isTrialing && input.trialDaysRemaining <= 3;
 }
 
@@ -34,7 +43,17 @@ export function shouldShowTrialBanner(input: {
 
 export function TrialBanner() {
   const gate = useSubscriptionGate();
-  if (!shouldShowTrialBanner(gate)) return null;
+  const orgFlags = useOrgFlags();
+  const enforcementEnabled = orgFlags.data[TRIAL_GATE_FLAG] === true;
+  if (
+    !shouldShowTrialBanner({
+      enforcementEnabled,
+      isTrialing: gate.isTrialing,
+      trialDaysRemaining: gate.trialDaysRemaining,
+    })
+  ) {
+    return null;
+  }
 
   return (
     <div
