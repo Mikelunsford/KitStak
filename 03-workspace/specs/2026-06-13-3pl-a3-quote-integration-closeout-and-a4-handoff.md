@@ -45,10 +45,11 @@ Server:
 
 SPA:
 - `apps/web/src/lib/quotes/applyJobTemplate.ts`: pure, unit-tested mapper.
-  component to item (item_id), service to vas (vas_id), step to note;
+  component to item (item_id), service to vas (vas_id), and a step to a priced
+  free-text line when it has a rate or a display-only note when it does not;
   `rate_cents` to `unit_price_cents`; `quantity` to `quantity_e3` via
   `Math.round`. A quote line is only priced when it anchors to an item or VAS, so
-  priced steps land as unpriced notes with the rate preserved in the description.
+  a priced labor step becomes a free-text priced line and carries onto the total.
 - `useApplyTemplateToQuote` (in `useQuotes.ts`): sets the quote job type from the
   template, then adds each line in template order over the existing endpoint. Not
   atomic by design; on a mid-sequence failure the error reports how many lines

@@ -3,7 +3,6 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { formatCents } from '@/lib/money';
 import type { JobTemplateLine } from '@/lib/types/threepl';
 import {
   jobTemplateLineToQuoteLine,
@@ -65,27 +64,27 @@ describe('jobTemplateLineToQuoteLine', () => {
     expect(result.position).toBe(3);
   });
 
-  it('maps a priced step to an unpriced note and preserves the rate in the description', () => {
+  it('maps a priced step to a free-text priced item line so the rate carries onto the quote', () => {
     // Arrange
     const line = mkLine({
       line_kind: 'step', name: 'Assembly labor',
-      rate_cents: 800, rate_uom: 'per_unit', currency_code: 'USD',
+      rate_cents: 800, rate_uom: 'per_unit', currency_code: 'USD', quantity: 3,
     });
 
     // Act
     const result = jobTemplateLineToQuoteLine(line, 0);
 
-    // Assert
-    expect(result.kind).toBe('note');
+    // Assert: a priced step has no catalog anchor, so it becomes a free-text
+    // priced line (kind 'item', no item_id) that contributes to the quote total.
+    expect(result.kind).toBe('item');
     expect(result.item_id).toBeNull();
     expect(result.vas_id).toBeNull();
-    expect(result.unit_price_cents).toBe(0);
-    expect(result.description).toContain('Rate:');
-    expect(result.description).toContain('per_unit');
-    expect(result.description).toContain(formatCents(800, 'USD'));
+    expect(result.unit_price_cents).toBe(800);
+    expect(result.quantity_e3).toBe(3000);
+    expect(result.description).toBeNull();
   });
 
-  it('leaves the description null for a step with no rate', () => {
+  it('maps an unpriced step to a display-only note', () => {
     // Arrange
     const line = mkLine({ line_kind: 'step', name: 'Inspect each unit', rate_cents: null });
 
@@ -94,6 +93,8 @@ describe('jobTemplateLineToQuoteLine', () => {
 
     // Assert
     expect(result.kind).toBe('note');
+    expect(result.item_id).toBeNull();
+    expect(result.vas_id).toBeNull();
     expect(result.unit_price_cents).toBe(0);
     expect(result.description).toBeNull();
   });

@@ -42,8 +42,8 @@ export function ApplyTemplatePanel({ quoteId, basePosition }: ApplyTemplatePanel
     <section className="flex flex-col gap-3 border border-line p-4">
       <h3 className="font-display tracking-wider text-ink">APPLY TEMPLATE</h3>
       <p className="font-sans text-sm text-ink-dim">
-        Expand a Job Builder template into quote lines. Component and service
-        lines carry their rate; step lines land as notes.
+        Expand a Job Builder template into quote lines. Component, service, and
+        priced step lines carry their rate; unpriced steps become notes.
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-2">
