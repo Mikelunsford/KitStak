@@ -1,5 +1,17 @@
 # Kitstak Status
 
+## 2026-06-13 3PL project conversion with template snapshotting (Phase A4) in PR #257
+
+Phase A4 of the 3PL commercial layer is up for review in PR #257 (not yet merged; no merge without the operator). It records which Job Builder template built a quote and the project it converts to, and freezes that template onto the project at conversion so later template edits never rewrite a project's origin.
+
+Server: migration 0094 adds nullable `quotes.source_job_template_id` and `projects.source_job_template_id` (spine to 3PL add-on FK to `job_templates`, ON DELETE SET NULL) plus a nullable `projects.job_template_snapshot` jsonb. A forward redefinition of `convert_quote_to_project` (last in 0093, same 4-arg signature) copies the breadcrumb onto the project and builds the org-scoped frozen snapshot (header plus lines), reading both ids from the in-org quote row so the SECURITY DEFINER RPC cannot inject a foreign template. `quotes-api` validates `source_job_template_id` in-org via `assertRefInOrg` (404 not 403) on create and update. No new capability (rides `quotes.quote.write` and `quotes.convert_to_project`). Validated on staging in an aborting transaction (project carried the breadcrumb and a three-line snapshot).
+
+SPA: the apply-template flow now stamps `source_job_template_id` on the quote alongside the job type, so the breadcrumb threads quote to project. The project detail page shows a "Built from template" link and a read-only TEMPLATE SNAPSHOT panel rendering the frozen lines. `source_job_template_id` and `job_template_snapshot` (plus `JobTemplateSnapshotSchema`) added to both byte-mirror `sales.ts` files.
+
+Verified: contract parity (byte-mirror intact), SPA typecheck, lint (max-warnings 0), 456 tests (16 new: 11 migration static checks, 5 schema parse), deno check across all 29 edge bundles, build, size-limit (SPA index 39.58 kB gzipped, under 40).
+
+Next: A5 Supply Plan. Handoff in `03-workspace/specs/2026-06-13-3pl-a4-template-snapshot-closeout-and-a5-handoff.md`. Stack onto the same branch; do not merge until the operator reviews.
+
 ## 2026-06-13 3PL Quote integration (Phase A3) in PR #256
 
 Phase A3 of the 3PL commercial layer is up for review in PR #256 (not yet merged; no merge without the operator). Two pieces, matching the operator's two decisions (full A3 scope, SPA-thin expansion): a Job Builder template can be applied to a draft quote to expand its lines, and a quote now carries a job type that `convert_quote_to_project` copies onto the project so a won quote becomes a project of the right type.

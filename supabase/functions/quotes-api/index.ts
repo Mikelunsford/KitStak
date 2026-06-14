@@ -99,6 +99,10 @@ const createQuote = async (ctx: RouteCtx) => {
       if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }
       // Wave 12 / A3: validate the optional 3PL job type in-org before write.
       if (body.job_type_id) { await assertRefInOrg('job_types', caller, body.job_type_id); }
+      // Wave 12 / A4: validate the optional source Job Builder template in-org
+      // before write (404 not 403 on a foreign id). convert_quote_to_project
+      // carries it onto the project and freezes the template snapshot.
+      if (body.source_job_template_id) { await assertRefInOrg('job_templates', caller, body.source_job_template_id); }
       const supplied = body.number?.trim();
       const number = supplied
         ? supplied
@@ -135,6 +139,10 @@ const updateQuote = async (ctx: RouteCtx) => {
       if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }
       // Wave 12 / A3: validate the optional 3PL job type in-org before write.
       if (body.job_type_id) { await assertRefInOrg('job_types', caller, body.job_type_id); }
+      // Wave 12 / A4: validate the optional source Job Builder template in-org
+      // before write (404 not 403 on a foreign id). convert_quote_to_project
+      // carries it onto the project and freezes the template snapshot.
+      if (body.source_job_template_id) { await assertRefInOrg('job_templates', caller, body.source_job_template_id); }
       const client = admin();
       const { data, error } = await client
         .from('quotes')
