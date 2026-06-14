@@ -119,13 +119,13 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0091 is the current authoritative redefinition', () => {
+  it('0096 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
-    // 0091 (3PL Job Builder) supersedes 0089 by adding job_template and
-    // job_template_line on top of the full 0089 list.
+    // 0096 (3PL Supply Plan) supersedes 0091 by adding supply_plan and
+    // supply_plan_line on top of the full 0091 list.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(91);
-    expect(latest.file).toBe('0091_job_templates.sql');
+    expect(latest.num).toBe(96);
+    expect(latest.file).toBe('0096_supply_plans.sql');
   });
 
   it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
@@ -138,6 +138,13 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('the latest redefinition includes the Job Builder types (0091)', () => {
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
     for (const t of ['job_template', 'job_template_line']) {
+      expect(latest.types.has(t)).toBe(true);
+    }
+  });
+
+  it('the latest redefinition includes the Supply Plan types (0096)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    for (const t of ['supply_plan', 'supply_plan_line']) {
       expect(latest.types.has(t)).toBe(true);
     }
   });

@@ -1,5 +1,19 @@
 # Kitstak Status
 
+## 2026-06-13 3PL Supply Plan DB layer (Phase A5, backend) in PR #257
+
+The Supply Plan DB layer is stacked on the Phase A4 work in PR #257 (not yet merged; no merge without the operator). It activates the dormant spine reservation path and adds the supply_plans engine. Kept on the A4 branch so migrations 0094 to 0097 stay contiguous. The A5 app layer (caps, three-pl-api routes, byte-mirror types, SPA) is handed off as the next slice.
+
+Key finding: stock_levels.quantity_reserved (with quantity_available GENERATED as on_hand minus reserved) shipped in 0030 but was dormant. recompute_stock_level only derived on_hand and there was no reserve movement type. Migration 0095 activates it (adds reserve and reserve_release movement types, teaches recompute to derive reserved). Purely additive: the on_hand derivation is byte-identical and no reserve rows exist, so no current stock reading moves.
+
+Tables: migration 0096 adds supply_plans (Pattern A, FSM draft / released / fulfilled / cancelled, warehouse_id, project_id) and supply_plan_lines (per item: required / available / reserved / shortage, resolution in reserve / inbound / purchase / replenish, nullable PO and receiving links). release_supply_plan reserves min(required, available) for reserve-resolution lines by writing 0095 reserve movements and records the shortage; cancel_supply_plan writes reserve_release to restore the spine reserved. Both are 3-arg cross-tenant-guarded SECURITY DEFINER RPCs (NOT_FOUND, never 403). Migration 0097 wires SUP- numbering. The audit_log entity_type CHECK is extended (supply_plan, supply_plan_line).
+
+Validated on staging in aborting transactions: reserve then reserve_release moved quantity_reserved and the generated available correctly (10 to 6 to 10, on_hand steady at 10); a plan with a covered line (reserved 4, shortage 0) and a short line (reserved 10, shortage 5) released, the spine reserved tracking it, then cancelled back to zero.
+
+Verified: SPA typecheck, lint (max-warnings 0), 759 unit plus 475 regression tests (including three new migration suites and the db-0083 authoritative-redefinition pin moved forward to 0096), contract parity. No SPA, edge, or type changes this slice, so build, size-limit, and deno check are unaffected from the A4 run.
+
+Next: the A5 app layer (caps + three-pl-api supply_plan CRUD + release / cancel + byte-mirror types + SPA), handed off in `03-workspace/specs/2026-06-13-3pl-a5-supply-plan-dblayer-closeout-and-applayer-handoff.md`. Then A6 Job Runs.
+
 ## 2026-06-13 3PL project conversion with template snapshotting (Phase A4) in PR #257
 
 Phase A4 of the 3PL commercial layer is up for review in PR #257 (not yet merged; no merge without the operator). It records which Job Builder template built a quote and the project it converts to, and freezes that template onto the project at conversion so later template edits never rewrite a project's origin.
