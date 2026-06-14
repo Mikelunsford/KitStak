@@ -195,6 +195,12 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
       },
       {
+        path: '/3pl-operations/supply-plans',
+        label: 'Supply Plans',
+        icon: ClipboardList,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
         path: '/3pl-operations/receiving',
         label: 'Receiving',
         icon: PackageOpen,

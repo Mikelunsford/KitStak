@@ -1,5 +1,15 @@
 # Kitstak Status
 
+## 2026-06-13 3PL Supply Plan app layer (Phase A5 complete) in PR #257
+
+The Supply Plan app layer is stacked on the A5 DB layer in PR #257, completing Phase A5 (not yet merged; no merge without the operator). Caps, three-pl-api routes, byte-mirror types, and the SPA pages are in.
+
+Caps: threepl.supply_plan.create / release / cancel plus line.create / update / delete in both capability canons, granted to the 3PL commercial roles (org_owner, org_admin, ops, sales); the 0096 RLS was widened to match (it was ops-only on first draft). Types: SupplyPlan and SupplyPlanLine schemas (plus Create / Patch) in both byte-mirror threepl.ts files. Edge: three-pl-api gains supply_plan CRUD, line CRUD, and the release / cancel routes (which call the 0096 RPCs and map NOT_FOUND to 404, STATE_CONFLICT to 409, VALIDATION_ERROR to 422); nextDocNumber('supply_plan') wired with the SUP- prefix (DocType extended). SPA: supplyPlansService, useSupplyPlans, query keys, and the supply-plans List / Detail / Create pages (the detail hub shows the demand table with required / available / reserved / shortage plus release / cancel actions), routes /3pl-operations/supply-plans (/new and /:id), and the "Supply Plans" sidebar entry (third in 3PL Operations). StatusBadge gained released and fulfilled states.
+
+Verified: SPA typecheck, lint (max-warnings 0), 760 unit plus 475 regression tests (sidebarModes updated for the new entry), contract parity (byte-mirror caps and types intact), deno check across all 29 edge bundles, build, size-limit (SPA index 39.6 kB gzipped, under 40; supply-plan pages are lazy chunks).
+
+Next: A6 Job Runs and Daily Progress.
+
 ## 2026-06-13 3PL Supply Plan DB layer (Phase A5, backend) in PR #257
 
 The Supply Plan DB layer is stacked on the Phase A4 work in PR #257 (not yet merged; no merge without the operator). It activates the dormant spine reservation path and adds the supply_plans engine. Kept on the A4 branch so migrations 0094 to 0097 stay contiguous. The A5 app layer (caps, three-pl-api routes, byte-mirror types, SPA) is handed off as the next slice.

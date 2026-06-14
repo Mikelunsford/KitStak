@@ -39,10 +39,11 @@
 --   RLS rules          Pattern A on both tables from creation. org_id is
 --                      denormalised onto the child so RLS evaluates without a
 --                      parent join, mirroring 0091. ON DELETE CASCADE on the
---                      parent FK. Write gated to ('org_owner','org_admin','ops')
---                      (an operations / planning surface, like manufacturing_runs
---                      from 0052). Cross-tenant reads return 200 + []; the RPCs
---                      surface cross-tenant as NOT_FOUND (never 403).
+--                      parent FK. Write gated to the 3PL commercial layer roles
+--                      ('org_owner','org_admin','ops','sales'), matching the
+--                      accounts and job_template surfaces. Cross-tenant reads
+--                      return 200 + []; the RPCs surface cross-tenant as
+--                      NOT_FOUND (never 403).
 --   Audit rules        supply_plans is a rich FSM (draft / released / fulfilled /
 --                      cancelled) so its trigger records from_state -> to_state on
 --                      every status change plus created / deleted, via the central
@@ -171,11 +172,11 @@ create policy supply_plans_write on public.supply_plans
   for all to authenticated
   using (
     org_id = public.current_org_id()
-    and public.current_user_role() in ('org_owner', 'org_admin', 'ops')
+    and public.current_user_role() in ('org_owner', 'org_admin', 'ops', 'sales')
   )
   with check (
     org_id = public.current_org_id()
-    and public.current_user_role() in ('org_owner', 'org_admin', 'ops')
+    and public.current_user_role() in ('org_owner', 'org_admin', 'ops', 'sales')
   );
 
 -- ---------------------------------------------------------------------------
@@ -226,11 +227,11 @@ create policy supply_plan_lines_write on public.supply_plan_lines
   for all to authenticated
   using (
     org_id = public.current_org_id()
-    and public.current_user_role() in ('org_owner', 'org_admin', 'ops')
+    and public.current_user_role() in ('org_owner', 'org_admin', 'ops', 'sales')
   )
   with check (
     org_id = public.current_org_id()
-    and public.current_user_role() in ('org_owner', 'org_admin', 'ops')
+    and public.current_user_role() in ('org_owner', 'org_admin', 'ops', 'sales')
   );
 
 -- ---------------------------------------------------------------------------

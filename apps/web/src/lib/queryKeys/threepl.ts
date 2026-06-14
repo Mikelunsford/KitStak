@@ -4,6 +4,7 @@
 
 import type { ListAccountsFilters } from '@/lib/services/accountsService';
 import type { ListJobTemplatesFilters } from '@/lib/services/jobTemplatesService';
+import type { ListSupplyPlansFilters } from '@/lib/services/supplyPlansService';
 
 export const accountsKeys = {
   all: ['threepl', 'accounts'] as const,
@@ -31,4 +32,18 @@ export const jobTemplateLinesKeys = {
   // invalidation sweeps them too.
   byTemplate: (templateId: string) =>
     [...jobTemplatesKeys.detail(templateId), 'lines'] as const,
+};
+
+export const supplyPlansKeys = {
+  all: ['threepl', 'supply_plans'] as const,
+  list: (filters: ListSupplyPlansFilters = {}) =>
+    [...supplyPlansKeys.all, 'list', filters] as const,
+  detail: (id: string) => [...supplyPlansKeys.all, 'detail', id] as const,
+};
+
+export const supplyPlanLinesKeys = {
+  // Demand lines hang off the parent plan's detail key so a parent
+  // invalidation sweeps them too.
+  byPlan: (planId: string) =>
+    [...supplyPlansKeys.detail(planId), 'lines'] as const,
 };

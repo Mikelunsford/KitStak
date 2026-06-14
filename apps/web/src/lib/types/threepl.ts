@@ -203,3 +203,98 @@ export type JobTemplateLineCreate = z.infer<typeof JobTemplateLineCreateSchema>;
 export const JobTemplateLineUpdateSchema =
   JobTemplateLineCreateSchema.partial();
 export type JobTemplateLineUpdate = z.infer<typeof JobTemplateLineUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// supply_plans (parent; Supply Plan, Phase A5; migration 0096). FSM draft /
+// released / fulfilled / cancelled. warehouse_id is where reservations draw
+// from (defaults to the org default at release); project_id is the demand
+// source. plan_number SUP- (0097). Release / cancel are RPCs, not table writes.
+// ---------------------------------------------------------------------------
+
+export const SupplyPlanStatusSchema = z.enum([
+  'draft',
+  'released',
+  'fulfilled',
+  'cancelled',
+]);
+export type SupplyPlanStatus = z.infer<typeof SupplyPlanStatusSchema>;
+
+export const SupplyPlanSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  plan_number: z.string().nullable(),
+  project_id: Uuid.nullable(),
+  warehouse_id: Uuid.nullable(),
+  status: SupplyPlanStatusSchema,
+  released_at: Iso.nullable(),
+  fulfilled_at: Iso.nullable(),
+  cancelled_at: Iso.nullable(),
+  notes: z.string().nullable(),
+  payload: z.record(z.unknown()),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type SupplyPlan = z.infer<typeof SupplyPlanSchema>;
+
+export const SupplyPlanCreateSchema = z.object({
+  project_id: Uuid.optional().nullable(),
+  warehouse_id: Uuid.optional().nullable(),
+  plan_number: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type SupplyPlanCreate = z.infer<typeof SupplyPlanCreateSchema>;
+
+export const SupplyPlanPatchSchema = SupplyPlanCreateSchema.partial();
+export type SupplyPlanPatch = z.infer<typeof SupplyPlanPatchSchema>;
+
+// ---------------------------------------------------------------------------
+// supply_plan_lines (child; per-item demand resolution). required / available /
+// reserved / shortage are numeric (number or numeric-string on the wire); the
+// release RPC fills available / reserved / shortage. resolution partitions how
+// the operator covers the line; reserve is the active reserve-writing path.
+// resolved_po_id / resolved_receiving_order_id are the nullable manual links.
+// ---------------------------------------------------------------------------
+
+export const SupplyPlanResolutionSchema = z.enum([
+  'reserve',
+  'inbound',
+  'purchase',
+  'replenish',
+]);
+export type SupplyPlanResolution = z.infer<typeof SupplyPlanResolutionSchema>;
+
+const Qty = z.union([z.number(), z.string()]);
+
+export const SupplyPlanLineSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  supply_plan_id: Uuid,
+  item_id: Uuid,
+  required_qty: Qty,
+  available_qty: Qty,
+  reserved_qty: Qty,
+  shortage_qty: Qty,
+  resolution: SupplyPlanResolutionSchema,
+  resolved_po_id: Uuid.nullable(),
+  resolved_receiving_order_id: Uuid.nullable(),
+  notes: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type SupplyPlanLine = z.infer<typeof SupplyPlanLineSchema>;
+
+export const SupplyPlanLineCreateSchema = z.object({
+  item_id: Uuid,
+  required_qty: Qty.optional(),
+  resolution: SupplyPlanResolutionSchema.optional(),
+  resolved_po_id: Uuid.optional().nullable(),
+  resolved_receiving_order_id: Uuid.optional().nullable(),
+  notes: z.string().optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type SupplyPlanLineCreate = z.infer<typeof SupplyPlanLineCreateSchema>;
+
+export const SupplyPlanLineUpdateSchema = SupplyPlanLineCreateSchema.partial();
+export type SupplyPlanLineUpdate = z.infer<typeof SupplyPlanLineUpdateSchema>;

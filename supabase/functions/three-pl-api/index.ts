@@ -54,8 +54,15 @@ import {
   JobTemplateLineSchema,
   JobTemplateLineCreateSchema,
   JobTemplateLineUpdateSchema,
+  SupplyPlanSchema,
+  SupplyPlanCreateSchema,
+  SupplyPlanPatchSchema,
+  SupplyPlanLineSchema,
+  SupplyPlanLineCreateSchema,
+  SupplyPlanLineUpdateSchema,
   type ThreePlAccount,
   type JobTemplate,
+  type SupplyPlan,
 } from '../_shared/types/threepl.ts';
 
 const BUNDLE = 'three-pl-api';
@@ -118,6 +125,33 @@ async function nextLinePosition(caller: Caller, templateId: string): Promise<num
     .select('position')
     .eq('org_id', caller.orgId)
     .eq('template_id', templateId)
+    .order('position', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  return ((data?.position as number | undefined) ?? -1) + 1;
+}
+
+async function loadSupplyPlan(caller: Caller, id: string): Promise<SupplyPlan> {
+  const { data, error } = await admin()
+    .from('supply_plans').select('*')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+  return SupplyPlanSchema.parse(data);
+}
+
+async function assertSupplyPlanParent(caller: Caller, id: string): Promise<void> {
+  const { data, error } = await admin().from('supply_plans').select('id')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+async function nextSupplyPlanLinePosition(caller: Caller, planId: string): Promise<number> {
+  const { data, error } = await admin().from('supply_plan_lines')
+    .select('position')
+    .eq('org_id', caller.orgId)
+    .eq('supply_plan_id', planId)
     .order('position', { ascending: false }).limit(1).maybeSingle();
   if (error) throw internalError(BUNDLE, error);
   return ((data?.position as number | undefined) ?? -1) + 1;
@@ -670,6 +704,286 @@ const TABLE: Route[] = [
             .from('job_template_lines').delete()
             .eq('org_id', caller.orgId)
             .eq('template_id', params.id)
+            .eq('id', params.lid)
+            .select('id').maybeSingle();
+          if (error) throw internalError(BUNDLE, error);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          return ok({ id: params.lid, deleted: true });
+        },
+      );
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // supply_plans (parent; Supply Plan; FSM draft / released / fulfilled /
+  // cancelled). Release and cancel are RPCs (reserve / reserve_release spine
+  // movements). Phase A5.
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/supply-plans',
+    handler: async ({ req, url }) => {
+      const caller = requireCaller(req);
+      const status = url.searchParams.get('status');
+      const projectId = url.searchParams.get('project_id');
+      let q = admin()
+        .from('supply_plans').select('*')
+        .eq('org_id', caller.orgId).is('deleted_at', null)
+        .order('created_at', { ascending: false }).limit(200);
+      if (status) q = q.eq('status', status);
+      if (projectId) q = q.eq('project_id', projectId);
+      const { data, error } = await q;
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => SupplyPlanSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/supply-plans',
+    handler: async ({ req }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.create');
+      const body = await parseBody(req, SupplyPlanCreateSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/supply-plans', body, async () => {
+        // project_id and warehouse_id are optional spine refs; a cross-tenant or
+        // missing ref resolves to NOT_FOUND 404 (never copied).
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        const planNumber = body.plan_number?.trim()
+          ? body.plan_number.trim()
+          : await nextDocNumber(caller.orgId, 'supply_plan');
+        const insert: Record<string, unknown> = {
+          org_id: caller.orgId,
+          plan_number: planNumber,
+          project_id: body.project_id ?? null,
+          warehouse_id: body.warehouse_id ?? null,
+          status: 'draft',
+          notes: body.notes ?? null,
+          payload: body.payload ?? {},
+          created_by: caller.userId,
+          updated_by: caller.userId,
+        };
+        const { data, error } = await admin().from('supply_plans')
+          .insert(insert).select('*').single();
+        if (error) throw internalError(BUNDLE, error);
+        return created(SupplyPlanSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'GET', path: '/supply-plans/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      const row = await loadSupplyPlan(caller, params.id);
+      return ok(row);
+    },
+  },
+  {
+    method: 'PATCH', path: '/supply-plans/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      // No dedicated supply_plan.update cap; header edits reuse the create cap
+      // (same role gate), matching the job-templates delete precedent. Status
+      // moves via the release / cancel routes, not here.
+      requireCap(caller, 'threepl.supply_plan.create');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, SupplyPlanPatchSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/supply-plans/:id', body, async () => {
+        await assertSupplyPlanParent(caller, params.id);
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        const patch: Record<string, unknown> = {
+          updated_by: caller.userId,
+          updated_at: nowIso(),
+        };
+        if (body.project_id !== undefined) patch.project_id = body.project_id;
+        if (body.warehouse_id !== undefined) patch.warehouse_id = body.warehouse_id;
+        if (body.plan_number !== undefined) patch.plan_number = body.plan_number;
+        if (body.notes !== undefined) patch.notes = body.notes;
+        if (body.payload !== undefined) patch.payload = body.payload;
+        const { data, error } = await admin().from('supply_plans')
+          .update(patch)
+          .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .select('*').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok(SupplyPlanSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'DELETE', path: '/supply-plans/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.create');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/supply-plans/:id-delete', null, async () => {
+        await assertSupplyPlanParent(caller, params.id);
+        const { data, error } = await admin().from('supply_plans')
+          .update({ deleted_at: nowIso(), updated_by: caller.userId, updated_at: nowIso() })
+          .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .select('id').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok({ id: params.id, deleted: true });
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/supply-plans/:id/release',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.release');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/supply-plans/:id/release', null, async () => {
+        // release_supply_plan is SECURITY DEFINER and takes the caller org as an
+        // explicit param: a missing or cross-tenant plan surfaces as NOT_FOUND
+        // (404, never 403); a non-draft plan as STATE_CONFLICT (409); no
+        // warehouse as VALIDATION_ERROR.
+        const { error } = await admin().rpc('release_supply_plan', {
+          p_plan_id: params.id,
+          p_actor: caller.userId,
+          p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          if (/VALIDATION_ERROR/.test(error.message)) throw new ApiError('VALIDATION_ERROR', 422, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        const row = await loadSupplyPlan(caller, params.id);
+        return ok(row);
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/supply-plans/:id/cancel',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.cancel');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/supply-plans/:id/cancel', null, async () => {
+        const { error } = await admin().rpc('cancel_supply_plan', {
+          p_plan_id: params.id,
+          p_actor: caller.userId,
+          p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          throw internalError(BUNDLE, error);
+        }
+        const row = await loadSupplyPlan(caller, params.id);
+        return ok(row);
+      });
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // supply_plan_lines (child; per-item demand resolution)
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/supply-plans/:id/lines',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      await assertSupplyPlanParent(caller, params.id);
+      const { data, error } = await admin()
+        .from('supply_plan_lines').select('*')
+        .eq('org_id', caller.orgId)
+        .eq('supply_plan_id', params.id)
+        .order('position', { ascending: true });
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => SupplyPlanLineSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/supply-plans/:id/lines',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.line.create');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, SupplyPlanLineCreateSchema);
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/supply-plans/:id/lines', body,
+        async () => {
+          await assertSupplyPlanParent(caller, params.id);
+          await assertRefInOrg('items', caller, body.item_id);
+          if (body.resolved_po_id) { await assertRefInOrg('purchase_orders', caller, body.resolved_po_id); }
+          if (body.resolved_receiving_order_id) { await assertRefInOrg('receiving_orders', caller, body.resolved_receiving_order_id); }
+          const position = body.position ?? await nextSupplyPlanLinePosition(caller, params.id);
+          const insert = {
+            org_id: caller.orgId,
+            supply_plan_id: params.id,
+            item_id: body.item_id,
+            required_qty: body.required_qty ?? 0,
+            resolution: body.resolution ?? 'reserve',
+            resolved_po_id: body.resolved_po_id ?? null,
+            resolved_receiving_order_id: body.resolved_receiving_order_id ?? null,
+            notes: body.notes ?? null,
+            position,
+            created_by: caller.userId,
+            updated_by: caller.userId,
+          };
+          const { data, error } = await admin()
+            .from('supply_plan_lines').insert(insert)
+            .select('*').single();
+          if (error) throw internalError(BUNDLE, error);
+          return created(SupplyPlanLineSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'PATCH', path: '/supply-plans/:id/lines/:lid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.line.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      const body = await parseBody(req, SupplyPlanLineUpdateSchema);
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/supply-plans/:id/lines/:lid', body,
+        async () => {
+          await assertSupplyPlanParent(caller, params.id);
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+          if (body.resolved_po_id) { await assertRefInOrg('purchase_orders', caller, body.resolved_po_id); }
+          if (body.resolved_receiving_order_id) { await assertRefInOrg('receiving_orders', caller, body.resolved_receiving_order_id); }
+          const patch: Record<string, unknown> = { updated_by: caller.userId };
+          if (body.item_id !== undefined) patch.item_id = body.item_id;
+          if (body.required_qty !== undefined) patch.required_qty = body.required_qty;
+          if (body.resolution !== undefined) patch.resolution = body.resolution;
+          if (body.resolved_po_id !== undefined) patch.resolved_po_id = body.resolved_po_id;
+          if (body.resolved_receiving_order_id !== undefined) patch.resolved_receiving_order_id = body.resolved_receiving_order_id;
+          if (body.notes !== undefined) patch.notes = body.notes;
+          if (body.position !== undefined) patch.position = body.position;
+          const { data, error } = await admin()
+            .from('supply_plan_lines')
+            .update(patch)
+            .eq('org_id', caller.orgId)
+            .eq('supply_plan_id', params.id)
+            .eq('id', params.lid)
+            .select('*').maybeSingle();
+          if (error) throw internalError(BUNDLE, error);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          return ok(SupplyPlanLineSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'DELETE', path: '/supply-plans/:id/lines/:lid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.line.delete');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/supply-plans/:id/lines/:lid-delete', null,
+        async () => {
+          await assertSupplyPlanParent(caller, params.id);
+          const { data, error } = await admin()
+            .from('supply_plan_lines').delete()
+            .eq('org_id', caller.orgId)
+            .eq('supply_plan_id', params.id)
             .eq('id', params.lid)
             .select('id').maybeSingle();
           if (error) throw internalError(BUNDLE, error);

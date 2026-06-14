@@ -40,13 +40,13 @@ describe('migration 0096 — supply plans + reservation RPCs (A5)', () => {
     expect(t!).toMatch(/resolved_receiving_order_id uuid references public\.receiving_orders\(id\) on delete set null/i);
   });
 
-  it('enables Pattern A RLS on both tables gated to ops roles', () => {
+  it('enables Pattern A RLS on both tables gated to the 3PL commercial roles', () => {
     expect(sql).toMatch(/alter table public\.supply_plans enable row level security/i);
     expect(sql).toMatch(/alter table public\.supply_plan_lines enable row level security/i);
     const writes = sql.match(/create policy supply_plan(?:s|_lines)_write[\s\S]*?with check \([\s\S]*?\);/g) ?? [];
     expect(writes.length).toBe(2);
     for (const w of writes) {
-      expect(w).toMatch(/current_user_role\(\) in \('org_owner', 'org_admin', 'ops'\)/i);
+      expect(w).toMatch(/current_user_role\(\) in \('org_owner', 'org_admin', 'ops', 'sales'\)/i);
     }
   });
 
