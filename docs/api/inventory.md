@@ -18,13 +18,13 @@ Bundle for warehouses, stock levels, stock movements, and BOM items. Stock level
 
 - `GET /inventory-api/stock-levels?warehouse_id=&item_id=` cap `stock.level.read`
 
-`quantity_available` is `GENERATED ALWAYS AS (quantity_on_hand - quantity_reserved) STORED`. `quantity_on_hand` is recomputed from `stock_movements` via the `recompute_stock_level(warehouse_id, item_id)` helper, triggered AFTER INSERT on `stock_movements`.
+`quantity_available` is `GENERATED ALWAYS AS (quantity_on_hand - quantity_reserved) STORED`. `quantity_on_hand` and `quantity_reserved` are recomputed from `stock_movements` via the `recompute_stock_level(warehouse_id, item_id)` helper, triggered AFTER INSERT on `stock_movements`. `quantity_reserved` was dormant (always 0) until migration 0095, which derives it from `reserve` minus `reserve_release` movements (Supply Plan, Wave 12 / A5); `quantity_on_hand` excludes those soft holds.
 
 ### Stock movements (read-only)
 
 - `GET /inventory-api/stock-movements?warehouse_id=&item_id=` cap `stock.movement.read`
 
-Append-only ledger. Triggers on receiving / production / shipment status transitions emit rows; no user writes. `movement_type` is one of: `receipt`, `shipment`, `production_consumed`, `production_produced`, `adjustment`, `transfer_in`, `transfer_out`.
+Append-only ledger. Triggers on receiving / production / shipment status transitions emit rows; the Supply Plan `release_supply_plan` / `cancel_supply_plan` RPCs (Wave 12 / A5) emit the soft-hold rows; no direct user writes. `movement_type` is one of: `receipt`, `shipment`, `production_consumed`, `production_produced`, `adjustment`, `transfer_in`, `transfer_out`, `reserve`, `reserve_release`. `reserve` and `reserve_release` move `quantity_reserved` only, never `quantity_on_hand`.
 
 ### BOM items
 

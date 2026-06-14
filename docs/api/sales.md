@@ -64,7 +64,7 @@ All transitions go through `respondWithIdempotency` and verify legality via the 
 - `POST /quotes-api/quotes/:id/revise` -> revise_requested
 - `POST /quotes-api/quotes/:id/cancel` -> cancelled
 - `POST /quotes-api/quotes/:id/send` updates `sent_at` (no state change; operator label: "Send to customer"). PDF email wiring lands when the pdf-worker is online.
-- `POST /quotes-api/quotes/:id/convert-to-project` calls the SECURITY DEFINER RPC `convert_quote_to_project`. Transitions to `project_pending` and creates the project row in `pending`.
+- `POST /quotes-api/quotes/:id/convert-to-project` calls the SECURITY DEFINER RPC `convert_quote_to_project`. Transitions to `project_pending` and creates the project row in `pending`. The RPC also copies the quote's `job_type_id` (Wave 12 / A3, migration 0093) and `source_job_template_id` (Wave 12 / A4, migration 0094) onto the project, and freezes the source Job Builder template (header plus lines) into `projects.job_template_snapshot` so later template edits never rewrite a project's origin. Both ids are read from the in-org quote row, so the SECURITY DEFINER body cannot inject a foreign job type or template.
 
 UI vocabulary: PR-6 (B7) renames the pre-approval button from "Submit" to "Send for approval" and the post-approval button from "Send" to "Send to customer". The DB enum value stays `submitted` (forward-only migration rule); the operator-facing label is rendered by `formatQuoteStateLabel(state)` on `QuoteDetailPage.tsx`.
 
