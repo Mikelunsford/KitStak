@@ -20,45 +20,50 @@ produced plus labor; posting a daily log emits spine `stock_movements` (consumed
 out, produced in) exactly like the manufacturing run emit path (migration 0053).
 Job Profitability and Billing Review are A7, not A6.
 
-## Settle these decisions first (recommendations included)
+## Decisions (LOCKED by the operator 2026-06-13)
 
-1. **`run_number` prefix collides with `production_run`.** The plan says prefix
-   `RUN-`, but the spine `production_run` doc_type already uses `RUN-` in the
-   numbering chassis (seeded in `seed_org_numbering`). Two doc_types sharing a
-   prefix mint duplicate-looking numbers (separate sequences, same `RUN-YYYY-...`
-   shape). **Recommendation: use `JR-` for `job_run`** (distinct, reads as "Job
-   Run"). Confirm with the operator before minting; it is forward-only once live.
-2. **Template snapshot source.** A `job_run` snapshots the template at creation
-   (the BOM-versioning rationale, same as A4 froze it onto the project).
-   **Recommendation:** carry `job_template_id` (nullable FK) plus a
-   `job_template_snapshot jsonb` (nullable), reusing the A4 `JobTemplateSnapshotSchema`
-   shape byte-for-byte. If the run is created from a project that already has
-   `projects.job_template_snapshot`, copy that (it was frozen at convert); if
-   created from a live template, freeze it with the A4 snapshot-building SQL
-   (migration 0094's `jsonb_build_object` block, org-scoped); else null.
-3. **Consumed / produced line structure.** The plan puts "produced and consumed
-   lines" on the daily log. **Recommendation:** child tables under the daily log,
-   mirroring the manufacturing run split (migration 0052): `job_run_daily_log_consumed_line_items`
-   (item_id REQUIRED, the strict consumed side) and `job_run_daily_log_produced_line_items`
-   (item_id NULLABLE, the lenient produced side), both denormalised `org_id` for
-   Pattern A RLS. Posting the parent daily log emits the movements from these lines.
-4. **Supply Plan reservation draw-down.** When a run consumes stock that a Supply
-   Plan reserved, the reserve hold must be released or `quantity_available`
-   under-reports (on_hand drops while `quantity_reserved` stays). **Recommendation
-   for A6 (correct and decoupled):** add `supply_plans.job_run_id` (nullable FK,
-   closes F-Wave12-SUPPLY-PLAN-JOB-RUN-LINK-01) and a `fulfill_supply_plan(plan, actor, caller_org)`
-   RPC (released -> fulfilled) that writes `reserve_release` for the remaining held
-   lines, mirroring `cancel_supply_plan` but ending in `fulfilled`. The operator
-   marks the plan fulfilled when the run is done, freeing the holds. The finer
-   per-consume automatic draw-down (release exactly the consumed quantity as each
-   daily log posts) is the richer follow-up F-Wave12-SUPPLY-PLAN-FULFILL-CONSUME-01,
-   not A6-core.
-5. **Line lifecycle states.** The plan lists Planned / Reserved / Staging Requested
-   / Staged / Consumed / Produced as per-line material states. **Recommendation:**
-   do NOT build the full lifecycle in A6. Staging Requested / Staged are warehouse
-   execution (WMS) concepts; in the WMS-off planning layer keep the daily-log lines
-   simple (consumed actuals, produced actuals). The richer lifecycle lands with WMS
-   Body B.
+All five are settled. Build to these; do not re-litigate.
+
+1. **`run_number` prefix = `JR-`.** The plan's `RUN-` collides with the spine
+   `production_run` doc_type (already `RUN-` in the numbering chassis). Use `JR-`
+   for the `job_run` doc_type (distinct, reads as "Job Run"). Add `job_run` ->
+   `JR-` to the `numbering_sequences` doc_type CHECK, the per-org seed, and
+   `seed_org_numbering` (base the redefinition on 0097, the latest), mirroring
+   `0097_supply_plans_numbering.sql` one-for-one.
+2. **Reuse the A4 snapshot.** `job_runs` carries `job_template_id` (nullable FK)
+   plus `job_template_snapshot jsonb` (nullable), reusing the A4
+   `JobTemplateSnapshotSchema` shape byte-for-byte (from `sales.ts`; do not define a
+   second snapshot type). At run creation: if it comes from a project that already
+   has `projects.job_template_snapshot`, copy that (frozen at convert); if from a
+   live template, freeze with the 0094 `jsonb_build_object` block (org-scoped); else
+   null.
+3. **Child tables under the daily log.** `job_run_daily_log_consumed_line_items`
+   (item_id REQUIRED, strict consumed side) and `job_run_daily_log_produced_line_items`
+   (item_id NULLABLE, lenient produced side), both denormalised `org_id` for Pattern
+   A RLS, mirroring the manufacturing run split (migration 0052). Posting the parent
+   daily log emits the movements from these lines.
+4. **Fold in the Supply Plan fulfillment link.** Add `supply_plans.job_run_id`
+   (nullable FK, closes F-Wave12-SUPPLY-PLAN-JOB-RUN-LINK-01) and a
+   `fulfill_supply_plan(plan, actor, caller_org)` RPC (released -> fulfilled) that
+   writes `reserve_release` for the remaining held lines, mirroring
+   `cancel_supply_plan` but ending in `fulfilled`. This keeps `quantity_available`
+   correct: consuming reserved stock no longer leaves a stale hold once the operator
+   marks the plan fulfilled. Add a dedicated `threepl.supply_plan.fulfill` capability
+   (both byte-mirror canons) and a `POST /supply-plans/:id/fulfill` route, plus a
+   Fulfill action on the supply-plan detail page gated to the released state. The
+   finer per-consume automatic draw-down stays the follow-up
+   F-Wave12-SUPPLY-PLAN-FULFILL-CONSUME-01, not A6-core.
+5. **Simple now, scalable by design.** Keep the daily-log consumed/produced lines
+   as actuals only for A6: no Planned / Reserved / Staging Requested / Staged
+   states (those are WMS warehouse-execution concepts). Scalable means the richer
+   lifecycle is purely ADDITIVE later: the WMS phase introduces the staging
+   dimension and a per-line `state` column via forward migration, building on the
+   A6 actuals tables without restructuring them. Do NOT pre-build staging columns
+   now (YAGNI); the contract is that the design must not preclude them, and the
+   consumed/produced table split does not. Concretely for scale: keep a
+   `payload jsonb` on `job_runs` (header-level extension point, like the other 3PL
+   parents) and keep the line tables clean; the future planned-vs-actual and
+   staging model attaches as new tables plus a state column, not a rewrite.
 
 ## Schema (DB-layer slice)
 
