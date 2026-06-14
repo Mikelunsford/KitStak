@@ -2,7 +2,7 @@ import { apiRequest } from '@/lib/apiClient';
 import {
   QuoteSchema, QuoteLineItemSchema,
   type Quote, type QuoteLineItem,
-  type CreateQuoteRequest, type CreateQuoteLineRequest,
+  type CreateQuoteRequest, type UpdateQuoteRequest, type CreateQuoteLineRequest,
   type ConvertQuoteToProjectRequest,
 } from '@/lib/types/sales';
 import { z } from 'zod';
@@ -44,6 +44,16 @@ export async function getQuote(id: string): Promise<{ quote: Quote; lineItems: Q
 export async function createQuote(payload: CreateQuoteRequest): Promise<Quote> {
   const raw = await apiRequest<unknown>('/quotes-api/quotes', {
     method: 'POST', body: payload,
+  });
+  return QuoteSchema.parse(raw);
+}
+
+export async function updateQuote(
+  id: string,
+  payload: UpdateQuoteRequest,
+): Promise<Quote> {
+  const raw = await apiRequest<unknown>(`/quotes-api/quotes/${id}`, {
+    method: 'PATCH', body: payload,
   });
   return QuoteSchema.parse(raw);
 }

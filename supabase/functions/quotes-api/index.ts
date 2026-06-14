@@ -97,6 +97,8 @@ const createQuote = async (ctx: RouteCtx) => {
       if (body.default_tax_id) { await assertRefInOrg('taxes', caller, body.default_tax_id); }
       if (body.payment_method_id) { await assertRefInOrg('payment_methods', caller, body.payment_method_id); }
       if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }
+      // Wave 12 / A3: validate the optional 3PL job type in-org before write.
+      if (body.job_type_id) { await assertRefInOrg('job_types', caller, body.job_type_id); }
       const supplied = body.number?.trim();
       const number = supplied
         ? supplied
@@ -131,6 +133,8 @@ const updateQuote = async (ctx: RouteCtx) => {
       if (body.default_tax_id) { await assertRefInOrg('taxes', caller, body.default_tax_id); }
       if (body.payment_method_id) { await assertRefInOrg('payment_methods', caller, body.payment_method_id); }
       if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }
+      // Wave 12 / A3: validate the optional 3PL job type in-org before write.
+      if (body.job_type_id) { await assertRefInOrg('job_types', caller, body.job_type_id); }
       const client = admin();
       const { data, error } = await client
         .from('quotes')

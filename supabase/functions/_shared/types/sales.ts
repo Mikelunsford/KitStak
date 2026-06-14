@@ -275,6 +275,12 @@ export const QuoteSchema = z.object({
   org_id: UuidSchema,
   number: z.string(),
   customer_id: UuidSchema.nullable(),
+  // Wave 12 / A3 (3PL quote integration): the job type this quote is scoped
+  // to, carried to the project by convert_quote_to_project so a won quote
+  // becomes a project of the right type. Optional on read so the additive
+  // 0093 column never fails a quote parse in the deploy window before the
+  // migration lands.
+  job_type_id: UuidSchema.nullable().optional(),
   state: QuoteStateSchema,
   submitted_at: z.string().nullable(),
   revise_requested_at: z.string().nullable(),
@@ -436,6 +442,9 @@ export const CreateQuoteRequestSchema = z.object({
   // still win. Empty string is treated as absent.
   number: z.string().min(1).optional(),
   customer_id: UuidSchema.nullable().optional(),
+  // Wave 12 / A3: optional 3PL job type; assertRefInOrg('job_types') guards
+  // it server-side, rides quotes.quote.write (no new capability).
+  job_type_id: UuidSchema.nullable().optional(),
   title: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   currency_code: z.string().length(3).default('USD'),
