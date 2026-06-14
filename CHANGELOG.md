@@ -4,6 +4,18 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] · 2026-06-13 Wave 12: 3PL commercial layer (Accounts, Job Builder, Quote integration, Project snapshot, Supply Plan) (PRs #249, #252, #254, #256, #257)
+
+The 3PL Operations add-on gained its commercial and operational planning layer, building the product loop Job Builder to Quote to Project to Supply Plan on top of the spine. Five A-phases shipped to prod on 2026-06-13 (migrations 0089 to 0097). ADR `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`.
+
+### Added
+
+- **Accounts (A1, #249)**: `three_pl_accounts` (the service-relationship layer over a CRM customer) and `account_service_definitions` (the per-account Rate Card overlay). New `three-pl-api` edge bundle, ACC- numbering, six `threepl.account.*` capabilities, and the pillar-grouped sidebar (ADR 0003).
+- **Job Builder (A2, #252, #254)**: `job_templates` and `job_template_lines` (the reusable job engine: component / service / step lines under a branded variant preset). JB- numbering, six `threepl.job_template.*` capabilities, and the Job Builders SPA.
+- **Quote integration (A3, #256)**: an "Apply template" control expands a Job Builder template's lines onto a quote, and `convert_quote_to_project` carries the quote's `job_type_id` onto the project so a won quote becomes a project of the right type (migration 0093).
+- **Project conversion with template snapshotting (A4, #257)**: `convert_quote_to_project` records `source_job_template_id` on the quote and project and freezes the template (header plus lines) into `projects.job_template_snapshot`, so later template edits never rewrite a project's origin (migration 0094).
+- **Supply Plan (A5, #257)**: `supply_plans` and `supply_plan_lines` resolve a project's material demand against on-hand stock. `release_supply_plan` reserves available stock and surfaces the shortage; `cancel_supply_plan` releases the holds. This activates the previously dormant spine reservation path: migration 0095 adds the `reserve` / `reserve_release` movement types and derives `stock_levels.quantity_reserved` (the GENERATED `quantity_available` follows). SUP- numbering, `threepl.supply_plan.*` capabilities, and the Supply Plans SPA.
+
 ## [0.15.0] · 2026-06-04 Cross-tenant FK security fix, edge Deno typecheck gate, FK-validation follow-ups (PRs #238, #240, #241, #242)
 
 A 73-agent read-only optimization audit confirmed the cross-tenant foreign-key class as the top risk (grade B plus; the constitution holds). Every foreign key in the schema is a plain single-column constraint that checks existence, not org, so a service-role write could persist a client-supplied FK pointing at another tenant's row. The proven breach: payment apply and credit-note apply accepted an `invoice_id` validated only as a UUID, after which the recompute triggers mutated the victim org's invoice and forged an `audit_log` row. Four PRs closed the gap and hardened the surrounding surface; #239 was superseded by #241. Closeout journal at `03-workspace/journal/2026-06-04-fk-security-deno-gate-closeout.md`.
