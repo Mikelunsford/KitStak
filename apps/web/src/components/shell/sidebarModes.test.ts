@@ -154,13 +154,14 @@ describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
     }
   });
 
-  it('3PL OPERATIONS holds Accounts, Job Builders, Supply Plans, Receiving, Shipments, each gated plugins.three_pl', () => {
+  it('3PL OPERATIONS holds Accounts, Job Builders, Supply Plans, Job Runs, Receiving, Shipments, each gated plugins.three_pl', () => {
     const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
     const paths = mode.routes.map((r) => r.path);
     expect(paths).toEqual([
       '/3pl-operations/accounts',
       '/3pl-operations/job-builders',
       '/3pl-operations/supply-plans',
+      '/3pl-operations/job-runs',
       '/3pl-operations/receiving',
       '/3pl-operations/shipments',
     ]);
@@ -189,6 +190,13 @@ describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
     expect(mode.routes[2]?.path).toBe('/3pl-operations/supply-plans');
     expect(mode.routes[2]?.label).toBe('Supply Plans');
     expect(mode.routes[2]?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_THREE_PL);
+  });
+
+  it('Job Runs (Wave 12 Phase A6) is the fourth 3PL Operations entry, gated plugins.three_pl', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    expect(mode.routes[3]?.path).toBe('/3pl-operations/job-runs');
+    expect(mode.routes[3]?.label).toBe('Job Runs');
+    expect(mode.routes[3]?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_THREE_PL);
   });
 
   it('MANUFACTURING holds Runs, gated plugins.manufacturing', () => {

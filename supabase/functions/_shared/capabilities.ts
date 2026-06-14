@@ -319,13 +319,24 @@ export type Capability =
   | 'threepl.job_template.line.create'
   | 'threepl.job_template.line.update'
   | 'threepl.job_template.line.delete'
-  // threepl.supply_plan.* (6) 3PL Supply Plan (Phase A5)
+  // threepl.supply_plan.* (7) 3PL Supply Plan (Phase A5; fulfill added Phase A6)
   | 'threepl.supply_plan.create'
   | 'threepl.supply_plan.release'
   | 'threepl.supply_plan.cancel'
+  | 'threepl.supply_plan.fulfill'
   | 'threepl.supply_plan.line.create'
   | 'threepl.supply_plan.line.update'
-  | 'threepl.supply_plan.line.delete';
+  | 'threepl.supply_plan.line.delete'
+  // threepl.job_run.* (9) 3PL Job Run (Phase A6)
+  | 'threepl.job_run.create'
+  | 'threepl.job_run.update'
+  | 'threepl.job_run.start'
+  | 'threepl.job_run.complete'
+  | 'threepl.job_run.close'
+  | 'threepl.job_run.cancel'
+  | 'threepl.job_run.daily_log.create'
+  | 'threepl.job_run.daily_log.update'
+  | 'threepl.job_run.daily_log.post';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -629,6 +640,17 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'threepl.supply_plan.line.create',
   'threepl.supply_plan.line.update',
   'threepl.supply_plan.line.delete',
+  // threepl.supply_plan.fulfill + threepl.job_run.* 3PL Job Run (Phase A6)
+  'threepl.supply_plan.fulfill',
+  'threepl.job_run.create',
+  'threepl.job_run.update',
+  'threepl.job_run.start',
+  'threepl.job_run.complete',
+  'threepl.job_run.close',
+  'threepl.job_run.cancel',
+  'threepl.job_run.daily_log.create',
+  'threepl.job_run.daily_log.update',
+  'threepl.job_run.daily_log.post',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -917,6 +939,17 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'threepl.supply_plan.line.create',
   'threepl.supply_plan.line.update',
   'threepl.supply_plan.line.delete',
+  // threepl.supply_plan.fulfill + threepl.job_run.* 3PL Job Run (Phase A6)
+  'threepl.supply_plan.fulfill',
+  'threepl.job_run.create',
+  'threepl.job_run.update',
+  'threepl.job_run.start',
+  'threepl.job_run.complete',
+  'threepl.job_run.close',
+  'threepl.job_run.cancel',
+  'threepl.job_run.daily_log.create',
+  'threepl.job_run.daily_log.update',
+  'threepl.job_run.daily_log.post',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1058,6 +1091,17 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'threepl.supply_plan.line.create',
   'threepl.supply_plan.line.update',
   'threepl.supply_plan.line.delete',
+  // threepl.supply_plan.fulfill + threepl.job_run.* 3PL Job Run (Phase A6)
+  'threepl.supply_plan.fulfill',
+  'threepl.job_run.create',
+  'threepl.job_run.update',
+  'threepl.job_run.start',
+  'threepl.job_run.complete',
+  'threepl.job_run.close',
+  'threepl.job_run.cancel',
+  'threepl.job_run.daily_log.create',
+  'threepl.job_run.daily_log.update',
+  'threepl.job_run.daily_log.post',
 ];
 
 const OPS_CAPS: ReadonlyArray<Capability> = [
@@ -1244,6 +1288,17 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'threepl.supply_plan.line.create',
   'threepl.supply_plan.line.update',
   'threepl.supply_plan.line.delete',
+  // threepl.supply_plan.fulfill + threepl.job_run.* 3PL Job Run (Phase A6)
+  'threepl.supply_plan.fulfill',
+  'threepl.job_run.create',
+  'threepl.job_run.update',
+  'threepl.job_run.start',
+  'threepl.job_run.complete',
+  'threepl.job_run.close',
+  'threepl.job_run.cancel',
+  'threepl.job_run.daily_log.create',
+  'threepl.job_run.daily_log.update',
+  'threepl.job_run.daily_log.post',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [

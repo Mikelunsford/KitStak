@@ -83,7 +83,7 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('finds every migration that redefines the constraint', () => {
     // Sanity: the known redefiners through 0083 must all be discovered.
     const nums = migrations.map((m) => m.num);
-    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91]) {
+    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99]) {
       expect(nums).toContain(n);
     }
   });
@@ -119,13 +119,13 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0096 is the current authoritative redefinition', () => {
+  it('0099 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
-    // 0096 (3PL Supply Plan) supersedes 0091 by adding supply_plan and
-    // supply_plan_line on top of the full 0091 list.
+    // 0098 (3PL Job Run) adds job_run; 0099 (Job Run daily logs) adds the three
+    // daily-log entity_types on top of the full 0098 list, so 0099 is latest.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(96);
-    expect(latest.file).toBe('0096_supply_plans.sql');
+    expect(latest.num).toBe(99);
+    expect(latest.file).toBe('0099_job_run_daily_logs.sql');
   });
 
   it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
@@ -145,6 +145,18 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('the latest redefinition includes the Supply Plan types (0096)', () => {
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
     for (const t of ['supply_plan', 'supply_plan_line']) {
+      expect(latest.types.has(t)).toBe(true);
+    }
+  });
+
+  it('the latest redefinition includes the Job Run types (0098/0099)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    for (const t of [
+      'job_run',
+      'job_run_daily_log',
+      'job_run_daily_log_consumed_line_item',
+      'job_run_daily_log_produced_line_item',
+    ]) {
       expect(latest.types.has(t)).toBe(true);
     }
   });
