@@ -60,9 +60,23 @@ import {
   SupplyPlanLineSchema,
   SupplyPlanLineCreateSchema,
   SupplyPlanLineUpdateSchema,
+  JobRunSchema,
+  JobRunCreateSchema,
+  JobRunPatchSchema,
+  JobRunDailyLogSchema,
+  JobRunDailyLogCreateSchema,
+  JobRunDailyLogPatchSchema,
+  JobRunDailyLogConsumedLineSchema,
+  JobRunDailyLogConsumedLineCreateSchema,
+  JobRunDailyLogConsumedLineUpdateSchema,
+  JobRunDailyLogProducedLineSchema,
+  JobRunDailyLogProducedLineCreateSchema,
+  JobRunDailyLogProducedLineUpdateSchema,
   type ThreePlAccount,
   type JobTemplate,
   type SupplyPlan,
+  type JobRun,
+  type JobRunDailyLog,
 } from '../_shared/types/threepl.ts';
 
 const BUNDLE = 'three-pl-api';
@@ -155,6 +169,88 @@ async function nextSupplyPlanLinePosition(caller: Caller, planId: string): Promi
     .order('position', { ascending: false }).limit(1).maybeSingle();
   if (error) throw internalError(BUNDLE, error);
   return ((data?.position as number | undefined) ?? -1) + 1;
+}
+
+async function loadJobRun(caller: Caller, id: string): Promise<JobRun> {
+  const { data, error } = await admin()
+    .from('job_runs').select('*')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+  return JobRunSchema.parse(data);
+}
+
+async function assertJobRunParent(caller: Caller, id: string): Promise<void> {
+  const { data, error } = await admin().from('job_runs').select('id')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+async function loadJobRunDailyLog(
+  caller: Caller, runId: string, logId: string,
+): Promise<JobRunDailyLog> {
+  const { data, error } = await admin()
+    .from('job_run_daily_logs').select('*')
+    .eq('org_id', caller.orgId).eq('job_run_id', runId).eq('id', logId)
+    .maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+  return JobRunDailyLogSchema.parse(data);
+}
+
+// Asserts the daily log exists under (org, run); NOT_FOUND otherwise. Used by
+// the line routes so a cross-tenant or wrong-parent log resolves to 404.
+async function assertDailyLogParent(
+  caller: Caller, runId: string, logId: string,
+): Promise<void> {
+  const { data, error } = await admin().from('job_run_daily_logs').select('id')
+    .eq('org_id', caller.orgId).eq('job_run_id', runId).eq('id', logId).maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+async function nextDailyLogLinePosition(
+  caller: Caller, table: string, logId: string,
+): Promise<number> {
+  const { data, error } = await admin().from(table)
+    .select('position')
+    .eq('org_id', caller.orgId)
+    .eq('job_run_daily_log_id', logId)
+    .order('position', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  return ((data?.position as number | undefined) ?? -1) + 1;
+}
+
+// Builds the frozen job-template snapshot (A4 shape, 0094) from a live template
+// and its lines, org-scoped so a foreign template can never be frozen. Returns
+// null when the template is missing. Mirrors the 0094 jsonb_build_object block.
+async function buildTemplateSnapshot(
+  caller: Caller, templateId: string,
+): Promise<Record<string, unknown> | null> {
+  const { data: tpl, error: e1 } = await admin().from('job_templates')
+    .select('id, template_number, name, variant, job_type_id, default_bom_item_id, status, notes')
+    .eq('org_id', caller.orgId).eq('id', templateId).is('deleted_at', null).maybeSingle();
+  if (e1) throw internalError(BUNDLE, e1);
+  if (!tpl) return null;
+  const { data: lines, error: e2 } = await admin().from('job_template_lines')
+    .select('id, line_kind, item_id, vas_id, name, quantity, rate_cents, rate_uom, currency_code, position')
+    .eq('org_id', caller.orgId).eq('template_id', templateId)
+    .order('position', { ascending: true });
+  if (e2) throw internalError(BUNDLE, e2);
+  return {
+    snapshot_at: nowIso(),
+    template_id: tpl.id,
+    template_number: tpl.template_number,
+    name: tpl.name,
+    variant: tpl.variant,
+    job_type_id: tpl.job_type_id,
+    default_bom_item_id: tpl.default_bom_item_id,
+    status: tpl.status,
+    notes: tpl.notes,
+    lines: lines ?? [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +843,7 @@ const TABLE: Route[] = [
         // missing ref resolves to NOT_FOUND 404 (never copied).
         if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        if (body.job_run_id) { await assertRefInOrg('job_runs', caller, body.job_run_id); }
         const planNumber = body.plan_number?.trim()
           ? body.plan_number.trim()
           : await nextDocNumber(caller.orgId, 'supply_plan');
@@ -755,6 +852,7 @@ const TABLE: Route[] = [
           plan_number: planNumber,
           project_id: body.project_id ?? null,
           warehouse_id: body.warehouse_id ?? null,
+          job_run_id: body.job_run_id ?? null,
           status: 'draft',
           notes: body.notes ?? null,
           payload: body.payload ?? {},
@@ -791,12 +889,14 @@ const TABLE: Route[] = [
         await assertSupplyPlanParent(caller, params.id);
         if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
         if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        if (body.job_run_id) { await assertRefInOrg('job_runs', caller, body.job_run_id); }
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,
           updated_at: nowIso(),
         };
         if (body.project_id !== undefined) patch.project_id = body.project_id;
         if (body.warehouse_id !== undefined) patch.warehouse_id = body.warehouse_id;
+        if (body.job_run_id !== undefined) patch.job_run_id = body.job_run_id;
         if (body.plan_number !== undefined) patch.plan_number = body.plan_number;
         if (body.notes !== undefined) patch.notes = body.notes;
         if (body.payload !== undefined) patch.payload = body.payload;
@@ -869,6 +969,31 @@ const TABLE: Route[] = [
         });
         if (error) {
           if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          throw internalError(BUNDLE, error);
+        }
+        const row = await loadSupplyPlan(caller, params.id);
+        return ok(row);
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/supply-plans/:id/fulfill',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.supply_plan.fulfill');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/supply-plans/:id/fulfill', null, async () => {
+        // fulfill_supply_plan (A6) releases the remaining holds and ends in
+        // fulfilled. NOT_FOUND (404) cross-tenant / missing; STATE_CONFLICT (409)
+        // when not released.
+        const { error } = await admin().rpc('fulfill_supply_plan', {
+          p_plan_id: params.id,
+          p_actor: caller.userId,
+          p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
           throw internalError(BUNDLE, error);
         }
         const row = await loadSupplyPlan(caller, params.id);
@@ -989,6 +1114,573 @@ const TABLE: Route[] = [
           if (error) throw internalError(BUNDLE, error);
           if (!data) throw new ApiError('NOT_FOUND', 404);
           return ok({ id: params.lid, deleted: true });
+        },
+      );
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // job_runs (parent; floor execution; FSM planned / in_progress / completed /
+  // closed / cancelled). start / complete / close / cancel are RPCs. Phase A6.
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/job-runs',
+    handler: async ({ req, url }) => {
+      const caller = requireCaller(req);
+      const status = url.searchParams.get('status');
+      const projectId = url.searchParams.get('project_id');
+      const accountId = url.searchParams.get('account_id');
+      let q = admin()
+        .from('job_runs').select('*')
+        .eq('org_id', caller.orgId).is('deleted_at', null)
+        .order('created_at', { ascending: false }).limit(200);
+      if (status) q = q.eq('status', status);
+      if (projectId) q = q.eq('project_id', projectId);
+      if (accountId) q = q.eq('account_id', accountId);
+      const { data, error } = await q;
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => JobRunSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs',
+    handler: async ({ req }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.create');
+      const body = await parseBody(req, JobRunCreateSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs', body, async () => {
+        // Optional spine refs; a cross-tenant or missing ref resolves to
+        // NOT_FOUND 404 (never copied).
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
+        if (body.account_id) { await assertRefInOrg('three_pl_accounts', caller, body.account_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        // Freeze the source job-template snapshot at creation (decision 2):
+        // an explicit template freezes a fresh snapshot; else inherit the
+        // project's frozen snapshot (set at convert). Org-scoped throughout.
+        let jobTemplateId = body.job_template_id ?? null;
+        let snapshot: Record<string, unknown> | null = null;
+        if (body.job_template_id) {
+          await assertRefInOrg('job_templates', caller, body.job_template_id);
+          snapshot = await buildTemplateSnapshot(caller, body.job_template_id);
+        } else if (body.project_id) {
+          const { data: proj, error: perr } = await admin().from('projects')
+            .select('job_template_snapshot, source_job_template_id')
+            .eq('org_id', caller.orgId).eq('id', body.project_id).maybeSingle();
+          if (perr) throw internalError(BUNDLE, perr);
+          if (proj) {
+            snapshot = (proj.job_template_snapshot as Record<string, unknown> | null) ?? null;
+            jobTemplateId = (proj.source_job_template_id as string | null) ?? null;
+          }
+        }
+        const runNumber = body.run_number?.trim()
+          ? body.run_number.trim()
+          : await nextDocNumber(caller.orgId, 'job_run');
+        const insert: Record<string, unknown> = {
+          org_id: caller.orgId,
+          run_number: runNumber,
+          project_id: body.project_id ?? null,
+          account_id: body.account_id ?? null,
+          job_template_id: jobTemplateId,
+          job_template_snapshot: snapshot,
+          warehouse_id: body.warehouse_id ?? null,
+          status: 'planned',
+          notes: body.notes ?? null,
+          payload: body.payload ?? {},
+          created_by: caller.userId,
+          updated_by: caller.userId,
+        };
+        const { data, error } = await admin().from('job_runs')
+          .insert(insert).select('*').single();
+        if (error) throw internalError(BUNDLE, error);
+        return created(JobRunSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'GET', path: '/job-runs/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      const row = await loadJobRun(caller, params.id);
+      return ok(row);
+    },
+  },
+  {
+    method: 'PATCH', path: '/job-runs/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.update');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, JobRunPatchSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id', body, async () => {
+        await assertJobRunParent(caller, params.id);
+        if (body.project_id) { await assertRefInOrg('projects', caller, body.project_id); }
+        if (body.account_id) { await assertRefInOrg('three_pl_accounts', caller, body.account_id); }
+        if (body.job_template_id) { await assertRefInOrg('job_templates', caller, body.job_template_id); }
+        if (body.warehouse_id) { await assertRefInOrg('warehouses', caller, body.warehouse_id); }
+        const patch: Record<string, unknown> = {
+          updated_by: caller.userId,
+          updated_at: nowIso(),
+        };
+        if (body.project_id !== undefined) patch.project_id = body.project_id;
+        if (body.account_id !== undefined) patch.account_id = body.account_id;
+        if (body.job_template_id !== undefined) patch.job_template_id = body.job_template_id;
+        if (body.warehouse_id !== undefined) patch.warehouse_id = body.warehouse_id;
+        if (body.run_number !== undefined) patch.run_number = body.run_number;
+        if (body.notes !== undefined) patch.notes = body.notes;
+        if (body.payload !== undefined) patch.payload = body.payload;
+        const { data, error } = await admin().from('job_runs')
+          .update(patch)
+          .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .select('*').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok(JobRunSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'DELETE', path: '/job-runs/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.update');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id-delete', null, async () => {
+        await assertJobRunParent(caller, params.id);
+        const { data, error } = await admin().from('job_runs')
+          .update({ deleted_at: nowIso(), updated_by: caller.userId, updated_at: nowIso() })
+          .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .select('id').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok({ id: params.id, deleted: true });
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/start',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.start');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/start', null, async () => {
+        const { error } = await admin().rpc('start_job_run', {
+          p_run_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadJobRun(caller, params.id));
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/complete',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.complete');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/complete', null, async () => {
+        const { error } = await admin().rpc('complete_job_run', {
+          p_run_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadJobRun(caller, params.id));
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/close',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.close');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/close', null, async () => {
+        const { error } = await admin().rpc('close_job_run', {
+          p_run_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadJobRun(caller, params.id));
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/cancel',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.cancel');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/cancel', null, async () => {
+        const { error } = await admin().rpc('cancel_job_run', {
+          p_run_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadJobRun(caller, params.id));
+      });
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // job_run_daily_logs (child of job_runs; one day's work; FSM draft / posted)
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/job-runs/:id/daily-logs',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      await assertJobRunParent(caller, params.id);
+      const { data, error } = await admin()
+        .from('job_run_daily_logs').select('*')
+        .eq('org_id', caller.orgId).eq('job_run_id', params.id)
+        .order('log_date', { ascending: false }).order('created_at', { ascending: false });
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => JobRunDailyLogSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/daily-logs',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.create');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, JobRunDailyLogCreateSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/daily-logs', body, async () => {
+        await assertJobRunParent(caller, params.id);
+        if (body.kitforce_time_entry_id) {
+          await assertRefInOrg('time_entries', caller, body.kitforce_time_entry_id, { softDelete: false });
+        }
+        const insert: Record<string, unknown> = {
+          org_id: caller.orgId,
+          job_run_id: params.id,
+          labor_hours: body.labor_hours ?? 0,
+          labor_rate_cents: body.labor_rate_cents ?? null,
+          kitforce_time_entry_id: body.kitforce_time_entry_id ?? null,
+          status: 'draft',
+          notes: body.notes ?? null,
+          created_by: caller.userId,
+          updated_by: caller.userId,
+        };
+        if (body.log_date) insert.log_date = body.log_date;
+        const { data, error } = await admin().from('job_run_daily_logs')
+          .insert(insert).select('*').single();
+        if (error) throw internalError(BUNDLE, error);
+        return created(JobRunDailyLogSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'GET', path: '/job-runs/:id/daily-logs/:lid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      return ok(await loadJobRunDailyLog(caller, params.id, params.lid));
+    },
+  },
+  {
+    method: 'PATCH', path: '/job-runs/:id/daily-logs/:lid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      const body = await parseBody(req, JobRunDailyLogPatchSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid', body, async () => {
+        await assertDailyLogParent(caller, params.id, params.lid);
+        if (body.kitforce_time_entry_id) {
+          await assertRefInOrg('time_entries', caller, body.kitforce_time_entry_id, { softDelete: false });
+        }
+        const patch: Record<string, unknown> = { updated_by: caller.userId };
+        if (body.log_date !== undefined) patch.log_date = body.log_date;
+        if (body.labor_hours !== undefined) patch.labor_hours = body.labor_hours;
+        if (body.labor_rate_cents !== undefined) patch.labor_rate_cents = body.labor_rate_cents;
+        if (body.kitforce_time_entry_id !== undefined) patch.kitforce_time_entry_id = body.kitforce_time_entry_id;
+        if (body.notes !== undefined) patch.notes = body.notes;
+        const { data, error } = await admin().from('job_run_daily_logs')
+          .update(patch)
+          .eq('org_id', caller.orgId).eq('job_run_id', params.id).eq('id', params.lid)
+          .select('*').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok(JobRunDailyLogSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'DELETE', path: '/job-runs/:id/daily-logs/:lid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid-delete', null, async () => {
+        // A posted log emitted stock_movements; deleting it would orphan them.
+        // Only a draft log may be removed (STATE_CONFLICT 409 otherwise).
+        const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+        if (log.status !== 'draft') {
+          throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+        }
+        const { data, error } = await admin().from('job_run_daily_logs').delete()
+          .eq('org_id', caller.orgId).eq('job_run_id', params.id).eq('id', params.lid)
+          .select('id').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok({ id: params.lid, deleted: true });
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/daily-logs/:lid/post',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.post');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/post', null, async () => {
+        // Validate the (run, log) pairing BEFORE the stock-affecting RPC so a
+        // mismatched run id resolves to 404 with no movements emitted (matches
+        // the sibling line routes).
+        await assertDailyLogParent(caller, params.id, params.lid);
+        // post_job_run_daily_log (A6) emits the consumed / produced movements and
+        // moves draft -> posted. NOT_FOUND (404) cross-tenant / missing;
+        // STATE_CONFLICT (409) when not draft. Idempotent on an already-posted log.
+        const { error } = await admin().rpc('post_job_run_daily_log', {
+          p_log_id: params.lid, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadJobRunDailyLog(caller, params.id, params.lid));
+      });
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // job_run_daily_log line items (consumed item_id REQUIRED; produced NULLABLE).
+  // Editable only while the parent log is draft. Reuse the daily_log.update cap.
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/job-runs/:id/daily-logs/:lid/consumed-lines',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      await assertDailyLogParent(caller, params.id, params.lid);
+      const { data, error } = await admin()
+        .from('job_run_daily_log_consumed_line_items').select('*')
+        .eq('org_id', caller.orgId).eq('job_run_daily_log_id', params.lid)
+        .order('position', { ascending: true });
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => JobRunDailyLogConsumedLineSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/daily-logs/:lid/consumed-lines',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      const body = await parseBody(req, JobRunDailyLogConsumedLineCreateSchema);
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/consumed-lines', body,
+        async () => {
+          const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+          if (log.status !== 'draft') throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+          await assertRefInOrg('items', caller, body.item_id);
+          const position = body.position ?? await nextDailyLogLinePosition(caller, 'job_run_daily_log_consumed_line_items', params.lid);
+          const insert = {
+            org_id: caller.orgId,
+            job_run_daily_log_id: params.lid,
+            item_id: body.item_id,
+            quantity: body.quantity ?? 0,
+            unit_cost_cents: body.unit_cost_cents ?? null,
+            uom: body.uom ?? null,
+            position,
+            created_by: caller.userId,
+            updated_by: caller.userId,
+          };
+          const { data, error } = await admin()
+            .from('job_run_daily_log_consumed_line_items').insert(insert).select('*').single();
+          if (error) throw internalError(BUNDLE, error);
+          return created(JobRunDailyLogConsumedLineSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'PATCH', path: '/job-runs/:id/daily-logs/:lid/consumed-lines/:cid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      parseUuidParam(params.cid, 'cid');
+      const body = await parseBody(req, JobRunDailyLogConsumedLineUpdateSchema);
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/consumed-lines/:cid', body,
+        async () => {
+          const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+          if (log.status !== 'draft') throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+          const patch: Record<string, unknown> = { updated_by: caller.userId };
+          if (body.item_id !== undefined) patch.item_id = body.item_id;
+          if (body.quantity !== undefined) patch.quantity = body.quantity;
+          if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
+          if (body.uom !== undefined) patch.uom = body.uom;
+          if (body.position !== undefined) patch.position = body.position;
+          const { data, error } = await admin()
+            .from('job_run_daily_log_consumed_line_items').update(patch)
+            .eq('org_id', caller.orgId).eq('job_run_daily_log_id', params.lid).eq('id', params.cid)
+            .select('*').maybeSingle();
+          if (error) throw internalError(BUNDLE, error);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          return ok(JobRunDailyLogConsumedLineSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'DELETE', path: '/job-runs/:id/daily-logs/:lid/consumed-lines/:cid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      parseUuidParam(params.cid, 'cid');
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/consumed-lines/:cid-delete', null,
+        async () => {
+          const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+          if (log.status !== 'draft') throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+          const { data, error } = await admin()
+            .from('job_run_daily_log_consumed_line_items').delete()
+            .eq('org_id', caller.orgId).eq('job_run_daily_log_id', params.lid).eq('id', params.cid)
+            .select('id').maybeSingle();
+          if (error) throw internalError(BUNDLE, error);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          return ok({ id: params.cid, deleted: true });
+        },
+      );
+    },
+  },
+  {
+    method: 'GET', path: '/job-runs/:id/daily-logs/:lid/produced-lines',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      await assertDailyLogParent(caller, params.id, params.lid);
+      const { data, error } = await admin()
+        .from('job_run_daily_log_produced_line_items').select('*')
+        .eq('org_id', caller.orgId).eq('job_run_daily_log_id', params.lid)
+        .order('position', { ascending: true });
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => JobRunDailyLogProducedLineSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/job-runs/:id/daily-logs/:lid/produced-lines',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      const body = await parseBody(req, JobRunDailyLogProducedLineCreateSchema);
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/produced-lines', body,
+        async () => {
+          const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+          if (log.status !== 'draft') throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+          const position = body.position ?? await nextDailyLogLinePosition(caller, 'job_run_daily_log_produced_line_items', params.lid);
+          const insert = {
+            org_id: caller.orgId,
+            job_run_daily_log_id: params.lid,
+            item_id: body.item_id ?? null,
+            quantity: body.quantity ?? 0,
+            unit_cost_cents: body.unit_cost_cents ?? null,
+            uom: body.uom ?? null,
+            position,
+            created_by: caller.userId,
+            updated_by: caller.userId,
+          };
+          const { data, error } = await admin()
+            .from('job_run_daily_log_produced_line_items').insert(insert).select('*').single();
+          if (error) throw internalError(BUNDLE, error);
+          return created(JobRunDailyLogProducedLineSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'PATCH', path: '/job-runs/:id/daily-logs/:lid/produced-lines/:pid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      parseUuidParam(params.pid, 'pid');
+      const body = await parseBody(req, JobRunDailyLogProducedLineUpdateSchema);
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/produced-lines/:pid', body,
+        async () => {
+          const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+          if (log.status !== 'draft') throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+          if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+          const patch: Record<string, unknown> = { updated_by: caller.userId };
+          if (body.item_id !== undefined) patch.item_id = body.item_id;
+          if (body.quantity !== undefined) patch.quantity = body.quantity;
+          if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
+          if (body.uom !== undefined) patch.uom = body.uom;
+          if (body.position !== undefined) patch.position = body.position;
+          const { data, error } = await admin()
+            .from('job_run_daily_log_produced_line_items').update(patch)
+            .eq('org_id', caller.orgId).eq('job_run_daily_log_id', params.lid).eq('id', params.pid)
+            .select('*').maybeSingle();
+          if (error) throw internalError(BUNDLE, error);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          return ok(JobRunDailyLogProducedLineSchema.parse(data));
+        },
+      );
+    },
+  },
+  {
+    method: 'DELETE', path: '/job-runs/:id/daily-logs/:lid/produced-lines/:pid',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'threepl.job_run.daily_log.update');
+      parseUuidParam(params.id);
+      parseUuidParam(params.lid, 'lid');
+      parseUuidParam(params.pid, 'pid');
+      return respondWithIdempotency(
+        req, caller, BUNDLE, '/job-runs/:id/daily-logs/:lid/produced-lines/:pid-delete', null,
+        async () => {
+          const log = await loadJobRunDailyLog(caller, params.id, params.lid);
+          if (log.status !== 'draft') throw new ApiError('STATE_CONFLICT', 409, 'daily log is posted');
+          const { data, error } = await admin()
+            .from('job_run_daily_log_produced_line_items').delete()
+            .eq('org_id', caller.orgId).eq('job_run_daily_log_id', params.lid).eq('id', params.pid)
+            .select('id').maybeSingle();
+          if (error) throw internalError(BUNDLE, error);
+          if (!data) throw new ApiError('NOT_FOUND', 404);
+          return ok({ id: params.pid, deleted: true });
         },
       );
     },

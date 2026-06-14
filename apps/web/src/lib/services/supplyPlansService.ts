@@ -107,6 +107,16 @@ export async function cancelSupplyPlan(id: string): Promise<SupplyPlan> {
   return SupplyPlanSchema.parse(data);
 }
 
+// fulfill (A6): release the remaining holds (reserve_release); released ->
+// fulfilled. Used once a job run has consumed the reserved stock so the spine
+// quantity_reserved is not left stale.
+export async function fulfillSupplyPlan(id: string): Promise<SupplyPlan> {
+  const data = await apiRequest<unknown>(`${BASE}/${id}/fulfill`, {
+    method: 'POST',
+  });
+  return SupplyPlanSchema.parse(data);
+}
+
 // ---------------------------------------------------------------------------
 // supply_plan_lines (per-item demand resolution)
 // ---------------------------------------------------------------------------

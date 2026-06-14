@@ -5,6 +5,7 @@
 import type { ListAccountsFilters } from '@/lib/services/accountsService';
 import type { ListJobTemplatesFilters } from '@/lib/services/jobTemplatesService';
 import type { ListSupplyPlansFilters } from '@/lib/services/supplyPlansService';
+import type { ListJobRunsFilters } from '@/lib/services/jobRunsService';
 
 export const accountsKeys = {
   all: ['threepl', 'accounts'] as const,
@@ -46,4 +47,24 @@ export const supplyPlanLinesKeys = {
   // invalidation sweeps them too.
   byPlan: (planId: string) =>
     [...supplyPlansKeys.detail(planId), 'lines'] as const,
+};
+
+export const jobRunsKeys = {
+  all: ['threepl', 'job_runs'] as const,
+  list: (filters: ListJobRunsFilters = {}) =>
+    [...jobRunsKeys.all, 'list', filters] as const,
+  detail: (id: string) => [...jobRunsKeys.all, 'detail', id] as const,
+};
+
+export const jobRunDailyLogsKeys = {
+  // Daily logs hang off the parent run's detail key so a parent invalidation
+  // sweeps them too.
+  byRun: (runId: string) =>
+    [...jobRunsKeys.detail(runId), 'daily-logs'] as const,
+};
+
+export const jobRunDailyLogLinesKeys = {
+  // Consumed / produced lines hang off the daily log's key under its run.
+  byLog: (runId: string, logId: string) =>
+    [...jobRunDailyLogsKeys.byRun(runId), logId, 'lines'] as const,
 };

@@ -30,6 +30,7 @@ import {
   useSupplyPlanLines,
   useReleaseSupplyPlan,
   useCancelSupplyPlan,
+  useFulfillSupplyPlan,
   useCreateSupplyPlanLine,
   useDeleteSupplyPlanLine,
 } from '@/lib/hooks/useSupplyPlans';
@@ -59,6 +60,7 @@ export function SupplyPlanDetailPage() {
   const lines = useSupplyPlanLines(planId);
   const release = useReleaseSupplyPlan(planId);
   const cancel = useCancelSupplyPlan(planId);
+  const fulfill = useFulfillSupplyPlan(planId);
   const addLine = useCreateSupplyPlanLine(planId);
   const removeLine = useDeleteSupplyPlanLine(planId);
   const caps = useCapabilities();
@@ -72,7 +74,7 @@ export function SupplyPlanDetailPage() {
 
   const isDraft = plan.status === 'draft';
   const isReleased = plan.status === 'released';
-  const actionError = release.error ?? cancel.error;
+  const actionError = release.error ?? cancel.error ?? fulfill.error;
 
   const onAddLine = (e: FormEvent) => {
     e.preventDefault();
@@ -186,6 +188,11 @@ export function SupplyPlanDetailPage() {
           {isDraft && caps.can('threepl.supply_plan.release') && (
             <Button onClick={() => release.mutate()} disabled={release.isPending}>
               {release.isPending ? 'Releasing.' : 'Release and reserve'}
+            </Button>
+          )}
+          {isReleased && caps.can('threepl.supply_plan.fulfill') && (
+            <Button onClick={() => fulfill.mutate()} disabled={fulfill.isPending}>
+              {fulfill.isPending ? 'Fulfilling.' : 'Mark fulfilled'}
             </Button>
           )}
           {(isDraft || isReleased) && caps.can('threepl.supply_plan.cancel') && (

@@ -225,6 +225,11 @@ export const SupplyPlanSchema = z.object({
   plan_number: z.string().nullable(),
   project_id: Uuid.nullable(),
   warehouse_id: Uuid.nullable(),
+  // job_run_id (Wave 12 / A6) is the Job Run whose floor execution consumes this
+  // plan's reserved stock. Set via create / patch. Nullable and optional on read:
+  // the additive 0101 column never fails a parse in the deploy window before the
+  // migration lands (mirrors the A4 job_template_snapshot pattern).
+  job_run_id: Uuid.nullable().optional(),
   status: SupplyPlanStatusSchema,
   released_at: Iso.nullable(),
   fulfilled_at: Iso.nullable(),
@@ -239,6 +244,7 @@ export type SupplyPlan = z.infer<typeof SupplyPlanSchema>;
 export const SupplyPlanCreateSchema = z.object({
   project_id: Uuid.optional().nullable(),
   warehouse_id: Uuid.optional().nullable(),
+  job_run_id: Uuid.optional().nullable(),
   plan_number: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   payload: z.record(z.unknown()).optional(),
@@ -298,3 +304,156 @@ export type SupplyPlanLineCreate = z.infer<typeof SupplyPlanLineCreateSchema>;
 
 export const SupplyPlanLineUpdateSchema = SupplyPlanLineCreateSchema.partial();
 export type SupplyPlanLineUpdate = z.infer<typeof SupplyPlanLineUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// job_runs (parent; Job Run, Phase A6; migration 0098). FSM planned /
+// in_progress / completed / closed / cancelled; closed terminal. The day-by-day
+// floor execution of a project. run_number JR- (0100). Transitions are RPCs
+// (start / complete / close / cancel). job_template_snapshot is a frozen copy of
+// the source Job Builder template, captured by the handler at run creation; its
+// shape is the A4 JobTemplateSnapshotSchema (see sales.ts) but it is typed here
+// as opaque jsonb (like payload) so threepl.ts stays self-contained and the
+// frozen record never fails a parse on shape drift.
+// ---------------------------------------------------------------------------
+
+export const JobRunStatusSchema = z.enum([
+  'planned',
+  'in_progress',
+  'completed',
+  'closed',
+  'cancelled',
+]);
+export type JobRunStatus = z.infer<typeof JobRunStatusSchema>;
+
+export const JobRunSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  run_number: z.string().nullable(),
+  project_id: Uuid.nullable(),
+  account_id: Uuid.nullable(),
+  job_template_id: Uuid.nullable(),
+  job_template_snapshot: z.record(z.unknown()).nullable(),
+  warehouse_id: Uuid.nullable(),
+  status: JobRunStatusSchema,
+  started_at: Iso.nullable(),
+  completed_at: Iso.nullable(),
+  closed_at: Iso.nullable(),
+  cancelled_at: Iso.nullable(),
+  notes: z.string().nullable(),
+  payload: z.record(z.unknown()),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type JobRun = z.infer<typeof JobRunSchema>;
+
+export const JobRunCreateSchema = z.object({
+  project_id: Uuid.optional().nullable(),
+  account_id: Uuid.optional().nullable(),
+  job_template_id: Uuid.optional().nullable(),
+  warehouse_id: Uuid.optional().nullable(),
+  run_number: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type JobRunCreate = z.infer<typeof JobRunCreateSchema>;
+
+export const JobRunPatchSchema = JobRunCreateSchema.partial();
+export type JobRunPatch = z.infer<typeof JobRunPatchSchema>;
+
+// ---------------------------------------------------------------------------
+// job_run_daily_logs (child of job_runs; one day's work; migration 0099). FSM
+// draft / posted; posting emits the consumed / produced stock_movements.
+// labor_hours is numeric; labor_rate_cents is BIGINT cents (wire integer or
+// numeric-string). kitforce_time_entry_id is a nullable soft link (no FK).
+// ---------------------------------------------------------------------------
+
+export const JobRunDailyLogStatusSchema = z.enum(['draft', 'posted']);
+export type JobRunDailyLogStatus = z.infer<typeof JobRunDailyLogStatusSchema>;
+
+export const JobRunDailyLogSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  job_run_id: Uuid,
+  log_date: Iso,
+  labor_hours: Qty,
+  labor_rate_cents: Cents.nullable(),
+  kitforce_time_entry_id: Uuid.nullable(),
+  status: JobRunDailyLogStatusSchema,
+  posted_at: Iso.nullable(),
+  notes: z.string().nullable(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type JobRunDailyLog = z.infer<typeof JobRunDailyLogSchema>;
+
+export const JobRunDailyLogCreateSchema = z.object({
+  log_date: Iso.optional(),
+  labor_hours: Qty.optional(),
+  labor_rate_cents: Cents.optional().nullable(),
+  kitforce_time_entry_id: Uuid.optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type JobRunDailyLogCreate = z.infer<typeof JobRunDailyLogCreateSchema>;
+
+export const JobRunDailyLogPatchSchema = JobRunDailyLogCreateSchema.partial();
+export type JobRunDailyLogPatch = z.infer<typeof JobRunDailyLogPatchSchema>;
+
+// ---------------------------------------------------------------------------
+// job_run_daily_log line items (children of the daily log). consumed item_id is
+// REQUIRED (strict consumed-side schema); produced item_id is NULLABLE (lenient
+// produced-side schema). quantity is numeric; unit_cost_cents is BIGINT cents.
+// ---------------------------------------------------------------------------
+
+export const JobRunDailyLogConsumedLineSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  job_run_daily_log_id: Uuid,
+  item_id: Uuid,
+  quantity: Qty,
+  unit_cost_cents: Cents.nullable(),
+  uom: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type JobRunDailyLogConsumedLine = z.infer<typeof JobRunDailyLogConsumedLineSchema>;
+
+export const JobRunDailyLogConsumedLineCreateSchema = z.object({
+  item_id: Uuid,
+  quantity: Qty.optional(),
+  unit_cost_cents: Cents.optional().nullable(),
+  uom: z.string().min(1).max(16).optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type JobRunDailyLogConsumedLineCreate = z.infer<typeof JobRunDailyLogConsumedLineCreateSchema>;
+
+export const JobRunDailyLogConsumedLineUpdateSchema =
+  JobRunDailyLogConsumedLineCreateSchema.partial();
+export type JobRunDailyLogConsumedLineUpdate = z.infer<typeof JobRunDailyLogConsumedLineUpdateSchema>;
+
+export const JobRunDailyLogProducedLineSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  job_run_daily_log_id: Uuid,
+  item_id: Uuid.nullable(),
+  quantity: Qty,
+  unit_cost_cents: Cents.nullable(),
+  uom: z.string().nullable(),
+  position: z.number().int(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type JobRunDailyLogProducedLine = z.infer<typeof JobRunDailyLogProducedLineSchema>;
+
+export const JobRunDailyLogProducedLineCreateSchema = z.object({
+  item_id: Uuid.optional().nullable(),
+  quantity: Qty.optional(),
+  unit_cost_cents: Cents.optional().nullable(),
+  uom: z.string().min(1).max(16).optional().nullable(),
+  position: z.number().int().optional(),
+});
+export type JobRunDailyLogProducedLineCreate = z.infer<typeof JobRunDailyLogProducedLineCreateSchema>;
+
+export const JobRunDailyLogProducedLineUpdateSchema =
+  JobRunDailyLogProducedLineCreateSchema.partial();
+export type JobRunDailyLogProducedLineUpdate = z.infer<typeof JobRunDailyLogProducedLineUpdateSchema>;

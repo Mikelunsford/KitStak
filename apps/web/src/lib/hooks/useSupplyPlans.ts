@@ -16,6 +16,7 @@ import {
   softDeleteSupplyPlan,
   releaseSupplyPlan,
   cancelSupplyPlan,
+  fulfillSupplyPlan,
   listSupplyPlanLines,
   createSupplyPlanLine,
   updateSupplyPlanLine,
@@ -107,6 +108,20 @@ export function useCancelSupplyPlan(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => cancelSupplyPlan(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: supplyPlansKeys.all });
+      void qc.invalidateQueries({ queryKey: supplyPlanLinesKeys.byPlan(id) });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(SUPPLY_PLAN_ENTITY, id) });
+    },
+  });
+}
+
+// Fulfill (A6) releases the remaining holds and ends in fulfilled; like cancel
+// it rewrites the lines, so invalidate them alongside the plan and timeline.
+export function useFulfillSupplyPlan(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => fulfillSupplyPlan(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: supplyPlansKeys.all });
       void qc.invalidateQueries({ queryKey: supplyPlanLinesKeys.byPlan(id) });
