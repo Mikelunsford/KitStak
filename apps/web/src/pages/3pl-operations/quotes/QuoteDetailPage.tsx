@@ -12,6 +12,7 @@ import {
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { Select } from '@/components/ui/Select';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { DetailLayout } from '@/components/ui/DetailLayout';
@@ -22,10 +23,11 @@ import { ItemPicker } from '@/components/ui/pickers';
 import {
   useQuote, useSubmitQuote, useApproveQuote, useReviseQuote,
   useCancelQuote, useSendQuote, useConvertQuoteToProject,
-  useAddLineItem, useRemoveLineItem,
+  useAddLineItem, useRemoveLineItem, useUpdateQuote,
 } from '@/lib/hooks/useQuotes';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useMe } from '@/lib/hooks/useMe';
+import { useJobTypes } from '@/lib/hooks/useJobTypes';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { canTransition, QUOTE_FSM } from '@/lib/workflow/sales';
@@ -63,6 +65,8 @@ import { formatQuoteStateLabel } from './formatQuoteStateLabel';
 // for the same reason — pure function, unit-testable, fixes the async-stale
 // race in the previous synchronous handler.
 import { applyItemSelection } from './applyItemSelection';
+// Wave 12 / A3: apply-template control extracted to its own component.
+import { ApplyTemplatePanel } from './ApplyTemplatePanel';
 
 export { formatQuoteStateLabel };
 
@@ -77,6 +81,8 @@ export function QuoteDetailPage() {
   const cancel = useCancelQuote();
   const send = useSendQuote();
   const convert = useConvertQuoteToProject();
+  const updateQuote = useUpdateQuote(id ?? '');
+  const jobTypes = useJobTypes();
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [lineName, setLineName] = useState('');
@@ -110,6 +116,15 @@ export function QuoteDetailPage() {
 
   const { quote, lineItems } = data;
   const state = quote.state as QuoteState;
+
+  // Wave 12 / A3: 3PL job type display plus the next free line position used
+  // when a Job Builder template appends its lines to this quote.
+  const nextLinePosition = lineItems.length
+    ? Math.max(...lineItems.map((l) => l.position)) + 1
+    : 0;
+  const jobTypeName =
+    (jobTypes.data ?? []).find((j) => j.id === quote.job_type_id)?.name ?? null;
+  const jobTypeEditable = !['cancelled', 'project_pending'].includes(state);
 
   // F-Wave8-PDF-QUOTE-DOWNLOAD-01. Build the quote render payload from the
   // loaded quote and its line items, call the pdf-worker, and trigger a
@@ -416,6 +431,41 @@ export function QuoteDetailPage() {
         </p>
       )}
 
+      {/* Wave 12 / A3: the 3PL job type this quote is scoped to. Editable while
+          the quote is live (convert_quote_to_project carries it onto the
+          project so a won quote becomes a project of the right type); read-only
+          once terminal. Also set automatically when a template is applied. */}
+      {jobTypeEditable ? (
+        <label className="flex max-w-xs flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Job type
+          </span>
+          <Select
+            value={quote.job_type_id ?? ''}
+            onChange={(e) =>
+              updateQuote.mutate({ job_type_id: e.target.value || null })
+            }
+            disabled={jobTypes.isLoading || updateQuote.isPending}
+          >
+            <option value="">{jobTypes.isLoading ? 'Loading.' : 'None'}</option>
+            {(jobTypes.data ?? []).map((j) => (
+              <option key={j.id} value={j.id}>
+                {j.name}
+              </option>
+            ))}
+          </Select>
+          {updateQuote.error && (
+            <span className="font-sans text-sm text-accent">
+              {updateQuote.error instanceof Error
+                ? updateQuote.error.message
+                : 'Update job type failed.'}
+            </span>
+          )}
+        </label>
+      ) : jobTypeName ? (
+        <p className="font-sans text-sm text-ink-dim">Job type: {jobTypeName}</p>
+      ) : null}
+
       <div className="flex flex-col gap-2">
         <DataTable
           columns={lineColumns}
@@ -430,6 +480,10 @@ export function QuoteDetailPage() {
           </span>
         </div>
       </div>
+
+      {['draft', 'revise_requested'].includes(state) && id && (
+        <ApplyTemplatePanel quoteId={id} basePosition={nextLinePosition} />
+      )}
 
       {['draft', 'revise_requested'].includes(state) && (
         <form onSubmit={onAddLine} className="flex flex-col gap-3 border border-line p-4">

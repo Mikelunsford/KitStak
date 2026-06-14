@@ -5,12 +5,16 @@ import { bucketCents, track } from '@/lib/analytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { quotesKeys } from '@/lib/queryKeys/quotes';
 import {
-  listQuotes, getQuote, createQuote, submitQuote, approveQuote,
+  listQuotes, getQuote, createQuote, updateQuote, submitQuote, approveQuote,
   reviseQuote, cancelQuote, sendQuote, convertQuoteToProject,
   addLineItem, removeLineItem,
   type ListQuotesFilters,
 } from '@/lib/services/quotesService';
-import type { CreateQuoteRequest, CreateQuoteLineRequest } from '@/lib/types/sales';
+import type {
+  CreateQuoteRequest, UpdateQuoteRequest, CreateQuoteLineRequest,
+} from '@/lib/types/sales';
+import { buildQuoteLinesFromTemplate } from '@/lib/quotes/applyJobTemplate';
+import type { JobTemplate, JobTemplateLine } from '@/lib/services/jobTemplatesService';
 
 export function useQuotesList(filters: ListQuotesFilters = {}) {
   return useQuery({
@@ -35,6 +39,17 @@ export function useCreateQuote() {
   return useMutation({
     mutationFn: (payload: CreateQuoteRequest) => createQuote(payload),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.all });
+    },
+  });
+}
+
+export function useUpdateQuote(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateQuoteRequest) => updateQuote(id, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(id) });
       void qc.invalidateQueries({ queryKey: quotesKeys.all });
     },
   });
@@ -132,6 +147,52 @@ export function useRemoveLineItem(quoteId: string) {
     mutationFn: (lineId: string) => removeLineItem(quoteId, lineId),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+    },
+  });
+}
+
+/**
+ * Wave 12 / A3. Expand a Job Builder template onto a draft quote: set the
+ * quote's job type from the template (so a won quote becomes a project of the
+ * right type), then add each template line over the existing line-item CRUD.
+ * The expansion is not atomic (one POST per line, the spine line-add chassis
+ * has no bulk route); on a mid-sequence failure the error reports how many
+ * lines landed so the operator can retry the rest. The quote stays draft and
+ * editable throughout, so a partial apply is recoverable.
+ */
+export function useApplyTemplateToQuote(quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      template: JobTemplate;
+      lines: JobTemplateLine[];
+      basePosition: number;
+    }) => {
+      const { template, lines, basePosition } = args;
+      if (template.job_type_id) {
+        await updateQuote(quoteId, { job_type_id: template.job_type_id });
+      }
+      const payloads = buildQuoteLinesFromTemplate(lines, basePosition);
+      let added = 0;
+      for (const payload of payloads) {
+        try {
+          await addLineItem(quoteId, payload);
+          added += 1;
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : 'unknown error';
+          throw new Error(
+            `Added ${added} of ${payloads.length} lines. Line "${payload.name}" failed: ${reason}`,
+          );
+        }
+      }
+      return { added, total: payloads.length };
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+      void qc.invalidateQueries({ queryKey: quotesKeys.all });
+      // The job-type PATCH and each line-add write audit rows; refresh the
+      // quote's timeline so the HISTORY rail reflects the applied template.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', quoteId) });
     },
   });
 }
