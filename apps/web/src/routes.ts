@@ -511,6 +511,16 @@ const JobTemplateDetailPage = lazy(() =>
 const JobTemplateCreatePage = lazy(() =>
   import('./pages/3pl-operations/job-builders/JobTemplateCreatePage').then((m) => ({ default: m.JobTemplateCreatePage })),
 );
+// Wave 12 Phase A5: 3PL Supply Plan.
+const SupplyPlansListPage = lazy(() =>
+  import('./pages/3pl-operations/supply-plans/SupplyPlansListPage').then((m) => ({ default: m.SupplyPlansListPage })),
+);
+const SupplyPlanDetailPage = lazy(() =>
+  import('./pages/3pl-operations/supply-plans/SupplyPlanDetailPage').then((m) => ({ default: m.SupplyPlanDetailPage })),
+);
+const SupplyPlanCreatePage = lazy(() =>
+  import('./pages/3pl-operations/supply-plans/SupplyPlanCreatePage').then((m) => ({ default: m.SupplyPlanCreatePage })),
+);
 // === End Agent E ===
 
 // === Agent D: Invoicing + Finance routes ===
@@ -1276,6 +1286,10 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/job-builders',           element: JobTemplatesListPage,      guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/job-builders/new',       element: JobTemplateCreatePage,     guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/job-builders/:id',       element: JobTemplateDetailPage,     guard: 'protected', layout: 'shell' },
+  // Wave 12 Phase A5: 3PL Supply Plan. /new before /:id.
+  { path: '/3pl-operations/supply-plans',           element: SupplyPlansListPage,       guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/supply-plans/new',       element: SupplyPlanCreatePage,      guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/supply-plans/:id',       element: SupplyPlanDetailPage,      guard: 'protected', layout: 'shell' },
   // === End Agent E ===
   // === Agent D: Invoicing + Finance routes ===
   { path: '/invoicing/invoices',               element: InvoicesListPage,        guard: 'protected', layout: 'shell' },

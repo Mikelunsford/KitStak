@@ -61,7 +61,9 @@ import {
 import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents, roundHalfEven } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
-import type { ProjectLineItem, ProjectPhase } from '@/lib/types/sales';
+import type {
+  JobTemplateSnapshotLine, ProjectLineItem, ProjectPhase,
+} from '@/lib/types/sales';
 
 // F-Wave2-DNDKIT-01: drag-and-drop phase reorder lives in its own lazy
 // chunk so that `@dnd-kit/*` (roughly 13 kB gzipped) does not push the
@@ -149,6 +151,27 @@ export function ProjectDetailPage() {
 
   const { project, phases } = data;
   const state = project.state as ProjectState;
+
+  // Wave 12 / A4: the Job Builder template this project was built from, plus the
+  // frozen snapshot captured at conversion. The snapshot is the historical
+  // record (later template edits never change it); the link points at the live
+  // template for context. Both are null for projects not built from a template.
+  const sourceTemplateId = project.source_job_template_id ?? null;
+  const templateSnapshot = project.job_template_snapshot ?? null;
+  const templateLabel =
+    templateSnapshot?.template_number ?? templateSnapshot?.name ?? sourceTemplateId;
+
+  // Compact "qty N @ $rate" summary for a frozen snapshot line; unpriced step
+  // lines read "no rate". Currency falls back to the project's when the line did
+  // not snapshot its own.
+  const snapshotLineSummary = (l: JobTemplateSnapshotLine): string => {
+    const parts: string[] = [];
+    if (l.quantity != null) parts.push(`qty ${Number(l.quantity)}`);
+    if (l.rate_cents != null) {
+      parts.push(formatCents(l.rate_cents, l.currency_code ?? project.currency_code));
+    }
+    return parts.length > 0 ? parts.join(' @ ') : 'no rate';
+  };
 
   const onPickItem = (itemId: string | null) => {
     setSelectedItemId(itemId);
@@ -377,6 +400,18 @@ export function ProjectDetailPage() {
                 </Link>
               </span>
             )}
+            {sourceTemplateId && (
+              <span>
+                Built from template:{' '}
+                <Link
+                  to={`/3pl-operations/job-builders/${sourceTemplateId}`}
+                  className="text-ink hover:text-accent"
+                  data-testid="source-template-link"
+                >
+                  {templateLabel}
+                </Link>
+              </span>
+            )}
             <span className="font-mono">
               Budget: {formatCents(project.budget_cents, project.currency_code)}
             </span>
@@ -435,6 +470,42 @@ export function ProjectDetailPage() {
             </Button>
           )}
         </div>
+
+        {/* Wave 12 / A4: read-only frozen snapshot of the Job Builder template
+            this project was built from. Renders only when the project converted
+            from a templated quote. Proves the freeze: later edits to the live
+            template never rewrite this record. */}
+        {templateSnapshot && (
+          <section data-testid="template-snapshot">
+            <h2 className="text-2xl font-display tracking-wider text-ink mb-3">
+              TEMPLATE SNAPSHOT
+            </h2>
+            <p className="text-ink-dim text-sm mb-3">
+              Frozen copy of {templateLabel} captured when this project was
+              created. Later edits to the live template do not change this record.
+            </p>
+            {templateSnapshot.lines.length === 0 ? (
+              <p className="text-ink-dim text-sm">The template had no lines.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {templateSnapshot.lines.map((l, idx) => (
+                  <li
+                    key={l.id ?? idx}
+                    className="border border-line p-3 flex items-center justify-between gap-4"
+                  >
+                    <span className="flex flex-col">
+                      <span className="text-ink">{l.name}</span>
+                      <span className="text-ink-dim text-sm font-mono">{l.line_kind}</span>
+                    </span>
+                    <span className="text-ink-dim text-sm font-mono">
+                      {snapshotLineSummary(l)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section>
           <h2 className="text-2xl font-display tracking-wider text-ink mb-3">MATERIALS</h2>

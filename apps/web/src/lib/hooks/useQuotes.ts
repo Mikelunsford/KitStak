@@ -169,9 +169,15 @@ export function useApplyTemplateToQuote(quoteId: string) {
       basePosition: number;
     }) => {
       const { template, lines, basePosition } = args;
+      // Wave 12 / A4: stamp the source template (and its job type, when set) on
+      // the quote in one PATCH, so convert_quote_to_project can carry the
+      // breadcrumb onto the project and freeze the template snapshot. The
+      // server validates both ids in-org (assertRefInOrg, 404 not 403).
+      const patch: UpdateQuoteRequest = { source_job_template_id: template.id };
       if (template.job_type_id) {
-        await updateQuote(quoteId, { job_type_id: template.job_type_id });
+        patch.job_type_id = template.job_type_id;
       }
+      await updateQuote(quoteId, patch);
       const payloads = buildQuoteLinesFromTemplate(lines, basePosition);
       let added = 0;
       for (const payload of payloads) {

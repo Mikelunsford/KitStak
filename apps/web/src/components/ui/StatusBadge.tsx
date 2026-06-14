@@ -122,6 +122,12 @@ const COLOR_MAP: Record<string, string> = {
   // completed / cancelled are mapped above and shared; only the initial state
   // `planned` is new (neutral, like draft).
   planned: 'bg-ink-dim',
+
+  // Supply Plan status (Wave 12 / A5). draft / cancelled are mapped above and
+  // shared; released is accent (live, holds active), fulfilled is
+  // terminal-positive.
+  released: 'bg-accent',
+  fulfilled: 'bg-green-500',
 };
 
 /**
@@ -211,6 +217,10 @@ const LABEL_MAP: Record<string, string> = {
 
   // Production run status (F-Wave10-UI-KIT-01).
   planned: 'Planned',
+
+  // Supply Plan status (Wave 12 / A5).
+  released: 'Released',
+  fulfilled: 'Fulfilled',
 };
 
 /**

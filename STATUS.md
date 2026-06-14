@@ -1,5 +1,41 @@
 # Kitstak Status
 
+## 2026-06-13 3PL Supply Plan app layer (Phase A5 complete) in PR #257
+
+The Supply Plan app layer is stacked on the A5 DB layer in PR #257, completing Phase A5 (not yet merged; no merge without the operator). Caps, three-pl-api routes, byte-mirror types, and the SPA pages are in.
+
+Caps: threepl.supply_plan.create / release / cancel plus line.create / update / delete in both capability canons, granted to the 3PL commercial roles (org_owner, org_admin, ops, sales); the 0096 RLS was widened to match (it was ops-only on first draft). Types: SupplyPlan and SupplyPlanLine schemas (plus Create / Patch) in both byte-mirror threepl.ts files. Edge: three-pl-api gains supply_plan CRUD, line CRUD, and the release / cancel routes (which call the 0096 RPCs and map NOT_FOUND to 404, STATE_CONFLICT to 409, VALIDATION_ERROR to 422); nextDocNumber('supply_plan') wired with the SUP- prefix (DocType extended). SPA: supplyPlansService, useSupplyPlans, query keys, and the supply-plans List / Detail / Create pages (the detail hub shows the demand table with required / available / reserved / shortage plus release / cancel actions), routes /3pl-operations/supply-plans (/new and /:id), and the "Supply Plans" sidebar entry (third in 3PL Operations). StatusBadge gained released and fulfilled states.
+
+Verified: SPA typecheck, lint (max-warnings 0), 760 unit plus 475 regression tests (sidebarModes updated for the new entry), contract parity (byte-mirror caps and types intact), deno check across all 29 edge bundles, build, size-limit (SPA index 39.6 kB gzipped, under 40; supply-plan pages are lazy chunks).
+
+Next: A6 Job Runs and Daily Progress.
+
+## 2026-06-13 3PL Supply Plan DB layer (Phase A5, backend) in PR #257
+
+The Supply Plan DB layer is stacked on the Phase A4 work in PR #257 (not yet merged; no merge without the operator). It activates the dormant spine reservation path and adds the supply_plans engine. Kept on the A4 branch so migrations 0094 to 0097 stay contiguous. The A5 app layer (caps, three-pl-api routes, byte-mirror types, SPA) is handed off as the next slice.
+
+Key finding: stock_levels.quantity_reserved (with quantity_available GENERATED as on_hand minus reserved) shipped in 0030 but was dormant. recompute_stock_level only derived on_hand and there was no reserve movement type. Migration 0095 activates it (adds reserve and reserve_release movement types, teaches recompute to derive reserved). Purely additive: the on_hand derivation is byte-identical and no reserve rows exist, so no current stock reading moves.
+
+Tables: migration 0096 adds supply_plans (Pattern A, FSM draft / released / fulfilled / cancelled, warehouse_id, project_id) and supply_plan_lines (per item: required / available / reserved / shortage, resolution in reserve / inbound / purchase / replenish, nullable PO and receiving links). release_supply_plan reserves min(required, available) for reserve-resolution lines by writing 0095 reserve movements and records the shortage; cancel_supply_plan writes reserve_release to restore the spine reserved. Both are 3-arg cross-tenant-guarded SECURITY DEFINER RPCs (NOT_FOUND, never 403). Migration 0097 wires SUP- numbering. The audit_log entity_type CHECK is extended (supply_plan, supply_plan_line).
+
+Validated on staging in aborting transactions: reserve then reserve_release moved quantity_reserved and the generated available correctly (10 to 6 to 10, on_hand steady at 10); a plan with a covered line (reserved 4, shortage 0) and a short line (reserved 10, shortage 5) released, the spine reserved tracking it, then cancelled back to zero.
+
+Verified: SPA typecheck, lint (max-warnings 0), 759 unit plus 475 regression tests (including three new migration suites and the db-0083 authoritative-redefinition pin moved forward to 0096), contract parity. No SPA, edge, or type changes this slice, so build, size-limit, and deno check are unaffected from the A4 run.
+
+Next: the A5 app layer (caps + three-pl-api supply_plan CRUD + release / cancel + byte-mirror types + SPA), handed off in `03-workspace/specs/2026-06-13-3pl-a5-supply-plan-dblayer-closeout-and-applayer-handoff.md`. Then A6 Job Runs.
+
+## 2026-06-13 3PL project conversion with template snapshotting (Phase A4) in PR #257
+
+Phase A4 of the 3PL commercial layer is up for review in PR #257 (not yet merged; no merge without the operator). It records which Job Builder template built a quote and the project it converts to, and freezes that template onto the project at conversion so later template edits never rewrite a project's origin.
+
+Server: migration 0094 adds nullable `quotes.source_job_template_id` and `projects.source_job_template_id` (spine to 3PL add-on FK to `job_templates`, ON DELETE SET NULL) plus a nullable `projects.job_template_snapshot` jsonb. A forward redefinition of `convert_quote_to_project` (last in 0093, same 4-arg signature) copies the breadcrumb onto the project and builds the org-scoped frozen snapshot (header plus lines), reading both ids from the in-org quote row so the SECURITY DEFINER RPC cannot inject a foreign template. `quotes-api` validates `source_job_template_id` in-org via `assertRefInOrg` (404 not 403) on create and update. No new capability (rides `quotes.quote.write` and `quotes.convert_to_project`). Validated on staging in an aborting transaction (project carried the breadcrumb and a three-line snapshot).
+
+SPA: the apply-template flow now stamps `source_job_template_id` on the quote alongside the job type, so the breadcrumb threads quote to project. The project detail page shows a "Built from template" link and a read-only TEMPLATE SNAPSHOT panel rendering the frozen lines. `source_job_template_id` and `job_template_snapshot` (plus `JobTemplateSnapshotSchema`) added to both byte-mirror `sales.ts` files.
+
+Verified: contract parity (byte-mirror intact), SPA typecheck, lint (max-warnings 0), 456 tests (16 new: 11 migration static checks, 5 schema parse), deno check across all 29 edge bundles, build, size-limit (SPA index 39.58 kB gzipped, under 40).
+
+Next: A5 Supply Plan. Handoff in `03-workspace/specs/2026-06-13-3pl-a4-template-snapshot-closeout-and-a5-handoff.md`. Stack onto the same branch; do not merge until the operator reviews.
+
 ## 2026-06-13 3PL Quote integration (Phase A3) in PR #256
 
 Phase A3 of the 3PL commercial layer is up for review in PR #256 (not yet merged; no merge without the operator). Two pieces, matching the operator's two decisions (full A3 scope, SPA-thin expansion): a Job Builder template can be applied to a draft quote to expand its lines, and a quote now carries a job type that `convert_quote_to_project` copies onto the project so a won quote becomes a project of the right type.

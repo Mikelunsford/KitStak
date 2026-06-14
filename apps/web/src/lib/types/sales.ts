@@ -281,6 +281,12 @@ export const QuoteSchema = z.object({
   // 0093 column never fails a quote parse in the deploy window before the
   // migration lands.
   job_type_id: UuidSchema.nullable().optional(),
+  // Wave 12 / A4 (project conversion with template snapshotting): the Job
+  // Builder template that populated this quote. Set at apply time alongside
+  // job_type_id and carried to the project by convert_quote_to_project so the
+  // project records its origin. Optional on read so the additive 0094 column
+  // never fails a quote parse in the deploy window before the migration lands.
+  source_job_template_id: UuidSchema.nullable().optional(),
   state: QuoteStateSchema,
   submitted_at: z.string().nullable(),
   revise_requested_at: z.string().nullable(),
@@ -376,6 +382,44 @@ export const QuoteTemplateSchema = z.object({
 export type QuoteTemplate = z.infer<typeof QuoteTemplateSchema>;
 
 // ---------------------------------------------------------------------------
+// Wave 12 / A4 (project conversion with template snapshotting). When a quote
+// built from a Job Builder template converts to a project,
+// convert_quote_to_project freezes the template (header plus lines) into
+// projects.job_template_snapshot so later template edits never rewrite the
+// project's origin. The shape is server-authored in migration 0094; fields are
+// lenient (.optional()) so a future snapshot field never fails an existing
+// project parse. rate_cents stays the wire Cents (integer or numeric-string).
+// ---------------------------------------------------------------------------
+
+export const JobTemplateSnapshotLineSchema = z.object({
+  id: UuidSchema.nullable().optional(),
+  line_kind: z.string(),
+  item_id: UuidSchema.nullable().optional(),
+  vas_id: UuidSchema.nullable().optional(),
+  name: z.string(),
+  quantity: z.union([z.number(), z.string()]).nullable().optional(),
+  rate_cents: CentsSchema.nullable().optional(),
+  rate_uom: z.string().nullable().optional(),
+  currency_code: z.string().nullable().optional(),
+  position: z.number().int(),
+});
+export type JobTemplateSnapshotLine = z.infer<typeof JobTemplateSnapshotLineSchema>;
+
+export const JobTemplateSnapshotSchema = z.object({
+  snapshot_at: z.string().optional(),
+  template_id: UuidSchema,
+  template_number: z.string().nullable().optional(),
+  name: z.string(),
+  variant: z.string(),
+  job_type_id: UuidSchema.nullable().optional(),
+  default_bom_item_id: UuidSchema.nullable().optional(),
+  status: z.string().optional(),
+  notes: z.string().nullable().optional(),
+  lines: z.array(JobTemplateSnapshotLineSchema),
+});
+export type JobTemplateSnapshot = z.infer<typeof JobTemplateSnapshotSchema>;
+
+// ---------------------------------------------------------------------------
 // projects + project_phases
 // ---------------------------------------------------------------------------
 
@@ -394,6 +438,13 @@ export const ProjectSchema = z.object({
   customer_id: UuidSchema.nullable(),
   source_quote_id: UuidSchema.nullable(),
   job_type_id: UuidSchema.nullable(),
+  // Wave 12 / A4: the Job Builder template this project was built from, carried
+  // from the quote by convert_quote_to_project, plus the frozen snapshot of that
+  // template at convert time. Both nullable (spine projects with no 3PL template
+  // leave them null) and optional on read so the additive 0094 columns never
+  // fail a project parse in the deploy window before the migration lands.
+  source_job_template_id: UuidSchema.nullable().optional(),
+  job_template_snapshot: JobTemplateSnapshotSchema.nullable().optional(),
   state: ProjectStateSchema,
   pending_at: z.string().nullable(),
   ready_to_build_at: z.string().nullable(),
@@ -445,6 +496,11 @@ export const CreateQuoteRequestSchema = z.object({
   // Wave 12 / A3: optional 3PL job type; assertRefInOrg('job_types') guards
   // it server-side, rides quotes.quote.write (no new capability).
   job_type_id: UuidSchema.nullable().optional(),
+  // Wave 12 / A4: optional source Job Builder template; assertRefInOrg
+  // ('job_templates') guards it server-side, rides quotes.quote.write. The SPA
+  // sets it on the apply-template PATCH so the quote (and the project it
+  // converts to) records which template built it.
+  source_job_template_id: UuidSchema.nullable().optional(),
   title: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   currency_code: z.string().length(3).default('USD'),
