@@ -51,6 +51,7 @@ env:
     ops-api
     three-pl-api
     manufacturing-api
+    wms-api
     copack-api
     kitforce-api
     collaboration-api

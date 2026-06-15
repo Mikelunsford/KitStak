@@ -113,6 +113,19 @@ orphan-route|apps/web/src/routes.ts|/copack
 orphan-route|apps/web/src/routes.ts|/kitforce
 
 # ---------------------------------------------------------------------------
+# orphan-route: WMS pillar landing page (/wms).
+# Add-on six (warehouse execution; ADR 0002), Wave 12 Body B Phase B0. The
+# WMS landing surface orients the operator while the section sub-routes
+# (Locations, Bin stock, Putaway, Lots) land per phase (B1 through B4). The
+# Sidebar IA surfaces those sub-routes (/wms/locations, /wms/bin-stock, ...),
+# not the pillar root, mirroring the /manufacturing, /copack, /kitforce
+# landing pages above. The root is plugin-gated (requiresPlugin = plugins.wms)
+# so orgs without the add-on never render it. Orphan-by-design.
+# Follow-up: F-Wave12-WMS-B0-01 (WMS chassis).
+# ---------------------------------------------------------------------------
+orphan-route|apps/web/src/routes.ts|/wms
+
+# ---------------------------------------------------------------------------
 # orphan-route: /manufacturing/runs/from-bom.
 # Deep-link-only run-create surface that pre-fills a manufacturing run from a
 # selected BOM (M2). Reached from the BOM detail page's "Start run from BOM"

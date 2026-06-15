@@ -850,6 +850,16 @@ const TimeEntryEditPage = lazy(() =>
 );
 // === End KitForce ===
 
+// === WMS add-on routes (add-on six, warehouse execution; Wave 12 Body B) ===
+// Phase B0 stands up the gated chassis with one landing route. Locations (B1),
+// Bin stock (B2), Putaway (B3), and Lots (B4) add their routes per phase.
+// Gated on plugins.wms via inferPluginForPath above; lazy so the WMS chunk
+// stays out of the eager SPA index.
+const WmsHomePage = lazy(() =>
+  import('./pages/wms/WmsHomePage').then((m) => ({ default: m.WmsHomePage })),
+);
+// === End WMS ===
+
 // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
 const SecurityPage = lazy(() =>
   import('./pages/account/SecurityPage').then((m) => ({
@@ -1407,6 +1417,13 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/kitforce/time-entries',             element: TimeEntriesListPage,    guard: 'protected', layout: 'shell' },
   { path: '/kitforce/time-entries/:id/edit',    element: TimeEntryEditPage,      guard: 'protected', layout: 'shell' },
   // === End KitForce ===
+  // === WMS add-on routes (add-on six, warehouse execution; Wave 12 Body B) ===
+  // Phase B0: the gated landing route. requiresPlugin (plugins.wms) is
+  // auto-injected by inferPluginForPath / withPluginGate, so the route declares
+  // only path, element, guard, layout. Section routes (Locations, Bin stock,
+  // Putaway, Lots) land per phase, /new before /:id.
+  { path: '/wms',                    element: WmsHomePage,                 guard: 'protected', layout: 'shell' },
+  // === End WMS ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.
   // /auth/recovery: public; the Supabase recovery token in the URL hash IS
@@ -1517,6 +1534,9 @@ function inferPluginForPath(spec: RouteSpec): string | undefined {
   }
   if (inPillar(spec.path, '/kitforce')) {
     return FEATURE_FLAGS.PLUGINS_KITFORCE;
+  }
+  if (inPillar(spec.path, '/wms')) {
+    return FEATURE_FLAGS.PLUGINS_WMS;
   }
   return undefined;
 }

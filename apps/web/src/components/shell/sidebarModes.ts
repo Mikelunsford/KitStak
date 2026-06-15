@@ -24,9 +24,10 @@
 //   4. CO-PACK AND ECOM — gated plugins.copack_ecom.
 //   5. KITFORCE    — gated plugins.kitforce.
 //   6. KITCOST     — gated plugins.kitcost.
-//
-// WMS (the sixth add-on, ADR 0002) is NOT built yet (no plugins.wms flag in
-// code). Its section lands with the WMS body (plan phases B0 to B4).
+//   7. WMS         gated plugins.wms. Warehouse execution (add-on six,
+//                  ADR 0002): bins, putaway, lots. Chassis shipped in Phase
+//                  B0; the section routes (Locations, Bin stock, Putaway,
+//                  Lots) land per phase B1 to B4.
 //
 // Per-route `requiresFlag` keeps the existing SPA-render gate: a link is hidden
 // when the org lacks the plugin. The server-side bundle gates (404) and
@@ -54,15 +55,18 @@ import {
   Layers,
   LayoutGrid,
   Lock,
+  MapPin,
   Package,
   PackageCheck,
   PackageOpen,
+  PackagePlus,
   Receipt,
   ReceiptText,
   ShoppingCart,
   SlidersHorizontal,
   Sparkles,
   Store,
+  Tags,
   Target,
   Truck,
   TrendingUp,
@@ -82,7 +86,8 @@ export type ModeKey =
   | 'manufacturing'
   | 'copack'
   | 'kitforce'
-  | 'kitcost';
+  | 'kitcost'
+  | 'wms';
 
 export interface ModeRoute {
   path: string;
@@ -327,6 +332,42 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         label: 'Cost dashboard',
         icon: DollarSign,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITCOST,
+      },
+    ],
+  },
+  {
+    key: 'wms',
+    label: 'WMS',
+    subtitle: 'Bins, putaway, and lots.',
+    icon: Warehouse,
+    routes: [
+      // Add-on six (warehouse execution; ADR 0002). Phase B0 stands up the
+      // gated section; the route entries below are the Phase 1 surfaces, each
+      // landing as its phase ships its list page (Locations B1, Bin stock B2,
+      // Putaway B3, Lots B4). All gated plugins.wms, which defaults off.
+      {
+        path: '/wms/locations',
+        label: 'Locations',
+        icon: MapPin,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      {
+        path: '/wms/putaway',
+        label: 'Putaway',
+        icon: PackagePlus,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      {
+        path: '/wms/bin-stock',
+        label: 'Bin stock',
+        icon: Boxes,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      {
+        path: '/wms/lots',
+        label: 'Lots',
+        icon: Tags,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
       },
     ],
   },

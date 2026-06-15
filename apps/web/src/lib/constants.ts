@@ -39,6 +39,7 @@ export const FEATURE_FLAGS = {
   PLUGINS_COPACK_ECOM: 'plugins.copack_ecom',
   PLUGINS_KITFORCE: 'plugins.kitforce',
   PLUGINS_KITCOST: 'plugins.kitcost',
+  PLUGINS_WMS: 'plugins.wms',
   // Add-ons.
   ADDONS_WHITELABEL: 'addons.whitelabel',
   ADDONS_KITFORCE: 'addons.kitforce',

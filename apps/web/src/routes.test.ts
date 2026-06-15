@@ -166,6 +166,11 @@ describe('withPluginGate', () => {
     expect(gated.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_MANUFACTURING);
   });
 
+  it('annotates WMS routes with PLUGINS_WMS', () => {
+    const gated = withPluginGate(specFor('/wms'));
+    expect(gated.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_WMS);
+  });
+
   it('leaves agnostic routes untouched', () => {
     const gated = withPluginGate(specFor('/crm/customers'));
     expect(gated.requiresPlugin).toBeUndefined();
@@ -224,6 +229,11 @@ describe('ROUTES — pillar gating coverage', () => {
     expect(root?.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_COPACK_ECOM);
   });
 
+  it('the /wms pillar root carries requiresPlugin = PLUGINS_WMS', () => {
+    const root = ROUTES.find((r) => r.path === '/wms');
+    expect(root?.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_WMS);
+  });
+
   it('the /kitforce pillar root carries requiresPlugin = PLUGINS_KITFORCE', () => {
     const root = ROUTES.find((r) => r.path === '/kitforce');
     expect(root?.requiresPlugin).toBe(FEATURE_FLAGS.PLUGINS_KITFORCE);
@@ -246,7 +256,8 @@ describe('ROUTES — pillar gating coverage', () => {
         !inPillar(r.path, '/manufacturing') &&
         !inPillar(r.path, '/kitcost') &&
         !inPillar(r.path, '/copack') &&
-        !inPillar(r.path, '/kitforce'),
+        !inPillar(r.path, '/kitforce') &&
+        !inPillar(r.path, '/wms'),
     );
     expect(accidentallyGated).toEqual([]);
   });
