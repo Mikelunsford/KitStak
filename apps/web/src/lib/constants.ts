@@ -56,6 +56,27 @@ export type FeatureFlagKey =
   (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS];
 
 /**
+ * Paid pillar plugin flags. Enabling any of these (is_enabled = true) on an
+ * org requires an active billing subscription. The settings-api flag-write
+ * handler checks the org's `subscription_status` before honouring an enable
+ * and returns `403 BILLING_REQUIRED` when the org is not on an active or
+ * trialing plan. Disabling a plugin is always allowed.
+ *
+ * This entitlement gate is distinct from the bundle gate: bundle-gate misses
+ * stay `404 NOT_FOUND` (a tenant on a sub-plan cannot enumerate the surface),
+ * while this `403` is a flag-write denial on the settings surface the caller
+ * already legitimately reaches.
+ */
+export const PAID_PLUGIN_FLAGS: ReadonlySet<string> = new Set<string>([
+  FEATURE_FLAGS.PLUGINS_THREE_PL,
+  FEATURE_FLAGS.PLUGINS_MANUFACTURING,
+  FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+  FEATURE_FLAGS.PLUGINS_KITFORCE,
+  FEATURE_FLAGS.PLUGINS_KITCOST,
+  FEATURE_FLAGS.PLUGINS_WMS,
+]);
+
+/**
  * HTTP header names. Centralised so the CORS allow-list, the
  * idempotency reader, the worker-secret check, and the SPA apiClient writer
  * cannot drift. Values are the wire-format header names (lower-cased per
@@ -99,6 +120,7 @@ export const ERROR_CODES = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   RATE_LIMITED: 'RATE_LIMITED',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  BILLING_REQUIRED: 'BILLING_REQUIRED',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
