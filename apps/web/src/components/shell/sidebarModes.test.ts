@@ -22,8 +22,8 @@ import {
 import { FEATURE_FLAGS } from '@/lib/constants';
 
 describe('SIDEBAR_MODES shape (Wave 12 pillar IA)', () => {
-  it('contains exactly six sections', () => {
-    expect(SIDEBAR_MODES).toHaveLength(6);
+  it('contains exactly seven sections', () => {
+    expect(SIDEBAR_MODES).toHaveLength(7);
   });
 
   it('sections are SPINE then one per lit add-on, in order', () => {
@@ -35,6 +35,7 @@ describe('SIDEBAR_MODES shape (Wave 12 pillar IA)', () => {
       'copack',
       'kitforce',
       'kitcost',
+      'wms',
     ]);
   });
 
@@ -65,9 +66,9 @@ describe('SIDEBAR_MODES shape (Wave 12 pillar IA)', () => {
     expect(dupes, `duplicate paths: ${dupes.join(', ')}`).toEqual([]);
   });
 
-  it('does NOT contain a WMS section (the sixth add-on is not built yet)', () => {
+  it('contains the WMS section (add-on six, Wave 12 Body B Phase B0)', () => {
     const keys = SIDEBAR_MODES.map((m) => m.key as string);
-    expect(keys).not.toContain('wms');
+    expect(keys).toContain('wms');
   });
 });
 
@@ -258,6 +259,28 @@ describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
     expect(dash?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_KITCOST);
   });
 
+  it('WMS holds Locations, Putaway, Bin stock, Lots, each gated plugins.wms', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'wms')!;
+    const paths = mode.routes.map((r) => r.path);
+    expect(paths).toEqual([
+      '/wms/locations',
+      '/wms/putaway',
+      '/wms/bin-stock',
+      '/wms/lots',
+    ]);
+    for (const route of mode.routes) {
+      expect(route.requiresFlag, `flag on ${route.path}`).toBe(
+        FEATURE_FLAGS.PLUGINS_WMS,
+      );
+    }
+  });
+
+  it('WMS section is labelled WMS with a period-ending subtitle', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'wms')!;
+    expect(mode.label).toBe('WMS');
+    expect(mode.subtitle).toMatch(/\.$/);
+  });
+
   it('Journal entries route is gated behind finance.journal_entries.enabled', () => {
     const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
     const je = spine.routes.find((r) => r.path === '/finance/journal-entries');
@@ -383,6 +406,7 @@ describe('findActiveMode (Wave 12 pillar IA)', () => {
     expect(findActiveMode('/copack/orders')).toBe('copack');
     expect(findActiveMode('/kitforce/members')).toBe('kitforce');
     expect(findActiveMode('/kitcost/dashboard')).toBe('kitcost');
+    expect(findActiveMode('/wms/locations')).toBe('wms');
   });
 
   it('matches detail/subpath URLs via prefix-with-slash', () => {
