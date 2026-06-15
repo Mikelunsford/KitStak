@@ -873,6 +873,11 @@ const WmsLocationDetailPage = lazy(() =>
     default: m.WmsLocationDetailPage,
   })),
 );
+const WmsBinStockListPage = lazy(() =>
+  import('./pages/wms/WmsBinStockListPage').then((m) => ({
+    default: m.WmsBinStockListPage,
+  })),
+);
 // === End WMS ===
 
 // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
@@ -1443,6 +1448,8 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/wms/locations',          element: WmsLocationsListPage,        guard: 'protected', layout: 'shell' },
   { path: '/wms/locations/new',      element: WmsLocationCreatePage,       guard: 'protected', layout: 'shell' },
   { path: '/wms/locations/:id',      element: WmsLocationDetailPage,       guard: 'protected', layout: 'shell' },
+  // Phase B2: Bin stock. Read-only rollup list (no create / detail route in B2).
+  { path: '/wms/bin-stock',          element: WmsBinStockListPage,         guard: 'protected', layout: 'shell' },
   // === End WMS ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.

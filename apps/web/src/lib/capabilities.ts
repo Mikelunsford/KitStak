@@ -347,7 +347,10 @@ export type Capability =
   | 'wms.location.read'
   | 'wms.location.create'
   | 'wms.location.update'
-  | 'wms.location.deactivate';
+  | 'wms.location.deactivate'
+  // wms.bin_stock.* (1) WMS Body B bin stock rollup (add-on six; Phase B2).
+  // Read-only; bin_stock_levels is maintained by the recompute trigger.
+  | 'wms.bin_stock.read';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -674,6 +677,9 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'wms.location.create',
   'wms.location.update',
   'wms.location.deactivate',
+  // wms.bin_stock.read WMS Body B bin stock rollup (add-on six; Phase B2).
+  // Read-only; the rollup is trigger-maintained. Same 3-role grant as locations.
+  'wms.bin_stock.read',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -985,6 +991,9 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'wms.location.create',
   'wms.location.update',
   'wms.location.deactivate',
+  // wms.bin_stock.read WMS Body B bin stock rollup (add-on six; Phase B2).
+  // Read-only; the rollup is trigger-maintained. Same 3-role grant as locations.
+  'wms.bin_stock.read',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1352,6 +1361,9 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'wms.location.create',
   'wms.location.update',
   'wms.location.deactivate',
+  // wms.bin_stock.read WMS Body B bin stock rollup (add-on six; Phase B2).
+  // Read-only; the rollup is trigger-maintained. Same 3-role grant as locations.
+  'wms.bin_stock.read',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
