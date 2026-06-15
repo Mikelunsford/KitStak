@@ -86,6 +86,14 @@ const BESPOKE_PAIRS: ReadonlyArray<Pair> = [
     spa: 'src/lib/types/threepl.ts',
     shared: '../../supabase/functions/_shared/types/threepl.ts',
   },
+  // WMS Body B (add-on six, warehouse execution; Phase B1). Types-only
+  // side-car; the wms-api handler keeps any rules, not a workflow canon,
+  // matching copack and threepl.
+  {
+    name: 'types/wms',
+    spa: 'src/lib/types/wms.ts',
+    shared: '../../supabase/functions/_shared/types/wms.ts',
+  },
 ];
 
 const here = dirname(fileURLToPath(import.meta.url));

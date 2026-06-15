@@ -858,6 +858,21 @@ const TimeEntryEditPage = lazy(() =>
 const WmsHomePage = lazy(() =>
   import('./pages/wms/WmsHomePage').then((m) => ({ default: m.WmsHomePage })),
 );
+const WmsLocationsListPage = lazy(() =>
+  import('./pages/wms/WmsLocationsListPage').then((m) => ({
+    default: m.WmsLocationsListPage,
+  })),
+);
+const WmsLocationCreatePage = lazy(() =>
+  import('./pages/wms/WmsLocationCreatePage').then((m) => ({
+    default: m.WmsLocationCreatePage,
+  })),
+);
+const WmsLocationDetailPage = lazy(() =>
+  import('./pages/wms/WmsLocationDetailPage').then((m) => ({
+    default: m.WmsLocationDetailPage,
+  })),
+);
 // === End WMS ===
 
 // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
@@ -1423,6 +1438,11 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   // only path, element, guard, layout. Section routes (Locations, Bin stock,
   // Putaway, Lots) land per phase, /new before /:id.
   { path: '/wms',                    element: WmsHomePage,                 guard: 'protected', layout: 'shell' },
+  // Phase B1: Locations. /new precedes /:id so react-router v6 matches the
+  // literal first (mirrors the Accounts / KitForce precedent above).
+  { path: '/wms/locations',          element: WmsLocationsListPage,        guard: 'protected', layout: 'shell' },
+  { path: '/wms/locations/new',      element: WmsLocationCreatePage,       guard: 'protected', layout: 'shell' },
+  { path: '/wms/locations/:id',      element: WmsLocationDetailPage,       guard: 'protected', layout: 'shell' },
   // === End WMS ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.
