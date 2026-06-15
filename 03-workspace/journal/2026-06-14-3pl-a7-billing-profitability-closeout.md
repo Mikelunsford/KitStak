@@ -70,7 +70,7 @@ Four review lenses (SQL logic, tenancy and security, constitution and mirrors, S
 ## Flags and follow-ups
 
 - F-Wave12-A7-PROFITABILITY-ROUNDING-01. The profitability view and the billing_review estimate and actual snapshot compute `quantity * cents` with SQL `round()` (half away from zero), not the constitution's `roundHalfEven`. This is a DERIVED read model only. The issued invoice line amounts use integer `rate_cents` directly, so the books are exact. Reconcile if strict banker's rounding is wanted on the derived analytic.
-- F-Wave12-INDEX-BUDGET-HEADROOM-01. The SPA index is at 39.99 of 40 kB gz. A7 is as lean as it can be (all A7 pages are lazy chunks; the growth is only the four route declarations plus two sidebar entries). The next phase needs headroom first. In particular, WMS B0 adds a whole `/wms` sidebar section plus the `/wms` route, which is more eager weight than A7 added and will exceed the budget. Split the index or take a budget decision before B0. Pairs with the existing index-split follow-up.
+- F-Wave12-INDEX-BUDGET-HEADROOM-01. The SPA index is at 39.99 of 40 kB gz. A7 is as lean as it can be (all A7 pages are lazy chunks; the growth is only the four route declarations plus two sidebar entries). Operator decision 2026-06-14: SPLIT to reclaim headroom and keep the 40 kB budget; do not raise it now (the raise is reserved for a deliberate UI and navigation investment later). This is the recommended next task and a prerequisite for WMS B0. Full startable plan in the section below.
 - Brand-voice debt (observation, not swept this PR): the existing `db-NNNN` regression test scaffolding pervasively uses em dashes in header comments and `describe()` strings. A7's new tests were written clean. A repo-wide sweep is optional and was left untouched to avoid scope creep.
 - F-Wave12-JOB-PROFITABILITY-SNAPSHOT-01 (named, not built). The `job_profitability_snapshots` freeze table, if frozen numbers are wanted later.
 
@@ -78,6 +78,31 @@ Four review lenses (SQL logic, tenancy and security, constitution and mirrors, S
 
 - F-Wave12-JOB-RUN-INVENTORY-CACHE-01, F-Wave12-JOB-RUN-POST-PAIRING-TEST-01.
 - F-Wave12-SUPPLY-PLAN-FULFILL-CONSUME-01, F-Wave12-SUPPLY-PLAN-RESERVE-CONTRACT-TEST-01.
+
+## SPA index budget lean-up (startable on a fresh session)
+
+Follow-up `F-Wave12-INDEX-BUDGET-HEADROOM-01`. A standalone front-end-only task to ship BEFORE WMS B0. A fresh session can start from this section cold.
+
+Goal. Reclaim headroom under the existing 40 kB gz SPA index size-limit budget so WMS B0 and future phases can add eager navigation and route weight without raising the budget. Hold the budget at 40 kB now. Raise it later only as a deliberate UI and navigation investment, never to absorb phase creep.
+
+Why now. As of A7 the SPA index chunk is 39.99 of 40 kB gz (the `size-limit` measurement, which is the gate). Each phase adds eager weight: route declarations, sidebar entries, and the lucide icons those entries reference. WMS B0 adds a whole `/wms` sidebar section (four entries plus icons) and the `/wms` home route, which is more eager weight than A7 added and will exceed the budget. Splitting keeps first paint lean and fast and keeps the gate meaningful; raising the budget would ship the same or more bytes and only silence the warning.
+
+Start here, analysis first.
+1. Measure what is actually in the index chunk. Run `pnpm build` (it emits sourcemaps to `apps/web/dist/assets/index-*.js.map`), then a one-shot sourcemap size analysis such as `npx source-map-explorer apps/web/dist/assets/index-*.js` or `npx vite-bundle-visualizer`. Do NOT add either as a project dependency (npx one-shot only; a new top-level dependency triggers the constitution-review checklist). Rank the eager modules by gzip contribution and identify the top contributors. Do not assume; let the data pick the cuts.
+2. Likely suspects to confirm against the analysis.
+   - The sidebar navigation config and its lucide-react icons. The shell renders the sidebar eagerly, so every sidebar icon across every pillar is in the index (roughly thirty-plus icons). The highest-leverage single cut is usually to lazy-load the sidebar or move its icons behind a dynamic registry so the config and icon set leave the index, accepting a tiny first-paint nav placeholder.
+   - The `ROUTES` table metadata. The router needs every route path eagerly to match, so this grows per route. The structural lever is per-pillar lazy route-group loading (this is the existing `F-Wave10-INDEX-SPLIT` follow-up).
+   - Any shared util, Zod schema, or context eagerly imported into the shell but only needed by lazy pages. Verify nothing leaks; a schema module pulled eager inflates the index.
+3. Make the one or two highest-leverage cuts. Re-run `pnpm build` and `pnpm --filter web bundle-budget` and confirm the index drops with real headroom (target a few kB of slack, for example at or under 37 kB, so the next two or three phases fit).
+
+Constraints and gates.
+- Keep the `size-limit` SPA index budget at 40 kB. Do not raise it. When a deliberate UI and navigation investment comes later, still lazy-load heavy UX surfaces and raise the budget only for the genuinely eager shell.
+- Front end only. No edge, migration, money, RLS, audit, or idempotency changes. No new top-level dependency (npx one-shot tools only for the analysis).
+- All existing gates stay green: typecheck, lint (max-warnings 0), the full test suite (watch the `sidebarModes` exact-paths test if the sidebar structure changes), canon-steward, build, and `size-limit`. `deno check` is unaffected (no edge change).
+- Brand voice on disk.
+- Ship as its own small standalone PR before WMS B0. WMS B0 is blocked on this; B0 adds eager nav weight with zero current headroom.
+
+Pairs with `F-Wave10-INDEX-SPLIT` (the per-pillar route-table split lever).
 
 ## Second deliverable: WMS Body B plan
 
