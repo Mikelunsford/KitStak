@@ -1,5 +1,13 @@
 # Kitstak Status
 
+## 2026-06-14 SPA index budget lean-up (recommended next, before WMS B0)
+
+Context. Phase A7 (Billing Review and Job Profitability) shipped and merged to prod (PR #263, squash 9855955; migrations 0102 to 0104; three-pl-api live; verified at prod max migration 0104). That completes Body A, the 3PL commercial layer (Accounts, Job Builders, Quote integration, Project conversion, Supply Plans, Job Runs, Billing Review, Profitability). The only remaining planned work is WMS Body B (B0 to B4), plan in `03-workspace/specs/2026-06-14-wms-bodyb-phase1-handoff.md`, gated on the B2 `stock_movements` `location_id` operator stop-point.
+
+Recommended next task. A small front-end-only PR to ship BEFORE WMS B0: the SPA index budget lean-up (`F-Wave12-INDEX-BUDGET-HEADROOM-01`). The SPA index chunk is at 39.99 of 40 kB gz. WMS B0 adds a whole `/wms` sidebar section and route, which exceeds the budget. Operator decision 2026-06-14: split to reclaim headroom and keep the 40 kB budget, do not raise it now (the raise is reserved for a deliberate UI and navigation investment later). The full startable plan (analysis first via an npx sourcemap explorer, then the one or two highest-leverage cuts, likely lazy-loading the sidebar nav and its icons; keep the budget at 40; front end only; all gates green) is in `03-workspace/journal/2026-06-14-3pl-a7-billing-profitability-closeout.md` under "SPA index budget lean-up". Pairs with `F-Wave10-INDEX-SPLIT`.
+
+Next after the lean-up: WMS B0 (the `plugins.wms` chassis), then B1 locations, B2 the bin-level stock dimension (operator stop-point), B3 putaway, B4 lots.
+
 ## 2026-06-13 3PL Supply Plan app layer (Phase A5 complete) in PR #257
 
 The Supply Plan app layer is stacked on the A5 DB layer in PR #257, completing Phase A5 (not yet merged; no merge without the operator). Caps, three-pl-api routes, byte-mirror types, and the SPA pages are in.

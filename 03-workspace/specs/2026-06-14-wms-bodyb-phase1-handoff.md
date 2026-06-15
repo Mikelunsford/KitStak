@@ -33,6 +33,8 @@ Suggested contiguous migration numbering (renumber from the real post-A7 max; pl
 
 ### B0. WMS chassis
 
+PREREQUISITE (ship first, separate PR): the SPA index budget lean-up, `F-Wave12-INDEX-BUDGET-HEADROOM-01`. The SPA index is at 39.99 of 40 kB gz and B0 adds a whole `/wms` sidebar section plus the `/wms` route, which exceeds the budget. Operator decision 2026-06-14: split to reclaim headroom and keep the 40 kB budget, do not raise it. The startable plan is in `03-workspace/journal/2026-06-14-3pl-a7-billing-profitability-closeout.md` under "SPA index budget lean-up". Do not start B0 until the index has real headroom.
+
 Scope: stand up the gated add-on with no domain tables. Mirror the `manufacturing-api` plus `plugins.manufacturing` sibling throughout. After B0, `/wms/*` routes resolve to NotFoundPage for every org (flag defaults off, no org reachable until flipped on via `/admin/flags`).
 
 Complete chassis checklist (exact files, constants, helpers from the gating map):
