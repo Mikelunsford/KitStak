@@ -39,7 +39,8 @@ export type DocType =
   | 'three_pl_account'
   | 'job_template'
   | 'supply_plan'
-  | 'job_run';
+  | 'job_run'
+  | 'billing_review';
 
 /**
  * Allocate the next document number for (org, docType). Returns the

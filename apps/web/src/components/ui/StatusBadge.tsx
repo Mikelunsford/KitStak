@@ -128,6 +128,12 @@ const COLOR_MAP: Record<string, string> = {
   // terminal-positive.
   released: 'bg-accent',
   fulfilled: 'bg-green-500',
+
+  // Billing Review status (Wave 12 / A7). draft / approved / cancelled are
+  // mapped above and shared. New: invoiced is the settled, spine-invoice-cut
+  // terminal state, given a blue tone distinct from the green approved and
+  // the neutral draft / cancelled.
+  invoiced: 'bg-blue-500',
 };
 
 /**
@@ -221,6 +227,10 @@ const LABEL_MAP: Record<string, string> = {
   // Supply Plan status (Wave 12 / A5).
   released: 'Released',
   fulfilled: 'Fulfilled',
+
+  // Billing Review status (Wave 12 / A7). draft / approved / cancelled are
+  // mapped above and shared; only invoiced is new.
+  invoiced: 'Invoiced',
 };
 
 /**

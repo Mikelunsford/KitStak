@@ -457,3 +457,81 @@ export type JobRunDailyLogProducedLineCreate = z.infer<typeof JobRunDailyLogProd
 export const JobRunDailyLogProducedLineUpdateSchema =
   JobRunDailyLogProducedLineCreateSchema.partial();
 export type JobRunDailyLogProducedLineUpdate = z.infer<typeof JobRunDailyLogProducedLineUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// billing_reviews (parent; Billing Review, Phase A7). FSM draft / approved /
+// invoiced / cancelled. The finance reconciliation surface over a completed
+// Job Run: estimate_total_cents (the planned figure) against actual_total_cents
+// (the realized figure) before an invoice is cut. review_number BILL- (numbering
+// chassis). Approve / cancel are RPCs, not table writes; invoice_id is filled
+// at approve, when the draft invoice is cut. Money is BIGINT _cents on the wire as an integer
+// or numeric-string. job_run_id / project_id / account_id are the demand links.
+// ---------------------------------------------------------------------------
+
+export const BillingReviewStatusSchema = z.enum([
+  'draft',
+  'approved',
+  'invoiced',
+  'cancelled',
+]);
+export type BillingReviewStatus = z.infer<typeof BillingReviewStatusSchema>;
+
+export const BillingReviewSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  review_number: z.string().nullable(),
+  job_run_id: Uuid.nullable(),
+  project_id: Uuid.nullable(),
+  account_id: Uuid.nullable(),
+  invoice_id: Uuid.nullable(),
+  currency_code: Currency.nullable(),
+  estimate_total_cents: Cents.nullable(),
+  actual_total_cents: Cents.nullable(),
+  status: BillingReviewStatusSchema,
+  approved_at: Iso.nullable(),
+  invoiced_at: Iso.nullable(),
+  cancelled_at: Iso.nullable(),
+  notes: z.string().nullable(),
+  payload: z.record(z.unknown()),
+  created_at: Iso,
+  created_by: Uuid.nullable(),
+  updated_at: Iso,
+  updated_by: Uuid.nullable(),
+  deleted_at: Iso.nullable(),
+});
+export type BillingReview = z.infer<typeof BillingReviewSchema>;
+
+export const BillingReviewCreateSchema = z.object({
+  job_run_id: Uuid.optional().nullable(),
+  project_id: Uuid.optional().nullable(),
+  account_id: Uuid.optional().nullable(),
+  review_number: z.string().optional().nullable(),
+  currency_code: Currency.optional().nullable(),
+  notes: z.string().optional().nullable(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type BillingReviewCreate = z.infer<typeof BillingReviewCreateSchema>;
+
+export const BillingReviewPatchSchema = BillingReviewCreateSchema.partial();
+export type BillingReviewPatch = z.infer<typeof BillingReviewPatchSchema>;
+
+// ---------------------------------------------------------------------------
+// view_job_profitability (read-only view; Job Profitability, Phase A7). One row
+// per Job Run rolling estimate against realized labor and material cost and
+// billed revenue. margin_cents is billed_revenue_cents minus actual_total_cents
+// and CAN be negative; the Cents union already admits a leading minus.
+// ---------------------------------------------------------------------------
+
+export const JobProfitabilityRowSchema = z.object({
+  org_id: Uuid,
+  job_run_id: Uuid,
+  project_id: Uuid.nullable(),
+  account_id: Uuid.nullable(),
+  estimate_total_cents: Cents,
+  actual_labor_cents: Cents,
+  actual_material_cents: Cents,
+  actual_total_cents: Cents,
+  billed_revenue_cents: Cents,
+  margin_cents: Cents,
+});
+export type JobProfitabilityRow = z.infer<typeof JobProfitabilityRowSchema>;
