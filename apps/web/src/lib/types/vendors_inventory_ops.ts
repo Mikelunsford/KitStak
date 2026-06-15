@@ -548,6 +548,10 @@ export const ReceivingOrderLineItemSchema = z.object({
   unit_cost_cents: Cents.nullable(),
   uom: z.string().nullable(),
   reference: z.string().nullable(),
+  // WMS Body B Phase B4 (migration 0110): a received line can carry a lot. The
+  // receipt emitter threads this onto the spine ledger row so a lot-keyed bin
+  // row forms. Nullable; NULL is the no-lot partition (the Phase 1 default).
+  lot_id: Uuid.nullable(),
   position: z.number().int(),
   created_at: Iso,
   updated_at: Iso,
@@ -560,6 +564,9 @@ export const ReceivingOrderLineItemCreateSchema = z.object({
   unit_cost_cents: Cents.optional().nullable(),
   uom: z.string().min(1).max(16).optional().nullable(),
   reference: z.string().optional().nullable(),
+  // WMS Body B Phase B4 (migration 0110): optional lot on a received line. The
+  // server validates it is bound to the line item when set (assertLotForItem).
+  lot_id: z.string().uuid().nullable().optional(),
   position: z.number().int().optional(),
 });
 export type ReceivingOrderLineItemCreate = z.infer<typeof ReceivingOrderLineItemCreateSchema>;

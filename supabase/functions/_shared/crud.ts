@@ -123,6 +123,41 @@ export async function assertRefInOrg(
 }
 
 /**
+ * Assert a client-supplied lot_id references an in-org lot that is bound to the
+ * SAME item the lot is being attached to. A lot is bound to exactly one item
+ * (lots.item_id is NOT NULL), so a lot_id on a receiving line or putaway task
+ * whose lot.item_id differs from the line / task item_id is incoherent: it would
+ * credit a lot-keyed bin row for the wrong item. This is the server-side
+ * authority for the cross-item lot guard.
+ *
+ * Org-scoped admin select of lots (id, item_id) filtered to non-soft-deleted
+ * rows. Throws NOT_FOUND (404) when the lot is missing, soft-deleted,
+ * cross-tenant, OR its item_id does not match `itemId`. 404 (never 403) is the
+ * constitutional answer for an out-of-scope reference on a write, and the single
+ * envelope covers "does not exist", "another org", and "wrong item" so it leaks
+ * no cross-tenant or cross-item existence oracle. Mirrors assertRefInOrg.
+ */
+export async function assertLotForItem(
+  caller: Caller,
+  lotId: string,
+  itemId: string,
+): Promise<void> {
+  const { data, error } = await admin()
+    .from('lots')
+    .select('id, item_id')
+    .eq('org_id', caller.orgId)
+    .eq('id', lotId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) {
+    throw internalError('crud:assertLotForItem:lots', error);
+  }
+  if (!data || (data as { item_id: string }).item_id !== itemId) {
+    throw new ApiError('NOT_FOUND', 404, 'referenced lot not found for this item');
+  }
+}
+
+/**
  * Batch variant of assertRefInOrg. Verifies that every id in `ids` references a
  * row in the caller's org with a single `where in (...)` query instead of one
  * round-trip per id. Throws NOT_FOUND (404) if any distinct non-null id is

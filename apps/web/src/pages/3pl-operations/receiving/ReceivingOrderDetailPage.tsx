@@ -25,6 +25,7 @@ import {
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useWmsLocationsList } from '@/lib/hooks/useWmsLocations';
+import { useWmsLotsList } from '@/lib/hooks/useWmsLots';
 import { FEATURE_FLAGS } from '@/lib/constants';
 import { RECEIVING_ORDER_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ReceivingOrderStatus } from '@/lib/types/vendors_inventory_ops';
@@ -75,6 +76,18 @@ export function ReceivingOrderDetailPage() {
   const [unitCost, setUnitCost] = useState('');
   const [uom, setUom] = useState('');
   const [reference, setReference] = useState('');
+  const [lotId, setLotId] = useState('');
+
+  // WMS Body B Phase B4 lot capture: an optional lot on the received line. The
+  // picker renders only when plugins.wms is on AND an item is selected; the lot
+  // list is filtered to that item. When WMS is off the picker is absent and
+  // lot_id is never sent, so the receive path stays a pure NULL no-op. Lazy: the
+  // whole page is a lazy route, so the WMS lot code lands in this chunk.
+  const lotPickerEnabled = wmsEnabled && !!selectedItemId;
+  const lotOptions = useWmsLotsList(
+    { item_id: selectedItemId ?? '', status: 'active' },
+    lotPickerEnabled,
+  );
 
   if (r.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (r.error || !r.data) return <p className="px-8 py-12 text-accent">Receiving order not found.</p>;
@@ -97,6 +110,9 @@ export function ReceivingOrderDetailPage() {
         unit_cost_cents: unitCost === '' ? null : Number(unitCost),
         uom: uom === '' ? null : uom,
         reference: reference === '' ? null : reference,
+        // Send lot_id only when WMS is on and a lot was chosen; otherwise omit it
+        // so the line keeps a NULL lot (the no-lot partition).
+        ...(wmsEnabled && lotId ? { lot_id: lotId } : {}),
       },
       {
         onSuccess: () => {
@@ -105,6 +121,7 @@ export function ReceivingOrderDetailPage() {
           setUnitCost('');
           setUom('');
           setReference('');
+          setLotId('');
         },
       },
     );
@@ -307,7 +324,14 @@ export function ReceivingOrderDetailPage() {
               <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
               <ItemPicker
                 value={selectedItemId}
-                onChange={(itemId) => setSelectedItemId(itemId)}
+                onChange={(itemId) => {
+                  setSelectedItemId(itemId);
+                  // Reset the lot when the item changes so a stale lot picked for
+                  // a prior item cannot ride onto a new item line (the lot list is
+                  // item-filtered; the server also 404s a cross-item lot, but the
+                  // reset keeps the UI coherent).
+                  setLotId('');
+                }}
                 label="Item"
                 filter={{ active: true }}
               />
@@ -335,6 +359,26 @@ export function ReceivingOrderDetailPage() {
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                 />
+                {wmsEnabled && (
+                  <label className="flex flex-col gap-2">
+                    <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                      Lot
+                    </span>
+                    <Select
+                      value={lotId}
+                      onChange={(e) => setLotId(e.target.value)}
+                      aria-label="Lot"
+                      disabled={!selectedItemId}
+                    >
+                      <option value="">None</option>
+                      {(lotOptions.data ?? []).map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.lot_code}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                )}
                 <Button
                   type="submit"
                   disabled={!selectedItemId || addLine.isPending}

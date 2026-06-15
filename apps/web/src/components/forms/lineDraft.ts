@@ -20,11 +20,20 @@ export interface LineDraft {
   unit_cost_cents: string;
   uom: string;
   reference: string;
+  /**
+   * WMS Body B Phase B4: an optional lot on a RECEIVING line. Empty string means
+   * no lot (the no-lot partition). Only the receiving editor populates this; the
+   * shipment editor never sets it, so shipment drafts keep the empty default and
+   * draftToPostBody omits lot_id from the shipment POST body.
+   */
+  lot_id?: string;
 }
 
 /**
  * Shape submitted to the line-item POST endpoint. Matches
  * `ReceivingOrderLineItemCreate` / `ShipmentLineItemCreate` field-for-field.
+ * lot_id is included ONLY for receiving lines that picked a lot; it is omitted
+ * entirely otherwise so the shipment path (which has no lot column) is unchanged.
  */
 export interface LinePostBody {
   item_id: string;
@@ -32,6 +41,7 @@ export interface LinePostBody {
   unit_cost_cents: number | null;
   uom: string | null;
   reference: string | null;
+  lot_id?: string;
 }
 
 let fallbackCounter = 0;
@@ -64,7 +74,7 @@ export function makeEmptyDraft(): Omit<LineDraft, 'draftId'> {
  * Pure — testable without a React renderer.
  */
 export function draftToPostBody(draft: LineDraft): LinePostBody {
-  return {
+  const body: LinePostBody = {
     item_id: draft.item_id,
     quantity: draft.quantity,
     unit_cost_cents:
@@ -72,6 +82,13 @@ export function draftToPostBody(draft: LineDraft): LinePostBody {
     uom: draft.uom === '' ? null : draft.uom,
     reference: draft.reference === '' ? null : draft.reference,
   };
+  // Carry the lot only when a receiving draft picked one. An absent or empty
+  // lot_id is omitted from the body so the shipment path (no lot column) and
+  // the no-lot receiving line both POST without a lot_id key.
+  if (draft.lot_id) {
+    body.lot_id = draft.lot_id;
+  }
+  return body;
 }
 
 /**

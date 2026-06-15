@@ -35,13 +35,22 @@
 //   POST   /putaway/:id/start                suggested -> in_progress
 //   POST   /putaway/:id/complete             in_progress -> done (+ emit move)
 //   POST   /putaway/:id/cancel               -> cancelled
+//   GET    /lots                             list (RLS-only; filters item_id/status)
+//   POST   /lots                             create
+//   GET    /lots/:id                         read (RLS-only)
+//   PATCH  /lots/:id                         update
+//   DELETE /lots/:id                         soft-delete (reuses lot.update gate)
+//   POST   /lots/:id/quarantine              active -> quarantined (the hold)
 //
 // bin_stock_levels (B2) is a read-only rollup maintained by the
 // recompute_bin_stock_level trigger; its GETs require wms.bin_stock.read and
 // have no write path. putaway_tasks (B3) is a directed-move FSM moved by the
 // start / complete / cancel RPCs; completing a task emits a warehouse-flat
 // internal move (transfer_out at the dock + transfer_in at the bin) via the
-// complete_putaway_task RPC. B4 (lots) adds its routes per phase.
+// complete_putaway_task RPC. lots (B4) capture a lot / batch with optional
+// expiration; lot capture flows end to end (receiving line -> receipt -> bin,
+// and the putaway lot auto-defaults from the source receiving line). The
+// quarantine_lot RPC is the minimal hold (active -> quarantined).
 
 import { type Route } from '../_shared/route.ts';
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
@@ -49,7 +58,7 @@ import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
-import { assertRefInOrg } from '../_shared/crud.ts';
+import { assertRefInOrg, assertLotForItem } from '../_shared/crud.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
@@ -63,6 +72,10 @@ import {
   PutawayTaskCreateSchema,
   PutawayTaskPatchSchema,
   type PutawayTask,
+  LotSchema,
+  LotCreateSchema,
+  LotPatchSchema,
+  type Lot,
 } from '../_shared/types/wms.ts';
 
 const BUNDLE = 'wms-api';
@@ -167,6 +180,43 @@ async function assertLocationInWarehouse(
   if (!data || (data as { warehouse_id: string }).warehouse_id !== warehouseId) {
     throw new ApiError('NOT_FOUND', 404, 'location not found in this warehouse');
   }
+}
+
+// lots loader (B4). Cross-tenant or soft-deleted rows resolve to NOT_FOUND 404,
+// matching the locations / putaway loaders.
+async function loadLot(
+  caller: Caller, id: string,
+): Promise<Lot> {
+  const { data, error } = await admin()
+    .from('lots').select('*')
+    .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+  return LotSchema.parse(data);
+}
+
+// Putaway lot auto-default (B4). When a putaway create points at a receiving
+// order as its source and omits lot_id, resolve the lot the receipt credited so
+// the putaway transfer cites the SAME lot at the same (location, lot) grain.
+// Org-scoped admin read of the receiving lines for this order + item; returns
+// the lot ONLY when EXACTLY ONE line matches and carries a non-null lot_id.
+// Zero or multiple matches leave the lot null (no ambiguous default).
+async function lotForReceivingLine(
+  caller: Caller, receivingOrderId: string, itemId: string,
+): Promise<string | null> {
+  const { data, error } = await admin()
+    .from('receiving_order_line_items')
+    .select('lot_id')
+    .eq('org_id', caller.orgId)
+    .eq('receiving_order_id', receivingOrderId)
+    .eq('item_id', itemId);
+  if (error) throw internalError(BUNDLE, error);
+  const rows = (data ?? []) as Array<{ lot_id: string | null }>;
+  // Exactly one matching line, carrying a non-null lot: default from it. Any
+  // other shape (none, or multiple) is ambiguous, so leave the lot null.
+  if (rows.length !== 1) return null;
+  return rows[0]?.lot_id ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -386,17 +436,16 @@ const TABLE: Route[] = [
       requireCap(caller, 'wms.putaway.create');
       const body = await parseBody(req, PutawayTaskCreateSchema);
       return respondWithIdempotency(req, caller, BUNDLE, '/putaway', body, async () => {
-        // lot_id is fail-closed until B4: no lots table exists yet, and a lot on
-        // a putaway without lot capture at receive would skew the bin-lot grain.
-        // The column stays in the schema as a forward-ref bare uuid, but no client
-        // may set it in B3. B4 removes this guard when it wires lot capture.
-        if (body.lot_id != null) {
-          throw new ApiError('VALIDATION_ERROR', 422, 'lot capture is not available until WMS B4');
-        }
         // warehouse_id and item_id are REQUIRED and must exist in-org; a
         // cross-tenant or missing ref resolves to NOT_FOUND 404 (never 403).
         await assertRefInOrg('warehouses', caller, body.warehouse_id);
         await assertRefInOrg('items', caller, body.item_id);
+        // lot_id is optional (B4); when set, the lot must exist in-org AND be
+        // bound to THIS task's item (lots.item_id NOT NULL). A lot for a
+        // different item is incoherent and 404s (assertLotForItem; never 403).
+        if (body.lot_id) {
+          await assertLotForItem(caller, body.lot_id, body.item_id);
+        }
         // Location refs are optional in-org; validate each when set, AND assert
         // each lives in body.warehouse_id (a bin in another warehouse would
         // mis-file the bin row). assertLocationInWarehouse 404s on a cross-tenant,
@@ -411,6 +460,10 @@ const TABLE: Route[] = [
         // source_location_id: validate when supplied. Otherwise auto-fill from a
         // receiving_order's dock when the create references one.
         let sourceLocationId: string | null = body.source_location_id ?? null;
+        // lot_id: take the client value, else auto-default from the source
+        // receiving line so the putaway transfer cites the SAME lot the receipt
+        // credited at the dock (B4 end-to-end lot reconciliation).
+        let lotId: string | null = body.lot_id ?? null;
         if (sourceLocationId) {
           // supplied directly: assert same-warehouse below with the final value.
         } else if (
@@ -420,6 +473,16 @@ const TABLE: Route[] = [
           // then take its header dock as the putaway source.
           await assertRefInOrg('receiving_orders', caller, body.source_entity_id);
           sourceLocationId = await dockForReceivingOrder(caller, body.source_entity_id);
+        }
+        // Putaway lot auto-default: when the source is a receiving order and the
+        // client did not set a lot, resolve the lot from the source receiving line
+        // (exactly-one-match rule; ambiguous or absent leaves null). This keeps the
+        // putaway transfer at the SAME (location, lot) grain the receipt credited.
+        if (
+          lotId == null &&
+          body.source_entity_type === 'receiving_order' && body.source_entity_id
+        ) {
+          lotId = await lotForReceivingLine(caller, body.source_entity_id, body.item_id);
         }
         // Assert the FINAL resolved source (whether supplied or auto-filled from
         // the dock) lives in body.warehouse_id, so a task in warehouse A can never
@@ -435,7 +498,7 @@ const TABLE: Route[] = [
           source_location_id: sourceLocationId,
           suggested_location_id: body.suggested_location_id ?? null,
           actual_location_id: body.actual_location_id ?? null,
-          lot_id: body.lot_id ?? null,
+          lot_id: lotId,
           license_plate_id: body.license_plate_id ?? null,
           source_entity_type: body.source_entity_type ?? null,
           source_entity_id: body.source_entity_id ?? null,
@@ -481,16 +544,23 @@ const TABLE: Route[] = [
             `putaway task is ${current.status}; its fields can no longer be edited`,
           );
         }
-        // lot_id is fail-closed until B4 (see POST /putaway). No client may set a
-        // non-null lot_id in B3; B4 removes this guard when it wires lot capture.
-        if (body.lot_id != null) {
-          throw new ApiError('VALIDATION_ERROR', 422, 'lot capture is not available until WMS B4');
-        }
         if (body.warehouse_id) {
           await assertRefInOrg('warehouses', caller, body.warehouse_id);
         }
         if (body.item_id) {
           await assertRefInOrg('items', caller, body.item_id);
+        }
+        // lot_id is optional (B4); the EFFECTIVE lot must be bound to the EFFECTIVE
+        // item. Re-validate whenever the lot changes OR the item changes on a
+        // lot-bearing task, so a patch that only re-targets the item cannot leave a
+        // now-incoherent lot attached (which would credit a lot-keyed bin for the
+        // wrong item on complete). 404 on a missing, cross-tenant, or wrong-item lot
+        // (assertLotForItem; never 403). Mirrors the cross-warehouse guard below.
+        const effLotItemId = body.item_id ?? current.item_id;
+        const effLotId = body.lot_id !== undefined ? body.lot_id : current.lot_id;
+        const lotItemChanged = body.item_id !== undefined && body.item_id !== current.item_id;
+        if ((body.lot_id !== undefined || lotItemChanged) && effLotId != null) {
+          await assertLotForItem(caller, effLotId, effLotItemId);
         }
         // Cross-warehouse location guard. The effective warehouse is the patched
         // warehouse_id when present, else the current row's. Validate the EFFECTIVE
@@ -623,6 +693,142 @@ const TABLE: Route[] = [
           throw internalError(BUNDLE, error);
         }
         return ok(await loadPutawayTask(caller, params.id));
+      });
+    },
+  },
+  // -------------------------------------------------------------------------
+  // lots (B4; lot and expiration capture). A near-config FSM whose state is its
+  // status (active / quarantined / expired / consumed). Phase 1 ships only the
+  // quarantine hold. Reads are RLS-only; writes are cap-gated.
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/lots',
+    handler: async ({ req, url }) => {
+      const caller = requireCaller(req);
+      const itemId = url.searchParams.get('item_id');
+      const status = url.searchParams.get('status');
+      let q = admin()
+        .from('lots').select('*')
+        .eq('org_id', caller.orgId).is('deleted_at', null)
+        .order('created_at', { ascending: false }).limit(500);
+      if (itemId) q = q.eq('item_id', itemId);
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q;
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => LotSchema.parse(r)));
+    },
+  },
+  {
+    method: 'POST', path: '/lots',
+    handler: async ({ req }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'wms.lot.create');
+      const body = await parseBody(req, LotCreateSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/lots', body, async () => {
+        // item_id is REQUIRED and must exist in-org; a cross-tenant or missing
+        // item resolves to NOT_FOUND 404 (never 403).
+        await assertRefInOrg('items', caller, body.item_id);
+        // status is NOT accepted on create (LotCreateSchema omits it). A new lot
+        // ALWAYS starts at the DB default 'active'; quarantine then flows only
+        // through the quarantine_lot RPC. No status key here.
+        const insert: Record<string, unknown> = {
+          org_id: caller.orgId,
+          item_id: body.item_id,
+          lot_code: body.lot_code,
+          expiration_date: body.expiration_date ?? null,
+          received_at: body.received_at ?? null,
+          notes: body.notes ?? null,
+          created_by: caller.userId,
+          updated_by: caller.userId,
+        };
+        const { data, error } = await admin().from('lots')
+          .insert(insert).select('*').single();
+        if (error) throw internalError(BUNDLE, error);
+        return created(LotSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'GET', path: '/lots/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      parseUuidParam(params.id);
+      const row = await loadLot(caller, params.id);
+      return ok(row);
+    },
+  },
+  {
+    method: 'PATCH', path: '/lots/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'wms.lot.update');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, LotPatchSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/lots-patch', body, async () => {
+        await loadLot(caller, params.id);
+        if (body.item_id) {
+          await assertRefInOrg('items', caller, body.item_id);
+        }
+        // status moves via the quarantine route, not here.
+        const patch: Record<string, unknown> = {
+          updated_by: caller.userId,
+          updated_at: nowIso(),
+        };
+        if (body.item_id !== undefined) patch.item_id = body.item_id;
+        if (body.lot_code !== undefined) patch.lot_code = body.lot_code;
+        if (body.expiration_date !== undefined) patch.expiration_date = body.expiration_date;
+        if (body.received_at !== undefined) patch.received_at = body.received_at;
+        if (body.notes !== undefined) patch.notes = body.notes;
+        const { data, error } = await admin().from('lots')
+          .update(patch)
+          .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .select('*').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok(LotSchema.parse(data));
+      });
+    },
+  },
+  {
+    method: 'DELETE', path: '/lots/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      // No dedicated wms.lot.delete cap; reuse wms.lot.update (same role gate),
+      // matching the locations / putaway soft-delete precedent.
+      requireCap(caller, 'wms.lot.update');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/lots-delete', null, async () => {
+        await loadLot(caller, params.id);
+        const { data, error } = await admin().from('lots')
+          .update({
+            deleted_at: nowIso(),
+            updated_by: caller.userId,
+            updated_at: nowIso(),
+          })
+          .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .select('id').maybeSingle();
+        if (error) throw internalError(BUNDLE, error);
+        if (!data) throw new ApiError('NOT_FOUND', 404);
+        return ok({ id: params.id, deleted: true });
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/lots/:id/quarantine',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'wms.lot.quarantine');
+      parseUuidParam(params.id);
+      return respondWithIdempotency(req, caller, BUNDLE, '/lots-quarantine', null, async () => {
+        const { error } = await admin().rpc('quarantine_lot', {
+          p_lot_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadLot(caller, params.id));
       });
     },
   },

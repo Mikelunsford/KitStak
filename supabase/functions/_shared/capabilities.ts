@@ -355,7 +355,12 @@ export type Capability =
   | 'wms.putaway.create'
   | 'wms.putaway.start'
   | 'wms.putaway.complete'
-  | 'wms.putaway.cancel';
+  | 'wms.putaway.cancel'
+  // wms.lot.* (4) WMS Body B Lot and expiration capture (add-on six; Phase B4).
+  | 'wms.lot.read'
+  | 'wms.lot.create'
+  | 'wms.lot.update'
+  | 'wms.lot.quarantine';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -691,6 +696,12 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'wms.putaway.start',
   'wms.putaway.complete',
   'wms.putaway.cancel',
+  // wms.lot.* WMS Body B Lot and expiration capture (add-on six; Phase B4).
+  // Same inventory 3-role grant as locations / putaway (org_owner / org_admin / ops).
+  'wms.lot.read',
+  'wms.lot.create',
+  'wms.lot.update',
+  'wms.lot.quarantine',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -1011,6 +1022,12 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'wms.putaway.start',
   'wms.putaway.complete',
   'wms.putaway.cancel',
+  // wms.lot.* WMS Body B Lot and expiration capture (add-on six; Phase B4).
+  // Same inventory 3-role grant as locations / putaway (org_owner / org_admin / ops).
+  'wms.lot.read',
+  'wms.lot.create',
+  'wms.lot.update',
+  'wms.lot.quarantine',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1387,6 +1404,12 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'wms.putaway.start',
   'wms.putaway.complete',
   'wms.putaway.cancel',
+  // wms.lot.* WMS Body B Lot and expiration capture (add-on six; Phase B4).
+  // Same inventory 3-role grant as locations / putaway (org_owner / org_admin / ops).
+  'wms.lot.read',
+  'wms.lot.create',
+  'wms.lot.update',
+  'wms.lot.quarantine',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [

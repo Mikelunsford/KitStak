@@ -893,6 +893,21 @@ const WmsPutawayDetailPage = lazy(() =>
     default: m.WmsPutawayDetailPage,
   })),
 );
+const WmsLotsListPage = lazy(() =>
+  import('./pages/wms/WmsLotsListPage').then((m) => ({
+    default: m.WmsLotsListPage,
+  })),
+);
+const WmsLotCreatePage = lazy(() =>
+  import('./pages/wms/WmsLotCreatePage').then((m) => ({
+    default: m.WmsLotCreatePage,
+  })),
+);
+const WmsLotDetailPage = lazy(() =>
+  import('./pages/wms/WmsLotDetailPage').then((m) => ({
+    default: m.WmsLotDetailPage,
+  })),
+);
 // === End WMS ===
 
 // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
@@ -1470,6 +1485,11 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/wms/putaway',            element: WmsPutawayListPage,          guard: 'protected', layout: 'shell' },
   { path: '/wms/putaway/new',        element: WmsPutawayCreatePage,        guard: 'protected', layout: 'shell' },
   { path: '/wms/putaway/:id',        element: WmsPutawayDetailPage,        guard: 'protected', layout: 'shell' },
+  // Phase B4: Lots. Near-config HUB with a quarantine hold. /new precedes /:id
+  // so react-router v6 matches the literal first (mirrors the Locations precedent).
+  { path: '/wms/lots',               element: WmsLotsListPage,             guard: 'protected', layout: 'shell' },
+  { path: '/wms/lots/new',           element: WmsLotCreatePage,            guard: 'protected', layout: 'shell' },
+  { path: '/wms/lots/:id',           element: WmsLotDetailPage,            guard: 'protected', layout: 'shell' },
   // === End WMS ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.

@@ -134,6 +134,13 @@ const COLOR_MAP: Record<string, string> = {
   // terminal state, given a blue tone distinct from the green approved and
   // the neutral draft / cancelled.
   invoiced: 'bg-blue-500',
+
+  // Lot status (Wave 12 / WMS B4). active / expired are mapped above and shared
+  // (lot active reads green, expired reads neutral, both fine for a lot). New:
+  // quarantined gets the accent alert tone so a held lot is visually obvious;
+  // consumed is terminal and shares the muted neutral bg-ink-dim.
+  quarantined: 'bg-accent',
+  consumed: 'bg-ink-dim',
 };
 
 /**
@@ -231,6 +238,11 @@ const LABEL_MAP: Record<string, string> = {
   // Billing Review status (Wave 12 / A7). draft / approved / cancelled are
   // mapped above and shared; only invoiced is new.
   invoiced: 'Invoiced',
+
+  // Lot status (Wave 12 / WMS B4). active / expired are mapped above and shared;
+  // only quarantined (the held state) and consumed (terminal) are new.
+  quarantined: 'Quarantined',
+  consumed: 'Consumed',
 };
 
 /**
