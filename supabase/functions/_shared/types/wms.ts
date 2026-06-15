@@ -84,3 +84,64 @@ export const BinStockLevelSchema = z.object({
   updated_at: Iso,
 });
 export type BinStockLevel = z.infer<typeof BinStockLevelSchema>;
+
+// ---------------------------------------------------------------------------
+// putaway_tasks (migration 0109; WMS Body B Phase B3 directed putaway). A
+// directed move of received stock from a dock (source_location_id) to a final
+// bin (actual_location_id). Rich FSM suggested / in_progress / done / cancelled,
+// moved by the server RPCs (start / complete / cancel), not table writes.
+// Completing a task emits a warehouse-flat internal move (transfer_out at the
+// dock + transfer_in at the bin); the warehouse total stays flat while the bin
+// grain shifts. lot_id / license_plate_id are nullable uuids (the lot FK lands
+// in B4). source_entity_type / source_entity_id are a free-form audit ref (e.g.
+// the receiving_order the stock arrived on); no FK.
+// ---------------------------------------------------------------------------
+
+export const PutawayTaskStatusSchema = z.enum([
+  'suggested',
+  'in_progress',
+  'done',
+  'cancelled',
+]);
+export type PutawayTaskStatus = z.infer<typeof PutawayTaskStatusSchema>;
+
+export const PutawayTaskSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  warehouse_id: Uuid,
+  item_id: Uuid,
+  quantity: Qty,
+  source_location_id: Uuid.nullable(),
+  suggested_location_id: Uuid.nullable(),
+  actual_location_id: Uuid.nullable(),
+  lot_id: Uuid.nullable(),
+  license_plate_id: Uuid.nullable(),
+  source_entity_type: z.string().nullable(),
+  source_entity_id: Uuid.nullable(),
+  status: PutawayTaskStatusSchema,
+  started_at: Iso.nullable(),
+  completed_at: Iso.nullable(),
+  cancelled_at: Iso.nullable(),
+  notes: z.string().nullable(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type PutawayTask = z.infer<typeof PutawayTaskSchema>;
+
+export const PutawayTaskCreateSchema = z.object({
+  warehouse_id: Uuid,
+  item_id: Uuid,
+  quantity: Qty,
+  source_location_id: Uuid.optional().nullable(),
+  suggested_location_id: Uuid.optional().nullable(),
+  actual_location_id: Uuid.optional().nullable(),
+  lot_id: Uuid.optional().nullable(),
+  license_plate_id: Uuid.optional().nullable(),
+  source_entity_type: z.string().optional().nullable(),
+  source_entity_id: Uuid.optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type PutawayTaskCreate = z.infer<typeof PutawayTaskCreateSchema>;
+
+export const PutawayTaskPatchSchema = PutawayTaskCreateSchema.partial();
+export type PutawayTaskPatch = z.infer<typeof PutawayTaskPatchSchema>;

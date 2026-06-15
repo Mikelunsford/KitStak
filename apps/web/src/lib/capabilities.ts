@@ -350,7 +350,12 @@ export type Capability =
   | 'wms.location.deactivate'
   // wms.bin_stock.* (1) WMS Body B bin stock rollup (add-on six; Phase B2).
   // Read-only; bin_stock_levels is maintained by the recompute trigger.
-  | 'wms.bin_stock.read';
+  | 'wms.bin_stock.read'
+  // wms.putaway.* (4) WMS Body B Directed putaway (add-on six; Phase B3).
+  | 'wms.putaway.create'
+  | 'wms.putaway.start'
+  | 'wms.putaway.complete'
+  | 'wms.putaway.cancel';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -680,6 +685,12 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   // wms.bin_stock.read WMS Body B bin stock rollup (add-on six; Phase B2).
   // Read-only; the rollup is trigger-maintained. Same 3-role grant as locations.
   'wms.bin_stock.read',
+  // wms.putaway.* WMS Body B Directed putaway (add-on six; Phase B3).
+  // Same inventory 3-role grant as locations (org_owner / org_admin / ops).
+  'wms.putaway.create',
+  'wms.putaway.start',
+  'wms.putaway.complete',
+  'wms.putaway.cancel',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -994,6 +1005,12 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   // wms.bin_stock.read WMS Body B bin stock rollup (add-on six; Phase B2).
   // Read-only; the rollup is trigger-maintained. Same 3-role grant as locations.
   'wms.bin_stock.read',
+  // wms.putaway.* WMS Body B Directed putaway (add-on six; Phase B3).
+  // Same inventory 3-role grant as locations (org_owner / org_admin / ops).
+  'wms.putaway.create',
+  'wms.putaway.start',
+  'wms.putaway.complete',
+  'wms.putaway.cancel',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1364,6 +1381,12 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   // wms.bin_stock.read WMS Body B bin stock rollup (add-on six; Phase B2).
   // Read-only; the rollup is trigger-maintained. Same 3-role grant as locations.
   'wms.bin_stock.read',
+  // wms.putaway.* WMS Body B Directed putaway (add-on six; Phase B3).
+  // Same inventory 3-role grant as locations (org_owner / org_admin / ops).
+  'wms.putaway.create',
+  'wms.putaway.start',
+  'wms.putaway.complete',
+  'wms.putaway.cancel',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
