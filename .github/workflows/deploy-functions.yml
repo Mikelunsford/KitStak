@@ -38,6 +38,7 @@ env:
     idempotency-gc
     auth-api
     tenants-api
+    tenants-public-api
     settings-api
     admin-console-api
     crm-api

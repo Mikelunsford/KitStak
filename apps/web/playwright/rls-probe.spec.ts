@@ -845,17 +845,70 @@ test.describe('@rls cross-tenant probe matrix', () => {
     expect(res.status).toBe(401);
   });
 
-  test('@rls anonymous tenants-api resolve-host (verify_jwt=false) succeeds', async () => {
+  test('@rls anonymous tenants-public-api resolve-host (verify_jwt=false) succeeds', async () => {
     if (!SECRETS_PRESENT) test.skip(true, 'staging not wired');
     const res = await callFn(
       null,
       'GET',
-      `/tenants-api/tenants/resolve-host?host=does-not-resolve.kitstak.local`,
+      `/tenants-public-api/tenants/resolve-host?host=does-not-resolve.kitstak.local`,
     );
-    // Positive control: bundle is reachable without a JWT. Any non-401
-    // response (200 with null match, 404 lookup miss) is acceptable; the
-    // probe asserts the gate did not falsely 401.
+    // Positive control: the public bundle is reachable without a JWT. Any
+    // non-401 response (200 with null match, 404 lookup miss) is acceptable;
+    // the probe asserts the gate did not falsely 401. R-W13-SEC-01.
     expect(res.status).not.toBe(401);
+  });
+
+  // --- Category 8b: gateway JWT signature verification -------------------
+  //
+  // R-W13-SEC-01. tenants-api and admin-console-api now run with
+  // verify_jwt = true, so the Supabase gateway verifies the JWT signature
+  // before the bundle runs. A forged (unsigned / wrong-signature) token must
+  // be rejected with a non-200 (401 from the gateway) BEFORE any handler
+  // executes, while the public resolve-host route stays reachable pre-auth.
+  //
+  // FORGED_JWT is a structurally valid three-part token (header.payload.sig)
+  // with a bogus signature. _shared/tenant.ts would happily base64-decode its
+  // claims; the gateway is the layer that rejects it once verify_jwt = true.
+  const FORGED_JWT = [
+    // {"alg":"HS256","typ":"JWT"}
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+    // {"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated",
+    //  "app_metadata":{"kitstak_org_id":"00000000-0000-0000-0000-000000000002",
+    //  "kitstak_org_role":"org_owner"}}
+    'eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFwcF9tZXRhZGF0YSI6eyJraXRzdGFrX29yZ19pZCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMiIsImtpdHN0YWtfb3JnX3JvbGUiOiJvcmdfb3duZXIifX0',
+    // bogus signature segment
+    'Zm9yZ2VkLXNpZ25hdHVyZS1ub3QtdmFsaWQ',
+  ].join('.');
+
+  test('@rls forged JWT rejected on tenants-api /branding (verify_jwt=true)', async () => {
+    if (!SECRETS_PRESENT) test.skip(true, 'staging not wired');
+    const res = await callFn(FORGED_JWT, 'GET', `/tenants-api/branding`);
+    // Gateway rejects the forged signature before getBranding runs. A 200
+    // here would mean the forged token reached the handler, the exact gap
+    // R-W13-SEC-01 closes.
+    expect(res.status).not.toBe(200);
+  });
+
+  test('@rls forged JWT rejected on tenants-api /tenants/me (verify_jwt=true)', async () => {
+    if (!SECRETS_PRESENT) test.skip(true, 'staging not wired');
+    const res = await callFn(FORGED_JWT, 'GET', `/tenants-api/tenants/me`);
+    expect(res.status).not.toBe(200);
+  });
+
+  test('@rls forged JWT rejected on admin-console-api (verify_jwt=true)', async () => {
+    if (!SECRETS_PRESENT) test.skip(true, 'staging not wired');
+    const res = await callFn(FORGED_JWT, 'GET', `/admin-console-api/organizations`);
+    // The gateway rejects the forged signature before assertBundleEnabled
+    // runs. Non-200 covers both the gateway 401 and any downstream gate.
+    expect(res.status).not.toBe(200);
+  });
+
+  test('@rls anonymous tenants-api /branding returns 401 (verify_jwt=true)', async () => {
+    if (!SECRETS_PRESENT) test.skip(true, 'staging not wired');
+    const res = await callFn(null, 'GET', `/tenants-api/branding`);
+    // With verify_jwt = true, the gateway 401s anonymous callers before the
+    // handler runs.
+    expect(res.status).toBe(401);
   });
 
   // --- Category 9: switch-org cross-tenant reject ------------------------

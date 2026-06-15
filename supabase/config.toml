@@ -42,23 +42,49 @@ policy = "oneshot"
 [functions.notifications-worker]
 verify_jwt = false
 
-# tenants-api exposes a public route (/tenants/resolve-host) that must work
-# pre-auth so the SPA can resolve a custom hostname back to an org before
-# the user signs in. The bundle dispatcher gates the authenticated routes
-# (e.g. /branding) with requireCaller() at the handler level. Closes
-# F-Wave2-AGENT-A-06.
-[functions.tenants-api]
+# R-W13-SEC-01 JWT signature verification split.
+#
+# tenants-api and admin-console-api hold authenticated surfaces. The shared
+# claim reader in _shared/tenant.ts (decodeJwtPayload) only base64-decodes the
+# JWT body; it does NOT verify the signature. With verify_jwt = false a forged
+# or unsigned token would pass that decode and reach the handler. Setting
+# verify_jwt = true makes the Supabase gateway verify the signature BEFORE the
+# bundle runs (rejecting forged tokens with 401 at the edge), so the
+# decode-only reader is safe: the token is pre-verified by the time a handler
+# sees it. _shared/mfa.ts gates on caller.userId, which is the gateway-verified
+# `sub` claim, so MFA enforcement also benefits from the upgrade.
+#
+# The one pre-auth public route (/tenants/resolve-host) was moved into the
+# tenants-public-api bundle below, which keeps verify_jwt = false so the SPA
+# can resolve a custom hostname to an org before the user signs in. That
+# route calls resolve_org_by_host, which itself enforces verified_at, so no
+# unverified tenant leaks regardless of the missing JWT.
+
+# tenants-public-api is the ONLY pre-auth public tenant route
+# (/tenants/resolve-host). It runs with verify_jwt = false so the SPA can
+# resolve a custom hostname back to an org before the user signs in. The
+# service-role RPC enforces verified_at filtering. R-W13-SEC-01.
+[functions.tenants-public-api]
 verify_jwt = false
 
-# admin-console-api is a bundle-gated surface (platform_admin.enabled). The
-# constitutional pattern is to return 404 NOT_FOUND when the gate is off so
-# the surface is invisible. With verify_jwt = true the platform gateway
-# returns 401 to anonymous callers before the handler can run, leaking the
-# fact that the bundle exists. The handler's assertBundleEnabled() already
-# treats anonymous as flag-off and throws 404, so verify_jwt = false is the
-# correct setting. Closes F-Wave5-API-03.
+# tenants-api holds only authenticated routes (/branding, /tenants/me) now
+# that the public resolver lives in tenants-public-api. verify_jwt = true so
+# the gateway verifies the JWT signature before the handler runs. Closes
+# F-Wave2-AGENT-A-06 (superseded) / R-W13-SEC-01.
+[functions.tenants-api]
+verify_jwt = true
+
+# admin-console-api is a bundle-gated platform-admin surface
+# (platform_admin.enabled). It has no public route, so verify_jwt = true is
+# safe: the gateway verifies the JWT signature before any handler runs. An
+# anonymous caller is rejected with 401 at the gateway. The handler's
+# assertBundleEnabled() still throws 404 (not 403) when the flag is off for an
+# authenticated caller, so the constitutional gate pattern is preserved past
+# the gateway. R-W13-SEC-01 (supersedes the prior F-Wave5-API-03 setting; the
+# bundle-existence concern is outweighed by signature verification, and the
+# bundle is invisible to authenticated non-admin callers via the 404 gate).
 [functions.admin-console-api]
-verify_jwt = false
+verify_jwt = true
 
 # stripe-webhook is called by Stripe, not by an authenticated Supabase
 # session. Authentication is the HMAC signature in the Stripe-Signature
