@@ -1,5 +1,19 @@
 # Kitstak Status
 
+## 2026-06-14 SPA index budget lean-up SHIPPED (WMS B0 prerequisite cleared)
+
+The SPA index budget lean-up (`F-Wave12-INDEX-BUDGET-HEADROOM-01`) is built and verified on branch `claude/index-leanup-sidebar-lazy` (not merged; no merge without the operator). The SPA index chunk drops from 39.99 to 33.7 kB gz under the held 40 kB `size-limit` budget. That is about 6 kB of reclaimed headroom, past the plan's at-or-under-37 target, so WMS B0 and the next several phases can add eager navigation weight without raising the budget.
+
+The cut. One file. The left-nav Sidebar is lazy-split out of the always-on app shell (`apps/web/src/components/shell/AppShell.tsx`), so the sidebar mode config (`sidebarModes.ts`) and roughly fifty lucide-react navigation icons move into a `Sidebar-*.js` chunk instead of riding in the eager index. AppShell renders a fixed `w-56` rail placeholder behind a local `Suspense` boundary, so first paint shows no horizontal layout shift and the page-level Suspense never blanks. The chunk still loads on the first authenticated render, so the nav is present by the time the operator interacts.
+
+Analysis first, per the plan. Measured with `npx vite-bundle-visualizer` (one-shot, no dependency added). The lucide icon set was the single largest eager contributor to the index (about 17.7 kB across 56 icon files); `routes.ts` was second (6.8 kB), left for the structural `F-Wave10-INDEX-SPLIT` lever. The sidebar carried the bulk of the eager icons, so lazy-loading it was the highest-leverage, lowest-risk single cut.
+
+Gates green. typecheck, lint (max-warnings 0), contract parity 27, src unit 763, regression 519 passed plus 2 skipped (the `sidebarModes` exact-paths test 43 and `canon-steward` 3 both unaffected; sidebar structure did not change, only its load boundary), build, and size-limit. No edge, migration, money, RLS, audit, or idempotency change, so `deno check` is out of scope. An independent typescript-reviewer pass returned APPROVE with no critical or high findings; the one nit (fallback class divergence) was folded in.
+
+Budget held at 40 kB, not raised, per the operator decision 2026-06-14. The raise stays reserved for a deliberate UI and navigation investment later.
+
+Next. WMS Body B is on deck. The B0-to-B4 handoff is `03-workspace/specs/2026-06-14-wms-bodyb-phase1-handoff.md`. B0 (the `plugins.wms` chassis) is now unblocked. Before B1, lock the five B-decisions (location code scheme, putaway source linkage, lot capture point, `bin_stock_levels` grain, putaway done-movement no-op); the handoff recommends each. The B2 `stock_movements` `location_id` change remains the operator stop-point and ships in one PR with the sum-reconcile proof.
+
 ## 2026-06-14 SPA index budget lean-up (recommended next, before WMS B0)
 
 Context. Phase A7 (Billing Review and Job Profitability) shipped and merged to prod (PR #263, squash 9855955; migrations 0102 to 0104; three-pl-api live; verified at prod max migration 0104). That completes Body A, the 3PL commercial layer (Accounts, Job Builders, Quote integration, Project conversion, Supply Plans, Job Runs, Billing Review, Profitability). The only remaining planned work is WMS Body B (B0 to B4), plan in `03-workspace/specs/2026-06-14-wms-bodyb-phase1-handoff.md`, gated on the B2 `stock_movements` `location_id` operator stop-point.

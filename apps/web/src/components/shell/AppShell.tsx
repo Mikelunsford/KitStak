@@ -1,9 +1,43 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { TrialBanner } from './TrialBanner';
+import { lazyWithReload } from '@/lib/lazyWithReload';
+
+/**
+ * Sidebar is lazy-split out of the eager shell (F-Wave12-INDEX-BUDGET-HEADROOM-01).
+ * The sidebar config (sidebarModes.ts) and the navigation icon set are the
+ * single largest eager contributor to the SPA index chunk: roughly fifty
+ * lucide-react icons plus the per-pillar route metadata. Pulling Sidebar behind
+ * a lazy boundary moves that weight into its own chunk and reclaims index
+ * headroom under the 40 kB size-limit budget so later phases (WMS B0 onward)
+ * can add navigation weight without raising the budget.
+ *
+ * The chunk still loads on the first authenticated render (Sidebar is always
+ * mounted), so by the time the operator interacts with the nav it is present.
+ * The fallback below renders a fixed `w-56` rail at the `md:` breakpoint that
+ * matches the real rail's footprint, so first paint shows no layout shift; the
+ * nav links simply fill in a beat later. Below `md` the rail is a closed
+ * drawer, so the fallback is visually empty there.
+ */
+const Sidebar = lazyWithReload(() =>
+  import('./Sidebar').then((m) => ({ default: m.Sidebar })),
+);
+
+function SidebarFallback() {
+  // Mirror only the real rail's footprint-bearing classes (width, border,
+  // md:flex direction) so the main column does not shift when the live rail
+  // mounts. The interior classes (gap, padding, overflow) are intentionally
+  // omitted; the placeholder has no children, and w-56 is the outer width
+  // either way (border-box), so there is no horizontal layout shift.
+  return (
+    <nav
+      className="hidden w-56 flex-col border-r border-line bg-bg md:flex"
+      aria-hidden="true"
+    />
+  );
+}
 
 /**
  * Authenticated app chrome. Topbar across the top, Sidebar on the left,
@@ -29,10 +63,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TrialBanner />
       <Topbar onMenuClick={() => setMobileNavOpen(true)} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          mobileOpen={mobileNavOpen}
-          onClose={() => setMobileNavOpen(false)}
-        />
+        <Suspense fallback={<SidebarFallback />}>
+          <Sidebar
+            mobileOpen={mobileNavOpen}
+            onClose={() => setMobileNavOpen(false)}
+          />
+        </Suspense>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
