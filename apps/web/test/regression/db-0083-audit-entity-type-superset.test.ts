@@ -81,9 +81,9 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   const migrations = loadConstraintMigrations();
 
   it('finds every migration that redefines the constraint', () => {
-    // Sanity: the known redefiners through 0106 must all be discovered.
+    // Sanity: the known redefiners through 0109 must all be discovered.
     const nums = migrations.map((m) => m.num);
-    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106]) {
+    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109]) {
       expect(nums).toContain(n);
     }
   });
@@ -119,14 +119,14 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0106 is the current authoritative redefinition', () => {
+  it('0109 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
-    // 0102 (3PL Billing Review) added billing_review; 0106 (WMS Body B
-    // Locations) adds warehouse_location on top of the full 0102 list, so 0106
-    // is latest.
+    // 0106 (WMS Body B Locations) added warehouse_location; 0109 (WMS Body B
+    // Directed putaway) adds putaway_task on top of the full 0106 list (0107 and
+    // 0108 add no entity_type), so 0109 is latest.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(106);
-    expect(latest.file).toBe('0106_warehouse_locations.sql');
+    expect(latest.num).toBe(109);
+    expect(latest.file).toBe('0109_putaway_tasks.sql');
   });
 
   it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
@@ -170,5 +170,10 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('the latest redefinition includes the WMS Locations type (0106)', () => {
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
     expect(latest.types.has('warehouse_location')).toBe(true);
+  });
+
+  it('the latest redefinition includes the WMS Putaway type (0109)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    expect(latest.types.has('putaway_task')).toBe(true);
   });
 });

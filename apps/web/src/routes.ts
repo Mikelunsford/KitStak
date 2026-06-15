@@ -878,6 +878,21 @@ const WmsBinStockListPage = lazy(() =>
     default: m.WmsBinStockListPage,
   })),
 );
+const WmsPutawayListPage = lazy(() =>
+  import('./pages/wms/WmsPutawayListPage').then((m) => ({
+    default: m.WmsPutawayListPage,
+  })),
+);
+const WmsPutawayCreatePage = lazy(() =>
+  import('./pages/wms/WmsPutawayCreatePage').then((m) => ({
+    default: m.WmsPutawayCreatePage,
+  })),
+);
+const WmsPutawayDetailPage = lazy(() =>
+  import('./pages/wms/WmsPutawayDetailPage').then((m) => ({
+    default: m.WmsPutawayDetailPage,
+  })),
+);
 // === End WMS ===
 
 // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
@@ -1450,6 +1465,11 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/wms/locations/:id',      element: WmsLocationDetailPage,       guard: 'protected', layout: 'shell' },
   // Phase B2: Bin stock. Read-only rollup list (no create / detail route in B2).
   { path: '/wms/bin-stock',          element: WmsBinStockListPage,         guard: 'protected', layout: 'shell' },
+  // Phase B3: Putaway. Directed-move FSM. /new precedes /:id so react-router v6
+  // matches the literal first (mirrors the Locations precedent above).
+  { path: '/wms/putaway',            element: WmsPutawayListPage,          guard: 'protected', layout: 'shell' },
+  { path: '/wms/putaway/new',        element: WmsPutawayCreatePage,        guard: 'protected', layout: 'shell' },
+  { path: '/wms/putaway/:id',        element: WmsPutawayDetailPage,        guard: 'protected', layout: 'shell' },
   // === End WMS ===
   // === F-Wave9-INVITE-PASSWORD-SETUP-01: account-security + recovery ===
   // /account/security: any signed-in user can set or change their password.
