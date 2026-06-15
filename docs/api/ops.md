@@ -25,6 +25,8 @@ Status 404, `x-request-id` echoed, CORS headers attached.
 
 States: `created`, `in_progress`, `received`, `cancelled`.
 
+When the WMS add-on is enabled (`plugins.wms`), `receiving_orders` carries an optional header `dock_location_id` (migration 0108, one dock per receipt). The receipt-emit trigger applies it as the `location_id` on every emitted movement, and migration 0110 also threads the per-line `receiving_order_line_items.lot_id` onto the same rows, so the receipt lands at the bin (and lot) grain. With the dock null the receipt carries a NULL location, byte-identical to pre-WMS. From the dock, stock is stowed in a final bin via directed putaway (`putaway_tasks`, migration 0109). See `docs/api/wms.md` for the WMS surface.
+
 ### Production runs
 
 - `GET /ops-api/production-runs` cap `production.run.read`

@@ -6,7 +6,7 @@ The operating system for small-to-medium operators in 3PL, manufacturing, co-pac
 
 ## What this repo is
 
-The Kitstak product codebase. Five product pillars (3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost) on a single multi-tenant chassis. Feature flags decide what is lit per customer. Whitelabel is a product, not a feature.
+The Kitstak product codebase. One spine (the always-on business backbone plus shared building blocks) plus six composable add-ons (3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost, and WMS for warehouse execution) on a single multi-tenant chassis. Feature flags decide what is lit per customer. Whitelabel is a product, not a feature. See `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`.
 
 ## Quick start
 
@@ -76,15 +76,15 @@ kitstak/
 
 ## Current status
 
-Phase 9 (Observability) is closed (`4a9a69a`). Sentry SaaS error + performance capture activated end-to-end (US region project `4511423235751936`, three-layer PII gate: `sendDefaultPii: false` plus `beforeSend` `ip_address = null` plus Sentry Project Security & Privacy toggle); PostHog regression resolved (was silently broken after a Vercel "Sensitive" env-var flag; now injected via GitHub repo secrets at the `vercel build` step per PR #66). Three-PR arc: chassis (#65), workflow Sensitive-fix (#66), Relay IP suppression hardening (#67). Bundle posture: index chunk 29.95 kB / 40 kB (with `VITE_SENTRY_DSN` unset, sentry chunk tree-shaken to zero; with DSN set, `sentry-<hash>.js` lazy chunk emits at 120.74 kB gzipped). Closeout journal at `03-workspace/journal/phase-9-sentry-spa.md`.
+Wave 12 is live on prod. The schema runs through migration `0111`; there are 30 edge-function bundles under `supabase/functions/`.
 
-Phase 8 (Polish) is closed (`9303408`). 10 code follow-ups closed + 3 deferrals documented with explicit revisit triggers. Headline deliverables: PostHog analytics chassis with 5 funnel events (`signed_in`, `quote_sent`, `project_converted`, `invoice_sent`, `payment_received`) and bucketed amount PII posture; PDF worker real-render via jspdf for invoice / quote / PO templates with Bebas Neue + Inter Tight font embedding on the worker side; dnd-kit phase reorder UI at the project detail page (lazy-loaded chunk); CI nightly skip-guards on audit-chain-verify and idempotency-gc workflows; canon-steward + trigger-audit grep guardrails wired into CI.
+The 3PL commercial layer (Body A) is complete: Accounts, Job Builders, Quote integration, Project conversion with template snapshot, Supply Plans, Job Runs, Billing Review, and Job Profitability, building the loop Job Builder to Quote to Project to Supply Plan to Job Run to invoice (migrations 0089 to 0104, CHANGELOG `0.16.0` and `0.17.0`).
 
-Phase 7 (Stabilization) is closed (`9846f1e`). All fourteen stabilization follow-ups closed across twelve PRs (#37 through #48) in three parallel cycles: low-coupling cleanups, boundary canon work, and schema normalisation. 51 forward-only migrations applied at the remote (latest: 0049 adds `customers.default_payment_terms_days`, 0050 normalises receiving / shipment line items into dedicated tables with Pattern A RLS, 0051 emit-movements trigger reads line-item tables). Byte-mirror parity intact across 26 pairs (`pnpm test:contract` 26/26).
+The sixth add-on, WMS (warehouse execution), shipped (Body B, B0 to B4). It deepens the spine's warehouse-level stock to bin level via a nullable `location_id` on the append-only `stock_movements` ledger: the sum of the bins equals the warehouse `quantity_on_hand` by construction, and turning `plugins.wms` off leaves the spine totals untouched. Warehouse locations, the bin-stock rollup, receiving to dock, directed putaway, and lot capture are all in, gated `plugins.wms` (default off) at the `/wms` root behind the `wms-api` bundle (migrations 0105 to 0110, CHANGELOG `0.18.0`). Migration 0111 hardened the FSM action RPC grants (revoked `EXECUTE` from `authenticated`; the Edge service-role call path is unchanged).
 
-Phase 6 quote-to-cash gate also remains closed (`347062f`). Six hotfix PRs (#24 through #29) landed during the operator walkthrough; five polish PRs (#31 through #35) cleared the carryover bucket the morning after.
+Earlier foundations remain closed: observability (Phase 9, Sentry plus PostHog), polish (Phase 8), stabilization (Phase 7), and the Phase 6 quote-to-cash gate walked end to end on prod.
 
-See `STATUS.md` for the full breakdown, the Outstanding Work and Drift Register sections for what is in flight, `CHANGELOG.md` for release history, and `03-workspace/journal/` for per-wave closeouts.
+See `STATUS.md` for the full breakdown and the Outstanding Work and Drift Register sections for what is in flight, `CHANGELOG.md` for release history, and `03-workspace/journal/` for per-wave closeouts.
 
 ## License
 

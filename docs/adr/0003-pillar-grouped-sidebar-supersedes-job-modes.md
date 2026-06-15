@@ -29,8 +29,9 @@ Replace the job-mode sidebar with a pillar-grouped sidebar:
 - One always-on SPINE section, sub-grouped by domain: CRM, Quotes, Projects,
   Catalog, Inventory, Purchasing, Invoicing, Finance, Settings.
 - One collapsible section per lit add-on: 3PL Operations, Manufacturing,
-  Co-Pack and Ecom, KitForce, KitCost. WMS joins when its body ships
-  (`plugins.wms` is not in code yet).
+  Co-Pack and Ecom, KitForce, KitCost, and WMS. (At decision time WMS was not
+  yet in code; its `plugins.wms` flag and `/wms` section shipped with Body B,
+  migrations 0105 to 0110.)
 
 The change is sidebar-only. URLs do not move, the flat ROUTES table stays the
 single source of truth, and old paths still resolve via SpineMoveRedirect.

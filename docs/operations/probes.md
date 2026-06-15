@@ -13,10 +13,13 @@ the staging Supabase preview branch every day at 09:00 UTC. The spec:
 
 1. Creates two ephemeral orgs (A and B) via the service role and the
    `provision_organization` RPC.
-2. Seeds one row per primary entity (customer, lead, opportunity, item,
-   quote, project, invoice, payment, credit note, vendor, purchase order,
-   vendor bill, expense, warehouse, receiving order, production run,
-   shipment, journal entry) into org A.
+2. Seeds one row per primary entity into org A. The authoritative entity
+   set is the one enumerated in `apps/web/playwright/rls-probe.spec.ts`
+   itself; read the spec for the current list. The set grows with each new
+   tenant-scoped table, so this runbook does not duplicate it (the 3PL
+   commercial layer added `three_pl_accounts`, `job_templates`,
+   `supply_plans`, `job_runs`, `billing_reviews`; the WMS add-on added
+   `warehouse_locations`, `putaway_tasks`, `lots`).
 3. Authenticates as the org B owner and asserts every cross-tenant read
    returns 200 plus empty array, every cross-tenant workflow POST returns
    404 (never 403), bundle gates 404 when off, per-route flags return 403
