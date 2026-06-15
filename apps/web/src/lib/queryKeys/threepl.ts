@@ -6,6 +6,8 @@ import type { ListAccountsFilters } from '@/lib/services/accountsService';
 import type { ListJobTemplatesFilters } from '@/lib/services/jobTemplatesService';
 import type { ListSupplyPlansFilters } from '@/lib/services/supplyPlansService';
 import type { ListJobRunsFilters } from '@/lib/services/jobRunsService';
+import type { ListBillingReviewsFilters } from '@/lib/services/billingReviewsService';
+import type { ListJobProfitabilityFilters } from '@/lib/services/jobProfitabilityService';
 
 export const accountsKeys = {
   all: ['threepl', 'accounts'] as const,
@@ -67,4 +69,17 @@ export const jobRunDailyLogLinesKeys = {
   // Consumed / produced lines hang off the daily log's key under its run.
   byLog: (runId: string, logId: string) =>
     [...jobRunDailyLogsKeys.byRun(runId), logId, 'lines'] as const,
+};
+
+export const billingReviewsKeys = {
+  all: ['threepl', 'billing_reviews'] as const,
+  list: (filters: ListBillingReviewsFilters = {}) =>
+    [...billingReviewsKeys.all, 'list', filters] as const,
+  detail: (id: string) => [...billingReviewsKeys.all, 'detail', id] as const,
+};
+
+export const jobProfitabilityKeys = {
+  all: ['threepl', 'job_profitability'] as const,
+  list: (filters: ListJobProfitabilityFilters = {}) =>
+    [...jobProfitabilityKeys.all, 'list', filters] as const,
 };

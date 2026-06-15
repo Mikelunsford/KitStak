@@ -81,9 +81,9 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   const migrations = loadConstraintMigrations();
 
   it('finds every migration that redefines the constraint', () => {
-    // Sanity: the known redefiners through 0083 must all be discovered.
+    // Sanity: the known redefiners through 0102 must all be discovered.
     const nums = migrations.map((m) => m.num);
-    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99]) {
+    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102]) {
       expect(nums).toContain(n);
     }
   });
@@ -119,13 +119,14 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0099 is the current authoritative redefinition', () => {
+  it('0102 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
-    // 0098 (3PL Job Run) adds job_run; 0099 (Job Run daily logs) adds the three
-    // daily-log entity_types on top of the full 0098 list, so 0099 is latest.
+    // 0099 (Job Run daily logs) added the three daily-log entity_types; 0102
+    // (3PL Billing Review) adds billing_review on top of the full 0099 list, so
+    // 0102 is latest.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(99);
-    expect(latest.file).toBe('0099_job_run_daily_logs.sql');
+    expect(latest.num).toBe(102);
+    expect(latest.file).toBe('0102_billing_reviews.sql');
   });
 
   it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
@@ -159,5 +160,10 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     ]) {
       expect(latest.types.has(t)).toBe(true);
     }
+  });
+
+  it('the latest redefinition includes the Billing Review type (0102)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    expect(latest.types.has('billing_review')).toBe(true);
   });
 });

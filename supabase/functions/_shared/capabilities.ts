@@ -336,7 +336,13 @@ export type Capability =
   | 'threepl.job_run.cancel'
   | 'threepl.job_run.daily_log.create'
   | 'threepl.job_run.daily_log.update'
-  | 'threepl.job_run.daily_log.post';
+  | 'threepl.job_run.daily_log.post'
+  // threepl.billing_review.* (4) + profitability (1) 3PL Billing Review (Phase A7)
+  | 'threepl.billing_review.create'
+  | 'threepl.billing_review.update'
+  | 'threepl.billing_review.approve'
+  | 'threepl.billing_review.cancel'
+  | 'threepl.profitability.read';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -651,6 +657,12 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'threepl.job_run.daily_log.create',
   'threepl.job_run.daily_log.update',
   'threepl.job_run.daily_log.post',
+  // threepl.billing_review.* + profitability 3PL Billing Review (Phase A7)
+  'threepl.billing_review.create',
+  'threepl.billing_review.update',
+  'threepl.billing_review.approve',
+  'threepl.billing_review.cancel',
+  'threepl.profitability.read',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -950,6 +962,12 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'threepl.job_run.daily_log.create',
   'threepl.job_run.daily_log.update',
   'threepl.job_run.daily_log.post',
+  // threepl.billing_review.* + profitability 3PL Billing Review (Phase A7)
+  'threepl.billing_review.create',
+  'threepl.billing_review.update',
+  'threepl.billing_review.approve',
+  'threepl.billing_review.cancel',
+  'threepl.profitability.read',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1102,6 +1120,12 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'threepl.job_run.daily_log.create',
   'threepl.job_run.daily_log.update',
   'threepl.job_run.daily_log.post',
+  // threepl.billing_review.* + profitability 3PL Billing Review (Phase A7)
+  'threepl.billing_review.create',
+  'threepl.billing_review.update',
+  'threepl.billing_review.approve',
+  'threepl.billing_review.cancel',
+  'threepl.profitability.read',
 ];
 
 const OPS_CAPS: ReadonlyArray<Capability> = [
@@ -1299,6 +1323,12 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'threepl.job_run.daily_log.create',
   'threepl.job_run.daily_log.update',
   'threepl.job_run.daily_log.post',
+  // threepl.billing_review.* + profitability 3PL Billing Review (Phase A7)
+  'threepl.billing_review.create',
+  'threepl.billing_review.update',
+  'threepl.billing_review.approve',
+  'threepl.billing_review.cancel',
+  'threepl.profitability.read',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
@@ -1431,6 +1461,14 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   // kitforce.* (accounting: member read + rate gate for labor costing)
   'kitforce.member.read',
   'kitforce.member.read_rate',
+  // threepl.billing_review.* + profitability (Phase A7). Accounting is the first
+  // 3PL grant for this role: billing is the finance surface, so the 3PL four-role
+  // set plus accounting owns the A7 billing-review writes and the profitability read.
+  'threepl.billing_review.create',
+  'threepl.billing_review.update',
+  'threepl.billing_review.approve',
+  'threepl.billing_review.cancel',
+  'threepl.profitability.read',
 ];
 
 const VIEWER_CAPS: ReadonlyArray<Capability> = [
@@ -1507,6 +1545,8 @@ const VIEWER_CAPS: ReadonlyArray<Capability> = [
   'production.run.read',
   'shipments.shipment.read',
   'shipment.line_item.read',
+  // threepl.profitability (Phase A7). Viewer gets the read only (write set plus viewer).
+  'threepl.profitability.read',
 ];
 
 const CUSTOMER_PORTAL_CAPS: ReadonlyArray<Capability> = [

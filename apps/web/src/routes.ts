@@ -531,6 +531,19 @@ const JobRunDetailPage = lazy(() =>
 const JobRunCreatePage = lazy(() =>
   import('./pages/3pl-operations/job-runs/JobRunCreatePage').then((m) => ({ default: m.JobRunCreatePage })),
 );
+// Wave 12 Phase A7: 3PL Billing Review + Job Profitability.
+const BillingReviewsListPage = lazy(() =>
+  import('./pages/3pl-operations/billing-reviews/BillingReviewsListPage').then((m) => ({ default: m.BillingReviewsListPage })),
+);
+const BillingReviewDetailPage = lazy(() =>
+  import('./pages/3pl-operations/billing-reviews/BillingReviewDetailPage').then((m) => ({ default: m.BillingReviewDetailPage })),
+);
+const BillingReviewCreatePage = lazy(() =>
+  import('./pages/3pl-operations/billing-reviews/BillingReviewCreatePage').then((m) => ({ default: m.BillingReviewCreatePage })),
+);
+const ProfitabilityPage = lazy(() =>
+  import('./pages/3pl-operations/profitability/ProfitabilityPage').then((m) => ({ default: m.ProfitabilityPage })),
+);
 // === End Agent E ===
 
 // === Agent D: Invoicing + Finance routes ===
@@ -1304,6 +1317,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/job-runs',               element: JobRunsListPage,           guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/job-runs/new',           element: JobRunCreatePage,          guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/job-runs/:id',           element: JobRunDetailPage,          guard: 'protected', layout: 'shell' },
+  // Wave 12 Phase A7: 3PL Billing Review + Job Profitability. /new before /:id.
+  // Profitability is a read-only report (no /new, no /:id).
+  { path: '/3pl-operations/billing-reviews',        element: BillingReviewsListPage,    guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/billing-reviews/new',    element: BillingReviewCreatePage,   guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/billing-reviews/:id',    element: BillingReviewDetailPage,   guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/profitability',          element: ProfitabilityPage,         guard: 'protected', layout: 'shell' },
   // === End Agent E ===
   // === Agent D: Invoicing + Finance routes ===
   { path: '/invoicing/invoices',               element: InvoicesListPage,        guard: 'protected', layout: 'shell' },

@@ -154,7 +154,7 @@ describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
     }
   });
 
-  it('3PL OPERATIONS holds Accounts, Job Builders, Supply Plans, Job Runs, Receiving, Shipments, each gated plugins.three_pl', () => {
+  it('3PL OPERATIONS holds Accounts, Job Builders, Supply Plans, Job Runs, Billing Review, Profitability, Receiving, Shipments, each gated plugins.three_pl', () => {
     const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
     const paths = mode.routes.map((r) => r.path);
     expect(paths).toEqual([
@@ -162,6 +162,8 @@ describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
       '/3pl-operations/job-builders',
       '/3pl-operations/supply-plans',
       '/3pl-operations/job-runs',
+      '/3pl-operations/billing-reviews',
+      '/3pl-operations/profitability',
       '/3pl-operations/receiving',
       '/3pl-operations/shipments',
     ]);
@@ -197,6 +199,20 @@ describe('SIDEBAR_MODES section contents (Wave 12 pillar IA)', () => {
     expect(mode.routes[3]?.path).toBe('/3pl-operations/job-runs');
     expect(mode.routes[3]?.label).toBe('Job Runs');
     expect(mode.routes[3]?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_THREE_PL);
+  });
+
+  it('Billing Review (Wave 12 Phase A7) is the fifth 3PL Operations entry, after Job Runs, gated plugins.three_pl', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    expect(mode.routes[4]?.path).toBe('/3pl-operations/billing-reviews');
+    expect(mode.routes[4]?.label).toBe('Billing Review');
+    expect(mode.routes[4]?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_THREE_PL);
+  });
+
+  it('Profitability (Wave 12 Phase A7) is the sixth 3PL Operations entry, after Billing Review, gated plugins.three_pl', () => {
+    const mode = SIDEBAR_MODES.find((m) => m.key === 'three_pl')!;
+    expect(mode.routes[5]?.path).toBe('/3pl-operations/profitability');
+    expect(mode.routes[5]?.label).toBe('Profitability');
+    expect(mode.routes[5]?.requiresFlag).toBe(FEATURE_FLAGS.PLUGINS_THREE_PL);
   });
 
   it('MANUFACTURING holds Runs, gated plugins.manufacturing', () => {

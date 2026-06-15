@@ -180,8 +180,8 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     icon: Truck,
     routes: [
       // Accounts is the Wave 12 commercial-layer entry (Phase A1); Job Builders
-      // is the Phase A2 entry; Supply Plans is A5; Job Runs is A6. Billing Review
-      // and Profitability join this section as their A-phases ship.
+      // is the Phase A2 entry; Supply Plans is A5; Job Runs is A6; Billing Review
+      // and Profitability are A7.
       {
         path: '/3pl-operations/accounts',
         label: 'Accounts',
@@ -204,6 +204,18 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         path: '/3pl-operations/job-runs',
         label: 'Job Runs',
         icon: HardHat,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/billing-reviews',
+        label: 'Billing Review',
+        icon: Receipt,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/profitability',
+        label: 'Profitability',
+        icon: TrendingUp,
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
       },
       {
