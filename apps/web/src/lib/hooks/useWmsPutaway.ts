@@ -15,6 +15,7 @@ import {
   createWmsPutaway,
   updateWmsPutaway,
   softDeleteWmsPutaway,
+  setWmsPutawayDestination,
   startWmsPutaway,
   completeWmsPutaway,
   cancelWmsPutaway,
@@ -88,6 +89,21 @@ function useTransitionWmsPutaway(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => fn(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });
+    },
+  });
+}
+
+// Set the destination bin on a still-open task. Like the transitions, it
+// invalidates the putaway cache and the task's audit timeline (the field edit is
+// audited with the status unchanged).
+export function useSetWmsPutawayDestination(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (actualLocationId: string) =>
+      setWmsPutawayDestination(id, actualLocationId),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });

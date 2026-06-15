@@ -78,6 +78,20 @@ export async function softDeleteWmsPutaway(
   });
 }
 
+// Set the destination bin on a still-open task (Wave 13 / R-W13-WMS-01). A
+// complete now requires a destination, so this is the natural pairing: pick the
+// bin, then complete. The server validates the bin lives in the task warehouse.
+export async function setWmsPutawayDestination(
+  id: string,
+  actualLocationId: string,
+): Promise<PutawayTask> {
+  const data = await apiRequest<unknown>(`${BASE}/${id}/destination`, {
+    method: 'POST',
+    body: { actual_location_id: actualLocationId },
+  });
+  return PutawayTaskSchema.parse(data);
+}
+
 // FSM transitions. Each is a server RPC; the response is the updated task.
 export async function startWmsPutaway(id: string): Promise<PutawayTask> {
   const data = await apiRequest<unknown>(`${BASE}/${id}/start`, { method: 'POST' });

@@ -7,6 +7,7 @@
 // dock + transfer_in at the destination bin); actions are gated by state and the
 // matching capabilities. The server is authority.
 
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
@@ -15,14 +16,16 @@ import { EntityLabel } from '@/components/data/EntityLabel';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
+import { Select } from '@/components/ui/Select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   useWmsPutawayTask,
+  useSetWmsPutawayDestination,
   useStartWmsPutaway,
   useCompleteWmsPutaway,
   useCancelWmsPutaway,
 } from '@/lib/hooks/useWmsPutaway';
-import { useWmsLocation } from '@/lib/hooks/useWmsLocations';
+import { useWmsLocation, useWmsLocationsList } from '@/lib/hooks/useWmsLocations';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
@@ -45,9 +48,19 @@ export function WmsPutawayDetailPage() {
   const taskId = id ?? '';
   const { data: task, isLoading, error } = useWmsPutawayTask(id);
   const start = useStartWmsPutaway(taskId);
+  const setDestination = useSetWmsPutawayDestination(taskId);
   const complete = useCompleteWmsPutaway(taskId);
   const cancel = useCancelWmsPutaway(taskId);
   const caps = useCapabilities();
+  const [selectedBin, setSelectedBin] = useState('');
+
+  // Destination bins are the live (active, non-deleted) locations in the task's
+  // warehouse. Only fetched once the task has loaded (warehouse known); the
+  // server re-validates the bin lives in the warehouse on the set call.
+  const bins = useWmsLocationsList(
+    task ? { warehouse_id: task.warehouse_id, active: true } : {},
+    !!task,
+  );
 
   if (isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (error || !task) {
@@ -58,7 +71,13 @@ export function WmsPutawayDetailPage() {
   const isInProgress = task.status === 'in_progress';
   const isDone = task.status === 'done';
   const isCancelled = task.status === 'cancelled';
-  const transitionError = start.error ?? complete.error ?? cancel.error;
+  const transitionError =
+    start.error ?? setDestination.error ?? complete.error ?? cancel.error;
+  // A complete now REQUIRES a destination bin (the server raises STATE_CONFLICT
+  // otherwise). Surface a set-destination control while the task is still open
+  // and no destination is set, so the operator can pick the bin before completing.
+  const isOpen = isSuggested || isInProgress;
+  const needsDestination = isOpen && task.actual_location_id == null;
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
@@ -95,6 +114,37 @@ export function WmsPutawayDetailPage() {
           </section>
         }
       >
+        {needsDestination && caps.can('wms.putaway.create') && (
+          <div className="flex flex-col gap-2 border border-line bg-bg-2 p-4">
+            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+              Set destination bin
+            </span>
+            <p className="font-sans text-sm text-ink-dim">
+              A putaway cannot complete without a destination bin. Pick one to stow the stock.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={selectedBin}
+                onChange={(e) => setSelectedBin(e.target.value)}
+                aria-label="Destination bin"
+              >
+                <option value="">Select a bin</option>
+                {(bins.data ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.code}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                disabled={!selectedBin || setDestination.isPending}
+                onClick={() => setDestination.mutate(selectedBin)}
+              >
+                {setDestination.isPending ? 'Setting.' : 'Set destination'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           {isSuggested && caps.can('wms.putaway.start') && (
             <Button onClick={() => start.mutate()} disabled={start.isPending}>
