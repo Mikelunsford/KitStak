@@ -33,6 +33,7 @@
 //   PATCH  /putaway/:id                      update
 //   DELETE /putaway/:id                      soft-delete (reuses putaway.create gate)
 //   POST   /putaway/:id/start                suggested -> in_progress
+//   POST   /putaway/:id/destination          set actual_location_id (open task)
 //   POST   /putaway/:id/complete             in_progress -> done (+ emit move)
 //   POST   /putaway/:id/cancel               -> cancelled
 //   GET    /lots                             list (RLS-only; filters item_id/status)
@@ -71,6 +72,7 @@ import {
   PutawayTaskSchema,
   PutawayTaskCreateSchema,
   PutawayTaskPatchSchema,
+  PutawayDestinationSchema,
   type PutawayTask,
   LotSchema,
   LotCreateSchema,
@@ -648,6 +650,40 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, BUNDLE, '/putaway/:id/start', null, async () => {
         const { error } = await admin().rpc('start_putaway_task', {
           p_putaway_task_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
+        });
+        if (error) {
+          if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+          if (/STATE_CONFLICT/.test(error.message)) throw new ApiError('STATE_CONFLICT', 409, error.message);
+          throw internalError(BUNDLE, error);
+        }
+        return ok(await loadPutawayTask(caller, params.id));
+      });
+    },
+  },
+  {
+    method: 'POST', path: '/putaway/:id/destination',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      // No dedicated wms.putaway.update cap exists in the canon; reuse
+      // wms.putaway.create (the same role gate the PATCH field-edit route uses),
+      // matching the locations / putaway soft-delete precedent. Setting the
+      // destination bin is a field edit, not a status transition.
+      requireCap(caller, 'wms.putaway.create');
+      parseUuidParam(params.id);
+      const body = await parseBody(req, PutawayDestinationSchema);
+      return respondWithIdempotency(req, caller, BUNDLE, '/putaway/:id/destination', body, async () => {
+        // Load the task (404 cross-tenant / missing / soft-deleted) so we can
+        // resolve its warehouse for the cross-warehouse bin guard.
+        const current = await loadPutawayTask(caller, params.id);
+        // The destination bin must live in THIS task's warehouse; a bin in
+        // another warehouse would mis-file the bin row when the task completes.
+        // 404 on a cross-tenant, missing, or cross-warehouse bin (never 403).
+        await assertLocationInWarehouse(caller, body.actual_location_id, current.warehouse_id);
+        const { error } = await admin().rpc('set_putaway_destination', {
+          p_putaway_task_id: params.id,
+          p_actual_location_id: body.actual_location_id,
+          p_actor: caller.userId,
+          p_caller_org_id: caller.orgId,
         });
         if (error) {
           if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);

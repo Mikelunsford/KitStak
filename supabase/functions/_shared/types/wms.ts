@@ -146,6 +146,16 @@ export type PutawayTaskCreate = z.infer<typeof PutawayTaskCreateSchema>;
 export const PutawayTaskPatchSchema = PutawayTaskCreateSchema.partial();
 export type PutawayTaskPatch = z.infer<typeof PutawayTaskPatchSchema>;
 
+// Set-destination action body (migration 0114; R-W13-WMS-01). The destination
+// bin is REQUIRED here: this action exists precisely to set actual_location_id
+// before a complete, since a complete with a null destination now raises
+// STATE_CONFLICT instead of marking the task done with zero movements. The
+// server still validates the bin lives in the task's warehouse.
+export const PutawayDestinationSchema = z.object({
+  actual_location_id: Uuid,
+});
+export type PutawayDestination = z.infer<typeof PutawayDestinationSchema>;
+
 // ---------------------------------------------------------------------------
 // lots (migration 0110; WMS Body B Phase B4 lot and expiration capture). A lot
 // / batch of an item with optional expiration. A near-config FSM whose state is
