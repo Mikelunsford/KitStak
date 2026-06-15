@@ -29,7 +29,7 @@ paths:
   repo_root: "."
   shared_context: "/CLAUDE.md"                                         # source: constitution lives in CLAUDE.md, not /docs/CONTEXT.md
   agents_dir: "/CLAUDE AGENTS"
-  api_contracts: "/docs/api"                                           # source: docs/api/{crm,finance,identity,inventory,ops,sales,vendors,cross_cutting}.md
+  api_contracts: "/docs/api"                                           # source: docs/api/{crm,finance,identity,inventory,ops,sales,vendors,cross_cutting,threepl,wms}.md
   db_schemas: "/supabase/migrations"
   migrations: "/supabase/migrations"
   tests: "/apps/web/src (Vitest) + /apps/web (Playwright)"             # source: apps/web/package.json scripts + playwright.config.ts
@@ -67,6 +67,8 @@ phasing:
     - "Phase 7: Stabilization closed at 9846f1e (PRs #37 to #48; 14 follow-ups closed in 3 parallel cycles)" # source: STATUS.md current state as of 2026-05-19; phase-7-stabilization-closeout.md journal
     - "Phase 8: Polish closed at 9303408 (PRs #56 through #65; 10 code follow-ups closed + 3 deferrals with explicit revisit triggers; PostHog chassis + activation, PDF worker jspdf real-render + font embedding, dnd-kit phase reorder, CI nightly skip-guards, canon-steward + trigger-audit guardrails)" # source: STATUS.md current state as of 2026-05-20
     - "Phase 9: Observability closed at 4a9a69a (PRs #65, #66, #67; Sentry SPA chassis + activation + Relay IP suppression hardening; Vercel Sensitive env-var workflow fix unblocks both PostHog regression and Sentry; three-layer PII gate)" # source: STATUS.md + phase-9-sentry-spa.md journal as of 2026-05-20
+    - "Wave 12 (Body A): 3PL commercial layer complete (Accounts A1, Job Builders A2, Quote integration A3, Project snapshot A4, Supply Plans A5, Job Runs A6, Billing Review + Job Profitability A7; migrations 0089 to 0104; PRs #249 to #263)" # source: STATUS.md + CHANGELOG 0.16.0/0.17.0 as of 2026-06-14
+    - "Wave 12 (Body B): WMS add-on shipped (warehouse execution; B0 chassis, B1 locations, B2 bin dimension stop-point, receiving-to-dock, B3 directed putaway, B4 lots; gated plugins.wms; migrations 0105 to 0110 + 0111 FSM RPC grant hardening; PRs #267 to #274)" # source: STATUS.md + CHANGELOG 0.18.0 as of 2026-06-15
 
 conventions:
   branch_pattern: "claude/<slug>"                                      # source: user-confirmed 2026-05-18. Matches 100% of git history; wave/domain provenance lives in commit messages and PR titles rather than branch names. Revisit if non-Claude-Code authors start dispatching.

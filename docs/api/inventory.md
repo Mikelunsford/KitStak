@@ -26,6 +26,14 @@ Bundle for warehouses, stock levels, stock movements, and BOM items. Stock level
 
 Append-only ledger. Triggers on receiving / production / shipment status transitions emit rows; the Supply Plan `release_supply_plan` / `cancel_supply_plan` RPCs (Wave 12 / A5) emit the soft-hold rows; no direct user writes. `movement_type` is one of: `receipt`, `shipment`, `production_consumed`, `production_produced`, `adjustment`, `transfer_in`, `transfer_out`, `reserve`, `reserve_release`. `reserve` and `reserve_release` move `quantity_reserved` only, never `quantity_on_hand`.
 
+### WMS bin dimension (read-only; `plugins.wms`)
+
+The WMS add-on (warehouse execution) deepens warehouse-level stock to bin level without owning warehouses or stock. Migration 0107 adds an additive nullable `stock_movements.location_id` (FK `warehouse_locations`, ON DELETE SET NULL) plus the forward-ref columns `lot_id` and `license_plate_id` (the `lot_id` FK closes in 0110). No new `movement_type` is added. Bins, shelves, racks, docks, and staging areas live in `warehouse_locations` (0106). Lots / batches with optional expiration live in `lots` (0110); a lot is threaded onto the ledger via the receiving line and the putaway transfer.
+
+`bin_stock_levels` (0107) is a read-only rollup, one row per `(warehouse, location, item, lot)`, maintained by `recompute_bin_stock_level` off the same AFTER INSERT trigger that maintains `stock_levels`. The bin recompute uses a signed-CASE byte-identical to the warehouse recompute and skips the NULL no-bin partition, so the sum of `quantity_on_hand` over every located bin partition reconciles to `stock_levels.quantity_on_hand` for the same `(warehouse, item)` by construction. Movements with a NULL `location_id` (the WMS-off / pre-WMS partition) live only in the warehouse grain; off equals totals untouched.
+
+See `docs/api/wms.md` for the full WMS surface (locations, bin stock, receiving-to-dock, directed putaway, lots).
+
 ### BOM items
 
 - `GET /inventory-api/bom-items?parent_item_id=` cap `stock.bom.read`

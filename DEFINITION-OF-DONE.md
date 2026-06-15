@@ -60,5 +60,5 @@ Kitstak v1 ships when:
 - Audit hash chain verification job runs green nightly for 30 consecutive days.
 - Zero P0 production incidents in the trailing 30 days.
 - All migrations forward-only on production.
-- Marketing site live with all five pillars described.
-- `docs/users/` complete for every Pillar-1 surface.
+- Marketing site live with the spine and all six add-ons described (3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost, WMS).
+- `docs/users/` complete for every 3PL Operations (first add-on) surface.

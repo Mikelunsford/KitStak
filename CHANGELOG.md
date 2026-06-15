@@ -4,6 +4,38 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] · 2026-06-15 Wave 12: WMS add-on (warehouse execution, Body B) plus FSM RPC grant hardening (PRs #267, #268, #269, #271, #272, #273, #274)
+
+The sixth add-on shipped. WMS (warehouse execution) deepens the spine's warehouse-level stock to bin level without replacing it: a nullable `location_id` dimension rides the existing append-only `stock_movements` ledger, the sum of the bins equals the warehouse `quantity_on_hand` by construction, and turning `plugins.wms` off leaves the spine totals untouched. Gated `plugins.wms` (default off) at a new `/wms/*` root behind a new `wms-api` edge bundle. Migrations 0105 to 0110, plus the 0111 grant hardening. ADR `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`. There is no WMS closeout journal yet; the migration headers and `03-workspace/specs/2026-06-14-wms-bodyb-phase1-handoff.md` are the authoritative record for Body B.
+
+### Added
+
+- **WMS chassis (B0, #267)**: migration 0105 seeds the `plugins.wms` feature flag (default off) and extends `seed_org_settings` so new orgs get it. The `wms-api` bundle and `/wms` sidebar section land behind the gate.
+- **Warehouse locations (B1, #268)**: migration 0106 adds `warehouse_locations` (bins, shelves, racks, docks, and staging areas inside a warehouse). A config table, not a registered state machine: `active` is a boolean flag. Carries an audit trigger, WMS capabilities, byte-mirror types, the `wms-api` location routes, and the SPA `/wms/locations` surface.
+- **Stock-movement bin dimension (B2, #269, the spine stop-point)**: migration 0107 adds the additive nullable `location_id` to `stock_movements` (plus forward refs `lot_id` and `license_plate_id`), a `bin_stock_levels` rollup that derives bin-grain `quantity_on_hand` the identical way the spine derives the warehouse grain, the `recompute_bin_stock_level` function, and one AFTER INSERT trigger that fires both rollups off the same row. The sum-reconcile invariant (sum of bins equals the warehouse total) holds by construction. Closes the carried operator stop-point risk R-W12-CO-02. Read capability, `BinStockLevel` type, the `/bin-stock` GET routes, and the SPA `/wms/bin-stock` surface.
+- **Receiving-to-dock (#271)**: migration 0108 lets the receive path set a bin. `receiving_orders` gains a single header `dock_location_id` (one dock per receipt, a header column, never per line), and the receipt-emitting trigger applies it to every line it emits onto the ledger.
+- **Directed putaway (B3, #272)**: migration 0109 adds `putaway_tasks`, a rich FSM (`suggested` / `in_progress` / `done` / `cancelled`). Completing a task is a warehouse-flat internal move: it emits two existing-type movements (`transfer_out` at the source dock and `transfer_in` at the destination bin, same quantity), so the warehouse total stays flat while the bin grain shifts. No new ledger type is invented. Capabilities, `PutawayTask` types, the `/putaway` routes, and the SPA `/wms/putaway` surface.
+- **Lots and lot capture (B4, #273)**: migration 0110 adds the `lots` parent and end-to-end lot capture. A received line can carry a lot (`receiving_order_line_items.lot_id`), the receipt emitter threads that lot onto the ledger row alongside the dock, and a putaway task auto-defaults its lot from the source receiving line so the transfer cites the same lot the receipt credited. The bin recompute null-safe-matches lot, so a lot-keyed bin row reconciles at the (location, lot) grain. FEFO is groundwork only here (the `expiration_date` index); FEFO consumption is a later phase. Capabilities, `Lot` types, the `/lots` routes, the receiving line-item lot capture, and the SPA `/wms/lots` surface.
+
+### Security
+
+- **FSM action RPC grant hardening (#274)**: migration 0111 revokes `EXECUTE` from `authenticated` on the 18 state-changing action and transition RPCs. The SPA never calls any RPC directly (zero `.rpc()` in `apps/web/src`); every action RPC is invoked from an Edge Function through the service-role `admin()` client, so the `authenticated` grant was an unused attack surface (a hand-rolled PostgREST `POST /rest/v1/rpc/<fn>` from an authenticated session could reach these SECURITY DEFINER functions and attempt to bypass the Edge `requireCap` gate or spoof `p_caller_org_id`). `service_role` retains `EXECUTE`, so the Edge call path is unchanged. The two RLS-context helpers (`current_org_id`, `current_user_role`) and every recompute / seed / audit helper keep their `authenticated` grant and are out of scope. Closes `F-Wave12-WMS-FSM-RPC-GRANT-HARDEN-01`.
+
+### Changed
+
+- **SPA index lean-up (#265)**: the left-nav Sidebar is lazy-split out of the always-on app shell, moving roughly fifty lucide-react navigation icons and `sidebarModes.ts` into a `Sidebar-*.js` chunk. The SPA index chunk drops from 39.99 to 33.7 kB gzipped under the held 40 kB `size-limit` budget (about 6 kB reclaimed), clearing headroom for the WMS `/wms` navigation weight without raising the budget. Closes `F-Wave12-INDEX-BUDGET-HEADROOM-01`; pairs with `F-Wave10-INDEX-SPLIT`.
+- **Supabase CLI pin (#270)**: `migrate.yml` pins the Supabase CLI version to stop the flaky latest-release resolution.
+
+## [0.17.0] · 2026-06-14 Wave 12: 3PL commercial layer completed (Job Runs, Billing Review, Job Profitability) (PRs #261, #263)
+
+Body A, the 3PL commercial and operational planning layer, is complete. The two remaining phases close the loop from floor execution to money-out: Job Runs record the day-by-day execution of a project, and Billing Review checks estimate against actual before drafting the invoice. Migrations 0098 to 0104.
+
+### Added
+
+- **Job Runs and Daily Progress (A6, #261)**: migration 0098 adds `job_runs` (the day-by-day execution of a project on the floor) plus its four FSM transition RPCs; 0099 adds `job_run_daily_logs` (the stock-affecting layer); 0100 wires `JR-` numbering. Migration 0101 adds the `supply_plans.job_run_id` breadcrumb (a released plan's stock is consumed by a job run) and the `fulfill_supply_plan` RPC (`released` to `fulfilled`), which releases the remaining holds so the spine `quantity_reserved` is not left stale once the operator marks the plan fulfilled. The finer per-consume automatic draw-down stays the follow-up `F-Wave12-SUPPLY-PLAN-FULFILL-CONSUME-01`.
+- **Billing Review (A7, #263)**: migration 0102 adds `billing_reviews` (an estimate-versus-actual check before invoicing) plus its approve / cancel RPCs. Approve creates a spine DRAFT invoice with lines built from the account service rates and lands the review; 0103 wires the numbering.
+- **Job Profitability (A7, #263)**: migration 0104 adds the `job_profitability` view (a derived read model, not a new write table): one row per non-deleted job run, comparing the quote estimate (project budget) against job-run actuals (posted daily-log labor plus consumed material cost) against billed revenue (the project's non-cancelled invoices).
+
 ## [0.16.0] · 2026-06-13 Wave 12: 3PL commercial layer (Accounts, Job Builder, Quote integration, Project snapshot, Supply Plan) (PRs #249, #252, #254, #256, #257)
 
 The 3PL Operations add-on gained its commercial and operational planning layer, building the product loop Job Builder to Quote to Project to Supply Plan on top of the spine. Five A-phases shipped to prod on 2026-06-13 (migrations 0089 to 0097). ADR `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`.
