@@ -57,6 +57,10 @@ function makeStateWithRO(status: 'created' | 'in_progress' | 'received' | 'cance
         warehouse_id: WAREHOUSE_ID,
         vendor_id: null,
         project_id: null,
+        // WMS Body B receiving-to-dock (migration 0108): ReceivingOrderSchema now
+        // carries the nullable dock header. Mock rows must include the key so the
+        // handler's ReceivingOrderSchema.parse(returned_row) survives.
+        dock_location_id: null,
         status,
         expected_date: null,
         received_date: null,

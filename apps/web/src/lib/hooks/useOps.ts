@@ -6,8 +6,9 @@ import {
 import {
   listReceivingOrders, getReceivingOrder, createReceivingOrder, updateReceivingOrder,
   transitionReceivingOrder, receiveReceivingOrder,
-  type ReceivingOrder, type ReceivingOrderStatus,
+  type ReceivingOrder,
   type ListReceivingOrdersFilters,
+  type TransitionReceivingOrderBody,
 } from '@/lib/services/receivingOrdersService';
 import {
   listProductionRuns, getProductionRun, createProductionRun, updateProductionRun,
@@ -73,7 +74,10 @@ export function useUpdateReceivingOrder(id: string) {
 export function useTransitionReceivingOrder(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (to: ReceivingOrderStatus) => transitionReceivingOrder(id, to),
+    // WMS receiving-to-dock (F-Wave12-WMS-RECEIVE-DOCK-01): the transition input
+    // is an object so the 'received' transition can carry the optional dock on
+    // the same /transition POST. Non-received transitions pass { to } only.
+    mutationFn: (input: TransitionReceivingOrderBody) => transitionReceivingOrder(id, input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
       // F-Wave7-AUDIT-CACHE-SWEEP-01: receiving order transitions write an

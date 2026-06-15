@@ -90,6 +90,10 @@ function makeStateWithReceiving(rows: Array<{
       warehouse_id: WAREHOUSE_ID,
       vendor_id: null,
       project_id: r.project_id,
+      // WMS Body B receiving-to-dock (migration 0108): ReceivingOrderSchema now
+      // carries the nullable dock header. Mock rows include the key so the
+      // handler's ReceivingOrderSchema.parse(returned_row) survives.
+      dock_location_id: null,
       status: r.status ?? 'created',
       expected_date: null,
       received_date: null,

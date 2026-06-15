@@ -48,17 +48,39 @@ export async function updateReceivingOrder(id: string, input: Partial<ReceivingO
   return ReceivingOrderSchema.parse(data);
 }
 
-export async function transitionReceivingOrder(id: string, to: ReceivingOrderStatus): Promise<ReceivingOrder> {
+// WMS Body B receiving-to-dock (F-Wave12-WMS-RECEIVE-DOCK-01): the dock is
+// accepted ONLY on the transition to 'received'. The optional dock_location_id
+// rides the SAME /transition POST that flips status -> received so the
+// receipt-emitting trigger (0108) stamps it onto every movement. The server
+// honours it only when plugins.wms is ON and to === 'received'; otherwise it
+// forces NULL (server-authority no-op). Omitted on every non-received
+// transition.
+export type TransitionReceivingOrderBody = {
+  to: ReceivingOrderStatus;
+  dock_location_id?: string | null;
+};
+
+export async function transitionReceivingOrder(
+  id: string,
+  input: TransitionReceivingOrderBody,
+): Promise<ReceivingOrder> {
+  const body: TransitionReceivingOrderBody = { to: input.to };
+  if (input.dock_location_id !== undefined) {
+    body.dock_location_id = input.dock_location_id;
+  }
   const data = await apiRequest<unknown>(
     `/ops-api/receiving-orders/${id}/transition`,
-    { method: 'POST', body: { to } },
+    { method: 'POST', body },
   );
   return ReceivingOrderSchema.parse(data);
 }
 
 export async function receiveReceivingOrder(
   id: string,
-  payload: { received_date?: string; lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }> },
+  payload: {
+    received_date?: string;
+    lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }>;
+  },
 ): Promise<ReceivingOrder> {
   const data = await apiRequest<unknown>(
     `/ops-api/receiving-orders/${id}/receive`,
