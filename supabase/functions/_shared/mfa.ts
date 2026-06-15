@@ -48,6 +48,13 @@ export async function hasVerifiedTotp(userId: string): Promise<boolean> {
  *
  * Optional `req` argument enables per-request memoization. When provided,
  * subsequent calls within the same request return from the WeakMap.
+ *
+ * R-W13-SEC-01: this gate keys on caller.userId, which is the JWT `sub`
+ * claim. The bundles that enforce MFA (admin-console-api) now run with
+ * verify_jwt = true, so the gateway has verified the JWT signature before any
+ * handler resolves caller.userId. The userId this gate trusts is therefore
+ * gateway-verified, not merely base64-decoded. No change needed here; this
+ * note confirms the dependency.
  */
 export async function requireMfaVerified(
   caller: Caller | CallerLike,
