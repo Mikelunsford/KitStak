@@ -81,9 +81,9 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   const migrations = loadConstraintMigrations();
 
   it('finds every migration that redefines the constraint', () => {
-    // Sanity: the known redefiners through 0109 must all be discovered.
+    // Sanity: the known redefiners through 0110 must all be discovered.
     const nums = migrations.map((m) => m.num);
-    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109]) {
+    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109, 110]) {
       expect(nums).toContain(n);
     }
   });
@@ -119,14 +119,14 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0109 is the current authoritative redefinition', () => {
+  it('0110 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
     // 0106 (WMS Body B Locations) added warehouse_location; 0109 (WMS Body B
-    // Directed putaway) adds putaway_task on top of the full 0106 list (0107 and
-    // 0108 add no entity_type), so 0109 is latest.
+    // Directed putaway) added putaway_task; 0110 (WMS Body B Lots) adds lot on
+    // top of the full 0109 list, so 0110 is latest.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(109);
-    expect(latest.file).toBe('0109_putaway_tasks.sql');
+    expect(latest.num).toBe(110);
+    expect(latest.file).toBe('0110_lots.sql');
   });
 
   it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
@@ -175,5 +175,10 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('the latest redefinition includes the WMS Putaway type (0109)', () => {
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
     expect(latest.types.has('putaway_task')).toBe(true);
+  });
+
+  it('the latest redefinition includes the WMS Lot type (0110)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    expect(latest.types.has('lot')).toBe(true);
   });
 });

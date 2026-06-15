@@ -46,7 +46,7 @@ import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
   admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
-import { assertRefInOrg } from '../_shared/crud.ts';
+import { assertRefInOrg, assertLotForItem } from '../_shared/crud.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
@@ -239,6 +239,24 @@ async function assertReceivingParent(caller: Caller, id: string): Promise<void> 
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
   if (error) throw internalError('ops-api', error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+// Snapshot a receiving line's current item_id and lot_id, org-scoped (404
+// cross-tenant / missing / wrong parent). Used by the line PATCH to anchor the
+// cross-item lot guard against the EFFECTIVE item and lot when the patch omits
+// one side.
+async function receivingLineSnapshot(
+  caller: Caller, receivingOrderId: string, lineId: string,
+): Promise<{ item_id: string; lot_id: string | null }> {
+  const { data, error } = await admin().from('receiving_order_line_items')
+    .select('item_id, lot_id')
+    .eq('org_id', caller.orgId)
+    .eq('receiving_order_id', receivingOrderId)
+    .eq('id', lineId)
+    .maybeSingle();
+  if (error) throw internalError('ops-api', error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+  return data as { item_id: string; lot_id: string | null };
 }
 
 async function assertShipmentParent(caller: Caller, id: string): Promise<void> {
@@ -473,6 +491,15 @@ const TABLE: Route[] = [
         async () => {
           await assertReceivingParent(caller, params.id);
           await assertRefInOrg('items', caller, body.item_id);
+          // WMS Body B Phase B4: an optional lot on the received line. When set,
+          // the lot must exist in-org AND be bound to THIS line's item
+          // (lots.item_id NOT NULL). A lot for a different item is incoherent and
+          // would credit a lot-keyed bin row for the wrong item, so it 404s
+          // (assertLotForItem; never 403). The receipt emitter threads this lot
+          // onto the spine ledger row so a lot-keyed bin row forms.
+          if (body.lot_id) {
+            await assertLotForItem(caller, body.lot_id, body.item_id);
+          }
           const position = body.position ?? await nextPositionFor(
             'receiving_order_line_items', 'receiving_order_id', caller, params.id,
           );
@@ -484,6 +511,7 @@ const TABLE: Route[] = [
             unit_cost_cents: body.unit_cost_cents ?? null,
             uom: body.uom ?? null,
             reference: body.reference ?? null,
+            lot_id: body.lot_id ?? null,
             position,
             created_by: caller.userId,
             updated_by: caller.userId,
@@ -510,6 +538,22 @@ const TABLE: Route[] = [
         async () => {
           await assertReceivingParent(caller, params.id);
           if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+          // WMS Body B Phase B4: an optional lot on the received line. The
+          // EFFECTIVE lot must be bound to the EFFECTIVE item. Re-validate whenever
+          // the lot changes OR the item changes on a lot-bearing line, so a patch
+          // that only re-targets the item cannot leave a now-incoherent lot
+          // attached (which the receipt emitter would then credit to the wrong
+          // item). 404 on a missing, cross-tenant, or wrong-item lot; never 403.
+          // The current snapshot is read only when a side is absent from the body.
+          if (body.lot_id !== undefined || body.item_id !== undefined) {
+            const cur = await receivingLineSnapshot(caller, params.id, params.lineId);
+            const effItemId = body.item_id ?? cur.item_id;
+            const effLotId = body.lot_id !== undefined ? body.lot_id : cur.lot_id;
+            const itemChanged = body.item_id !== undefined && body.item_id !== cur.item_id;
+            if ((body.lot_id !== undefined || itemChanged) && effLotId != null) {
+              await assertLotForItem(caller, effLotId, effItemId);
+            }
+          }
           const patch: Record<string, unknown> = {
             updated_by: caller.userId,
           };
@@ -518,6 +562,7 @@ const TABLE: Route[] = [
           if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
           if (body.uom !== undefined) patch.uom = body.uom;
           if (body.reference !== undefined) patch.reference = body.reference;
+          if (body.lot_id !== undefined) patch.lot_id = body.lot_id;
           if (body.position !== undefined) patch.position = body.position;
           const { data, error } = await admin().from('receiving_order_line_items')
             .update(patch)

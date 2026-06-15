@@ -145,3 +145,54 @@ export type PutawayTaskCreate = z.infer<typeof PutawayTaskCreateSchema>;
 
 export const PutawayTaskPatchSchema = PutawayTaskCreateSchema.partial();
 export type PutawayTaskPatch = z.infer<typeof PutawayTaskPatchSchema>;
+
+// ---------------------------------------------------------------------------
+// lots (migration 0110; WMS Body B Phase B4 lot and expiration capture). A lot
+// / batch of an item with optional expiration. A near-config FSM whose state is
+// its status (active / quarantined / expired / consumed); Phase 1 ships only
+// the quarantine hold (active -> quarantined). lot_code is required on create;
+// expiration_date, received_at, and notes are optional (decision (c): lot is
+// always optional, never mandatory, in Phase 1). Captured at receiving and
+// putaway; the 0107 bin recompute null-safe-matches lot, so a lot-keyed bin row
+// reconciles to the warehouse total. expiration_date is a date string on the
+// wire; received_at is an ISO timestamp.
+// ---------------------------------------------------------------------------
+
+export const LotStatusSchema = z.enum([
+  'active',
+  'quarantined',
+  'expired',
+  'consumed',
+]);
+export type LotStatus = z.infer<typeof LotStatusSchema>;
+
+export const LotSchema = z.object({
+  id: Uuid,
+  org_id: Uuid,
+  item_id: Uuid,
+  lot_code: z.string(),
+  expiration_date: z.string().nullable(),
+  received_at: Iso.nullable(),
+  status: LotStatusSchema,
+  notes: z.string().nullable(),
+  created_at: Iso,
+  updated_at: Iso,
+});
+export type Lot = z.infer<typeof LotSchema>;
+
+// status is deliberately OMITTED on create (matching PutawayTaskCreateSchema).
+// A new lot ALWAYS starts at the DB default 'active'; the quarantine hold
+// (active -> quarantined) is the only status move, and it flows through the
+// quarantine_lot RPC, never a client-supplied status. LotPatchSchema inherits
+// this omission, so PATCH cannot set status either.
+export const LotCreateSchema = z.object({
+  item_id: Uuid,
+  lot_code: z.string().min(1),
+  expiration_date: z.string().optional().nullable(),
+  received_at: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type LotCreate = z.infer<typeof LotCreateSchema>;
+
+export const LotPatchSchema = LotCreateSchema.partial();
+export type LotPatch = z.infer<typeof LotPatchSchema>;

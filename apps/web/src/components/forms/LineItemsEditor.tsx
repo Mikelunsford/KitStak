@@ -3,8 +3,12 @@ import { useState, type FormEvent } from 'react';
 import { EntityLabel } from '@/components/data/EntityLabel';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { Select } from '@/components/ui/Select';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { ItemPicker } from '@/components/ui/pickers';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useWmsLotsList } from '@/lib/hooks/useWmsLots';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { formatCents } from '@/lib/money';
 
 import { nextDraftId, type LineDraft } from './lineDraft';
@@ -66,6 +70,22 @@ export function LineItemsEditor({
   const [unitCostCents, setUnitCostCents] = useState<number | null>(null);
   const [uom, setUom] = useState('');
   const [reference, setReference] = useState('');
+  const [lotId, setLotId] = useState('');
+
+  // WMS Body B Phase B4 lot capture on the create form, RECEIVING ONLY. The lot
+  // picker renders only when mode === 'receiving' AND plugins.wms is on AND an
+  // item is selected; the lot list is filtered to that item. The shipment editor
+  // never enters this branch, so the shipment path is unchanged (no lot column,
+  // no gated wms-api call). The query is gated off entirely when WMS is off so a
+  // non-WMS org never hits the gated bundle. Mirrors ReceivingOrderDetailPage.
+  const flags = useOrgFlags();
+  const wmsEnabled = flags.data[FEATURE_FLAGS.PLUGINS_WMS] === true;
+  const lotPickerEnabled = mode === 'receiving' && wmsEnabled && !!selectedItemId;
+  const lotOptions = useWmsLotsList(
+    { item_id: selectedItemId ?? '', status: 'active' },
+    lotPickerEnabled,
+  );
+  const showLotPicker = mode === 'receiving' && wmsEnabled;
 
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
@@ -77,6 +97,9 @@ export function LineItemsEditor({
       unit_cost_cents: unitCostCents === null ? '' : String(unitCostCents),
       uom,
       reference,
+      // Carry the lot only for a receiving line that picked one; the shipment
+      // editor never sets lotId, so its drafts stay lot-free.
+      ...(showLotPicker && lotId ? { lot_id: lotId } : {}),
     };
     onChange([...lines, next]);
     setSelectedItemId(null);
@@ -84,6 +107,7 @@ export function LineItemsEditor({
     setUnitCostCents(null);
     setUom('');
     setReference('');
+    setLotId('');
   };
 
   const onRemove = (draftId: string) => {
@@ -152,7 +176,13 @@ export function LineItemsEditor({
         <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
         <ItemPicker
           value={selectedItemId}
-          onChange={(itemId) => setSelectedItemId(itemId)}
+          onChange={(itemId) => {
+            setSelectedItemId(itemId);
+            // Reset the lot when the item changes so a stale lot picked for a
+            // prior item cannot ride onto a new item line (same guard as the
+            // detail page; the server also 404s a cross-item lot).
+            setLotId('');
+          }}
           label="Item"
           filter={{ active: true }}
           disabled={disabled}
@@ -181,6 +211,26 @@ export function LineItemsEditor({
             value={reference}
             onChange={(e) => setReference(e.target.value)}
           />
+          {showLotPicker && (
+            <label className="flex flex-col gap-2">
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Lot
+              </span>
+              <Select
+                value={lotId}
+                onChange={(e) => setLotId(e.target.value)}
+                aria-label="Lot"
+                disabled={!selectedItemId || disabled}
+              >
+                <option value="">None</option>
+                {(lotOptions.data ?? []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.lot_code}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
           <Button
             type="button"
             onClick={onAdd}
