@@ -33,7 +33,7 @@ Suggested contiguous migration numbering (renumber from the real post-A7 max; pl
 
 ### B0. WMS chassis
 
-PREREQUISITE (ship first, separate PR): the SPA index budget lean-up, `F-Wave12-INDEX-BUDGET-HEADROOM-01`. The SPA index is at 39.99 of 40 kB gz and B0 adds a whole `/wms` sidebar section plus the `/wms` route, which exceeds the budget. Operator decision 2026-06-14: split to reclaim headroom and keep the 40 kB budget, do not raise it. The startable plan is in `03-workspace/journal/2026-06-14-3pl-a7-billing-profitability-closeout.md` under "SPA index budget lean-up". Do not start B0 until the index has real headroom.
+PREREQUISITE: SATISFIED. The SPA index budget lean-up (`F-Wave12-INDEX-BUDGET-HEADROOM-01`) shipped in PR #265 (lazy-split the Sidebar out of the app shell so the nav config and its lucide icons leave the eager index). The SPA index dropped from 39.99 to 33.7 of 40 kB gz, about 6 kB of headroom under the held 40 kB budget. B0 is unblocked: its `/wms` sidebar section plus `/wms` route fit with room to spare. The budget stays at 40 kB (not raised), per the operator decision 2026-06-14. Original startable plan for reference: `03-workspace/journal/2026-06-14-3pl-a7-billing-profitability-closeout.md` under "SPA index budget lean-up".
 
 Scope: stand up the gated add-on with no domain tables. Mirror the `manufacturing-api` plus `plugins.manufacturing` sibling throughout. After B0, `/wms/*` routes resolve to NotFoundPage for every org (flag defaults off, no org reachable until flipped on via `/admin/flags`).
 
@@ -264,9 +264,11 @@ Regression: `db-0110-lots.test.ts` (status CHECK, item FK, Pattern A RLS 3-role,
 
 Verification gate set (B4): contract parity, typecheck, lint 0, full vitest plus db-0110, deno check all bundles, build, size-limit. Apply to staging; live-probe lot CRUD, quarantine, and a receiving-then-putaway flow that produces a lot-keyed bin row reconciling to the warehouse total.
 
-## 3. Decisions to settle FIRST (operator)
+## 3. Decisions to settle FIRST (operator) [LOCKED 2026-06-15]
 
-Recommend each, then lock before B1. These are the B-analogues of the A6/A7 pre-build decisions.
+DECISIONS LOCKED (operator, 2026-06-15): all five below, (a) through (e), are confirmed to the recommended values stated in each `LOCK:` line. Build B0 then B1 to these without re-litigating. The only place in Body B that still stops for operator confirm before schema lands is the B2 `stock_movements` `location_id` change (section 4).
+
+These are the B-analogues of the A6/A7 pre-build decisions. Each decision's recommendation is now its locked value; the `Recommend:` and `LOCK:` lines that follow record it.
 
 (a) Location code scheme and hierarchy depth. Recommend: free-form `code` unique per `(org, warehouse)`, with a nullable self-ref `parent_location_id` allowing arbitrary depth but NO enforced depth limit in Phase 1 (the operator's bins are AISLE-RACK-SHELF-BIN in practice, but encoding the hierarchy as a string code plus an optional parent pointer keeps Phase 1 flat and unblocked). Do not build a structured aisle/rack/shelf/bin column set now; `attributes jsonb` carries pickable/putaway-eligible/capacity. LOCK: free-form code, optional single parent pointer, no depth enforcement.
 
