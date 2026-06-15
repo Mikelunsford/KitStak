@@ -91,7 +91,10 @@ jobs:
         # remote KitStak project runs Postgres 17.x (engine 17 GA channel),
         # confirmed via Supabase Management API on 2026-05-18.
         with:
-          version: latest
+          # Pinned (not `latest`) so CI does not call the Supabase release
+          # "resolve latest" endpoint, which intermittently returns a gateway
+          # timeout and fails the CLI setup. 2.106.0 supports Postgres 17.
+          version: 2.106.0
 
       - name: Deploy each bundle (prod)
         run: |
@@ -130,7 +133,10 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (not `latest`) so CI does not call the Supabase release
+          # "resolve latest" endpoint, which intermittently returns a gateway
+          # timeout and fails the CLI setup. 2.106.0 supports Postgres 17.
+          version: 2.106.0
 
       - name: Deploy each bundle (staging)
         run: |

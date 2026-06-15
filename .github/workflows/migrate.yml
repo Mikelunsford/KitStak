@@ -48,7 +48,12 @@ jobs:
         # confirmed via Supabase Management API on 2026-05-18.
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (not `latest`) so CI does not call the Supabase release
+          # "resolve latest" endpoint, which intermittently returns a gateway
+          # timeout and fails the CLI setup before any migration runs. 2.106.0
+          # supports Postgres 17 (config.toml major_version = 17). Bump
+          # deliberately.
+          version: 2.106.0
 
       - name: List pending migrations
         run: |
@@ -86,7 +91,12 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (not `latest`) so CI does not call the Supabase release
+          # "resolve latest" endpoint, which intermittently returns a gateway
+          # timeout and fails the CLI setup before any migration runs. 2.106.0
+          # supports Postgres 17 (config.toml major_version = 17). Bump
+          # deliberately.
+          version: 2.106.0
 
       - name: List pending migrations
         run: |
