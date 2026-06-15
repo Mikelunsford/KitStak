@@ -31,6 +31,7 @@ import {
 } from '../_shared/handler-helpers.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { ok, ApiError, noContent } from '../_shared/responses.ts';
+import { PAID_PLUGIN_FLAGS } from '../_shared/constants.ts';
 import {
   BrandingResponseSchema,
   HexColorSchema,
@@ -194,6 +195,57 @@ async function listFlags(ctx: RouteCtx): Promise<Response> {
   return ok({ items });
 }
 
+// Subscription statuses that entitle an org to enable paid pillar plugins.
+// Mirrors the billing-api / stripe-webhook vocabulary; any other status
+// (past_due, canceled, unpaid, paused, incomplete, ...) is not entitled.
+const ENTITLED_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
+
+/**
+ * Gate enabling a paid pillar plugin behind an active billing subscription.
+ *
+ * Only fires when the flag being written is a paid pillar plugin AND the
+ * write is an enable (is_enabled = true). Disabling is always allowed so an
+ * org can wind a pillar down regardless of billing state. Non-plugin flags
+ * are never gated here.
+ *
+ * The org's subscription_status is read with the service-role admin client;
+ * the explicit `.eq('id', orgId)` is the tenant guard. A missing org row or
+ * a non-entitled status both deny the enable with 403 BILLING_REQUIRED. This
+ * is distinct from the bundle gate, which returns 404 for sub-plan tenants.
+ */
+async function requirePaidPluginEntitlement(
+  orgId: string,
+  flagKey: string,
+  isEnabled: boolean,
+): Promise<void> {
+  if (!isEnabled) return;
+  if (!PAID_PLUGIN_FLAGS.has(flagKey)) return;
+
+  const sb = admin();
+  const { data, error } = await sb
+    .from('organizations')
+    .select('subscription_status')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) {
+    throw new ApiError(
+      'INTERNAL_ERROR',
+      500,
+      `subscription status read failed: ${error.message}`,
+    );
+  }
+  const status = (data as { subscription_status?: string } | null)
+    ?.subscription_status;
+  if (!status || !ENTITLED_SUBSCRIPTION_STATUSES.has(status)) {
+    throw new ApiError(
+      'BILLING_REQUIRED',
+      403,
+      'An active subscription is required to enable this plugin.',
+      { flag: flagKey },
+    );
+  }
+}
+
 async function upsertFlag(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'flags.write');
@@ -202,6 +254,8 @@ async function upsertFlag(ctx: RouteCtx): Promise<Response> {
     throw new ApiError('VALIDATION_ERROR', 422, 'flag_key required');
   }
   const body = await parseBody(ctx.req, FlagUpsertSchema);
+
+  await requirePaidPluginEntitlement(caller.orgId, flagKey, body.is_enabled);
 
   return respondWithIdempotency(
     ctx.req,

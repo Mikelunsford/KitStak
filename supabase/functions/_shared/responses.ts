@@ -14,6 +14,7 @@ export type ApiErrorCode =
   | 'VALIDATION_ERROR'
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
+  | 'BILLING_REQUIRED'
   | (string & { _brand?: 'forwardCode' });
 
 const STATUS_FOR_CODE: Record<string, number> = {
@@ -33,6 +34,10 @@ const STATUS_FOR_CODE: Record<string, number> = {
   VALIDATION_ERROR: 422,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
+  // BILLING_REQUIRED (403) is the paid-plugin entitlement rail: enabling a
+  // paid pillar plugin without an active subscription is denied on the
+  // settings flag-write surface. Distinct from the bundle gate (404).
+  BILLING_REQUIRED: 403,
 };
 
 export class ApiError extends Error {
