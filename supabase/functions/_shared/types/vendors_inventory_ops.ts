@@ -375,6 +375,12 @@ export const ReceivingOrderSchema = z.object({
   // in by 0061. Nullable for historical rows. Receivers may not be linked
   // to a project (e.g. raw-stock inbound for general inventory).
   project_id: Uuid.nullable(),
+  // WMS Body B receiving-to-dock (migration 0108, F-Wave12-WMS-RECEIVE-DOCK-01):
+  // the single inbound dock / staging location for the whole receipt (one dock
+  // per receipt, operator decision). Nullable header column FKing
+  // warehouse_locations ON DELETE SET NULL; pre-WMS / WMS-off rows carry NULL.
+  // Matches the project_id nullable-FK convention above.
+  dock_location_id: Uuid.nullable(),
   status: ReceivingOrderStatusSchema,
   expected_date: z.string().nullable(),
   received_date: z.string().nullable(),

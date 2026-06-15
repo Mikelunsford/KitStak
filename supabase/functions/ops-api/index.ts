@@ -49,6 +49,7 @@ import {
 import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
+import { getFlag } from '../_shared/feature-flags.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   ReceivingOrderSchema, ReceivingOrderStatusSchema,
@@ -87,6 +88,48 @@ async function loadOrgScoped<T>(table: string, caller: Caller, id: string): Prom
 }
 
 // ---------------------------------------------------------------------------
+// WMS receiving-to-dock guard (F-Wave12-WMS-RECEIVE-DOCK-01).
+//
+// The dock (warehouse_locations) is accepted on EXACTLY ONE path: the
+// /transition handler, and only when to === 'received', and only when the
+// caller's org has plugins.wms ON. assertRefInOrg already 404s a cross-tenant
+// dock id; this additionally enforces the CROSS-WAREHOUSE rule: the chosen dock
+// must live in the SAME warehouse as the receiving order, or the
+// receipt-emitting trigger would file the bin row under the wrong warehouse (the
+// bin recompute keys on stock_movements.warehouse_id, which the trigger sets
+// from the receiving order's warehouse_id, not the dock's).
+//
+// A mismatch returns 404 NOT_FOUND, the constitutional answer for an
+// out-of-scope reference on a write (never 403). It is the same envelope
+// assertRefInOrg uses for a cross-tenant id, and it leaks no oracle: the dock
+// simply "does not exist" for this receiving order's warehouse.
+// ---------------------------------------------------------------------------
+async function assertDockInWarehouse(
+  caller: Caller,
+  dockLocationId: string,
+  warehouseId: string,
+): Promise<void> {
+  // Org scoping first: a cross-tenant dock id 404s here, matching the
+  // warehouse_id / vendor_id / project_id convention.
+  await assertRefInOrg('warehouse_locations', caller, dockLocationId);
+  // active = true matches the SPA picker filter: an inactive (but not deleted)
+  // dock is not a valid putaway target, so it 404s like a deleted one rather
+  // than landing stock in a deactivated location.
+  const { data, error } = await admin()
+    .from('warehouse_locations')
+    .select('warehouse_id')
+    .eq('org_id', caller.orgId)
+    .eq('id', dockLocationId)
+    .eq('active', true)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw internalError('ops-api', error);
+  if (!data || (data as { warehouse_id: string }).warehouse_id !== warehouseId) {
+    throw new ApiError('NOT_FOUND', 404, 'dock location not found in this warehouse');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Zod inputs
 // ---------------------------------------------------------------------------
 
@@ -113,7 +156,17 @@ const ReceivingCreate = z.object({
   payload: ReceivingOrderPayloadSchema.default({}),
 });
 const ReceivingUpdate = ReceivingCreate.partial();
-const ReceivingTransition = z.object({ to: ReceivingOrderStatusSchema });
+const ReceivingTransition = z.object({
+  to: ReceivingOrderStatusSchema,
+  // WMS receiving-to-dock PRIMARY picker (F-Wave12-WMS-RECEIVE-DOCK-01): the
+  // single dock / staging selector. It is honoured by the handler ONLY when
+  // to === 'received' AND the caller's org has plugins.wms ON, where it rides
+  // the SAME UPDATE that flips status -> received so the AFTER UPDATE OF status
+  // receipt-emitting trigger sees new.dock_location_id and stamps it onto every
+  // emitted movement. On any other transition, or with plugins.wms OFF, the
+  // value is ignored and the dock is forced to NULL (server-authority no-op).
+  dock_location_id: z.string().uuid().nullable().optional(),
+});
 const ReceivingReceive = z.object({
   received_date: z.string().optional(),
   lines: z.array(ReceivingOrderLineSchema).default([]),
@@ -327,6 +380,35 @@ const TABLE: Route[] = [
         };
         if (body.to === 'received') {
           updatePayload.received_date = new Date().toISOString().slice(0, 10);
+          // WMS receiving-to-dock (F-Wave12-WMS-RECEIVE-DOCK-01). The dock is
+          // accepted ONLY here, ONLY on the transition to 'received', and ONLY
+          // when the caller's org has plugins.wms ON. It rides this SAME UPDATE
+          // so the AFTER UPDATE OF status receipt-emitting trigger (0108) sees
+          // new.dock_location_id and stamps it onto every emitted movement.
+          //
+          // Server-authority no-op (constitution: the SPA hides buttons, the
+          // server is authority). Read plugins.wms the same way the bundle gate
+          // reads a plugin flag for the org: getFlag(orgId, flagKey).enabled,
+          // memoized per (org_id, flag_key). When WMS is OFF we FORCE
+          // dock_location_id to NULL in the update set regardless of what the
+          // client sent, so a wms-off org can never land a dock even with a
+          // valid same-warehouse warehouse_locations id. When WMS is ON and a
+          // non-null dock is supplied, it must be org-scoped AND in this
+          // receiving order's warehouse (cur.warehouse_id); a mismatch 404s.
+          const wmsFlag = await getFlag(caller.orgId, FEATURE_FLAGS.PLUGINS_WMS);
+          if (!wmsFlag.enabled) {
+            // WMS OFF: hard NULL no-op. Whatever the client sent, the dock can
+            // never land. This is the load-bearing server-authority fix.
+            updatePayload.dock_location_id = null;
+          } else if (body.dock_location_id !== undefined) {
+            // WMS ON and the client expressed a dock (null clears it; a uuid is
+            // validated org-scoped + same-warehouse, 404 on mismatch). An
+            // undefined dock (no pick) leaves the existing header untouched.
+            if (body.dock_location_id !== null) {
+              await assertDockInWarehouse(caller, body.dock_location_id, cur.warehouse_id);
+            }
+            updatePayload.dock_location_id = body.dock_location_id;
+          }
         }
         const { data, error } = await admin().from('receiving_orders')
           .update(updatePayload)

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { TextInput } from '@/components/ui/TextInput';
+import { Select } from '@/components/ui/Select';
 import { ItemPicker } from '@/components/ui/pickers';
 import {
   useReceivingOrder, useTransitionReceivingOrder,
@@ -22,6 +23,9 @@ import {
   useDeleteReceivingOrderLineItem,
 } from '@/lib/hooks/useOps';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useWmsLocationsList } from '@/lib/hooks/useWmsLocations';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { RECEIVING_ORDER_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ReceivingOrderStatus } from '@/lib/types/vendors_inventory_ops';
 import { formatCents } from '@/lib/money';
@@ -36,6 +40,35 @@ export function ReceivingOrderDetailPage() {
   const addLine = useCreateReceivingOrderLineItem(receivingOrderId);
   const removeLine = useDeleteReceivingOrderLineItem(receivingOrderId);
   const caps = useVioCapabilities();
+
+  // WMS receiving-to-dock (F-Wave12-WMS-RECEIVE-DOCK-01): the dock / staging
+  // picker renders only when plugins.wms is enabled for the active org. The
+  // gate is read via the same flags hook RequirePlugin uses (no new gate). When
+  // WMS is off the picker is absent and dock_location_id is never sent, so the
+  // receive path stays a pure NULL no-op.
+  const flags = useOrgFlags();
+  const wmsEnabled = flags.data[FEATURE_FLAGS.PLUGINS_WMS] === true;
+  const warehouseId = r.data?.warehouse_id;
+  // B1 WMS locations filtered to this order's warehouse. The list filter accepts
+  // one location_type, so dock and staging are two queries merged client-side.
+  // Lazy: this whole page is a lazy route, so the WMS code lands in the receiving
+  // chunk, not the eager SPA index.
+  const dockEnabled = wmsEnabled && !!warehouseId;
+  // warehouseId is coalesced for the filter type (exactOptionalPropertyTypes);
+  // the query is disabled via dockEnabled until the order (and its warehouse)
+  // resolves, so the empty string is never sent.
+  const dockLocations = useWmsLocationsList(
+    { warehouse_id: warehouseId ?? '', location_type: 'dock', active: true },
+    dockEnabled,
+  );
+  const stagingLocations = useWmsLocationsList(
+    { warehouse_id: warehouseId ?? '', location_type: 'staging', active: true },
+    dockEnabled,
+  );
+  const dockOptions = wmsEnabled
+    ? [...(dockLocations.data ?? []), ...(stagingLocations.data ?? [])]
+    : [];
+  const [selectedDockId, setSelectedDockId] = useState('');
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [qty, setQty] = useState('1');
@@ -113,6 +146,37 @@ export function ReceivingOrderDetailPage() {
           </section>
         }
       >
+        {/* WMS receiving-to-dock: a single dock / staging selector for the whole
+            receipt. Rendered only when plugins.wms is on AND 'received' is a
+            reachable next state (the receipt has not yet posted). The 'Received'
+            FSM transition carries the chosen dock on its /transition POST so the
+            dock rides the same UPDATE that flips status -> received and the
+            receipt-emitting trigger stamps it onto every movement. The server
+            forces the dock to NULL when plugins.wms is off, so this picker is a
+            convenience surface, not the authority. */}
+        {wmsEnabled && caps.can('receiving.order.update') && next.includes('received') ? (
+          <div className="flex flex-col gap-1 max-w-sm">
+            <label
+              htmlFor="dock-location"
+              className="font-sans text-xs uppercase tracking-wider text-ink-dim"
+            >
+              Dock / staging location
+            </label>
+            <Select
+              id="dock-location"
+              value={selectedDockId}
+              onChange={(e) => setSelectedDockId(e.target.value)}
+              disabled={dockLocations.isLoading || stagingLocations.isLoading}
+            >
+              <option value="">No dock (warehouse level)</option>
+              {dockOptions.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.code} ({loc.location_type})
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
         {caps.can('receiving.order.update') && next.length > 0 ? (
           <div className="flex gap-2">
             {next.map((to) => (
@@ -124,7 +188,19 @@ export function ReceivingOrderDetailPage() {
                     action: 'Cancel this receiving order',
                     consequence: 'The order will move to cancelled and the expected inbound stock will no longer be tracked.',
                   }))) return;
-                  transition.mutate(to as ReceivingOrderStatus);
+                  // WMS receiving-to-dock: the 'received' transition carries the
+                  // chosen dock (null when none picked) on the SAME /transition
+                  // POST so the dock rides the UPDATE that flips status ->
+                  // received. WMS off keeps the plain transition with no dock,
+                  // and the server forces NULL regardless, a pure no-op.
+                  if (to === 'received' && wmsEnabled) {
+                    transition.mutate({
+                      to: 'received',
+                      dock_location_id: selectedDockId === '' ? null : selectedDockId,
+                    });
+                    return;
+                  }
+                  transition.mutate({ to: to as ReceivingOrderStatus });
                 }}
                 disabled={transition.isPending}
                 className="px-3 py-1 border border-line font-sans text-xs uppercase text-ink hover:bg-bg-2">{to.replace('_', ' ')}</button>

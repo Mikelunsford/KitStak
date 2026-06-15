@@ -26,10 +26,18 @@ const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
 // audit_append_state_change trigger writes rows under this type).
 const LOCATION_ENTITY = 'warehouse_location';
 
-export function useWmsLocationsList(filters: ListWmsLocationsFilters = {}) {
+export function useWmsLocationsList(
+  filters: ListWmsLocationsFilters = {},
+  // Optional gate so callers outside the WMS-gated routes (e.g. the receiving
+  // detail page's dock picker) can skip the gated wms-api call entirely when
+  // plugins.wms is off. Defaults to enabled for the WMS pages already behind
+  // RequirePlugin.
+  enabled = true,
+) {
   return useQuery({
     queryKey: wmsLocationsKeys.list(filters),
     queryFn: () => listWmsLocations(filters),
+    enabled,
     ...C,
   });
 }
