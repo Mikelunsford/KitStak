@@ -342,7 +342,12 @@ export type Capability =
   | 'threepl.billing_review.update'
   | 'threepl.billing_review.approve'
   | 'threepl.billing_review.cancel'
-  | 'threepl.profitability.read';
+  | 'threepl.profitability.read'
+  // wms.location.* (4) WMS Body B Locations (add-on six; Phase B1)
+  | 'wms.location.read'
+  | 'wms.location.create'
+  | 'wms.location.update'
+  | 'wms.location.deactivate';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -663,6 +668,12 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'threepl.billing_review.approve',
   'threepl.billing_review.cancel',
   'threepl.profitability.read',
+  // wms.location.* WMS Body B Locations (add-on six; Phase B1).
+  // WMS is warehouse execution, granted to org_owner / org_admin / ops only.
+  'wms.location.read',
+  'wms.location.create',
+  'wms.location.update',
+  'wms.location.deactivate',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -968,6 +979,12 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'threepl.billing_review.approve',
   'threepl.billing_review.cancel',
   'threepl.profitability.read',
+  // wms.location.* WMS Body B Locations (add-on six; Phase B1).
+  // WMS is warehouse execution, granted to org_owner / org_admin / ops only.
+  'wms.location.read',
+  'wms.location.create',
+  'wms.location.update',
+  'wms.location.deactivate',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1329,6 +1346,12 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'threepl.billing_review.approve',
   'threepl.billing_review.cancel',
   'threepl.profitability.read',
+  // wms.location.* WMS Body B Locations (add-on six; Phase B1).
+  // WMS is warehouse execution, granted to org_owner / org_admin / ops only.
+  'wms.location.read',
+  'wms.location.create',
+  'wms.location.update',
+  'wms.location.deactivate',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
