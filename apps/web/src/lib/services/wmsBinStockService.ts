@@ -1,0 +1,45 @@
+// WMS bin stock service (Wave 12 Body B Phase B2). Lives under the plugin-gated
+// wms-api bundle (plugins.wms, defaults off). bin_stock_levels is a read-only
+// rollup derived from the append-only stock_movements ledger, grouped by
+// (warehouse, location, item, lot). There is no write path: the rollup is
+// maintained by the recompute_bin_stock_level trigger. The sum of on-hand over
+// every location partition reconciles to the spine warehouse total.
+
+import { apiRequest } from '@/lib/apiClient';
+import {
+  BinStockLevelSchema,
+  type BinStockLevel,
+} from '@/lib/types/wms';
+
+export type { BinStockLevel };
+
+const BASE = '/wms-api/bin-stock';
+
+export type ListWmsBinStockFilters = {
+  warehouse_id?: string;
+  item_id?: string;
+  location_id?: string;
+};
+
+function binStockQs(f: ListWmsBinStockFilters): string {
+  const p = new URLSearchParams();
+  if (f.warehouse_id) p.set('warehouse_id', f.warehouse_id);
+  if (f.item_id) p.set('item_id', f.item_id);
+  if (f.location_id) p.set('location_id', f.location_id);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function listWmsBinStock(
+  filters: ListWmsBinStockFilters = {},
+): Promise<BinStockLevel[]> {
+  const data = await apiRequest<unknown>(`${BASE}${binStockQs(filters)}`, {
+    method: 'GET',
+  });
+  return (data as BinStockLevel[]).map((r) => BinStockLevelSchema.parse(r));
+}
+
+export async function getWmsBinStock(id: string): Promise<BinStockLevel> {
+  const data = await apiRequest<unknown>(`${BASE}/${id}`, { method: 'GET' });
+  return BinStockLevelSchema.parse(data);
+}

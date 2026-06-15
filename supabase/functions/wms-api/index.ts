@@ -25,8 +25,12 @@
 //   PATCH  /locations/:id                   update
 //   DELETE /locations/:id                   soft-delete (reuses location.update)
 //   POST   /locations/:id/deactivate        active -> false
+//   GET    /bin-stock                        list bin rollup (cap-gated; filters)
+//   GET    /bin-stock/:id                    read one bin rollup row (cap-gated)
 //
-// B2 (bin stock), B3 (putaway), and B4 (lots) add their routes per phase.
+// bin_stock_levels (B2) is a read-only rollup maintained by the
+// recompute_bin_stock_level trigger; its GETs require wms.bin_stock.read and
+// have no write path. B3 (putaway) and B4 (lots) add their routes per phase.
 
 import { type Route } from '../_shared/route.ts';
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
@@ -42,6 +46,8 @@ import {
   WarehouseLocationCreateSchema,
   WarehouseLocationPatchSchema,
   type WarehouseLocation,
+  BinStockLevelSchema,
+  type BinStockLevel,
 } from '../_shared/types/wms.ts';
 
 const BUNDLE = 'wms-api';
@@ -74,6 +80,21 @@ async function assertWarehouseLocationParent(
     .eq('org_id', caller.orgId).eq('id', id).is('deleted_at', null).maybeSingle();
   if (error) throw internalError(BUNDLE, error);
   if (!data) throw new ApiError('NOT_FOUND', 404);
+}
+
+// bin_stock_levels is a read-only rollup (B2). No soft-delete column; a
+// cross-tenant or missing id resolves to NOT_FOUND 404, matching the locations
+// loader.
+async function loadBinStockLevel(
+  caller: Caller, id: string,
+): Promise<BinStockLevel> {
+  const { data, error } = await admin()
+    .from('bin_stock_levels').select('*')
+    .eq('org_id', caller.orgId).eq('id', id)
+    .maybeSingle();
+  if (error) throw internalError(BUNDLE, error);
+  if (!data) throw new ApiError('NOT_FOUND', 404);
+  return BinStockLevelSchema.parse(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +247,41 @@ const TABLE: Route[] = [
         if (!data) throw new ApiError('NOT_FOUND', 404);
         return ok(WarehouseLocationSchema.parse(data));
       });
+    },
+  },
+  // -------------------------------------------------------------------------
+  // bin_stock_levels (B2; read-only rollup, no write path). Maintained by the
+  // recompute_bin_stock_level trigger off the append-only ledger. Reads are
+  // cap-gated (wms.bin_stock.read) and org-scoped; no idempotency wrapper (GET).
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET', path: '/bin-stock',
+    handler: async ({ req, url }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'wms.bin_stock.read');
+      const warehouseId = url.searchParams.get('warehouse_id');
+      const itemId = url.searchParams.get('item_id');
+      const locationId = url.searchParams.get('location_id');
+      let q = admin()
+        .from('bin_stock_levels').select('*')
+        .eq('org_id', caller.orgId)
+        .order('updated_at', { ascending: false }).limit(500);
+      if (warehouseId) q = q.eq('warehouse_id', warehouseId);
+      if (itemId) q = q.eq('item_id', itemId);
+      if (locationId) q = q.eq('location_id', locationId);
+      const { data, error } = await q;
+      if (error) throw internalError(BUNDLE, error);
+      return ok((data ?? []).map((r) => BinStockLevelSchema.parse(r)));
+    },
+  },
+  {
+    method: 'GET', path: '/bin-stock/:id',
+    handler: async ({ req, params }) => {
+      const caller = requireCaller(req);
+      requireCap(caller, 'wms.bin_stock.read');
+      parseUuidParam(params.id);
+      const row = await loadBinStockLevel(caller, params.id);
+      return ok(row);
     },
   },
 ];
