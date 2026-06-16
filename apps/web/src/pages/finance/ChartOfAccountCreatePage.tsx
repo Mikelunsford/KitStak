@@ -7,6 +7,10 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { AccountTypeSchema } from '@/lib/types/finance';
+import {
+  zodIssuesToFieldErrors,
+  type FieldErrors,
+} from '@/lib/forms/zodFieldErrors';
 import { useCreateChartOfAccount } from '@/lib/hooks/useChartOfAccounts';
 import type { CoaCreate } from '@/lib/services/chartOfAccountsService'; // cast target
 
@@ -18,6 +22,8 @@ const CoaCreateFormSchema = z.object({
   is_active: z.boolean(),
   description: z.string().optional(),
 });
+
+type CoaFieldErrors = FieldErrors<keyof z.infer<typeof CoaCreateFormSchema>>;
 
 /**
  * Form to create a new chart of accounts entry. Wires to POST /coa via
@@ -35,11 +41,13 @@ export function ChartOfAccountCreatePage() {
     useState<z.infer<typeof AccountTypeSchema>>('asset');
   const [isActive, setIsActive] = useState(true);
   const [description, setDescription] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<CoaFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
 
     const draft = {
       code: code.trim(),
@@ -51,7 +59,9 @@ export function ChartOfAccountCreatePage() {
 
     const parsed = CoaCreateFormSchema.safeParse(draft);
     if (!parsed.success) {
-      setError(parsed.error.issues.map((i) => i.message).join('; '));
+      // Per-field mapping so each message lands on its own input instead of
+      // a single joined banner the operator has to decode.
+      setFieldErrors(zodIssuesToFieldErrors(parsed.error));
       return;
     }
 
@@ -71,6 +81,7 @@ export function ChartOfAccountCreatePage() {
           value={code}
           onChange={(e) => setCode(e.target.value)}
           required
+          {...(fieldErrors.code ? { error: fieldErrors.code } : {})}
           placeholder="e.g. 1010"
         />
         <TextInput
@@ -78,6 +89,7 @@ export function ChartOfAccountCreatePage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
+          {...(fieldErrors.name ? { error: fieldErrors.name } : {})}
           placeholder="e.g. Cash"
         />
         <label className="flex flex-col gap-2">
@@ -96,11 +108,17 @@ export function ChartOfAccountCreatePage() {
             <option value="revenue">Revenue</option>
             <option value="expense">Expense</option>
           </Select>
+          {fieldErrors.account_type ? (
+            <span className="font-sans text-sm text-danger">
+              {fieldErrors.account_type}
+            </span>
+          ) : null}
         </label>
         <TextInput
           label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          {...(fieldErrors.description ? { error: fieldErrors.description } : {})}
           placeholder="Optional"
         />
         <label className="flex items-center gap-2">

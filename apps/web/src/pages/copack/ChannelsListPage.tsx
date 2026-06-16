@@ -25,16 +25,21 @@ import type { SalesChannel, SalesChannelKind } from '@/lib/types/copack';
 
 const PAGE_SIZE = 50;
 
+// Channels are manual only until a real connector exists. The create picker
+// offers Manual alone; the server enforces the same rule (copack-api rejects a
+// non-manual kind with VALIDATION_ERROR). Legacy rows created before this rule
+// may still carry shopify / amazon / other, so the display-label map keeps
+// those names for read-back even though they are no longer selectable.
 const CHANNEL_KINDS: ReadonlyArray<{ value: SalesChannelKind; label: string }> = [
   { value: 'manual', label: 'Manual' },
-  { value: 'shopify', label: 'Shopify' },
-  { value: 'amazon', label: 'Amazon' },
-  { value: 'other', label: 'Other' },
 ];
 
-const CHANNEL_KIND_LABELS: Record<string, string> = Object.fromEntries(
-  CHANNEL_KINDS.map((k) => [k.value, k.label]),
-);
+const CHANNEL_KIND_LABELS: Record<string, string> = {
+  manual: 'Manual',
+  shopify: 'Shopify',
+  amazon: 'Amazon',
+  other: 'Other',
+};
 
 function channelKindLabel(kind: string): string {
   return CHANNEL_KIND_LABELS[kind] ?? kind;
@@ -110,8 +115,10 @@ export function ChannelsListPage() {
         meta={meta}
       />
       <p className="font-sans text-ink-dim text-sm max-w-2xl">
-        Sales channels define where your orders come from. Mark a channel
-        inactive to hide it from new order forms without deleting its history.
+        Sales channels define where your orders come from. Channels are manual
+        for now. Automated connectors such as Shopify and Amazon are not
+        available yet. Mark a channel inactive to hide it from new order forms
+        without deleting its history.
       </p>
 
       {channels.error ? (

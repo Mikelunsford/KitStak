@@ -331,13 +331,20 @@ async function transitionCreditNoteTo(
   if (to === 'issued') patch.issued_at = new Date().toISOString();
   if (to === 'voided') patch.voided_at = new Date().toISOString();
 
+  // R-W13-FIN-01: status-equals-from guard, mirroring transitionInvoiceTo.
+  // The status was read above (fetchCN), so `.eq('status', from)` turns this
+  // UPDATE into a compare-and-set: a concurrent transition that already moved
+  // the row off `from` matches 0 rows and surfaces as STATE_CONFLICT 409
+  // rather than silently double-applying. maybeSingle() makes a 0-row result
+  // `data === null` instead of the PGRST116 error that `.single()` raises.
   const { data, error } = await admin()
     .from('credit_notes')
     .update(patch)
     .eq('id', id)
     .eq('org_id', caller.orgId)
+    .eq('status', from)
     .select(CN_COLS)
-    .single();
+    .maybeSingle();
   if (error) {
     // Map the period-closed trigger SQLSTATE P0001 to 422 per security canon,
     // mirroring the invoice + apply handlers.
@@ -347,6 +354,15 @@ async function transitionCreditNoteTo(
     throw new ApiError('INTERNAL_ERROR', 500, 'credit note transition failed', {
       detail: error.message,
     });
+  }
+  if (!data) {
+    // fetchCN already 404s a missing / cross-tenant id, so a 0-row UPDATE can
+    // only mean the status moved off `from` between the read and the write.
+    throw new ApiError(
+      'STATE_CONFLICT',
+      409,
+      `credit note transition ${from} -> ${to} not allowed`,
+    );
   }
   return rowToCN(data);
 }
