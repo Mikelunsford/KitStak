@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
+import { transitionInvalidationKeys } from './transitionInvalidation';
 import {
   receivingOrdersKeys, productionRunsKeys, shipmentsKeys,
 } from '@/lib/queryKeys/ops';
@@ -79,11 +80,15 @@ export function useTransitionReceivingOrder(id: string) {
     // the same /transition POST. Non-received transitions pass { to } only.
     mutationFn: (input: TransitionReceivingOrderBody) => transitionReceivingOrder(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: receiving order transitions write an
-      // audit_log row via trg_audit_receiving_orders_state; invalidate the
-      // timeline so the operator sees the new entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+      // R-W13-UX-01: invalidate the detail key explicitly (not only via the
+      // `all` prefix) so the StateStepper, action buttons, and totals on the
+      // detail page refresh the instant the transition succeeds, with no
+      // manual reload. Mirrors useTransitionInvoice / useQuoteAction. The audit
+      // timeline (trg_audit_receiving_orders_state writes a row) is swept too
+      // by the shared transitionInvalidationKeys contract.
+      for (const queryKey of transitionInvalidationKeys(receivingOrdersKeys, 'receiving_order', id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
@@ -93,11 +98,13 @@ export function useReceiveReceivingOrder(id: string) {
     mutationFn: (input: { received_date?: string; lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }> }) =>
       receiveReceivingOrder(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: receive RPC drives a draft -> received
-      // transition that writes an audit row; invalidate the timeline so
-      // the operator sees the entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+      // R-W13-UX-01: the receive RPC flips status -> received; invalidate the
+      // detail key explicitly so the stepper and totals update without reload.
+      // The audit timeline (draft -> received writes a row) is swept too by the
+      // shared transitionInvalidationKeys contract.
+      for (const queryKey of transitionInvalidationKeys(receivingOrdersKeys, 'receiving_order', id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
