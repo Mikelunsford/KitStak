@@ -33,7 +33,7 @@ import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { ok, ApiError, noContent } from '../_shared/responses.ts';
 import { FEATURE_FLAGS, PAID_PLUGIN_FLAGS } from '../_shared/constants.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
-import { OidcConfigResponseSchema, SamlConfigSchema } from '../_shared/types.ts';
+import { OidcConfigSchema, SamlConfigSchema } from '../_shared/types.ts';
 import {
   BrandingResponseSchema,
   HexColorSchema,
@@ -593,13 +593,13 @@ const OidcMetadataRequestSchema = z.object({
   token_endpoint: z.string().url(),
   userinfo_endpoint: z.string().url(),
   client_id: z.string().min(1),
-  client_secret: z.string().min(1),
   scopes: z.array(z.string()).optional(),
   attribute_mappings: z.record(z.unknown()).optional(),
 });
 
-// client_secret is intentionally NOT selected: it is write-only and must never
-// be echoed back to the caller.
+// The OIDC client_secret is not stored in the MVP (deferred to the live-handshake
+// phase, where it goes behind Vault), so it is neither accepted, written, nor
+// selected here.
 const OIDC_CONFIG_COLS =
   'issuer_url, authorization_endpoint, token_endpoint, userinfo_endpoint, client_id, scopes, attribute_mappings';
 
@@ -628,7 +628,6 @@ async function configureSsoOidcMetadata(ctx: RouteCtx): Promise<Response> {
         token_endpoint: body.token_endpoint,
         userinfo_endpoint: body.userinfo_endpoint,
         client_id: body.client_id,
-        client_secret: body.client_secret,
         scopes: body.scopes ?? ['openid', 'profile', 'email'],
         attribute_mappings: body.attribute_mappings ?? {},
         created_by: caller.userId,
@@ -647,7 +646,7 @@ async function configureSsoOidcMetadata(ctx: RouteCtx): Promise<Response> {
           `oidc config upsert failed: ${error.message}`,
         );
       }
-      return ok(OidcConfigResponseSchema.parse(data));
+      return ok(OidcConfigSchema.parse(data));
     },
   );
 }

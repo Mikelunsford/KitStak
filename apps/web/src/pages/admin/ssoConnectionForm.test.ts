@@ -27,7 +27,6 @@ const FULL_OIDC: OidcConfigFormState = {
   tokenEndpoint: 'https://idp.example.com/token',
   userinfoEndpoint: 'https://idp.example.com/userinfo',
   clientId: 'client-123',
-  clientSecret: 'secret-456',
 };
 
 describe('SSO_PROVIDER_OPTIONS', () => {
@@ -88,7 +87,7 @@ describe('isOidcConfigSubmittable', () => {
   });
 
   it('is false when any required OIDC field is empty or whitespace', () => {
-    expect(isOidcConfigSubmittable({ ...FULL_OIDC, clientSecret: '' }, false)).toBe(false);
+    expect(isOidcConfigSubmittable({ ...FULL_OIDC, clientId: '' }, false)).toBe(false);
     expect(isOidcConfigSubmittable({ ...FULL_OIDC, issuerUrl: '  ' }, false)).toBe(false);
   });
 });

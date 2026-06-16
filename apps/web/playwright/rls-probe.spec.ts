@@ -1352,7 +1352,6 @@ test.describe('@rls cross-tenant probe matrix', () => {
         token_endpoint: 'https://idp.example/token',
         userinfo_endpoint: 'https://idp.example/userinfo',
         client_id: 'probe-client',
-        client_secret: 'probe-secret',
       },
     );
     expect(res.status, 'oidc sso metadata MUST be gated by auth.sso_saml').toBe(403);
@@ -1372,7 +1371,6 @@ test.describe('@rls cross-tenant probe matrix', () => {
         token_endpoint: 'https://idp.example/token',
         userinfo_endpoint: 'https://idp.example/userinfo',
         client_id: 'probe-client',
-        client_secret: 'probe-secret',
       },
     );
     expect(

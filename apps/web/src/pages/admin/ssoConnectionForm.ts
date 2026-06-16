@@ -71,7 +71,6 @@ export interface OidcConfigFormState {
   tokenEndpoint: string;
   userinfoEndpoint: string;
   clientId: string;
-  clientSecret: string;
 }
 
 export function isOidcConfigSubmittable(
@@ -84,7 +83,6 @@ export function isOidcConfigSubmittable(
     state.authorizationEndpoint.trim() !== '' &&
     state.tokenEndpoint.trim() !== '' &&
     state.userinfoEndpoint.trim() !== '' &&
-    state.clientId.trim() !== '' &&
-    state.clientSecret.trim() !== ''
+    state.clientId.trim() !== ''
   );
 }

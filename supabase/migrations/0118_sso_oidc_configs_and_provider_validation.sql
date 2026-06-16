@@ -16,11 +16,12 @@
 --   auto-provisioning is a later follow-up)
 -- Date: 2026-06-15
 --
--- SECURITY NOTE (accepted MVP risk): oidc_configs.client_secret and
---   saml_configs.idp_x509_cert are stored as plaintext columns (encrypted at
---   rest at the volume level, no column-level encryption). The store endpoint
---   never echoes client_secret back to the caller (write-only). Moving the
---   secret behind Supabase Vault is tracked as F-Wave13-SSO-SECRET-VAULT-01.
+-- SECURITY NOTE: the OIDC client_secret is NOT stored in this MVP. oidc_configs
+--   holds only the public OIDC parameters (issuer, endpoints, client_id). The
+--   client_secret is collected in the later live-handshake phase, where it goes
+--   behind Supabase Vault (F-Wave13-SSO-SECRET-VAULT-01), since nothing performs
+--   a token exchange before then. saml_configs.idp_x509_cert is an IdP public
+--   signing certificate (not a secret), stored plaintext as before.
 --
 -- DOWN MIGRATION (operator-only):
 --   drop index if exists public.sso_connections_org_all_idx;
@@ -82,7 +83,6 @@ create table if not exists public.oidc_configs (
   token_endpoint text not null,
   userinfo_endpoint text not null,
   client_id text not null,
-  client_secret text not null,
   scopes jsonb not null default '["openid", "profile", "email"]'::jsonb,
   attribute_mappings jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),

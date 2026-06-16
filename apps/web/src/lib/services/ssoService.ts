@@ -25,11 +25,10 @@ import {
   SsoConnectionSchema as CanonSsoConnectionSchema,
   SsoProviderSchema,
   SamlConfigSchema,
-  OidcConfigResponseSchema,
+  OidcConfigSchema,
   type SsoProvider,
   type SamlConfig,
   type OidcConfig,
-  type OidcConfigResponse,
   type RoleCode,
 } from '@/lib/types';
 
@@ -106,20 +105,18 @@ export interface ConfigureOidcMetadataInput {
   token_endpoint: string;
   userinfo_endpoint: string;
   client_id: string;
-  client_secret: string;
   scopes?: string[];
   attribute_mappings?: Record<string, unknown>;
 }
 
 export async function configureOidcMetadata(
   input: ConfigureOidcMetadataInput,
-): Promise<OidcConfigResponse> {
+): Promise<OidcConfig> {
   const data = await apiRequest<unknown>('/settings-api/sso/oidc-metadata', {
     method: 'POST',
     body: input,
   });
-  // The response omits client_secret (write-only); parse with the response shape.
-  const parsed = OidcConfigResponseSchema.safeParse(data);
+  const parsed = OidcConfigSchema.safeParse(data);
   if (!parsed.success) {
     throw new Error('Unexpected response while saving OIDC metadata. Please retry.');
   }

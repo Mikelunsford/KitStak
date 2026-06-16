@@ -85,7 +85,6 @@ export function SsoConnectionsPage() {
     tokenEndpoint: '',
     userinfoEndpoint: '',
     clientId: '',
-    clientSecret: '',
   });
 
   const configConn =
@@ -190,7 +189,6 @@ export function SsoConnectionsPage() {
         token_endpoint: oidc.tokenEndpoint.trim(),
         userinfo_endpoint: oidc.userinfoEndpoint.trim(),
         client_id: oidc.clientId.trim(),
-        client_secret: oidc.clientSecret.trim(),
       },
       {
         onSuccess: () =>
@@ -504,14 +502,10 @@ export function SsoConnectionsPage() {
                 onChange={(e) => setOidc({ ...oidc, clientId: e.target.value })}
                 data-testid="oidc-client-id"
               />
-              <TextInput
-                label="Client secret"
-                name="oidc_client_secret"
-                type="password"
-                value={oidc.clientSecret}
-                onChange={(e) => setOidc({ ...oidc, clientSecret: e.target.value })}
-                data-testid="oidc-client-secret"
-              />
+              <p className="md:col-span-2 font-sans text-xs text-ink-faint">
+                The client secret is collected when you wire the live provider in
+                Supabase. It is not stored here.
+              </p>
             </div>
           )}
 
