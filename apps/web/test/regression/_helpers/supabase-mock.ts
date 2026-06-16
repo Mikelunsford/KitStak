@@ -184,7 +184,10 @@ interface QueryBuilder {
   limit: (n: number) => QueryBuilder;
   maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
   single: () => Promise<{ data: unknown; error: unknown }>;
-  insert: (row: Record<string, unknown>) => QueryBuilder;
+  insert: (
+    row: Record<string, unknown> | Array<Record<string, unknown>>,
+    opts?: { count?: 'exact' },
+  ) => QueryBuilder;
   upsert: (
     row: Record<string, unknown>,
     opts?: { onConflict?: string; ignoreDuplicates?: boolean },
@@ -205,6 +208,11 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
   let mode: 'select' | 'update' | 'insert' | 'upsert' | 'delete' = 'select';
   let patch: Record<string, unknown> = {};
   let toInsert: Record<string, unknown> | null = null;
+  // Bulk insert (e.g. imports-api commit): an array of rows passed to
+  // .insert(rows, { count: 'exact' }). Held separately so single-row callers
+  // keep their existing behaviour untouched.
+  let toInsertMany: Array<Record<string, unknown>> | null = null;
+  let insertCountExact = false;
   let upsertConflictCols: string[] = [];
   let upsertIgnoreDuplicates = false;
   let countMode: 'exact' | null = null;
@@ -214,6 +222,38 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
     const tableRows = state.rows[table] ?? [];
 
     if (mode === 'insert') {
+      if (toInsertMany) {
+        // Bulk insert: record each row and append to the table. Honour the
+        // unique constraint (first duplicate aborts the whole batch, matching
+        // Postgres). Return a count when { count: 'exact' } was requested.
+        const constraint = state.insertConstraints?.[table];
+        const existing = state.rows[table] ?? [];
+        if (constraint) {
+          for (const row of toInsertMany) {
+            const newVal = row[constraint.column];
+            const dup = existing.some((r) => r[constraint.column] === newVal);
+            if (dup) {
+              return {
+                data: null,
+                error: {
+                  code: '23505',
+                  message: `duplicate key value violates unique constraint on "${table}"`,
+                },
+              };
+            }
+          }
+        }
+        for (const row of toInsertMany) {
+          state.inserts.push({ table, row });
+          existing.push(row);
+        }
+        state.rows[table] = existing;
+        return {
+          data: toInsertMany,
+          error: null,
+          ...(insertCountExact ? { count: toInsertMany.length } : {}),
+        };
+      }
       if (toInsert) {
         const constraint = state.insertConstraints?.[table];
         if (constraint) {
@@ -360,9 +400,14 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
       if (arr) return { data: arr[0] ?? null, error: r.error };
       return { data: r.data ?? null, error: r.error };
     },
-    insert: (row) => {
+    insert: (row, opts) => {
       mode = 'insert';
-      toInsert = row;
+      if (Array.isArray(row)) {
+        toInsertMany = row;
+        insertCountExact = opts?.count === 'exact';
+      } else {
+        toInsert = row;
+      }
       return builder;
     },
     upsert: (row, opts) => {

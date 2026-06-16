@@ -26,37 +26,80 @@ import { z } from 'zod';
 
 const BUNDLE = 'imports-api';
 
-// Per-entity row schemas. We tolerate unknown extra fields so operators can
-// upload broader CSVs without rejection; we only validate the columns we
-// actually use for insert.
+// Per-entity row schemas. The KEYS here are the real destination-table column
+// names, because the commit handler inserts the Zod-parsed row directly (the
+// allowlist). A drift between a schema key and the actual column silently
+// dropped the value (Zod stripped the unknown key) or failed the insert, which
+// is why the import round-trip was broken for several entities before this fix.
+//
+// We tolerate unknown extra fields so operators can upload broader CSVs without
+// rejection; only the declared columns reach the insert.
 const RowSchemas: Record<string, z.ZodTypeAny> = {
   customer: z.object({
+    display_name: z.string().min(1),
+    // customers stores contact details under primary_* (migration 0007).
+    primary_email: z.string().email().optional().nullable(),
+    primary_phone: z.string().optional().nullable(),
+  }),
+  item: z.object({
+    // items has no free-text unit-of-measure column; unit_id is a UUID FK to
+    // public.units (migration 0012). A CSV UOM string cannot map to that FK
+    // without a lookup, so unit is intentionally out of scope for import here.
+    sku: z.string().min(1),
+    name: z.string().min(1),
+  }),
+  vendor: z.object({
+    // vendors already uses email / phone (migration 0025), so these are the
+    // real column names, not aliases.
     display_name: z.string().min(1),
     email: z.string().email().optional().nullable(),
     phone: z.string().optional().nullable(),
   }),
-  item: z.object({
-    sku: z.string().min(1),
-    name: z.string().min(1),
-    unit_of_measure: z.string().optional().nullable(),
-  }),
-  vendor: z.object({
-    display_name: z.string().min(1),
-    email: z.string().email().optional().nullable(),
-  }),
   invoice: z.object({
-    number: z.string().min(1),
+    invoice_number: z.string().min(1),
     customer_id: z.string().uuid(),
-    total_cents: z.number().int().nonnegative(),
+    // CSV cells arrive as strings; coerce to an integer cent value. Stays
+    // BIGINT cents (never a float) per the money rules.
+    total_cents: z.coerce.number().int().nonnegative(),
     currency_code: z.string().min(3).max(3),
   }),
   expense: z.object({
-    number: z.string().min(1),
+    expense_number: z.string().min(1),
     vendor_id: z.string().uuid(),
-    amount_cents: z.number().int().nonnegative(),
+    amount_cents: z.coerce.number().int().nonnegative(),
     currency_code: z.string().min(3).max(3),
   }),
 };
+
+// Friendly CSV header -> real column name, per entity. This lets an operator
+// keep a natural CSV header (email, phone, number) while the insert still uses
+// the canonical column. Aliasing runs BEFORE Zod parse; an explicit canonical
+// value already present on the row wins over the alias. This does NOT widen the
+// allowlist: anything not in the entity RowSchema is still stripped by Zod
+// before the insert, so a CSV cannot set an arbitrary DB field.
+const ColumnAliases: Record<string, Record<string, string>> = {
+  customer: { email: 'primary_email', phone: 'primary_phone' },
+  invoice: { number: 'invoice_number' },
+  expense: { number: 'expense_number' },
+};
+
+function applyColumnAliases(
+  entity: string,
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  const aliases = ColumnAliases[entity];
+  if (!aliases) return row;
+  const mapped: Record<string, unknown> = { ...row };
+  for (const [from, to] of Object.entries(aliases)) {
+    // Only fill the canonical column from the alias when the canonical column
+    // is not already supplied; never overwrite an explicit canonical value.
+    if (from in mapped && !(to in mapped && mapped[to] !== undefined && mapped[to] !== '')) {
+      mapped[to] = mapped[from];
+    }
+    delete mapped[from];
+  }
+  return mapped;
+}
 
 const TableForEntity: Record<string, string> = {
   customer: 'customers',
@@ -103,7 +146,16 @@ function validateRows(
     return { errors: [{ row_number: 0, field: null, message: 'unsupported entity' }], validRows };
   }
   rows.forEach((row, i) => {
-    const parsed = schema.safeParse(row);
+    // Map friendly CSV headers to canonical columns, then drop empty-string
+    // cells so an unfilled optional column parses as absent rather than failing
+    // a format check (a blank email cell is "not provided", not "invalid").
+    const aliased = applyColumnAliases(entity, row);
+    const normalized: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(aliased)) {
+      if (typeof v === 'string' && v.trim() === '') continue;
+      normalized[k] = v;
+    }
+    const parsed = schema.safeParse(normalized);
     if (!parsed.success) {
       const flat = parsed.error.flatten();
       for (const [field, msgs] of Object.entries(flat.fieldErrors)) {
