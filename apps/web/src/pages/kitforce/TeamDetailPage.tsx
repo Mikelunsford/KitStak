@@ -104,7 +104,7 @@ export function TeamDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Workforce / Teams"
+        eyebrow="KitForce / Teams"
         title={team.name}
         meta={<StatusBadge status={team.is_active ? 'active' : 'inactive'} />}
         actions={

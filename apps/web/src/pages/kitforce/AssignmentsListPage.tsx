@@ -186,7 +186,7 @@ export function AssignmentsListPage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Workforce / Assignments" title="Assignments" meta={meta} />
+      <PageHeader eyebrow="KitForce / Assignments" title="Assignments" meta={meta} />
 
       {canCreate ? (
         <form

@@ -81,7 +81,7 @@ export function TeamsListPage() {
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Workforce / Teams" title="Teams" meta={meta} />
+      <PageHeader eyebrow="KitForce / Teams" title="Teams" meta={meta} />
 
       {canWrite ? (
         <form

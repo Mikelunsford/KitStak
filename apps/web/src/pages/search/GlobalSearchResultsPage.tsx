@@ -5,6 +5,12 @@ import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { useGlobalSearch } from '@/lib/hooks/useCrossCutting';
+import { GROUP_LABEL } from '@/components/shell/commandBarModel';
+import type { SearchResultGroup } from '@/lib/types/cross_cutting';
+
+function groupHeading(group: string): string {
+  return (GROUP_LABEL[group as SearchResultGroup] ?? group).toUpperCase();
+}
 
 export function GlobalSearchResultsPage() {
   const [params] = useSearchParams();
@@ -42,7 +48,7 @@ export function GlobalSearchResultsPage() {
             items && items.length > 0 ? (
               <section key={group}>
                 <h2 className="mb-2 font-display text-lg tracking-wider text-ink">
-                  {group.toUpperCase()}
+                  {groupHeading(group)}
                 </h2>
                 <ul className="flex flex-col">
                   {items.map((it) => (

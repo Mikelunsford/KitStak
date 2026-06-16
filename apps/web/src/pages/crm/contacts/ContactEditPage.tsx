@@ -74,7 +74,7 @@ export function ContactEditPage() {
 
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
-      <PageHeader eyebrow="Library / Contacts" title="Edit contact" />
+      <PageHeader eyebrow="CRM / Contacts" title="Edit contact" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
         <TextInput
           label="First name"

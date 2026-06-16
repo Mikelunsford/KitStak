@@ -90,7 +90,7 @@ export function ChartOfAccountEditPage() {
 
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
-      <PageHeader eyebrow="Get paid / Chart of accounts" title="Edit account" />
+      <PageHeader eyebrow="Finance / Chart of accounts" title="Edit account" />
       {query.data.is_system ? (
         <p className="text-sm text-ink-dim font-sans border border-line px-3 py-2 bg-bg-2">
           System account. Code and type are read-only; name, description, and

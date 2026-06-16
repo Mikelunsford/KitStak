@@ -139,6 +139,8 @@ export const SearchResultGroupSchema = z.enum([
   'quote',
   'invoice',
   'project',
+  'item',
+  'job_run',
 ]);
 export type SearchResultGroup = z.infer<typeof SearchResultGroupSchema>;
 

@@ -134,7 +134,7 @@ export function QuotesListPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Sell / Quotes"
+        eyebrow="Quotes"
         title="Quotes"
         meta={meta}
         actions={

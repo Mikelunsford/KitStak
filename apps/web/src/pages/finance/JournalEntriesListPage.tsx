@@ -79,7 +79,7 @@ export function JournalEntriesListPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Get paid / Journal entries"
+        eyebrow="Finance / Journal entries"
         title="Journal entries"
         meta={meta}
         actions={

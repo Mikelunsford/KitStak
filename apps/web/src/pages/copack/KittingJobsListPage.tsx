@@ -161,7 +161,7 @@ export function KittingJobsListPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Make / Kitting Jobs"
+        eyebrow="Co-Pack and Ecom / Kitting jobs"
         title="Kitting Jobs"
         meta={meta}
         actions={
