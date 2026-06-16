@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { wmsPutawayKeys } from '@/lib/queryKeys/wms';
+import { transitionInvalidationKeys } from './transitionInvalidation';
 import {
   listWmsPutaway,
   getWmsPutaway,
@@ -90,8 +91,14 @@ function useTransitionWmsPutaway(
   return useMutation({
     mutationFn: () => fn(id),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });
+      // R-W13-UX-01: invalidate the detail key explicitly (not only via the
+      // `all` prefix) so the StateStepper, action buttons, and totals on the
+      // task detail page refresh the instant the transition succeeds, with no
+      // manual reload. Mirrors useTransitionInvoice / useQuoteAction. The key
+      // set is named by transitionInvalidationKeys so the contract is tested.
+      for (const queryKey of transitionInvalidationKeys(wmsPutawayKeys, PUTAWAY_ENTITY, id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
