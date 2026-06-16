@@ -12,8 +12,12 @@ import {
   deleteSsoConnection,
   listSsoConnections,
   updateSsoConnection,
+  configureSamlMetadata,
+  configureOidcMetadata,
   type CreateSsoConnectionInput,
   type UpdateSsoConnectionInput,
+  type ConfigureSamlMetadataInput,
+  type ConfigureOidcMetadataInput,
 } from '@/lib/services/ssoService';
 
 /** GET sso_connections (RLS-scoped to the active org). */
@@ -51,6 +55,29 @@ export function useDeleteSsoConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteSsoConnection(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ssoKeys.all });
+    },
+  });
+}
+
+// F-Wave13-SSO-HANDSHAKE-01: store IdP metadata through settings-api. Storing
+// does not change the connection record, but the detail surface reflects the
+// saved state, so invalidate the list for consistency.
+export function useConfigureSamlMetadata() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ConfigureSamlMetadataInput) => configureSamlMetadata(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ssoKeys.all });
+    },
+  });
+}
+
+export function useConfigureOidcMetadata() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ConfigureOidcMetadataInput) => configureOidcMetadata(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ssoKeys.all });
     },

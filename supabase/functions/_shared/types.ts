@@ -94,6 +94,30 @@ export type Branding = z.infer<typeof BrandingSchema>;
 export const SsoProviderSchema = z.enum(['saml', 'oidc']);
 export type SsoProvider = z.infer<typeof SsoProviderSchema>;
 
+export const SamlConfigSchema = z.object({
+  idp_entity_id: z.string(),
+  idp_sso_url: z.string(),
+  idp_metadata_url: z.string().nullable(),
+  idp_x509_cert: z.string(),
+  sp_entity_id: z.string(),
+  sp_acs_url: z.string(),
+  attribute_mappings: z.record(z.unknown()).default({}),
+  signature_algorithm: z.string().default('rsa-sha256'),
+  want_assertions_signed: z.boolean().default(true),
+});
+export type SamlConfig = z.infer<typeof SamlConfigSchema>;
+
+export const OidcConfigSchema = z.object({
+  issuer_url: z.string(),
+  authorization_endpoint: z.string(),
+  token_endpoint: z.string(),
+  userinfo_endpoint: z.string(),
+  client_id: z.string(),
+  scopes: z.array(z.string()).default(['openid', 'profile', 'email']),
+  attribute_mappings: z.record(z.unknown()).default({}),
+});
+export type OidcConfig = z.infer<typeof OidcConfigSchema>;
+
 export const SsoConnectionSchema = z.object({
   id: UuidSchema,
   org_id: UuidSchema,
@@ -101,5 +125,6 @@ export const SsoConnectionSchema = z.object({
   display_name: z.string(),
   is_active: z.boolean(),
   default_role_code: RoleCodeSchema,
+  provider_validated_at: z.string().nullable(),
 });
 export type SsoConnection = z.infer<typeof SsoConnectionSchema>;

@@ -1289,4 +1289,93 @@ test.describe('@rls cross-tenant probe matrix', () => {
     ).toBeNull();
     expect(data, 'current_org_id resolves to the caller active org').toBe(orgA!.id);
   });
+
+  // --- Category 14: SSO metadata endpoint gates (settings-api) ---------------
+  //
+  // F-Wave13-SSO-HANDSHAKE-01: storing IdP metadata is flag-gated
+  // (auth.sso_saml), cap-gated (org.sso.write), and the connection lookup is
+  // org-scoped so a foreign or unknown sso_connection_id returns 404, never the
+  // stored secret. orgA never enables auth.sso_saml in the fixture, so its owner
+  // hits the flag gate; orgB enables it here and proves the cross-tenant lookup
+  // resolves to 404.
+
+  test('@rls sso metadata POST is flag-gated: 403 FEATURE_DISABLED when auth.sso_saml is off', async () => {
+    if (!orgA) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgA!.ownerJwt,
+      'POST',
+      '/settings-api/sso/saml-metadata',
+      {
+        sso_connection_id: '00000000-0000-4000-8000-0000000000fe',
+        idp_entity_id: 'https://idp.example/entity',
+        idp_sso_url: 'https://idp.example/sso',
+        idp_x509_cert: 'MIICprobeCertValue',
+        sp_entity_id: 'https://app.kitstak.com/sp',
+        sp_acs_url: 'https://app.kitstak.com/acs',
+      },
+    );
+    expect(res.status, 'sso metadata MUST be gated by auth.sso_saml').toBe(403);
+  });
+
+  test('@rls sso metadata POST with an unknown or foreign connection 404s', async () => {
+    if (!orgB) test.skip(true, 'fixtures not ready');
+    await setFlag(orgB!.id, FEATURE_FLAGS.AUTH_SSO_SAML, true);
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'POST',
+      '/settings-api/sso/saml-metadata',
+      {
+        sso_connection_id: '00000000-0000-4000-8000-0000000000ff',
+        idp_entity_id: 'https://idp.example/entity',
+        idp_sso_url: 'https://idp.example/sso',
+        idp_x509_cert: 'MIICprobeCertValue',
+        sp_entity_id: 'https://app.kitstak.com/sp',
+        sp_acs_url: 'https://app.kitstak.com/acs',
+      },
+    );
+    expect(
+      res.status,
+      'unknown or cross-tenant sso connection MUST 404, never leak or 403',
+    ).toBe(404);
+  });
+
+  test('@rls sso oidc metadata POST is flag-gated: 403 FEATURE_DISABLED when auth.sso_saml is off', async () => {
+    if (!orgA) test.skip(true, 'fixtures not ready');
+    const res = await callFn(
+      orgA!.ownerJwt,
+      'POST',
+      '/settings-api/sso/oidc-metadata',
+      {
+        sso_connection_id: '00000000-0000-4000-8000-0000000000fd',
+        issuer_url: 'https://idp.example',
+        authorization_endpoint: 'https://idp.example/authorize',
+        token_endpoint: 'https://idp.example/token',
+        userinfo_endpoint: 'https://idp.example/userinfo',
+        client_id: 'probe-client',
+      },
+    );
+    expect(res.status, 'oidc sso metadata MUST be gated by auth.sso_saml').toBe(403);
+  });
+
+  test('@rls sso oidc metadata POST with an unknown or foreign connection 404s', async () => {
+    if (!orgB) test.skip(true, 'fixtures not ready');
+    await setFlag(orgB!.id, FEATURE_FLAGS.AUTH_SSO_SAML, true);
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'POST',
+      '/settings-api/sso/oidc-metadata',
+      {
+        sso_connection_id: '00000000-0000-4000-8000-0000000000fc',
+        issuer_url: 'https://idp.example',
+        authorization_endpoint: 'https://idp.example/authorize',
+        token_endpoint: 'https://idp.example/token',
+        userinfo_endpoint: 'https://idp.example/userinfo',
+        client_id: 'probe-client',
+      },
+    );
+    expect(
+      res.status,
+      'unknown or cross-tenant oidc sso connection MUST 404, never leak or 403',
+    ).toBe(404);
+  });
 });

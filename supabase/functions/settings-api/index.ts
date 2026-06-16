@@ -29,9 +29,11 @@ import {
   respondWithIdempotency,
   requireCap,
 } from '../_shared/handler-helpers.ts';
-import { requireCaller } from '../_shared/tenant.ts';
+import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { ok, ApiError, noContent } from '../_shared/responses.ts';
-import { PAID_PLUGIN_FLAGS } from '../_shared/constants.ts';
+import { FEATURE_FLAGS, PAID_PLUGIN_FLAGS } from '../_shared/constants.ts';
+import { getFlag } from '../_shared/feature-flags.ts';
+import { OidcConfigSchema, SamlConfigSchema } from '../_shared/types.ts';
 import {
   BrandingResponseSchema,
   HexColorSchema,
@@ -458,6 +460,197 @@ async function resetNumbering(ctx: RouteCtx): Promise<Response> {
   );
 }
 
+// ---------------------------------------------------------------------------
+// SSO provider metadata (F-Wave13-SSO-HANDSHAKE-01, MVP store-metadata)
+// ---------------------------------------------------------------------------
+//
+// The SPA manages the sso_connections record directly through RLS. Storing the
+// IdP metadata (cert, endpoints, client secret) is a workflow, not plain config:
+// it is gated behind the auth.sso_saml flag, requires org.sso.write, enforces an
+// Idempotency-Key, and writes via the service-role client after confirming the
+// connection belongs to the caller org. provider_validated_at is NOT stamped
+// here: storing metadata does not prove the live handshake works. The operator
+// wires the provider in the Supabase project, then marks the connection
+// validated (sso_connections.provider_validated_at) and activates it; the
+// sso_connections_active_requires_validation CHECK enforces that ordering.
+
+// One flag gates both SSO protocols for the MVP: auth.sso_saml is the single
+// SSO entitlement. A protocol-specific flag (auth.sso_oidc) is a later split.
+async function requireSsoFlag(caller: Caller): Promise<void> {
+  const flag = await getFlag(caller.orgId, FEATURE_FLAGS.AUTH_SSO_SAML);
+  if (!flag.enabled) {
+    throw new ApiError(
+      'FEATURE_DISABLED',
+      403,
+      'auth.sso_saml feature is disabled for this org',
+      { flag: FEATURE_FLAGS.AUTH_SSO_SAML },
+    );
+  }
+}
+
+async function assertSsoConnectionInOrg(
+  sb: ReturnType<typeof admin>,
+  connectionId: string,
+  orgId: string,
+  expectedProvider: 'saml' | 'oidc',
+): Promise<void> {
+  const { data, error } = await sb
+    .from('sso_connections')
+    .select('id, provider')
+    .eq('id', connectionId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (error) {
+    throw new ApiError(
+      'INTERNAL_ERROR',
+      500,
+      `sso connection lookup failed: ${error.message}`,
+    );
+  }
+  // Cross-tenant or unknown connection: 404, never 403 (constitutional).
+  if (!data) {
+    throw new ApiError('NOT_FOUND', 404, 'SSO connection not found.');
+  }
+  if ((data as { provider: string }).provider !== expectedProvider) {
+    throw new ApiError(
+      'VALIDATION_ERROR',
+      422,
+      `connection provider is ${(data as { provider: string }).provider}, not ${expectedProvider}`,
+    );
+  }
+}
+
+const SamlMetadataRequestSchema = z.object({
+  sso_connection_id: z.string().uuid(),
+  idp_entity_id: z.string().min(1),
+  idp_sso_url: z.string().url(),
+  idp_metadata_url: z.string().url().nullable().optional(),
+  idp_x509_cert: z.string().min(1),
+  sp_entity_id: z.string().min(1),
+  sp_acs_url: z.string().url(),
+  attribute_mappings: z.record(z.unknown()).optional(),
+  signature_algorithm: z.string().min(1).optional(),
+  want_assertions_signed: z.boolean().optional(),
+});
+
+const SAML_CONFIG_COLS =
+  'idp_entity_id, idp_sso_url, idp_metadata_url, idp_x509_cert, sp_entity_id, sp_acs_url, attribute_mappings, signature_algorithm, want_assertions_signed';
+
+async function configureSsoSamlMetadata(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'org.sso.write');
+  await requireSsoFlag(caller);
+  const body = await parseBody(ctx.req, SamlMetadataRequestSchema);
+
+  // Tenant check runs unconditionally, before the idempotency wrapper, so it is
+  // enforced on every request rather than skipped on an idempotent replay.
+  const sb = admin();
+  await assertSsoConnectionInOrg(sb, body.sso_connection_id, caller.orgId, 'saml');
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/sso/saml-metadata',
+    body,
+    async () => {
+      const row = {
+        sso_connection_id: body.sso_connection_id,
+        idp_entity_id: body.idp_entity_id,
+        idp_sso_url: body.idp_sso_url,
+        idp_metadata_url: body.idp_metadata_url ?? null,
+        idp_x509_cert: body.idp_x509_cert,
+        sp_entity_id: body.sp_entity_id,
+        sp_acs_url: body.sp_acs_url,
+        attribute_mappings: body.attribute_mappings ?? {},
+        signature_algorithm: body.signature_algorithm ?? 'rsa-sha256',
+        want_assertions_signed: body.want_assertions_signed ?? true,
+        created_by: caller.userId,
+        updated_at: new Date().toISOString(),
+        updated_by: caller.userId,
+      };
+      const { data, error } = await sb
+        .from('saml_configs')
+        .upsert(row, { onConflict: 'sso_connection_id' })
+        .select(SAML_CONFIG_COLS)
+        .single();
+      if (error) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `saml config upsert failed: ${error.message}`,
+        );
+      }
+      return ok(SamlConfigSchema.parse(data));
+    },
+  );
+}
+
+const OidcMetadataRequestSchema = z.object({
+  sso_connection_id: z.string().uuid(),
+  issuer_url: z.string().url(),
+  authorization_endpoint: z.string().url(),
+  token_endpoint: z.string().url(),
+  userinfo_endpoint: z.string().url(),
+  client_id: z.string().min(1),
+  scopes: z.array(z.string()).optional(),
+  attribute_mappings: z.record(z.unknown()).optional(),
+});
+
+// The OIDC client_secret is not stored in the MVP (deferred to the live-handshake
+// phase, where it goes behind Vault), so it is neither accepted, written, nor
+// selected here.
+const OIDC_CONFIG_COLS =
+  'issuer_url, authorization_endpoint, token_endpoint, userinfo_endpoint, client_id, scopes, attribute_mappings';
+
+async function configureSsoOidcMetadata(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'org.sso.write');
+  await requireSsoFlag(caller);
+  const body = await parseBody(ctx.req, OidcMetadataRequestSchema);
+
+  // Tenant check runs unconditionally, before the idempotency wrapper, so it is
+  // enforced on every request rather than skipped on an idempotent replay.
+  const sb = admin();
+  await assertSsoConnectionInOrg(sb, body.sso_connection_id, caller.orgId, 'oidc');
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/sso/oidc-metadata',
+    body,
+    async () => {
+      const row = {
+        sso_connection_id: body.sso_connection_id,
+        issuer_url: body.issuer_url,
+        authorization_endpoint: body.authorization_endpoint,
+        token_endpoint: body.token_endpoint,
+        userinfo_endpoint: body.userinfo_endpoint,
+        client_id: body.client_id,
+        scopes: body.scopes ?? ['openid', 'profile', 'email'],
+        attribute_mappings: body.attribute_mappings ?? {},
+        created_by: caller.userId,
+        updated_at: new Date().toISOString(),
+        updated_by: caller.userId,
+      };
+      const { data, error } = await sb
+        .from('oidc_configs')
+        .upsert(row, { onConflict: 'sso_connection_id' })
+        .select(OIDC_CONFIG_COLS)
+        .single();
+      if (error) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `oidc config upsert failed: ${error.message}`,
+        );
+      }
+      return ok(OidcConfigSchema.parse(data));
+    },
+  );
+}
+
 Deno.serve((req: Request) =>
   route(
     req,
@@ -477,6 +670,9 @@ Deno.serve((req: Request) =>
       { method: 'GET',    path: '/numbering',             handler: listNumbering },
       { method: 'GET',    path: '/numbering/:doc_type',   handler: getNumbering },
       { method: 'POST',   path: '/numbering/reset',       handler: resetNumbering },
+      // sso provider metadata (store-metadata MVP)
+      { method: 'POST',   path: '/sso/saml-metadata',     handler: configureSsoSamlMetadata },
+      { method: 'POST',   path: '/sso/oidc-metadata',     handler: configureSsoOidcMetadata },
     ],
     { bundle: BUNDLE },
   ),
