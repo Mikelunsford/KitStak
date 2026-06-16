@@ -25,6 +25,42 @@ module.exports = [
     gzip: true,
   },
 
+  // R-W13-DX-01: lazy observability chunks (sentry, posthog).
+  //
+  // These two SDKs are dynamic-imported (manualChunks.sentry / .posthog in
+  // vite.config.ts) from src/lib/sentry.ts and src/lib/analytics.ts. Both
+  // are no-op when their env key (VITE_SENTRY_DSN / VITE_POSTHOG_KEY) is
+  // absent at build: the dynamic import is unreachable post-Vite-define and
+  // Rollup tree-shakes the SDK out, leaving a sub-1 kB stub chunk.
+  //
+  // CI builds WITHOUT the secrets (see .github/workflows/ci.yml: the build
+  // step has no VITE_SENTRY_DSN / VITE_POSTHOG_KEY env), so size-limit runs
+  // against the stub. The activation build (deploy-prod.yml) injects the
+  // secrets and ships the full SDK, but that workflow does not run
+  // size-limit, so a stub-scoped budget never blocks activation.
+  //
+  // The regression these budgets catch: a refactor that makes either SDK
+  // eagerly imported (non-lazy). That would either balloon the stub chunk
+  // past the budget here, or fold the SDK into the index chunk and trip the
+  // 40 kB SPA index budget above. Either way the regression fails CI.
+  //
+  // Current: sentry stub ~0.07 kB gzip, posthog stub ~0.04 kB gzip. The
+  // 2 kB cap leaves generous headroom for stub-shape churn while staying
+  // far below the full-SDK sizes (sentry ~25 kB, posthog ~30 kB gzip) so an
+  // accidental eager bundle is caught.
+  {
+    name: 'Sentry lazy chunk (no-op stub when DSN absent)',
+    path: 'dist/assets/sentry-*.js',
+    limit: '2 KB',
+    gzip: true,
+  },
+  {
+    name: 'PostHog lazy chunk (no-op stub when key absent)',
+    path: 'dist/assets/posthog-*.js',
+    limit: '2 KB',
+    gzip: true,
+  },
+
   // TanStack Query vendor chunk (manualChunks: query).
   // Current: ~12.5 kB gzip. Headroom: ~5 kB.
   {
