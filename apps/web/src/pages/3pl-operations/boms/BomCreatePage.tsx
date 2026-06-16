@@ -1,35 +1,32 @@
 // BomCreatePage. Migration to the shared UI kit (F-Wave10-UI-KIT-01, 3PL CRUD
-// tail): PageHeader replaces the hand-rolled title and the two raw item selects
-// become the kit Select. The Zod FormSchema (including the cross-field refine
-// that rejects parent === component), the per-field error spans, the cap-gate
-// early return, and the redirect to the new BOM's detail page are preserved.
+// tail): PageHeader replaces the hand-rolled title and the item selects become
+// the kit Select. The cap-gate early return and the redirect to the new BOM's
+// detail page are preserved.
+//
+// R-W13-UX-02: the operator now picks the finished item once and stages the
+// whole component list inline on this screen, instead of being forced to create
+// the BOM with one component and add the rest on the detail page. A BOM has no
+// single create endpoint (each component is its own bom_item row), so submit
+// replays each staged component through createBomItem under one user action.
+// The parent-equals-component guard and the positive-quantity rule move into
+// the pure validateBomDrafts helper so the contract is unit-tested.
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Select';
-import { TextInput } from '@/components/ui/TextInput';
 import { useCreateBomItem } from '@/lib/hooks/useInventory';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
-const FormSchema = z
-  .object({
-    parent_item_id: z.string().uuid('Select a finished item'),
-    component_item_id: z.string().uuid('Select a component item'),
-    quantity_per: z.coerce.number().positive('Must be greater than zero'),
-    unit_of_measure: z.string().optional(),
-    notes: z.string().optional(),
-  })
-  .refine((v) => v.parent_item_id !== v.component_item_id, {
-    path: ['component_item_id'],
-    message: 'A component cannot be the finished item itself',
-  });
-
-type Errors = Partial<Record<keyof z.infer<typeof FormSchema>, string>>;
+import { BomCreateLinesEditor } from './BomCreateLinesEditor';
+import {
+  bomDraftsToCreateBodies,
+  validateBomDrafts,
+  type BomLineDraft,
+} from './bomLineDraft';
 
 export function BomCreatePage() {
   const navigate = useNavigate();
@@ -38,11 +35,9 @@ export function BomCreatePage() {
   const { data: items } = useItemsList();
 
   const [parentItemId, setParentItemId] = useState('');
-  const [componentItemId, setComponentItemId] = useState('');
-  const [quantityPer, setQuantityPer] = useState('1');
-  const [unitOfMeasure, setUnitOfMeasure] = useState('');
-  const [notes, setNotes] = useState('');
-  const [errors, setErrors] = useState<Errors>({});
+  const [lines, setLines] = useState<BomLineDraft[]>([]);
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   if (!caps.can('stock.bom.write')) {
     return (
@@ -52,117 +47,96 @@ export function BomCreatePage() {
     );
   }
 
-  const options = (items ?? []).map((item) => ({
+  const parentOptions = (items ?? []).map((item) => ({
     id: item.id,
     label: `${item.sku} · ${item.name}`,
   }));
+  // The component picker must not offer the finished item itself.
+  const componentOptions = parentOptions.filter(
+    (opt) => opt.id !== parentItemId,
+  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const parsed = FormSchema.safeParse({
-      parent_item_id: parentItemId,
-      component_item_id: componentItemId,
-      quantity_per: quantityPer,
-      unit_of_measure: unitOfMeasure,
-      notes,
-    });
-    if (!parsed.success) {
-      const fieldErrors: Errors = {};
-      for (const issue of parsed.error.issues) {
-        fieldErrors[issue.path[0] as keyof Errors] = issue.message;
-      }
-      setErrors(fieldErrors);
+    if (!parentItemId) {
+      setFormError('Select a finished item.');
       return;
     }
-    setErrors({});
-    await create.mutateAsync({
-      parent_item_id: parsed.data.parent_item_id,
-      component_item_id: parsed.data.component_item_id,
-      quantity_per: parsed.data.quantity_per,
-      unit_of_measure: parsed.data.unit_of_measure
-        ? parsed.data.unit_of_measure
-        : null,
-      notes: parsed.data.notes ? parsed.data.notes : null,
-    });
-    navigate(`/catalog/boms/${parsed.data.parent_item_id}`);
+    const validation = validateBomDrafts(parentItemId, lines);
+    if (!validation.ok) {
+      setFormError(validation.message ?? 'Fix the components before saving.');
+      return;
+    }
+    setFormError('');
+    // R-W13-UX-02: a BOM has no bulk create route, so replay each staged
+    // component through createBomItem in entry order. Stop on the first
+    // failure; createBomItem surfaces its error via the mutation state and
+    // the operator can finish the rest on the detail page (the parent item
+    // routes the BOM, so partially-saved components are reachable there).
+    setSubmitting(true);
+    const bodies = bomDraftsToCreateBodies(parentItemId, lines);
+    let created = 0;
+    try {
+      for (const body of bodies) {
+        await create.mutateAsync(body);
+        created += 1;
+      }
+    } catch {
+      setSubmitting(false);
+      // Partial save: at least one component landed under its own bom_item row.
+      // Route to the BOM detail (keyed by the parent item) so the operator
+      // finishes the rest there. Re-submitting this screen would replay the
+      // already-saved components under fresh idempotency keys and duplicate
+      // them, so do not leave the operator on the create form with a full
+      // batch staged. When nothing saved there is nothing to duplicate: stay
+      // on the form with the drafts intact and the mutation error rendered.
+      if (created > 0) {
+        navigate(`/catalog/boms/${parentItemId}`);
+      }
+      return;
+    }
+    setSubmitting(false);
+    navigate(`/catalog/boms/${parentItemId}`);
   }
 
+  const pending = create.isPending || submitting;
+
   return (
-    <section className="mx-auto flex max-w-3xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Make / Bills of materials" title="New BOM" />
+    <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="Catalog / Bills of materials" title="New BOM" />
       <p className="font-sans text-sm text-ink-dim">
-        Pick the finished item, then add its first component. You can add more
-        components from the BOM detail page.
+        Pick the finished item, then add its components. You can add or edit
+        components later from the BOM detail page.
       </p>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
-        <label className="flex flex-col gap-2">
+      <form onSubmit={onSubmit} className="flex flex-col gap-6 font-sans text-sm">
+        <label className="flex max-w-xl flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Finished item
           </span>
           <Select
             value={parentItemId}
             onChange={(e) => setParentItemId(e.target.value)}
+            disabled={pending}
           >
             <option value="">Select an item</option>
-            {options.map((opt) => (
+            {parentOptions.map((opt) => (
               <option key={opt.id} value={opt.id}>
                 {opt.label}
               </option>
             ))}
           </Select>
-          {errors.parent_item_id ? (
-            <span className="font-sans text-sm text-danger">
-              {errors.parent_item_id}
-            </span>
-          ) : null}
         </label>
 
-        <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-            Component item
-          </span>
-          <Select
-            value={componentItemId}
-            onChange={(e) => setComponentItemId(e.target.value)}
-          >
-            <option value="">Select an item</option>
-            {options.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </Select>
-          {errors.component_item_id ? (
-            <span className="font-sans text-sm text-danger">
-              {errors.component_item_id}
-            </span>
-          ) : null}
-        </label>
-
-        <TextInput
-          label="Quantity per"
-          type="number"
-          step="0.0001"
-          min="0"
-          value={quantityPer}
-          onChange={(e) => setQuantityPer(e.target.value)}
-          required
-          {...(errors.quantity_per ? { error: errors.quantity_per } : {})}
-        />
-        <TextInput
-          label="Unit of measure"
-          value={unitOfMeasure}
-          onChange={(e) => setUnitOfMeasure(e.target.value)}
-          {...(errors.unit_of_measure ? { error: errors.unit_of_measure } : {})}
-          placeholder="ea"
-        />
-        <TextInput
-          label="Notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          {...(errors.notes ? { error: errors.notes } : {})}
+        {/* R-W13-UX-02: stage components inline. Submitted with the finished
+            item in one action via the loop in onSubmit. */}
+        <BomCreateLinesEditor
+          lines={lines}
+          onChange={setLines}
+          options={componentOptions}
+          disabled={pending}
         />
 
+        {formError ? <p className="text-accent">{formError}</p> : null}
         {create.error ? (
           <p className="text-accent">
             {create.error instanceof Error
@@ -171,8 +145,8 @@ export function BomCreatePage() {
           </p>
         ) : null}
 
-        <Button type="submit" disabled={create.isPending} className="self-start">
-          {create.isPending ? 'Saving.' : 'Create'}
+        <Button type="submit" disabled={pending} className="self-start">
+          {pending ? 'Saving.' : 'Create'}
         </Button>
       </form>
     </section>

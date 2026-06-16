@@ -2,7 +2,7 @@
 // shared UI kit (F-Wave10-UI-KIT-01): PageHeader + DataTable + Pagination
 // replace the hand-rolled header, link-as-button CTA, and table. Base price
 // keeps its formatCents rendering with the per-row currency_code. VAS is a
-// billable-service catalog, so it sits in the LIBRARY job-mode.
+// billable-service catalog, so it sits in the SPINE Catalog domain.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -78,7 +78,7 @@ export function ValueAddedServicesPage() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Library / Value added services"
+        eyebrow="Catalog / Value-added services"
         title="Value added services"
         meta={meta}
         actions={

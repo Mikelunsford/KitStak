@@ -66,7 +66,7 @@ export function PaymentMethodCreatePage() {
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
       <PageHeader
-        eyebrow="Sales config / Payment methods"
+        eyebrow="Settings / Sales config / Payment methods"
         title="New payment method"
       />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">

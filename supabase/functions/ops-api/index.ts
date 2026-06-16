@@ -222,11 +222,14 @@ const ShipmentShip = z.object({
 // dual-wrote both. Step 2 (migration 0051) redirected the emit_movements
 // trigger functions for receiving_orders and shipments to read from the
 // normalised tables instead of payload.lines. With the read side moved, the
-// handler dual-write is now redundant: this commit removes it. The
-// payload.lines JSON column is left in place because the multi-stage drop
-// rule defers the column drop to a separate forward migration
-// (F-Wave7-LINES-PAYLOAD-DROP-01), which also drops the `lines` body param
-// from the receive / ship RPCs.
+// line-item POST/PATCH/DELETE handlers stopped maintaining payload.lines.
+// R-W13-DB-01 finishes the dual-write drop: the /receive and /ship action
+// RPCs were still merging body.lines into payload.lines on the terminal
+// transition; that write is now removed too, so no handler maintains the
+// mirror. The payload.lines JSON column is left in place because the
+// multi-stage drop rule defers the column drop to a separate forward
+// migration (F-Wave7-LINES-PAYLOAD-DROP-01), which also drops the `lines`
+// body param from the receive / ship RPCs.
 //
 // Production runs are deliberately excluded from this step. The third
 // emit_movements trigger (tg_production_runs_emit_movements) still reads
@@ -428,10 +431,17 @@ const TABLE: Route[] = [
             updatePayload.dock_location_id = body.dock_location_id;
           }
         }
+        // R-W13-FIN-01: status-equals-from guard. cur.status was read above
+        // (loadOrgScoped); carrying it into the UPDATE WHERE clause turns the
+        // transition into a compare-and-set so two concurrent transitions off
+        // the same status yield one win and one STATE_CONFLICT 409 instead of
+        // a silent double-apply. maybeSingle keeps a 0-row result as null.
         const { data, error } = await admin().from('receiving_orders')
           .update(updatePayload)
-          .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
+          .eq('org_id', caller.orgId).eq('id', params.id)
+          .eq('status', cur.status).select('*').maybeSingle();
         if (error) throw internalError('ops-api', error);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `receiving_order transition conflict from ${cur.status}`);
         return ok(ReceivingOrderSchema.parse(data));
       });
     },
@@ -446,17 +456,26 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, 'ops-api', '/receiving-orders/:id/receive', body, async () => {
         const cur = await loadOrgScoped<ReceivingOrder>('receiving_orders', caller, params.id);
         assertTransition(RECEIVING_ORDER_FSM, cur.status, 'received');
-        const merged = { ...(cur.payload as Record<string, unknown>), lines: body.lines };
+        // R-W13-DB-01 (multi-stage drop, stage 1): stop dual-writing the
+        // payload.lines JSON mirror. The receipt emit trigger
+        // (tg_receiving_orders_emit_movements, migration 0051) now reads
+        // exclusively from receiving_order_line_items, and the SPA detail
+        // page reads lines via useReceivingOrderLineItems. No reader depends
+        // on payload.lines, so the body.lines mirror write is removed here.
+        // The payload.lines column itself stays for one more release per the
+        // multi-stage drop rule (its drop is F-Wave7-LINES-PAYLOAD-DROP-01).
+        // R-W13-FIN-01: status-equals-from guard on the terminal transition.
         const { data, error } = await admin().from('receiving_orders')
           .update({
             status: 'received',
             received_date: body.received_date ?? new Date().toISOString().slice(0, 10),
-            payload: merged,
             updated_by: caller.userId,
             updated_at: new Date().toISOString(),
           })
-          .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
+          .eq('org_id', caller.orgId).eq('id', params.id)
+          .eq('status', cur.status).select('*').maybeSingle();
         if (error) throw internalError('ops-api', error);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `receiving_order transition conflict from ${cur.status}`);
         return ok(ReceivingOrderSchema.parse(data));
       });
     },
@@ -674,6 +693,8 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, 'ops-api', '/production-runs/:id/start', null, async () => {
         const cur = await loadOrgScoped<ProductionRun>('production_runs', caller, params.id);
         assertTransition(PRODUCTION_RUN_FSM, cur.status, 'in_progress');
+        // R-W13-FIN-01: status-equals-from guard. Concurrent starts off the
+        // same status yield one win and one STATE_CONFLICT 409.
         const { data, error } = await admin().from('production_runs')
           .update({
             status: 'in_progress',
@@ -681,8 +702,10 @@ const TABLE: Route[] = [
             updated_by: caller.userId,
             updated_at: new Date().toISOString(),
           })
-          .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
+          .eq('org_id', caller.orgId).eq('id', params.id)
+          .eq('status', cur.status).select('*').maybeSingle();
         if (error) throw internalError('ops-api', error);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `production_run transition conflict from ${cur.status}`);
         return ok(ProductionRunSchema.parse(data));
       });
     },
@@ -700,11 +723,21 @@ const TABLE: Route[] = [
         // Cross-tenant FK guard on every consumed line and the produced line.
         for (const c of body.consumed) { await assertRefInOrg('items', caller, c.item_id); }
         if (body.produced?.item_id) { await assertRefInOrg('items', caller, body.produced.item_id); }
+        // R-W13-DB-01: the payload.consumed / payload.produced JSON mirror is
+        // NOT dropped here. The production emit trigger
+        // (tg_production_runs_emit_movements, migration 0048) reads
+        // new.payload -> 'consumed' and new.payload -> 'produced' on the same
+        // UPDATE that flips status to 'completed'. Production-run lines are not
+        // normalised (F-Wave7-PRODUCTION-LINES-NORMALIZE-01 is open), so this
+        // mirror is a live reader dependency and the write must stay.
         const merged = {
           ...(cur.payload as Record<string, unknown>),
           consumed: body.consumed,
           produced: body.produced ?? { quantity: body.quantity_produced },
         };
+        // R-W13-FIN-01: status-equals-from guard. Concurrent completes off the
+        // same status yield one win and one STATE_CONFLICT 409 so the emit
+        // trigger fires exactly once.
         const { data, error } = await admin().from('production_runs')
           .update({
             status: 'completed',
@@ -714,8 +747,10 @@ const TABLE: Route[] = [
             updated_by: caller.userId,
             updated_at: new Date().toISOString(),
           })
-          .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
+          .eq('org_id', caller.orgId).eq('id', params.id)
+          .eq('status', cur.status).select('*').maybeSingle();
         if (error) throw internalError('ops-api', error);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `production_run transition conflict from ${cur.status}`);
         return ok(ProductionRunSchema.parse(data));
       });
     },
@@ -820,10 +855,14 @@ const TABLE: Route[] = [
       return respondWithIdempotency(req, caller, 'ops-api', '/shipments/:id/transition', body, async () => {
         const cur = await loadOrgScoped<Shipment>('shipments', caller, params.id);
         assertTransition(SHIPMENT_FSM, cur.status, body.to);
+        // R-W13-FIN-01: status-equals-from guard. Concurrent transitions off
+        // the same status yield one win and one STATE_CONFLICT 409.
         const { data, error } = await admin().from('shipments')
           .update({ status: body.to, updated_by: caller.userId, updated_at: new Date().toISOString() })
-          .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
+          .eq('org_id', caller.orgId).eq('id', params.id)
+          .eq('status', cur.status).select('*').maybeSingle();
         if (error) throw internalError('ops-api', error);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `shipment transition conflict from ${cur.status}`);
         return ok(ShipmentSchema.parse(data));
       });
     },
@@ -845,19 +884,30 @@ const TABLE: Route[] = [
           assertTransition(SHIPMENT_FSM, 'created', 'picking');
         }
         assertTransition(SHIPMENT_FSM, 'picking', 'shipped');
-        const merged = { ...(cur.payload as Record<string, unknown>), lines: body.lines };
+        // R-W13-DB-01 (multi-stage drop, stage 1): stop dual-writing the
+        // payload.lines JSON mirror. The shipment emit trigger
+        // (tg_shipments_emit_movements, migration 0051) now reads exclusively
+        // from shipment_line_items, and the SPA detail page reads lines via
+        // useShipmentLineItems. No reader depends on payload.lines, so the
+        // body.lines mirror write is removed here. The payload.lines column
+        // itself stays for one more release (F-Wave7-LINES-PAYLOAD-DROP-01).
+        // R-W13-FIN-01: status-equals-from guard. cur.status is the status read
+        // above (either 'created' or 'picking'); carrying it into the UPDATE
+        // makes the ship a compare-and-set so concurrent ships yield one win
+        // and one STATE_CONFLICT 409 and the emit trigger fires exactly once.
         const { data, error } = await admin().from('shipments')
           .update({
             status: 'shipped',
             ship_date: body.ship_date ?? new Date().toISOString().slice(0, 10),
             carrier: body.carrier ?? cur.carrier,
             tracking_number: body.tracking_number ?? cur.tracking_number,
-            payload: merged,
             updated_by: caller.userId,
             updated_at: new Date().toISOString(),
           })
-          .eq('org_id', caller.orgId).eq('id', params.id).select('*').single();
+          .eq('org_id', caller.orgId).eq('id', params.id)
+          .eq('status', cur.status).select('*').maybeSingle();
         if (error) throw internalError('ops-api', error);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `shipment transition conflict from ${cur.status}`);
         return ok(ShipmentSchema.parse(data));
       });
     },

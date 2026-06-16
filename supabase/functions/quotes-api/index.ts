@@ -445,6 +445,93 @@ const sendQuote = async (ctx: RouteCtx) => {
 
 // --- convert to project ---
 
+// R-W13-3PL-02: on a quote -> project conversion, auto-create a DRAFT Supply
+// Plan linked to the new project, seeded from the project materials (the
+// project_line_items the conversion RPC just copied) and the org default
+// warehouse. This is a plain entity create on supply_plans / supply_plan_lines
+// (both Pattern A, both carrying the 0096 auto-audit trigger), so the auto
+// state-transition / audit chassis records it. No hand-written audit_log.
+//
+// Idempotent: the convert_quote_to_project RPC short-circuits on a re-run and
+// returns the same project_id without re-copying lines, so the supply-plan step
+// must guard against a duplicate too. It bails out when a non-deleted supply
+// plan already exists for the project, so a retry of the conversion never mints
+// a second plan. Org-scoped on every read and write.
+//
+// Best-effort by design: a failure to mint the plan must not fail the whole
+// conversion (the project already exists). The plan can be created by hand from
+// the Supply Plan surface if the auto-create did not land.
+const autoCreateDraftSupplyPlan = async (
+  caller: ReturnType<typeof requireCaller>,
+  projectId: string,
+): Promise<void> => {
+  const client = admin();
+
+  // Skip if a supply plan already exists for this project (retry safety).
+  const { data: existing, error: existErr } = await client
+    .from('supply_plans').select('id')
+    .eq('org_id', caller.orgId).eq('project_id', projectId)
+    .is('deleted_at', null)
+    .limit(1).maybeSingle();
+  if (existErr) throw internalError('quotes-api', existErr);
+  if (existing) return;
+
+  // The org default warehouse (0030 is_default flag). Nullable on the plan, so
+  // an org without one still gets a draft plan the operator can route later.
+  const { data: warehouse, error: whErr } = await client
+    .from('warehouses').select('id')
+    .eq('org_id', caller.orgId).eq('is_default', true)
+    .limit(1).maybeSingle();
+  if (whErr) throw internalError('quotes-api', whErr);
+  const warehouseId = (warehouse?.id as string | undefined) ?? null;
+
+  // Project materials: the line items the conversion just copied that resolve
+  // to a catalog item (supply_plan_lines.item_id is NOT NULL, so descriptive
+  // free-text lines are skipped). Ordered by position so plan lines mirror the
+  // project line order.
+  const { data: lineItems, error: liErr } = await client
+    .from('project_line_items').select('item_id, quantity, position')
+    .eq('org_id', caller.orgId).eq('project_id', projectId)
+    .order('position', { ascending: true });
+  if (liErr) throw internalError('quotes-api', liErr);
+  const materials = (lineItems ?? []).filter(
+    (r) => (r as { item_id: string | null }).item_id !== null,
+  );
+
+  const planNumber = await nextDocNumber(caller.orgId, 'supply_plan');
+  const { data: plan, error: planErr } = await client
+    .from('supply_plans')
+    .insert({
+      org_id: caller.orgId,
+      plan_number: planNumber,
+      project_id: projectId,
+      warehouse_id: warehouseId,
+      status: 'draft',
+      created_by: caller.userId,
+      updated_by: caller.userId,
+    })
+    .select('id').single();
+  if (planErr) throw internalError('quotes-api', planErr);
+  const planId = (plan as { id: string }).id;
+
+  for (let i = 0; i < materials.length; i++) {
+    const m = materials[i] as { item_id: string; quantity: number | null };
+    const { error: lineErr } = await client
+      .from('supply_plan_lines')
+      .insert({
+        org_id: caller.orgId,
+        supply_plan_id: planId,
+        item_id: m.item_id,
+        required_qty: m.quantity ?? 0,
+        resolution: 'reserve',
+        position: i,
+        created_by: caller.userId,
+        updated_by: caller.userId,
+      });
+    if (lineErr) throw internalError('quotes-api', lineErr);
+  }
+};
+
 const convertToProject = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.convert_to_project');
@@ -472,7 +559,20 @@ const convertToProject = async (ctx: RouteCtx) => {
         }
         throw internalError('quotes-api', error);
       }
-      return created({ project_id: data });
+      const projectId = data as string;
+      // R-W13-3PL-02: seed the draft Supply Plan inside the conversion flow.
+      // Best-effort: the project already exists, so a supply-plan failure must
+      // not fail the conversion. The plan can be created by hand from the Supply
+      // Plan surface if this did not land.
+      try {
+        await autoCreateDraftSupplyPlan(caller, projectId);
+      } catch (planErr) {
+        console.error(
+          'quotes-api: auto-create draft supply plan failed after conversion',
+          { projectId, error: planErr },
+        );
+      }
+      return created({ project_id: projectId });
     },
   );
 };

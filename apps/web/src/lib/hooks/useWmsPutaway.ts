@@ -7,8 +7,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/analytics';
+import { buildPutawayTransitionedProps } from '@/lib/hooks/pillarAnalytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { wmsPutawayKeys } from '@/lib/queryKeys/wms';
+import { transitionInvalidationKeys } from './transitionInvalidation';
 import {
   listWmsPutaway,
   getWmsPutaway,
@@ -89,9 +92,18 @@ function useTransitionWmsPutaway(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => fn(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });
+    onSuccess: (task) => {
+      // R-W13-UX-01: invalidate the detail key explicitly (not only via the
+      // `all` prefix) so the StateStepper, action buttons, and totals on the
+      // task detail page refresh the instant the transition succeeds, with no
+      // manual reload. transitionInvalidationKeys sweeps the detail key, the
+      // entity tree, and the audit timeline, and the key set is tested.
+      for (const queryKey of transitionInvalidationKeys(wmsPutawayKeys, PUTAWAY_ENTITY, id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
+      // R-W13-OBS-01: emit the putaway FSM transition funnel event. Task id
+      // and post-transition status enum only; no bin labels or quantities.
+      track('putaway_transitioned', buildPutawayTransitionedProps(task.id, task.status));
     },
   });
 }

@@ -29,7 +29,7 @@ export function PeriodClosePage() {
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Get paid / Period close"
+        eyebrow="Finance / Period close"
         title="Period close"
         actions={
           <label className="flex items-center gap-2 text-sm font-sans text-ink-dim">

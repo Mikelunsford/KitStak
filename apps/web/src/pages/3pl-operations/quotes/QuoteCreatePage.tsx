@@ -7,7 +7,14 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { useCreateQuote } from '@/lib/hooks/useQuotes';
 import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
+import { addLineItem } from '@/lib/services/quotesService';
 import type { CreateQuoteRequest } from '@/lib/types/sales';
+
+import { QuoteCreateLinesEditor } from './QuoteCreateLinesEditor';
+import {
+  quoteDraftsToLineRequests,
+  type QuoteLineDraft,
+} from './quoteLineDraft';
 
 /**
  * QuoteCreatePage. Captures the rich quote-header shape that
@@ -17,6 +24,13 @@ import type { CreateQuoteRequest } from '@/lib/types/sales';
  *
  * Closes G-QUOTE-FORM-01 (customer picker) and G-QUOTE-FORM-02 (other
  * optional fields).
+ *
+ * R-W13-UX-02: line items can now be staged inline on this screen instead
+ * of forcing a header-first-then-detail-page round trip. The quotes-api
+ * create handler accepts the header shape only, so the submit flow is two
+ * stage in one user action: POST the header, then POST each staged line
+ * over /quotes/:id/line-items. On a mid-sequence line failure the operator
+ * lands on the detail page with the rest still addable there.
  */
 export function QuoteCreatePage() {
   const navigate = useNavigate();
@@ -39,9 +53,13 @@ export function QuoteCreatePage() {
   const [pricingTierId, setPricingTierId] = useState('');
   const [notes, setNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [lines, setLines] = useState<QuoteLineDraft[]>([]);
+  const [linesError, setLinesError] = useState<string | null>(null);
+  const [submittingLines, setSubmittingLines] = useState(false);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setLinesError(null);
     const body: CreateQuoteRequest = {
       title: title || null,
       currency_code: currencyCode,
@@ -57,16 +75,42 @@ export function QuoteCreatePage() {
     // mutate(input, { onSuccess }) so the mutation.error state is preserved
     // and surfaced in the inline error renderer below.
     create.mutate(body, {
-      onSuccess: (result) => {
+      onSuccess: async (result) => {
+        // R-W13-UX-02: stage 2. Replay the staged line drafts over the
+        // line-item POST endpoint (the create handler does not accept
+        // lines inline). Stop on the first failure so the operator can
+        // review on the detail page and re-add the remainder rather than
+        // silently dropping rows. Order is preserved via position.
+        const requests = quoteDraftsToLineRequests(lines);
+        if (requests.length > 0) {
+          setSubmittingLines(true);
+          try {
+            for (const request of requests) {
+              await addLineItem(result.id, request);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'unknown error';
+            setLinesError(
+              `Quote created but a line failed: ${msg}. Add the rest on the detail page.`,
+            );
+            setSubmittingLines(false);
+            navigate(`/quotes/${result.id}`);
+            return;
+          }
+          setSubmittingLines(false);
+        }
         navigate(`/quotes/${result.id}`);
       },
     });
   };
 
+  const pending = create.isPending || submittingLines;
+
   return (
-    <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Sell / Quotes" title="New quote" />
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
+      <PageHeader eyebrow="Quotes" title="New quote" />
+      <form onSubmit={onSubmit} className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 max-w-xl">
         <CustomerPicker
           value={customerId}
           onChange={setCustomerId}
@@ -159,9 +203,23 @@ export function QuoteCreatePage() {
             className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
-        <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Saving.' : 'Create'}
+        </div>
+
+        {/* R-W13-UX-02: stage line items inline. Submitted with the header
+            in one action via the two-stage flow in onSubmit. */}
+        <QuoteCreateLinesEditor
+          lines={lines}
+          onChange={setLines}
+          currencyCode={currencyCode}
+          disabled={pending}
+        />
+
+        <Button type="submit" disabled={pending}>
+          {pending ? 'Saving.' : 'Create'}
         </Button>
+        {linesError && (
+          <p className="font-sans text-sm text-accent">{linesError}</p>
+        )}
         {create.error && (
           <p className="font-sans text-sm text-accent">
             {create.error instanceof Error ? create.error.message : 'Create quote failed.'}

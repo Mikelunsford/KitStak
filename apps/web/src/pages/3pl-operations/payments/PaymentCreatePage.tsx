@@ -119,7 +119,7 @@ export function PaymentCreatePage() {
 
   return (
     <section className="mx-auto flex max-w-xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Payments" title="Receive payment" />
+      <PageHeader eyebrow="Invoicing / Payments" title="Receive payment" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <CustomerPicker
           value={customerId}

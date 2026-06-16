@@ -72,7 +72,7 @@ export function ProductionRunCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Make / Production runs" title="New production run" />
+      <PageHeader eyebrow="Manufacturing / Production runs" title="New production run" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
         <TextInput
           label="Run number"

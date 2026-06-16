@@ -119,6 +119,24 @@ import {
 
 const BUNDLE = 'copack-api';
 
+// Co-Pack channels are manual-only until a real connector exists. The kind
+// enum and the sales_channels CHECK constraint still permit the legacy
+// 'shopify' / 'amazon' / 'other' values so historical rows read back without a
+// migration, but a NEW channel (or a kind change) may only be 'manual'. This is
+// a plain input-validity rule (not a permission or gate), so an out-of-range
+// kind is rejected with VALIDATION_ERROR 422, never 403/404.
+const ALLOWED_CHANNEL_KIND = 'manual';
+
+function assertChannelKindManual(kind: string | undefined): void {
+  if (kind !== undefined && kind !== ALLOWED_CHANNEL_KIND) {
+    throw new ApiError(
+      'VALIDATION_ERROR',
+      422,
+      'Sales channels are manual only. Automated connectors are not available yet.',
+    );
+  }
+}
+
 type KittingLineTable =
   | 'kitting_job_consumed_line_items'
   | 'kitting_job_produced_line_items';
@@ -283,6 +301,7 @@ const TABLE: Route[] = [
       const caller = requireCaller(req);
       requireCap(caller, 'copack.channel.write');
       const body = await parseBody(req, SalesChannelCreateSchema);
+      assertChannelKindManual(body.kind);
       return respondWithIdempotency(req, caller, BUNDLE, '/sales-channels', body, async () => {
         const insert = {
           org_id: caller.orgId,
@@ -306,6 +325,7 @@ const TABLE: Route[] = [
       requireCap(caller, 'copack.channel.write');
       parseUuidParam(params.id);
       const body = await parseBody(req, SalesChannelPatchSchema);
+      assertChannelKindManual(body.kind);
       return respondWithIdempotency(req, caller, BUNDLE, '/sales-channels/:id', body, async () => {
         const patch: Record<string, unknown> = {
           updated_by: caller.userId,

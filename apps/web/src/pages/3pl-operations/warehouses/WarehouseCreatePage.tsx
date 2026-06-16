@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
+import { zodIssuesToFieldErrors } from '@/lib/forms/zodFieldErrors';
 import { useCreateWarehouse } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 
@@ -63,11 +64,7 @@ export function WarehouseCreatePage() {
       is_active: isActive,
     });
     if (!parsed.success) {
-      const fieldErrors: Errors = {};
-      for (const issue of parsed.error.issues) {
-        fieldErrors[issue.path[0] as keyof Errors] = issue.message;
-      }
-      setErrors(fieldErrors);
+      setErrors(zodIssuesToFieldErrors<keyof Errors>(parsed.error));
       return;
     }
     setErrors({});
@@ -88,7 +85,7 @@ export function WarehouseCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Library / Warehouses" title="New warehouse" />
+      <PageHeader eyebrow="Inventory / Warehouses" title="New warehouse" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
         <TextInput
           label="Code"

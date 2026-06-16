@@ -43,7 +43,30 @@ export type AnalyticsEvent =
   // total. The duration signal answers "how fast does an operator
   // close the create-to-send loop" and feeds the PostHog dashboard
   // filed under F-Wave8-POSTHOG-FUNNEL-EXPANSION-01.
-  | 'time_to_send_invoice';
+  | 'time_to_send_invoice'
+  // R-W13-OBS-01: newer-pillar funnel events. Each carries opaque UUIDs
+  // and FSM status / enum labels only (never names, emails, or money).
+  // The property builders live in pillarAnalytics.ts so the shapes stay
+  // pure and testable, mirroring the time_to_send_invoice helper.
+  //
+  //   - job_run_transitioned: 3PL job-run FSM move (start / complete /
+  //     close / cancel). Properties: job_run_id (UUID), status (enum).
+  //   - receiving_received: WMS receiving-to-dock receive action.
+  //     Properties: receiving_order_id (UUID), status (enum),
+  //     has_dock (boolean), line_count (integer).
+  //   - putaway_transitioned: WMS putaway FSM move (start / complete /
+  //     cancel). Properties: putaway_task_id (UUID), status (enum).
+  //   - manufacturing_run_transitioned: manufacturing-run FSM move
+  //     (start / complete / cancel). Properties: manufacturing_run_id
+  //     (UUID), status (enum).
+  //   - labor_time_clocked: KitForce time-entry clock-in / clock-out.
+  //     Properties: time_entry_id (UUID), action (clock_in / clock_out),
+  //     member_id (UUID).
+  | 'job_run_transitioned'
+  | 'receiving_received'
+  | 'putaway_transitioned'
+  | 'manufacturing_run_transitioned'
+  | 'labor_time_clocked';
 
 export type AnalyticsPropValue = string | number | boolean | null;
 

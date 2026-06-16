@@ -63,7 +63,7 @@ export function VendorCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Library / Vendors" title="New vendor" />
+      <PageHeader eyebrow="Purchasing / Vendors" title="New vendor" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans text-sm">
         <Field label="Display name" error={errors.display_name}>
           <input
