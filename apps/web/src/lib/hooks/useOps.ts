@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { track } from '@/lib/analytics';
+import { buildReceivingReceivedProps } from '@/lib/hooks/pillarAnalytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import {
   receivingOrdersKeys, productionRunsKeys, shipmentsKeys,
@@ -78,12 +80,27 @@ export function useTransitionReceivingOrder(id: string) {
     // is an object so the 'received' transition can carry the optional dock on
     // the same /transition POST. Non-received transitions pass { to } only.
     mutationFn: (input: TransitionReceivingOrderBody) => transitionReceivingOrder(id, input),
-    onSuccess: () => {
+    onSuccess: (order, input) => {
       qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
       // F-Wave7-AUDIT-CACHE-SWEEP-01: receiving order transitions write an
       // audit_log row via trg_audit_receiving_orders_state; invalidate the
       // timeline so the operator sees the new entry.
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+      // R-W13-OBS-01: emit the WMS receiving funnel event on the
+      // receive-to-dock transition only. has_dock reports whether a dock
+      // location rode the same transition (boolean, never the bin id);
+      // line_count is omitted here (the transition body carries no lines).
+      if (input.to === 'received') {
+        track(
+          'receiving_received',
+          buildReceivingReceivedProps(
+            order.id,
+            order.status,
+            Boolean(input.dock_location_id),
+            0,
+          ),
+        );
+      }
     },
   });
 }
@@ -92,12 +109,20 @@ export function useReceiveReceivingOrder(id: string) {
   return useMutation({
     mutationFn: (input: { received_date?: string; lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }> }) =>
       receiveReceivingOrder(id, input),
-    onSuccess: () => {
+    onSuccess: (order, input) => {
       qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
       // F-Wave7-AUDIT-CACHE-SWEEP-01: receive RPC drives a draft -> received
       // transition that writes an audit row; invalidate the timeline so
       // the operator sees the entry.
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
+      // R-W13-OBS-01: emit the WMS receiving funnel event on the receive
+      // RPC. line_count is the count of received lines (not their item
+      // names or amounts); the receive RPC carries no dock so has_dock is
+      // false here (the dock rides the separate transition path above).
+      track(
+        'receiving_received',
+        buildReceivingReceivedProps(order.id, order.status, false, input.lines.length),
+      );
     },
   });
 }

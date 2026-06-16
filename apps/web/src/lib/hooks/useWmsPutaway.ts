@@ -7,6 +7,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/analytics';
+import { buildPutawayTransitionedProps } from '@/lib/hooks/pillarAnalytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { wmsPutawayKeys } from '@/lib/queryKeys/wms';
 import {
@@ -89,9 +91,12 @@ function useTransitionWmsPutaway(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => fn(id),
-    onSuccess: () => {
+    onSuccess: (task) => {
       void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });
+      // R-W13-OBS-01: emit the putaway FSM transition funnel event. Task id
+      // and post-transition status enum only; no bin labels or quantities.
+      track('putaway_transitioned', buildPutawayTransitionedProps(task.id, task.status));
     },
   });
 }
