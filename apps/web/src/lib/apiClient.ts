@@ -1,7 +1,14 @@
-import { z } from 'zod';
-
 import { supabase } from '@/lib/supabase';
-import { ERROR_CODES, HTTP_HEADERS } from '@/lib/constants';
+import { HTTP_HEADERS } from '@/lib/constants';
+import { ApiError, executeRequest } from '@/lib/apiClient.core';
+
+// Re-export ApiError so existing callers keep importing it from
+// `@/lib/apiClient` unchanged. executeRequest and FetchImpl are intentionally
+// NOT re-exported here: they stay in `@/lib/apiClient.core` (where the retry
+// tests import them directly) so no service-layer caller can reach
+// executeRequest off the public client surface and bypass the auth-header
+// injection (bearer + apikey) that apiRequest applies.
+export { ApiError };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -11,41 +18,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 }
 
 const FUNCTIONS_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1`;
-
-const EnvelopeSchema = z.object({
-  data: z.unknown(),
-  meta: z.record(z.unknown()).optional(),
-});
-
-const ErrorEnvelopeSchema = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    details: z.record(z.unknown()).optional(),
-    request_id: z.string().optional(),
-  }),
-});
-
-export class ApiError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details?: Record<string, unknown> | undefined;
-  readonly requestId?: string | undefined;
-
-  constructor(
-    code: string,
-    status: number,
-    message: string,
-    details?: Record<string, unknown>,
-    requestId?: string,
-  ) {
-    super(message);
-    this.code = code;
-    this.status = status;
-    if (details !== undefined) this.details = details;
-    if (requestId !== undefined) this.requestId = requestId;
-  }
-}
 
 type ApiRequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
@@ -69,6 +41,9 @@ export async function apiRequest<T>(
     ...options.headers,
   };
   if (method !== 'GET') {
+    // Minted once. Every retry inside executeRequest reuses this same header
+    // value so a replayed non-GET request dedupes server-side instead of
+    // double-applying (server idempotency contract).
     headers[HTTP_HEADERS.IDEMPOTENCY_KEY] = crypto.randomUUID();
   }
 
@@ -78,37 +53,8 @@ export async function apiRequest<T>(
 
   const init: RequestInit = { method, headers };
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
-  const response = await fetch(url, init);
 
-  const requestId = response.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? undefined;
-  const json = (await response.json()) as unknown;
-
-  if (!response.ok) {
-    const parsed = ErrorEnvelopeSchema.safeParse(json);
-    if (parsed.success) {
-      const detailsArg =
-        parsed.data.error.details !== undefined ? parsed.data.error.details : undefined;
-      const requestIdArg = parsed.data.error.request_id ?? requestId;
-      throw new ApiError(
-        parsed.data.error.code,
-        response.status,
-        parsed.data.error.message,
-        detailsArg,
-        requestIdArg,
-      );
-    }
-    throw new ApiError(
-      ERROR_CODES.INTERNAL_ERROR,
-      response.status,
-      'Unexpected error',
-      undefined,
-      requestId,
-    );
-  }
-
-  const parsed = EnvelopeSchema.safeParse(json);
-  if (!parsed.success) {
-    throw new ApiError('INVALID_ENVELOPE', 500, 'Invalid response envelope');
-  }
-  return parsed.data.data as T;
+  // Bounded transient-failure auto-retry (R-W13-UX-03a). The same `init`
+  // (and thus the same Idempotency-Key) is replayed, so a retry is safe.
+  return executeRequest<T>(url, init, fetch);
 }
