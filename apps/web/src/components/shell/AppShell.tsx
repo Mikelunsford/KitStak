@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { Topbar } from './Topbar';
 import { TrialBanner } from './TrialBanner';
+import { CommandBar } from './CommandBar';
 import { lazyWithReload } from '@/lib/lazyWithReload';
 
 /**
@@ -52,11 +53,34 @@ function SidebarFallback() {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
   const { pathname } = useLocation();
 
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
+
+  // Close the command bar on navigation. Selecting a result already calls the
+  // close handler, but browser back/forward and programmatic navigation should
+  // also dismiss it defensively.
+  useEffect(() => {
+    setCommandBarOpen(false);
+  }, [pathname]);
+
+  // Global Cmd/Ctrl-K toggle. Bound once for the whole authenticated shell so
+  // the palette is reachable from any page. defaultPrevented guards against
+  // hijacking the shortcut while another handler (none today) owns it.
+  const closeCommandBar = useCallback(() => setCommandBarOpen(false), []);
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const isToggle = (e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K');
+      if (!isToggle || e.defaultPrevented) return;
+      e.preventDefault();
+      setCommandBarOpen((cur) => !cur);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="flex h-screen flex-col bg-bg text-ink">
@@ -71,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Suspense>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+      <CommandBar open={commandBarOpen} onClose={closeCommandBar} />
     </div>
   );
 }
