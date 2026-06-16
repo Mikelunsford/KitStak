@@ -4,6 +4,29 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Built and held for the operator merge nod, not on prod.
+
+- **SSO store-metadata MVP (F-Wave13-SSO-HANDSHAKE-01, #298, migration 0118)**: `sso_connections.provider_validated_at` plus a CHECK that a connection cannot be active until validated; an `oidc_configs` table mirroring the `saml_configs` Pattern B RLS; and `settings-api` `POST /sso/saml-metadata` and `/sso/oidc-metadata` to store IdP metadata (requires `org.sso.write`, gated behind `auth.sso_saml`, Idempotency-Key enforced, cross-tenant or unknown connection returns 404). The SPA Configure panel stores metadata, Mark-validated sets `provider_validated_at`, and Activate is gated until validated. The OIDC `client_secret` is deferred to the live-handshake phase (not stored, so no plaintext secret at rest). The live identity-provider handshake stays an operator step. Verified on staging; four-lens reviewed.
+
+## [0.19.1] · 2026-06-15 Wave 13 closeout follow-ups (PRs #296, #297)
+
+The first follow-ups spawned by the Wave 13 closeout, merged to prod. Schema advanced to migration 0117.
+
+### Security
+
+- **SECURITY DEFINER grant revoke (F-Wave13-SEC-AUTH-EXEC-REVIEW-01, #297, migration 0117)**: follow-on to 0111. Revoked `EXECUTE` from `authenticated` on the remaining 115 SECURITY DEFINER functions (25 directly-callable service RPCs plus 90 trigger functions), excluding `current_org_id` and `current_user_role` (the only two any RLS policy references). Closed the live `audit_append_state_change` audit-log forge path and the cross-tenant `recompute_*` and chain-head reads; every callsite is the service-role `admin()` client, so the app is unaffected. The `authenticated_security_definer_function_executable` advisor dropped 117 to 2 on prod. rls-probe Category 13.
+
+### Changed
+
+- **Retry-After-aware 429 backoff (F-Wave13-RETRY-AFTER-429-01, #296)**: the apiClient retries a 429 after a capped Retry-After delay (delay-seconds or HTTP-date, malformed values rejected, 60s cap), reusing the same Idempotency-Key so a non-GET replay cannot double-apply.
+- **Transition cache invalidation remainder (F-Wave13-UX-INVALIDATION-REMAINDER-01, #296)**: the shipment and production-run transition hooks adopt the shared invalidation contract (detail key plus entity tree plus audit timeline).
+
+### Fixed
+
+- **forwardRef test hardening (F-Wave13-FORWARDREF-TEST-HARDENING-01, #296)**: `TextInput` exposes a named render function the test calls directly, instead of reaching into the React forwardRef internal `.render` property.
+
 ## [0.19.0] · 2026-06-15 Wave 13: audit remediation (twenty units, P0 to P2) (PRs #276 to #293)
 
 Remediation of the 2026-06-15 product audit and operator simulation. All twenty backlog units shipped across three phases. Schema advanced through migration 0116. Built as three dynamic multi-agent workflows (one implementer per unit plus code and security review), each unit gated green, migrations verified on staging, merged in order with the constitution's stop-and-ask discipline. Closeout `03-workspace/journal/wave-13-audit-remediation.md`. Prod advisor deltas: unindexed FKs 101 to 0, function search_path mutable 37 to 0, anon-executable SECURITY DEFINER 11 to 0, leaked-password 1 to 0, multiple-permissive policies 88 to 0, init-plan policies 7 to 0.
