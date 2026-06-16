@@ -28,7 +28,7 @@ stack:
 paths:
   repo_root: "."
   shared_context: "/CLAUDE.md"                                         # source: constitution lives in CLAUDE.md, not /docs/CONTEXT.md
-  agents_dir: "/CLAUDE AGENTS"
+  agents_dir: "n/a"                                                    # source: the CLAUDE AGENTS kit was retired 2026-06-15; no in-repo agent roster
   api_contracts: "/docs/api"                                           # source: docs/api/{crm,finance,identity,inventory,ops,sales,vendors,cross_cutting,threepl,wms}.md
   db_schemas: "/supabase/migrations"
   migrations: "/supabase/migrations"
