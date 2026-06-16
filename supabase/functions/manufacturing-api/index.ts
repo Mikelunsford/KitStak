@@ -324,6 +324,11 @@ const TABLE: Route[] = [
         const cur = await loadRun(caller, params.id);
         assertManufacturingTransition(cur.status, 'started');
         const ts = nowIso();
+        // R-W13-FIN-01: status-equals-from guard. cur.status was read above
+        // (loadRun, which 404s a missing / cross-tenant / deleted run).
+        // Carrying it into the UPDATE turns the transition into a
+        // compare-and-set: two concurrent starts off the same status yield one
+        // win and one STATE_CONFLICT 409 rather than a silent double-apply.
         const { data, error } = await admin().from('manufacturing_runs')
           .update({
             status: 'started',
@@ -332,9 +337,10 @@ const TABLE: Route[] = [
             updated_at: ts,
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .eq('status', cur.status)
           .select('*').maybeSingle();
         if (error) throw internalError('manufacturing-api', error);
-        if (!data) throw new ApiError('NOT_FOUND', 404);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `manufacturing_run transition conflict from ${cur.status}`);
         return ok(ManufacturingRunSchema.parse(data));
       });
     },
@@ -353,6 +359,10 @@ const TABLE: Route[] = [
         // fires AFTER UPDATE OF status and writes stock_movements when
         // warehouse_id is non-null. Null warehouse_id -> trigger early-
         // returns (admin-only run).
+        // R-W13-FIN-01: status-equals-from guard. Carrying cur.status into the
+        // UPDATE makes the complete a compare-and-set so two concurrent
+        // completes off the same status yield one win and one STATE_CONFLICT
+        // 409, and the emit trigger fires exactly once.
         const { data, error } = await admin().from('manufacturing_runs')
           .update({
             status: 'completed',
@@ -361,9 +371,10 @@ const TABLE: Route[] = [
             updated_at: ts,
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .eq('status', cur.status)
           .select('*').maybeSingle();
         if (error) throw internalError('manufacturing-api', error);
-        if (!data) throw new ApiError('NOT_FOUND', 404);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `manufacturing_run transition conflict from ${cur.status}`);
         return ok(ManufacturingRunSchema.parse(data));
       });
     },
@@ -378,6 +389,8 @@ const TABLE: Route[] = [
         const cur = await loadRun(caller, params.id);
         assertManufacturingTransition(cur.status, 'cancelled');
         const ts = nowIso();
+        // R-W13-FIN-01: status-equals-from guard. Concurrent cancels off the
+        // same status yield one win and one STATE_CONFLICT 409.
         const { data, error } = await admin().from('manufacturing_runs')
           .update({
             status: 'cancelled',
@@ -386,9 +399,10 @@ const TABLE: Route[] = [
             updated_at: ts,
           })
           .eq('org_id', caller.orgId).eq('id', params.id).is('deleted_at', null)
+          .eq('status', cur.status)
           .select('*').maybeSingle();
         if (error) throw internalError('manufacturing-api', error);
-        if (!data) throw new ApiError('NOT_FOUND', 404);
+        if (!data) throw new ApiError('STATE_CONFLICT', 409, `manufacturing_run transition conflict from ${cur.status}`);
         return ok(ManufacturingRunSchema.parse(data));
       });
     },

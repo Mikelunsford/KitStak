@@ -95,6 +95,18 @@ export interface MockState {
   // need to exercise duplicate-key short-circuit paths (e.g. stripe-webhook
   // event_id replay).
   insertConstraints?: Record<string, { column: string }>;
+  // Opt-in concurrent-transition simulation for the status-equals-from guard
+  // (R-W13-FIN-01). When a table name maps to a sentinel status here, the
+  // FIRST maybeSingle/single SELECT against that table returns the row at its
+  // seeded status, then advances the stored row's status to the sentinel. The
+  // handler therefore reads the original (stale) status, passes its FSM guard,
+  // and issues an UPDATE filtered on the stale status. That UPDATE now matches
+  // 0 rows because the stored status moved to the sentinel, exactly as a
+  // concurrent commit landing between the SELECT and the UPDATE would. The
+  // handler surfaces the 0-row result as STATE_CONFLICT 409. Default unset, so
+  // existing suites are unaffected. One-shot per table: the advance fires only
+  // while the stored status still differs from the sentinel.
+  raceAdvanceStatusOnSelect?: Record<string, string>;
 }
 
 export function makeState(rows: RowMap = {}): MockState {
@@ -317,6 +329,40 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
     return { data: result, error: null };
   };
 
+  // R-W13-FIN-01: after a status-guarded SELECT resolves, advance the stored
+  // row's status to the configured sentinel so the handler's follow-up UPDATE
+  // (filtered on the now-stale status it just read) matches 0 rows. Only fires
+  // for select reads and only while the stored status still differs from the
+  // sentinel, so it triggers exactly once per concurrent-race fixture.
+  const maybeAdvanceRaceStatus = (): void => {
+    if (mode !== 'select') return;
+    const sentinel = state.raceAdvanceStatusOnSelect?.[table];
+    if (typeof sentinel !== 'string') return;
+    const tableRows = state.rows[table] ?? [];
+    const matched = applyFilters(tableRows, filters);
+    for (const row of matched) {
+      if (row.status !== sentinel) row.status = sentinel;
+    }
+  };
+
+  // For race tables, hand the caller a shallow copy of the row(s) so the
+  // status it reads is the pre-advance snapshot even after the stored row is
+  // mutated to the sentinel. Returns null (caller uses the live data) for
+  // non-race tables so reference semantics are preserved everywhere else.
+  const snapshotForRace = (data: unknown): unknown => {
+    if (mode !== 'select') return null;
+    if (typeof state.raceAdvanceStatusOnSelect?.[table] !== 'string') return null;
+    if (Array.isArray(data)) {
+      return data.map((row) =>
+        row && typeof row === 'object' ? { ...(row as Record<string, unknown>) } : row,
+      );
+    }
+    if (data && typeof data === 'object') {
+      return { ...(data as Record<string, unknown>) };
+    }
+    return data;
+  };
+
   const builder: QueryBuilder = {
     select: (_cols, opts) => {
       if (opts?.count === 'exact') countMode = 'exact';
@@ -350,15 +396,21 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
     },
     maybeSingle: async () => {
       const r = await execute();
-      const arr = Array.isArray(r.data) ? r.data : null;
+      const snapshot = snapshotForRace(r.data);
+      maybeAdvanceRaceStatus();
+      const data = snapshot ?? r.data;
+      const arr = Array.isArray(data) ? data : null;
       if (arr) return { data: arr[0] ?? null, error: r.error };
-      return { data: r.data ?? null, error: r.error };
+      return { data: data ?? null, error: r.error };
     },
     single: async () => {
       const r = await execute();
-      const arr = Array.isArray(r.data) ? r.data : null;
+      const snapshot = snapshotForRace(r.data);
+      maybeAdvanceRaceStatus();
+      const data = snapshot ?? r.data;
+      const arr = Array.isArray(data) ? data : null;
       if (arr) return { data: arr[0] ?? null, error: r.error };
-      return { data: r.data ?? null, error: r.error };
+      return { data: data ?? null, error: r.error };
     },
     insert: (row) => {
       mode = 'insert';

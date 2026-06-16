@@ -320,13 +320,24 @@ async function transitionInvoiceTo(
   if (to === 'paid') patch.paid_at = new Date().toISOString();
   if (to === 'cancelled') patch.cancelled_at = new Date().toISOString();
 
+  // R-W13-FIN-01: status-equals-from guard. The status was read above (the
+  // SELECT in fetchInvoiceRow), then the UPDATE below applies a transition
+  // off that read. Without `.eq('status', from)` two concurrent transitions
+  // from the same status both win their UPDATE and the second silently
+  // double-applies. Carrying the read status into the WHERE clause makes the
+  // UPDATE a compare-and-set: a concurrent transition that already advanced
+  // the row leaves 0 rows matched, which we surface as STATE_CONFLICT 409
+  // (the same envelope the atomic-RPC transitions in three-pl / wms / finance
+  // emit). maybeSingle() is required so a 0-row result is `data === null`
+  // rather than the PGRST116 error that `.single()` would raise.
   const { data, error } = await admin()
     .from('invoices')
     .update(patch)
     .eq('id', id)
     .eq('org_id', caller.orgId)
+    .eq('status', from)
     .select(INVOICE_COLS)
-    .single();
+    .maybeSingle();
   if (error) {
     // Map period-closed trigger SQLSTATE P0001 to 422 per security canon.
     if (error.message && error.message.startsWith('period_closed:')) {
@@ -335,6 +346,16 @@ async function transitionInvoiceTo(
     throw new ApiError('INTERNAL_ERROR', 500, 'invoice transition failed', {
       detail: error.message,
     });
+  }
+  if (!data) {
+    // The row exists in this org (fetchInvoiceRow already 404s on a missing /
+    // cross-tenant id), so a 0-row UPDATE can only mean the status moved off
+    // `from` between the read and the write. Treat as a lost compare-and-set.
+    throw new ApiError(
+      'STATE_CONFLICT',
+      409,
+      `invoice transition ${from} -> ${to} not allowed`,
+    );
   }
   return rowToInvoice(data as unknown as InvoiceRow);
 }
