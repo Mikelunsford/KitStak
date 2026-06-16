@@ -18,21 +18,31 @@ import {
   projectLineToInvoiceLineCreate,
   shipmentLineToInvoiceLineCreate,
 } from './sourceLinePrefill';
+import { InvoiceCreateLinesEditor } from './InvoiceCreateLinesEditor';
+import {
+  invoiceDraftsToLineCreates,
+  type InvoiceLineDraft,
+} from './invoiceLineDraft';
 
 /**
  * InvoiceCreatePage. Captures the FK pivots that the handler already
- * accepts (G-INV-FORM-01): customer, project, quote. Line items are added
- * on the detail page after creation; the create handler does not accept
- * lines inline today. The source-quote linkage is captured as an optional
- * UUID input until the quote selection pattern (filtered by customer) is
- * added in a later wave.
+ * accepts (G-INV-FORM-01): customer, project, quote. The create handler
+ * does not accept lines inline, so lines are POSTed per row over
+ * /invoices/:id/line-items after the header create succeeds. The
+ * source-quote linkage is captured as an optional UUID input until the
+ * quote selection pattern (filtered by customer) is added in a later wave.
  *
  * B1 (Wave B): when the caller deep-links with ?shipment_id= we read the
  * shipment's line items and POST a derived invoice line per row after the
  * header create succeeds (mirrors PR #104's two-stage create on the
  * shipment / receiving forms). When only ?project_id= is supplied we fall
- * back to project_line_items as the source. Operator can still edit lines
- * on the detail page after create.
+ * back to project_line_items as the source.
+ *
+ * R-W13-UX-02: the operator can also stage line items by hand on this
+ * screen via the inline lines editor, instead of being forced to the
+ * detail page after creation. Manually staged lines POST after any
+ * source-derived lines (continuing the sort_order) so the two sources
+ * compose. Everything still ships in one user action (Create).
  */
 export function InvoiceCreatePage() {
   const navigate = useNavigate();
@@ -97,6 +107,10 @@ export function InvoiceCreatePage() {
   );
   const [linesError, setLinesError] = useState<string | null>(null);
   const [submittingLines, setSubmittingLines] = useState(false);
+  // R-W13-UX-02: operator-entered line drafts staged inline on this
+  // screen. These POST after any source-derived lines so the two sources
+  // compose under one Create action.
+  const [manualLines, setManualLines] = useState<InvoiceLineDraft[]>([]);
 
   const derivedLineCount = useMemo(() => {
     if (prefilledShipmentId) return shipmentLines.data?.length ?? 0;
@@ -145,7 +159,7 @@ export function InvoiceCreatePage() {
       // the more downstream reality (what we actually shipped should
       // be what we bill). project_line_items is the fallback when no
       // shipment was selected.
-      const linesToCreate = (() => {
+      const derivedLines = (() => {
         if (prefilledShipmentId && shipmentLines.data) {
           return shipmentLines.data
             .map((l) =>
@@ -158,6 +172,15 @@ export function InvoiceCreatePage() {
         }
         return [];
       })();
+
+      // R-W13-UX-02: manually staged lines POST after the source-derived
+      // lines, continuing the sort_order so the operator's hand-entered
+      // rows land beneath any auto-prefilled rows.
+      const manualLineCreates = invoiceDraftsToLineCreates(
+        manualLines,
+        derivedLines.length,
+      );
+      const linesToCreate = [...derivedLines, ...manualLineCreates];
 
       if (linesToCreate.length > 0) {
         setSubmittingLines(true);
@@ -259,6 +282,18 @@ export function InvoiceCreatePage() {
               </p>
             </FormGrid.Full>
           )}
+
+          {/* R-W13-UX-02: stage line items inline. Submitted with the
+              header in one action via the two-stage flow in onSubmit;
+              these POST after any source-derived lines. */}
+          <FormGrid.Full>
+            <InvoiceCreateLinesEditor
+              lines={manualLines}
+              onChange={setManualLines}
+              currencyCode={currency}
+              disabled={pending}
+            />
+          </FormGrid.Full>
 
           {linesError && (
             <FormGrid.Full>
