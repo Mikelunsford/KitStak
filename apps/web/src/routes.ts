@@ -110,6 +110,12 @@ const BillingPage = lazy(() =>
     default: m.BillingPage,
   })),
 );
+// R-W13-AUTH-01: /admin/sso single sign-on connection management.
+const SsoConnectionsPage = lazy(() =>
+  import('./pages/admin/SsoConnectionsPage').then((m) => ({
+    default: m.SsoConnectionsPage,
+  })),
+);
 // === End Agent A ===
 
 // === Agent B: CRM lazy imports ===
@@ -995,6 +1001,15 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/admin/billing',
     element: BillingPage,
+    guard: 'admin',
+    layout: 'shell',
+  },
+  // R-W13-AUTH-01: /admin/sso single sign-on connection management.
+  // admin-guarded; the org.sso.read / org.sso.write caps gate the buttons,
+  // RLS on sso_connections is the server authority. Not plugin-gated.
+  {
+    path: '/admin/sso',
+    element: SsoConnectionsPage,
     guard: 'admin',
     layout: 'shell',
   },

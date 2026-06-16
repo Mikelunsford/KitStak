@@ -246,6 +246,16 @@ describe('ROUTES — pillar gating coverage', () => {
     expect(ROUTES.length).toBe(RAW_ROUTES.length);
   });
 
+  // R-W13-AUTH-01: the /admin/sso SSO management route is admin-guarded and
+  // must never be plugin-gated (it is org config, not a pillar add-on).
+  it('registers /admin/sso as an admin-guarded, ungated route', () => {
+    const sso = ROUTES.find((r) => r.path === '/admin/sso');
+    expect(sso).toBeDefined();
+    expect(sso?.guard).toBe('admin');
+    expect(sso?.requiresPlugin).toBeUndefined();
+    expect(inferPluginForPath(specFor('/admin/sso'))).toBeUndefined();
+  });
+
   it('non-pillar routes are not accidentally gated', () => {
     const inPillar = (path: string, root: string): boolean =>
       path === root || path.startsWith(`${root}/`);

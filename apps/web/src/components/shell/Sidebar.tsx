@@ -8,6 +8,7 @@ import {
   Flag,
   Hash,
   Home,
+  KeyRound,
   Palette,
   Settings,
   Upload,
@@ -62,6 +63,10 @@ const ADMIN_LINKS: ReadonlyArray<AdminLink> = [
   { to: '/admin/numbering', label: 'Numbering', icon: Hash },
   // F-Wave9-STAFF-INVITE-CHASSIS-01: /admin/members staff invite surface.
   { to: '/admin/members', label: 'Members', icon: Users },
+  // R-W13-AUTH-01: /admin/sso single sign-on connection management.
+  // AdminProtectedRoute restricts to org_owner / org_admin; org.sso.* caps
+  // gate the buttons on the page itself.
+  { to: '/admin/sso', label: 'Single sign-on', icon: KeyRound },
   // Stripe wiring (item 9): /admin/billing. AdminProtectedRoute already
   // restricts to org_owner / org_admin; the upcoming caps PR refines this
   // via org.billing.read (owner + admin). No SPA-side cap check needed --
