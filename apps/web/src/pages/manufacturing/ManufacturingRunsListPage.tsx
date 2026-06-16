@@ -172,7 +172,7 @@ export function ManufacturingRunsListPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Make / Manufacturing runs"
+        eyebrow="Manufacturing / Runs"
         title="Manufacturing runs"
         meta={meta}
         actions={

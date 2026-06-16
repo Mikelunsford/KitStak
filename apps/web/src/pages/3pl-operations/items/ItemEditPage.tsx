@@ -59,7 +59,7 @@ export function ItemEditPage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Library / Items" title="Edit item" />
+      <PageHeader eyebrow="Catalog / Items" title="Edit item" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
         <label className="flex flex-col gap-1">
           <span className="text-sm text-ink-dim">SKU</span>

@@ -101,7 +101,7 @@ export function ShipmentDetailPage() {
         }
       />
       <PageHeader
-        eyebrow="Ship / Shipments"
+        eyebrow="3PL Operations / Shipments"
         title={`Shipment ${d.shipment_number ?? d.id.slice(0, 8)}`}
       />
 

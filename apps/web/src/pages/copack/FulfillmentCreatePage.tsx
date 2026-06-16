@@ -59,7 +59,7 @@ export function FulfillmentCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Ship / Fulfillments" title="New fulfillment" />
+      <PageHeader eyebrow="Co-Pack and Ecom / Fulfillments" title="New fulfillment" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create fulfillments.

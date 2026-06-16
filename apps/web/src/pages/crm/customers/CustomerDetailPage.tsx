@@ -100,7 +100,7 @@ export function CustomerDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Library / Customers"
+        eyebrow="CRM / Customers"
         title={c.display_name}
         actions={
           <Link to={`/crm/customers/${c.id}/edit`}>

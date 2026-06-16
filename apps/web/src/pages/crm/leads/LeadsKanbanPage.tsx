@@ -23,7 +23,7 @@ export function LeadsKanbanPage() {
   return (
     <section className="mx-auto flex max-w-7xl flex-col gap-6 px-8 py-10">
       <PageHeader
-        eyebrow="Sell / Leads"
+        eyebrow="CRM / Leads"
         title="Leads"
         actions={
           <Link to="/crm/leads/new">

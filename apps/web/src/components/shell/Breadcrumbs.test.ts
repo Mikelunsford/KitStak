@@ -19,6 +19,8 @@ import { describe, it, expect } from 'vitest';
 import { isValidElement, type ReactElement, type ReactNode } from 'react';
 
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs';
+import { SIDEBAR_MODES } from './sidebarModes';
+import { SPINE_DOMAINS, ADDON_TAXONOMY } from './taxonomy';
 
 interface ElementProps {
   children?: ReactNode;
@@ -197,5 +199,65 @@ describe('Breadcrumbs (UX-Q10)', () => {
       return elementProps(child).title;
     });
     expect(titles).toEqual(['Customers', 'Smoke Co.', 'SMOKE-001']);
+  });
+});
+
+// Taxonomy alignment (R-W13-IA-01).
+//
+// The page-header eyebrow on every surface is the breadcrumb taxonomy the
+// operator reads. Before Wave 13 those eyebrows used the retired UX-Q1
+// job-mode words (SELL, MAKE, SHIP, GET PAID, LIBRARY, WORKFORCE). They now
+// mirror the pillar-grouped sidebar (ADR 0003): the SPINE domain sub-groups
+// and the add-on section labels. These tests lock the taxonomy constants to
+// the sidebar source of truth so the two cannot drift apart again.
+describe('Taxonomy alignment with the sidebar (R-W13-IA-01)', () => {
+  it('exposes a SPINE domain constant for every domain sub-group in the SPINE section', () => {
+    const spine = SIDEBAR_MODES.find((m) => m.key === 'spine');
+    expect(spine).toBeDefined();
+
+    // Distinct, order-preserving list of `group` labels on the SPINE routes.
+    const sidebarDomains: string[] = [];
+    for (const route of spine!.routes) {
+      if (route.group && !sidebarDomains.includes(route.group)) {
+        sidebarDomains.push(route.group);
+      }
+    }
+
+    const taxonomyDomains = Object.values(SPINE_DOMAINS);
+    // Every sidebar domain has a matching taxonomy constant value.
+    for (const domain of sidebarDomains) {
+      expect(taxonomyDomains).toContain(domain);
+    }
+    // And the taxonomy module has no extra domain words the sidebar lacks.
+    for (const domain of taxonomyDomains) {
+      expect(sidebarDomains).toContain(domain);
+    }
+  });
+
+  it('maps every lit add-on section label to an ADDON_TAXONOMY value', () => {
+    const addonLabels = SIDEBAR_MODES.filter((m) => m.key !== 'spine').map(
+      (m) => m.label,
+    );
+    const taxonomyValues = Object.values(ADDON_TAXONOMY);
+    // Sidebar section labels are uppercase for display; the eyebrow taxonomy
+    // is title-cased. Compare case-insensitively so KITFORCE matches KitForce.
+    const norm = (s: string) => s.toLowerCase();
+    for (const label of addonLabels) {
+      expect(taxonomyValues.map(norm)).toContain(norm(label));
+    }
+    for (const value of taxonomyValues) {
+      expect(addonLabels.map(norm)).toContain(norm(value));
+    }
+  });
+
+  it('does not reuse any retired job-mode word as a taxonomy constant', () => {
+    const retired = ['SELL', 'MAKE', 'SHIP', 'GET PAID', 'LIBRARY', 'WORKFORCE'];
+    const allTaxonomy = [
+      ...Object.values(SPINE_DOMAINS),
+      ...Object.values(ADDON_TAXONOMY),
+    ].map((s) => s.toUpperCase());
+    for (const word of retired) {
+      expect(allTaxonomy).not.toContain(word);
+    }
   });
 });

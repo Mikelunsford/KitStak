@@ -64,7 +64,7 @@ export function PaymentApplyPage() {
 
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-8">
-      <PageHeader eyebrow="Payments" title="Apply payment" />
+      <PageHeader eyebrow="Invoicing / Payments" title="Apply payment" />
       <p className="font-sans text-ink-dim">
         Allocating {payment.data.payment_number} (
         {formatCents(payment.data.amount_cents as number | string, payment.data.currency_code)}
