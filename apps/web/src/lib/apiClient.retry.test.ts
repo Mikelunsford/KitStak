@@ -6,11 +6,23 @@
 // they exercise the retry contract without a network or a Supabase session.
 // They assert the two safety properties of the design:
 //   1. The replayed attempt carries the identical Idempotency-Key header.
-//   2. A 4xx is never retried (deterministic client error).
+//   2. A non-429 4xx is never retried (deterministic client error).
+//
+// F-Wave13-RETRY-AFTER-429-01 extends this: a 429 IS retried, but only after
+// waiting out the server Retry-After (capped), still reusing the same key. The
+// 429 tests inject a `sleep` stub so they exercise the backoff without a timer.
 
 import { describe, it, expect, vi } from 'vitest';
 
-import { executeRequest, ApiError, type FetchImpl } from './apiClient.core';
+import {
+  executeRequest,
+  ApiError,
+  parseRetryAfterMs,
+  retryAfterDelayMs,
+  RETRY_AFTER_DEFAULT_MS,
+  RETRY_AFTER_MAX_MS,
+  type FetchImpl,
+} from './apiClient.core';
 import { HTTP_HEADERS } from './constants';
 
 function okResponse(data: unknown): Response {
@@ -24,6 +36,15 @@ function errorResponse(status: number, code: string, message: string): Response 
   return new Response(
     JSON.stringify({ error: { code, message } }),
     { status, headers: { 'content-type': 'application/json' } },
+  );
+}
+
+function rateLimited(retryAfter?: string): Response {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (retryAfter !== undefined) headers[HTTP_HEADERS.RETRY_AFTER] = retryAfter;
+  return new Response(
+    JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'slow down' } }),
+    { status: 429, headers },
   );
 }
 
@@ -173,5 +194,133 @@ describe('executeRequest transient auto-retry', () => {
 
     expect(result).toEqual({ id: 'coa_dedup', replayed: true });
     expect(writes).toBe(1); // exactly one write despite the retry
+  });
+});
+
+describe('executeRequest 429 Retry-After backoff', () => {
+  it('retries a 429 once, waits the Retry-After seconds, and reuses the same Idempotency-Key', async () => {
+    const seenKeys: Array<string | undefined> = [];
+    const slept: number[] = [];
+    const sleep = vi.fn(async (ms: number) => { slept.push(ms); });
+    const fetchImpl = spyFetch(async (_url, init) => {
+      seenKeys.push(keyOf(init));
+      if (seenKeys.length === 1) return rateLimited('2');
+      return okResponse({ id: 'coa_429' });
+    });
+
+    const result = await executeRequest<{ id: string }>(
+      'https://example.test/coa',
+      nonGetInit(),
+      fetchImpl,
+      1,
+      sleep,
+    );
+
+    expect(result).toEqual({ id: 'coa_429' });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(slept).toEqual([2000]); // honored the Retry-After: 2s
+    // The replay MUST carry the identical key so the server dedupes it.
+    expect(seenKeys).toEqual([IDEMPOTENCY_KEY, IDEMPOTENCY_KEY]);
+  });
+
+  it('falls back to the default wait when a 429 carries no Retry-After', async () => {
+    const slept: number[] = [];
+    const sleep = vi.fn(async (ms: number) => { slept.push(ms); });
+    let calls = 0;
+    const fetchImpl = spyFetch(async () => {
+      calls += 1;
+      return calls === 1 ? rateLimited() : okResponse({ id: 'coa_def' });
+    });
+
+    await executeRequest('https://example.test/coa', nonGetInit(), fetchImpl, 1, sleep);
+    expect(slept).toEqual([RETRY_AFTER_DEFAULT_MS]);
+  });
+
+  it('honors a 0-second Retry-After as an immediate replay', async () => {
+    const slept: number[] = [];
+    const sleep = vi.fn(async (ms: number) => { slept.push(ms); });
+    let calls = 0;
+    const fetchImpl = spyFetch(async () => {
+      calls += 1;
+      return calls === 1 ? rateLimited('0') : okResponse({ id: 'coa_now' });
+    });
+
+    const result = await executeRequest<{ id: string }>(
+      'https://example.test/coa',
+      nonGetInit(),
+      fetchImpl,
+      1,
+      sleep,
+    );
+
+    expect(result).toEqual({ id: 'coa_now' });
+    expect(slept).toEqual([0]); // server said retry now: wait 0, still backed off through sleep()
+  });
+
+  it('caps an oversized Retry-After at the max wait', async () => {
+    const slept: number[] = [];
+    const sleep = vi.fn(async (ms: number) => { slept.push(ms); });
+    let calls = 0;
+    const fetchImpl = spyFetch(async () => {
+      calls += 1;
+      return calls === 1 ? rateLimited('999999') : okResponse({ id: 'coa_cap' });
+    });
+
+    await executeRequest('https://example.test/coa', nonGetInit(), fetchImpl, 1, sleep);
+    expect(slept).toEqual([RETRY_AFTER_MAX_MS]);
+  });
+
+  it('surfaces RATE_LIMITED after the bounded budget is exhausted, waiting before the replay', async () => {
+    const slept: number[] = [];
+    const sleep = vi.fn(async (ms: number) => { slept.push(ms); });
+    const fetchImpl = spyFetch(async () => rateLimited('1'));
+
+    await expect(
+      executeRequest('https://example.test/coa', nonGetInit(), fetchImpl, 1, sleep),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+
+    // attempt 0 (429 -> wait -> replay) + attempt 1 (429, budget gone -> throw)
+    // = 2 fetches and exactly one backoff.
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(slept).toEqual([1000]);
+  });
+});
+
+describe('parseRetryAfterMs / retryAfterDelayMs', () => {
+  // 1_700_000_000_000 ms sits on an exact second boundary so the HTTP-date
+  // round-trip (toUTCString drops sub-second precision) is lossless.
+  const NOW = 1_700_000_000_000;
+
+  it('parses delay-seconds into milliseconds', () => {
+    expect(parseRetryAfterMs('5', NOW)).toBe(5000);
+    expect(parseRetryAfterMs('0', NOW)).toBe(0);
+    expect(parseRetryAfterMs('  3  ', NOW)).toBe(3000); // tolerant of surrounding space
+  });
+
+  it('parses an HTTP-date relative to now and never returns negative', () => {
+    const tenSecondsOut = new Date(NOW + 10_000).toUTCString();
+    expect(parseRetryAfterMs(tenSecondsOut, NOW)).toBe(10_000);
+    const pastDate = new Date(NOW - 10_000).toUTCString();
+    expect(parseRetryAfterMs(pastDate, NOW)).toBe(0);
+  });
+
+  it('returns null for a missing, empty, or unparseable value so the caller can default', () => {
+    expect(parseRetryAfterMs(null, NOW)).toBeNull();
+    expect(parseRetryAfterMs('', NOW)).toBeNull();
+    expect(parseRetryAfterMs('soon', NOW)).toBeNull();
+  });
+
+  it('rejects a malformed numeric delay-seconds (fraction or sign) so it cannot misparse as a date', () => {
+    // A fraction is not a valid delay-seconds; rejecting it means the caller
+    // falls back to the default backoff instead of a Date.parse("1.5") -> 0ms wait.
+    expect(parseRetryAfterMs('1.5', NOW)).toBeNull();
+    expect(parseRetryAfterMs('-3', NOW)).toBeNull();
+    expect(retryAfterDelayMs('1.5', NOW)).toBe(RETRY_AFTER_DEFAULT_MS);
+  });
+
+  it('retryAfterDelayMs defaults when absent and caps when oversized', () => {
+    expect(retryAfterDelayMs(null, NOW)).toBe(RETRY_AFTER_DEFAULT_MS);
+    expect(retryAfterDelayMs('999999', NOW)).toBe(RETRY_AFTER_MAX_MS);
+    expect(retryAfterDelayMs('3', NOW)).toBe(3000);
   });
 });

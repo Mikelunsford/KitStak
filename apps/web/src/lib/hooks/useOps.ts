@@ -168,11 +168,14 @@ export function useStartProductionRun(id: string) {
   return useMutation({
     mutationFn: () => startProductionRun(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: productionRunsKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: start drives a planned -> in_progress
-      // transition that writes an audit row; invalidate the timeline so
-      // the operator sees the entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('production_run', id) });
+      // R-W13-UX-01 (F-Wave13-UX-INVALIDATION-REMAINDER-01): start drives a
+      // planned -> in_progress transition. Sweep the detail key, the entity
+      // tree, and the audit timeline via the shared transitionInvalidationKeys
+      // contract so the StateStepper, action buttons, and totals refresh the
+      // instant the transition succeeds (the old pattern missed the detail key).
+      for (const queryKey of transitionInvalidationKeys(productionRunsKeys, 'production_run', id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
@@ -181,11 +184,13 @@ export function useCompleteProductionRun(id: string) {
   return useMutation({
     mutationFn: (input: CompleteRunInput) => completeProductionRun(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: productionRunsKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: complete drives an in_progress ->
-      // completed transition that writes an audit row; invalidate the
-      // timeline so the operator sees the entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('production_run', id) });
+      // R-W13-UX-01 (F-Wave13-UX-INVALIDATION-REMAINDER-01): complete drives an
+      // in_progress -> completed transition. Sweep the detail key, the entity
+      // tree, and the audit timeline via the shared transitionInvalidationKeys
+      // contract so the stepper and totals refresh without a manual reload.
+      for (const queryKey of transitionInvalidationKeys(productionRunsKeys, 'production_run', id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
@@ -230,11 +235,14 @@ export function useTransitionShipment(id: string) {
   return useMutation({
     mutationFn: (to: ShipmentStatus) => transitionShipment(id, to),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: shipmentsKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: shipment transitions write an
-      // audit_log row via trg_audit_shipments_state; invalidate the
-      // timeline so the operator sees the new entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', id) });
+      // R-W13-UX-01 (F-Wave13-UX-INVALIDATION-REMAINDER-01): sweep the detail
+      // key, the entity tree, and the audit timeline (trg_audit_shipments_state)
+      // via the shared transitionInvalidationKeys contract so the StateStepper,
+      // action buttons, and totals refresh without a manual reload (the old
+      // pattern invalidated only the tree and timeline, missing the detail key).
+      for (const queryKey of transitionInvalidationKeys(shipmentsKeys, 'shipment', id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
@@ -243,11 +251,13 @@ export function useShipShipment(id: string) {
   return useMutation({
     mutationFn: (input: ShipShipmentInput) => shipShipment(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: shipmentsKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: ship RPC drives a packed -> shipped
-      // transition that writes an audit row; invalidate the timeline so
-      // the operator sees the entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', id) });
+      // R-W13-UX-01 (F-Wave13-UX-INVALIDATION-REMAINDER-01): the ship RPC drives
+      // a packed -> shipped transition. Sweep the detail key, the entity tree,
+      // and the audit timeline via the shared transitionInvalidationKeys contract
+      // so the stepper and totals refresh without a manual reload.
+      for (const queryKey of transitionInvalidationKeys(shipmentsKeys, 'shipment', id)) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }
