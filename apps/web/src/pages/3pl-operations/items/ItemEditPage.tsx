@@ -17,6 +17,11 @@ export function ItemEditPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [unitPriceCents, setUnitPriceCents] = useState<number | null>(0);
+  // R-W13-CAT-01 catalog deepening fields.
+  const [unitOfMeasure, setUnitOfMeasure] = useState('');
+  const [costCents, setCostCents] = useState<number | null>(null);
+  const [reorderPoint, setReorderPoint] = useState('');
+  const [barcode, setBarcode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,17 +31,31 @@ export function ItemEditPage() {
       setDescription(query.data.description ?? '');
       const raw = query.data.unit_price_cents;
       setUnitPriceCents(raw !== null && raw !== undefined ? Number(raw) : 0);
+      setUnitOfMeasure(query.data.unit_of_measure ?? '');
+      const rawCost = query.data.cost_cents;
+      setCostCents(rawCost !== null && rawCost !== undefined ? Number(rawCost) : null);
+      setReorderPoint(
+        query.data.reorder_point !== null && query.data.reorder_point !== undefined
+          ? String(query.data.reorder_point)
+          : '',
+      );
+      setBarcode(query.data.barcode ?? '');
     }
   }, [query.data]);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const reorderTrimmed = reorderPoint.trim();
     const draft = {
       sku,
       name,
       description: description || null,
       unit_price_cents: String(unitPriceCents ?? 0),
+      unit_of_measure: unitOfMeasure.trim() || null,
+      cost_cents: costCents !== null ? String(costCents) : null,
+      reorder_point: reorderTrimmed === '' ? null : Number(reorderTrimmed),
+      barcode: barcode.trim() || null,
     };
     const parsed = ItemPatchSchema.safeParse(draft);
     if (!parsed.success) {
@@ -95,6 +114,40 @@ export function ItemEditPage() {
           value={unitPriceCents}
           onChange={setUnitPriceCents}
         />
+        <DollarInput
+          label="Cost"
+          value={costCents}
+          onChange={setCostCents}
+        />
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-ink-dim">Unit of measure</span>
+          <input
+            type="text"
+            value={unitOfMeasure}
+            onChange={(e) => setUnitOfMeasure(e.target.value)}
+            placeholder="each, case, lb"
+            className="bg-bg-2 border border-line px-3 py-2"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-ink-dim">Reorder point</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={reorderPoint}
+            onChange={(e) => setReorderPoint(e.target.value)}
+            className="bg-bg-2 border border-line px-3 py-2"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-ink-dim">Barcode / UPC</span>
+          <input
+            type="text"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            className="bg-bg-2 border border-line px-3 py-2"
+          />
+        </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
         {update.error ? (
           <p className="text-accent text-sm">

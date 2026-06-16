@@ -36,6 +36,20 @@ export function ItemDetailPage() {
         <dd>{data.kind}</dd>
         <dt className="text-ink-dim">Unit price</dt>
         <dd className="font-mono">{formatCents(data.unit_price_cents, data.currency_code)}</dd>
+        <dt className="text-ink-dim">Cost</dt>
+        <dd className="font-mono">
+          {data.cost_cents !== null
+            ? formatCents(data.cost_cents, data.currency_code)
+            : '·'}
+        </dd>
+        <dt className="text-ink-dim">Unit of measure</dt>
+        <dd>{data.unit_of_measure ?? '·'}</dd>
+        <dt className="text-ink-dim">Reorder point</dt>
+        <dd className="font-mono">
+          {data.reorder_point !== null ? String(data.reorder_point) : '·'}
+        </dd>
+        <dt className="text-ink-dim">Barcode / UPC</dt>
+        <dd className="font-mono">{data.barcode ?? '·'}</dd>
         <dt className="text-ink-dim">Currency</dt>
         <dd>{data.currency_code}</dd>
         <dt className="text-ink-dim">Active</dt>
