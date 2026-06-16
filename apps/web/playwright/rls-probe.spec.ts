@@ -1235,4 +1235,58 @@ test.describe('@rls cross-tenant probe matrix', () => {
       'cross-tenant vendor reference on create MUST 404',
     ).toBe(404);
   });
+
+  // --- Category 13: SECURITY DEFINER RPCs not executable by authenticated ----
+  //
+  // F-Wave13-SEC-AUTH-EXEC-REVIEW-01 (migration 0117): the audit, numbering,
+  // recompute, and conversion SECURITY DEFINER helpers are revoked from the
+  // authenticated role. They are only ever invoked by Edge functions through
+  // the service-role admin() client, so a hand-rolled PostgREST RPC from a
+  // signed-in user must be denied. The standout is audit_append_state_change:
+  // a direct call would forge a row into the append-only audit_log. The last
+  // probe confirms current_org_id KEEPS its grant (RLS policies evaluate it
+  // inline as the authenticated user), proving the revoke did not over-reach
+  // and break RLS.
+
+  test('@rls authenticated cannot execute audit_append_state_change via PostgREST', async () => {
+    if (!orgA) test.skip(true, 'fixtures not ready');
+    const sb = anonForJwt(orgA!.ownerJwt);
+    const { error } = await sb.rpc('audit_append_state_change', {
+      p_org_id: orgA!.id,
+      p_entity_type: 'quote',
+      p_entity_id: orgA!.quoteId,
+      p_from: 'draft',
+      p_to: 'forged',
+      p_action: 'rls_probe_forge_attempt',
+      p_actor: orgA!.ownerUserId,
+      p_diff: {},
+    });
+    expect(
+      error,
+      'authenticated MUST be denied audit_append_state_change (audit_log forge path)',
+    ).not.toBeNull();
+  });
+
+  test('@rls authenticated cannot execute a recompute_* helper via PostgREST', async () => {
+    if (!orgA) test.skip(true, 'fixtures not ready');
+    const sb = anonForJwt(orgA!.ownerJwt);
+    const { error } = await sb.rpc('recompute_invoice_paid', {
+      p_invoice_id: orgA!.invoiceId,
+    });
+    expect(
+      error,
+      'authenticated MUST be denied recompute_invoice_paid (cross-tenant total mutation)',
+    ).not.toBeNull();
+  });
+
+  test('@rls RLS-context helper current_org_id stays executable by authenticated', async () => {
+    if (!orgA) test.skip(true, 'fixtures not ready');
+    const sb = anonForJwt(orgA!.ownerJwt);
+    const { data, error } = await sb.rpc('current_org_id');
+    expect(
+      error,
+      'current_org_id MUST stay executable so RLS policies still resolve',
+    ).toBeNull();
+    expect(data, 'current_org_id resolves to the caller active org').toBe(orgA!.id);
+  });
 });
