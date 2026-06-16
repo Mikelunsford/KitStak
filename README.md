@@ -76,11 +76,13 @@ kitstak/
 
 ## Current status
 
-Wave 12 is live on prod. The schema runs through migration `0111`; there are 30 edge-function bundles under `supabase/functions/`.
+Wave 13 is live on prod. The schema runs through migration `0116`; there are 31 edge-function bundles under `supabase/functions/`.
 
 The 3PL commercial layer (Body A) is complete: Accounts, Job Builders, Quote integration, Project conversion with template snapshot, Supply Plans, Job Runs, Billing Review, and Job Profitability, building the loop Job Builder to Quote to Project to Supply Plan to Job Run to invoice (migrations 0089 to 0104, CHANGELOG `0.16.0` and `0.17.0`).
 
 The sixth add-on, WMS (warehouse execution), shipped (Body B, B0 to B4). It deepens the spine's warehouse-level stock to bin level via a nullable `location_id` on the append-only `stock_movements` ledger: the sum of the bins equals the warehouse `quantity_on_hand` by construction, and turning `plugins.wms` off leaves the spine totals untouched. Warehouse locations, the bin-stock rollup, receiving to dock, directed putaway, and lot capture are all in, gated `plugins.wms` (default off) at the `/wms` root behind the `wms-api` bundle (migrations 0105 to 0110, CHANGELOG `0.18.0`). Migration 0111 hardened the FSM action RPC grants (revoked `EXECUTE` from `authenticated`; the Edge service-role call path is unchanged).
+
+Wave 13 remediated the 2026-06-15 product audit and operator simulation: all twenty units shipped across three phases (P0 go-live blockers, P1 high impact, P2 correctness and polish). Highlights: JWT signature verification on the tenants and admin bundles with the one public route split into `tenants-public-api`; paid add-ons gated behind an active subscription; directed putaway now posts its stock move; covering indexes on the 101 unindexed foreign keys; function `search_path` and anon-execute hardening; an item-master deepening (unit of measure, cost, reorder point, barcode); a command-bar global search; TOTP MFA enrollment UI; inline create-with-lines; and an RLS policy consolidation that cleared the 88 multiple-permissive and 7 init-plan advisories with a verified no-widening diff. Migrations 0112 to 0116, CHANGELOG `0.19.0`. Closeout at `03-workspace/journal/wave-13-audit-remediation.md`. The SSO handshake and the Lighthouse and edge-Sentry activations are carried as follow-ups.
 
 Earlier foundations remain closed: observability (Phase 9, Sentry plus PostHog), polish (Phase 8), stabilization (Phase 7), and the Phase 6 quote-to-cash gate walked end to end on prod.
 

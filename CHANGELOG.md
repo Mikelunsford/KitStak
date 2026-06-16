@@ -4,6 +4,36 @@ All notable changes to Kitstak are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] · 2026-06-15 Wave 13: audit remediation (twenty units, P0 to P2) (PRs #276 to #293)
+
+Remediation of the 2026-06-15 product audit and operator simulation. All twenty backlog units shipped across three phases. Schema advanced through migration 0116. Built as three dynamic multi-agent workflows (one implementer per unit plus code and security review), each unit gated green, migrations verified on staging, merged in order with the constitution's stop-and-ask discipline. Closeout `03-workspace/journal/wave-13-audit-remediation.md`. Prod advisor deltas: unindexed FKs 101 to 0, function search_path mutable 37 to 0, anon-executable SECURITY DEFINER 11 to 0, leaked-password 1 to 0, multiple-permissive policies 88 to 0, init-plan policies 7 to 0.
+
+### Security
+
+- **JWT signature verification (R-W13-SEC-01, #279)**: `tenants-api` and `admin-console-api` moved to `verify_jwt = true`; the one public route, `GET /tenants/resolve-host`, split into a new `tenants-public-api` bundle so the gateway verifies the signature before any authenticated handler trusts a claim.
+- **Function hardening (R-W13-SEC-02, #277, migration 0113)**: pinned `search_path = public` on 37 functions and revoked `EXECUTE` from `public, anon` on 11 anon-executable SECURITY DEFINER functions. Leaked-password protection enabled in Supabase Auth.
+- **Paid-plugin entitlement gate (R-W13-BILL-01, #280)**: enabling a paid `plugins.*` flag now requires an active subscription, else `403 BILLING_REQUIRED`. Bundle-gate misses stay 404.
+
+### Added
+
+- **TOTP MFA enrollment and SSO connection UI (R-W13-AUTH-01, #292)**: TOTP enroll and verify, plus SSO connection-record management. The SAML and OIDC handshake is deferred (F-Wave13-SSO-HANDSHAKE-01).
+- **Item master deepening (R-W13-CAT-01, #284, migration 0115)**: unit of measure, cost (`cost_cents`), reorder point, and barcode on `items`, with forms wired.
+- **Command-bar global search (R-W13-SRCH-01, #285)**: a hand-rolled Cmd or Ctrl-K bar over search-api across customers, quotes, projects, invoices, items, and job numbers.
+- **Inline create-with-lines (R-W13-UX-02, #288)**: line items can be staged on the quote, invoice, receiving, and BOM create screens.
+- **Pillar analytics (R-W13-OBS-01, #283)**: product events for 3PL job runs, WMS receiving and putaway, manufacturing runs, and KitForce labor, no PII.
+- **Auto draft Supply Plan on conversion (R-W13-3PL-02, #286)**: quote-to-project conversion seeds a best-effort draft Supply Plan.
+
+### Changed
+
+- **FK covering indexes (R-W13-PERF-01, #276, migration 0112)**: indexes for the 101 unindexed foreign keys.
+- **RLS policy consolidation (R-W13-PERF-02, #293, migration 0116)**: per table, the FOR ALL write policy split into command-scoped INSERT, UPDATE, and DELETE so SELECT is governed by one policy, and init-plan auth calls wrapped as `(select fn())`. Verified semantics-preserving by a static adversarial predicate diff (zero widening) and the CI cross-tenant probe.
+- **Putaway posts stock (R-W13-WMS-01, #278, migration 0114)**: completing a putaway requires a destination bin (raises STATE_CONFLICT on null) and a new `set_putaway_destination` RPC sets the bin on an in-progress task.
+- **Transition guards and mirror cleanup (R-W13-FIN-01, R-W13-DB-01, #287)**: status-equals-from compare-and-set on the remaining SELECT-then-UPDATE transitions; stopped dual-writing the receiving and shipment JSON line mirror.
+- **Fetch retry and field errors (R-W13-UX-03, #289)**: idempotent transient auto-retry reusing the same Idempotency-Key, and per-field Zod form errors.
+- **Query invalidation (R-W13-UX-01, #281)** and **breadcrumb taxonomy (R-W13-IA-01, #282)**: transitions invalidate the entity and audit caches explicitly; eyebrow taxonomy aligned to the pillar IA.
+- **CI and observability hygiene (R-W13-DX-01, #290)**: size-limit budgets for lazy chunks, an edge-function Sentry capture scaffold, and the `three-pl-api` split into a `handlers/` layout.
+- **Co-Pack imports and channels (R-W13-COPACK-01, #291)**: repaired the CSV import column mapping (allowlist intact) and relabeled channels manual-only.
+
 ## [0.18.0] · 2026-06-15 Wave 12: WMS add-on (warehouse execution, Body B) plus FSM RPC grant hardening (PRs #267, #268, #269, #271, #272, #273, #274)
 
 The sixth add-on shipped. WMS (warehouse execution) deepens the spine's warehouse-level stock to bin level without replacing it: a nullable `location_id` dimension rides the existing append-only `stock_movements` ledger, the sum of the bins equals the warehouse `quantity_on_hand` by construction, and turning `plugins.wms` off leaves the spine totals untouched. Gated `plugins.wms` (default off) at a new `/wms/*` root behind a new `wms-api` edge bundle. Migrations 0105 to 0110, plus the 0111 grant hardening. ADR `docs/adr/0002-spine-plus-addons-and-wms-sixth-addon.md`. There is no WMS closeout journal yet; the migration headers and `03-workspace/specs/2026-06-14-wms-bodyb-phase1-handoff.md` are the authoritative record for Body B.
