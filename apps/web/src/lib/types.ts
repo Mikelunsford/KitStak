@@ -119,6 +119,12 @@ export const OidcConfigSchema = z.object({
 });
 export type OidcConfig = z.infer<typeof OidcConfigSchema>;
 
+// The OIDC client_secret is write-only: it is never echoed back to the caller.
+// The store endpoint returns the config without it, and a future read would use
+// this shape too.
+export const OidcConfigResponseSchema = OidcConfigSchema.omit({ client_secret: true });
+export type OidcConfigResponse = z.infer<typeof OidcConfigResponseSchema>;
+
 export const SsoConnectionSchema = z.object({
   id: UuidSchema,
   org_id: UuidSchema,

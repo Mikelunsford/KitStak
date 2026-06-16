@@ -33,7 +33,7 @@ import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { ok, ApiError, noContent } from '../_shared/responses.ts';
 import { FEATURE_FLAGS, PAID_PLUGIN_FLAGS } from '../_shared/constants.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
-import { OidcConfigSchema, SamlConfigSchema } from '../_shared/types.ts';
+import { OidcConfigResponseSchema, SamlConfigSchema } from '../_shared/types.ts';
 import {
   BrandingResponseSchema,
   HexColorSchema,
@@ -474,7 +474,9 @@ async function resetNumbering(ctx: RouteCtx): Promise<Response> {
 // validated (sso_connections.provider_validated_at) and activates it; the
 // sso_connections_active_requires_validation CHECK enforces that ordering.
 
-async function requireSsoSamlFlag(caller: Caller): Promise<void> {
+// One flag gates both SSO protocols for the MVP: auth.sso_saml is the single
+// SSO entitlement. A protocol-specific flag (auth.sso_oidc) is a later split.
+async function requireSsoFlag(caller: Caller): Promise<void> {
   const flag = await getFlag(caller.orgId, FEATURE_FLAGS.AUTH_SSO_SAML);
   if (!flag.enabled) {
     throw new ApiError(
@@ -537,8 +539,13 @@ const SAML_CONFIG_COLS =
 async function configureSsoSamlMetadata(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'org.sso.write');
-  await requireSsoSamlFlag(caller);
+  await requireSsoFlag(caller);
   const body = await parseBody(ctx.req, SamlMetadataRequestSchema);
+
+  // Tenant check runs unconditionally, before the idempotency wrapper, so it is
+  // enforced on every request rather than skipped on an idempotent replay.
+  const sb = admin();
+  await assertSsoConnectionInOrg(sb, body.sso_connection_id, caller.orgId, 'saml');
 
   return respondWithIdempotency(
     ctx.req,
@@ -547,8 +554,6 @@ async function configureSsoSamlMetadata(ctx: RouteCtx): Promise<Response> {
     '/sso/saml-metadata',
     body,
     async () => {
-      const sb = admin();
-      await assertSsoConnectionInOrg(sb, body.sso_connection_id, caller.orgId, 'saml');
       const row = {
         sso_connection_id: body.sso_connection_id,
         idp_entity_id: body.idp_entity_id,
@@ -593,14 +598,21 @@ const OidcMetadataRequestSchema = z.object({
   attribute_mappings: z.record(z.unknown()).optional(),
 });
 
+// client_secret is intentionally NOT selected: it is write-only and must never
+// be echoed back to the caller.
 const OIDC_CONFIG_COLS =
-  'issuer_url, authorization_endpoint, token_endpoint, userinfo_endpoint, client_id, client_secret, scopes, attribute_mappings';
+  'issuer_url, authorization_endpoint, token_endpoint, userinfo_endpoint, client_id, scopes, attribute_mappings';
 
 async function configureSsoOidcMetadata(ctx: RouteCtx): Promise<Response> {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'org.sso.write');
-  await requireSsoSamlFlag(caller);
+  await requireSsoFlag(caller);
   const body = await parseBody(ctx.req, OidcMetadataRequestSchema);
+
+  // Tenant check runs unconditionally, before the idempotency wrapper, so it is
+  // enforced on every request rather than skipped on an idempotent replay.
+  const sb = admin();
+  await assertSsoConnectionInOrg(sb, body.sso_connection_id, caller.orgId, 'oidc');
 
   return respondWithIdempotency(
     ctx.req,
@@ -609,8 +621,6 @@ async function configureSsoOidcMetadata(ctx: RouteCtx): Promise<Response> {
     '/sso/oidc-metadata',
     body,
     async () => {
-      const sb = admin();
-      await assertSsoConnectionInOrg(sb, body.sso_connection_id, caller.orgId, 'oidc');
       const row = {
         sso_connection_id: body.sso_connection_id,
         issuer_url: body.issuer_url,
@@ -637,7 +647,7 @@ async function configureSsoOidcMetadata(ctx: RouteCtx): Promise<Response> {
           `oidc config upsert failed: ${error.message}`,
         );
       }
-      return ok(OidcConfigSchema.parse(data));
+      return ok(OidcConfigResponseSchema.parse(data));
     },
   );
 }

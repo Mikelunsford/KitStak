@@ -16,7 +16,14 @@
 --   auto-provisioning is a later follow-up)
 -- Date: 2026-06-15
 --
+-- SECURITY NOTE (accepted MVP risk): oidc_configs.client_secret and
+--   saml_configs.idp_x509_cert are stored as plaintext columns (encrypted at
+--   rest at the volume level, no column-level encryption). The store endpoint
+--   never echoes client_secret back to the caller (write-only). Moving the
+--   secret behind Supabase Vault is tracked as F-Wave13-SSO-SECRET-VAULT-01.
+--
 -- DOWN MIGRATION (operator-only):
+--   drop index if exists public.sso_connections_org_all_idx;
 --   alter table public.sso_connections
 --     drop constraint if exists sso_connections_active_requires_validation;
 --   alter table public.sso_connections drop column if exists provider_validated_at;
@@ -58,6 +65,13 @@ alter table public.sso_connections
 alter table public.sso_connections
   add constraint sso_connections_active_requires_validation
   check (is_active = false or provider_validated_at is not null);
+
+-- 3b. Non-partial org_id index. The saml_configs / oidc_configs RLS SELECT
+--     policies join to sso_connections by org_id; the existing
+--     sso_connections_org_idx is partial (WHERE is_active), so it does not cover
+--     the pre-activation rows the metadata-store flow reads most.
+create index if not exists sso_connections_org_all_idx
+  on public.sso_connections (org_id);
 
 -- 4. oidc_configs: the OIDC sibling of saml_configs. One row per connection.
 create table if not exists public.oidc_configs (

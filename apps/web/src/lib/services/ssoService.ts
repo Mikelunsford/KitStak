@@ -25,10 +25,11 @@ import {
   SsoConnectionSchema as CanonSsoConnectionSchema,
   SsoProviderSchema,
   SamlConfigSchema,
-  OidcConfigSchema,
+  OidcConfigResponseSchema,
   type SsoProvider,
   type SamlConfig,
   type OidcConfig,
+  type OidcConfigResponse,
   type RoleCode,
 } from '@/lib/types';
 
@@ -91,7 +92,11 @@ export async function configureSamlMetadata(
     method: 'POST',
     body: input,
   });
-  return SamlConfigSchema.parse(data);
+  const parsed = SamlConfigSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error('Unexpected response while saving SAML metadata. Please retry.');
+  }
+  return parsed.data;
 }
 
 export interface ConfigureOidcMetadataInput {
@@ -108,12 +113,17 @@ export interface ConfigureOidcMetadataInput {
 
 export async function configureOidcMetadata(
   input: ConfigureOidcMetadataInput,
-): Promise<OidcConfig> {
+): Promise<OidcConfigResponse> {
   const data = await apiRequest<unknown>('/settings-api/sso/oidc-metadata', {
     method: 'POST',
     body: input,
   });
-  return OidcConfigSchema.parse(data);
+  // The response omits client_secret (write-only); parse with the response shape.
+  const parsed = OidcConfigResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error('Unexpected response while saving OIDC metadata. Please retry.');
+  }
+  return parsed.data;
 }
 
 /** List the active org's SSO connections (RLS scopes to the org). */

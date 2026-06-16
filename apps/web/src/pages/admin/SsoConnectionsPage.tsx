@@ -118,6 +118,7 @@ export function SsoConnectionsPage() {
   }
 
   function handleToggleActive(row: SsoConnection) {
+    if (update.isPending) return;
     // Deactivating is always allowed. Activating requires the operator to have
     // marked the provider validated first; the DB CHECK enforces this too, but
     // gating here surfaces a clear message instead of a constraint error.
@@ -139,6 +140,9 @@ export function SsoConnectionsPage() {
   }
 
   function handleMarkValidated(row: SsoConnection) {
+    // Only fire when the open panel still reflects this live connection (guards
+    // a refetch that deleted the row mid-interaction).
+    if (update.isPending || !configConn || configConn.id !== row.id) return;
     setConfigError(null);
     setConfigNotice(null);
     update.mutate(
