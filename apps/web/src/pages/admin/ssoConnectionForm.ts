@@ -37,3 +37,54 @@ export function isSsoFormSubmittable(input: SsoFormSubmittableInput): boolean {
   if (!input.displayName.trim()) return false;
   return true;
 }
+
+// F-Wave13-SSO-HANDSHAKE-01: per-protocol metadata form state and submit gates.
+// The required fields mirror the settings-api request schemas; the server
+// re-validates (URL shape, non-empty) and is the authority. attribute_mappings
+// and the SAML signing options carry server-side defaults, so they are not
+// gated here.
+export interface SamlConfigFormState {
+  idpEntityId: string;
+  idpSsoUrl: string;
+  idpX509Cert: string;
+  spEntityId: string;
+  spAcsUrl: string;
+}
+
+export function isSamlConfigSubmittable(
+  state: SamlConfigFormState,
+  isPending: boolean,
+): boolean {
+  if (isPending) return false;
+  return (
+    state.idpEntityId.trim() !== '' &&
+    state.idpSsoUrl.trim() !== '' &&
+    state.idpX509Cert.trim() !== '' &&
+    state.spEntityId.trim() !== '' &&
+    state.spAcsUrl.trim() !== ''
+  );
+}
+
+export interface OidcConfigFormState {
+  issuerUrl: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  userinfoEndpoint: string;
+  clientId: string;
+  clientSecret: string;
+}
+
+export function isOidcConfigSubmittable(
+  state: OidcConfigFormState,
+  isPending: boolean,
+): boolean {
+  if (isPending) return false;
+  return (
+    state.issuerUrl.trim() !== '' &&
+    state.authorizationEndpoint.trim() !== '' &&
+    state.tokenEndpoint.trim() !== '' &&
+    state.userinfoEndpoint.trim() !== '' &&
+    state.clientId.trim() !== '' &&
+    state.clientSecret.trim() !== ''
+  );
+}

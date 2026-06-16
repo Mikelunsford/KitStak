@@ -20,15 +20,20 @@
 import { z } from 'zod';
 
 import { supabase } from '@/lib/supabase';
+import { apiRequest } from '@/lib/apiClient';
 import {
   SsoConnectionSchema as CanonSsoConnectionSchema,
   SsoProviderSchema,
+  SamlConfigSchema,
+  OidcConfigSchema,
   type SsoProvider,
+  type SamlConfig,
+  type OidcConfig,
   type RoleCode,
 } from '@/lib/types';
 
 export { SsoProviderSchema };
-export type { SsoProvider };
+export type { SsoProvider, SamlConfig, OidcConfig };
 
 // The canonical SSO connection shape lives in lib/types (mirrored byte-for-byte
 // with the edge _shared/types via the Zod canon). The connection list and detail
@@ -52,6 +57,63 @@ export interface UpdateSsoConnectionInput {
   display_name?: string;
   default_role_code?: RoleCode;
   is_active?: boolean;
+  // F-Wave13-SSO-HANDSHAKE-01: the operator attestation that the IdP handshake
+  // is wired in the Supabase project. The DB CHECK
+  // (sso_connections_active_requires_validation) blocks is_active=true until
+  // this is non-null. Set to an ISO timestamp to validate, null to revoke.
+  provider_validated_at?: string | null;
+}
+
+// F-Wave13-SSO-HANDSHAKE-01 (MVP store-metadata): the IdP secrets
+// (cert / endpoints / client secret) are written through settings-api, not
+// directly via RLS, so the write is flag-gated (auth.sso_saml), cap-gated
+// (org.sso.write), idempotent, and validated server-side. The connection
+// record itself stays a direct RLS write (above). Storing metadata does not
+// activate the connection: the operator wires the Supabase Auth provider, then
+// marks the connection validated and activates it.
+export interface ConfigureSamlMetadataInput {
+  sso_connection_id: string;
+  idp_entity_id: string;
+  idp_sso_url: string;
+  idp_metadata_url?: string | null;
+  idp_x509_cert: string;
+  sp_entity_id: string;
+  sp_acs_url: string;
+  attribute_mappings?: Record<string, unknown>;
+  signature_algorithm?: string;
+  want_assertions_signed?: boolean;
+}
+
+export async function configureSamlMetadata(
+  input: ConfigureSamlMetadataInput,
+): Promise<SamlConfig> {
+  const data = await apiRequest<unknown>('/settings-api/sso/saml-metadata', {
+    method: 'POST',
+    body: input,
+  });
+  return SamlConfigSchema.parse(data);
+}
+
+export interface ConfigureOidcMetadataInput {
+  sso_connection_id: string;
+  issuer_url: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  userinfo_endpoint: string;
+  client_id: string;
+  client_secret: string;
+  scopes?: string[];
+  attribute_mappings?: Record<string, unknown>;
+}
+
+export async function configureOidcMetadata(
+  input: ConfigureOidcMetadataInput,
+): Promise<OidcConfig> {
+  const data = await apiRequest<unknown>('/settings-api/sso/oidc-metadata', {
+    method: 'POST',
+    body: input,
+  });
+  return OidcConfigSchema.parse(data);
 }
 
 /** List the active org's SSO connections (RLS scopes to the org). */
@@ -59,7 +121,7 @@ export async function listSsoConnections(): Promise<SsoConnection[]> {
   const { data, error } = await supabase
     .from('sso_connections')
     .select(
-      'id, org_id, provider, display_name, is_active, default_role_code, created_at, updated_at',
+      'id, org_id, provider, display_name, is_active, default_role_code, provider_validated_at, created_at, updated_at',
     )
     .order('created_at', { ascending: true });
   if (error) {
@@ -88,7 +150,7 @@ export async function createSsoConnection(
       is_active: false,
     })
     .select(
-      'id, org_id, provider, display_name, is_active, default_role_code, created_at, updated_at',
+      'id, org_id, provider, display_name, is_active, default_role_code, provider_validated_at, created_at, updated_at',
     )
     .single();
   if (error) {
@@ -107,7 +169,7 @@ export async function updateSsoConnection(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select(
-      'id, org_id, provider, display_name, is_active, default_role_code, created_at, updated_at',
+      'id, org_id, provider, display_name, is_active, default_role_code, provider_validated_at, created_at, updated_at',
     )
     .single();
   if (error) {

@@ -33,12 +33,18 @@ import {
   useCreateSsoConnection,
   useUpdateSsoConnection,
   useDeleteSsoConnection,
+  useConfigureSamlMetadata,
+  useConfigureOidcMetadata,
 } from '@/lib/hooks/useSso';
 import { INVITE_ROLE_OPTIONS } from './membersInviteForm';
 import {
   SSO_PROVIDER_OPTIONS,
   DEFAULT_SSO_PROVIDER,
   isSsoFormSubmittable,
+  isSamlConfigSubmittable,
+  isOidcConfigSubmittable,
+  type SamlConfigFormState,
+  type OidcConfigFormState,
 } from './ssoConnectionForm';
 import type { SsoProvider, SsoConnection } from '@/lib/services/ssoService';
 import type { RoleCode } from '@/lib/types';
@@ -53,11 +59,37 @@ export function SsoConnectionsPage() {
   const create = useCreateSsoConnection();
   const update = useUpdateSsoConnection();
   const remove = useDeleteSsoConnection();
+  const configureSaml = useConfigureSamlMetadata();
+  const configureOidc = useConfigureOidcMetadata();
 
   const [provider, setProvider] = useState<SsoProvider>(DEFAULT_SSO_PROVIDER);
   const [displayName, setDisplayName] = useState('');
   const [defaultRole, setDefaultRole] = useState<RoleCode>('viewer');
   const [formError, setFormError] = useState<string | null>(null);
+
+  // F-Wave13-SSO-HANDSHAKE-01: the connection whose IdP metadata is being
+  // configured, plus the per-protocol field state and the config notices.
+  const [configId, setConfigId] = useState<string | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [configNotice, setConfigNotice] = useState<string | null>(null);
+  const [saml, setSaml] = useState<SamlConfigFormState>({
+    idpEntityId: '',
+    idpSsoUrl: '',
+    idpX509Cert: '',
+    spEntityId: '',
+    spAcsUrl: '',
+  });
+  const [oidc, setOidc] = useState<OidcConfigFormState>({
+    issuerUrl: '',
+    authorizationEndpoint: '',
+    tokenEndpoint: '',
+    userinfoEndpoint: '',
+    clientId: '',
+    clientSecret: '',
+  });
+
+  const configConn =
+    (connections.data ?? []).find((c) => c.id === configId) ?? null;
 
   const canSubmit =
     canWrite &&
@@ -86,7 +118,83 @@ export function SsoConnectionsPage() {
   }
 
   function handleToggleActive(row: SsoConnection) {
+    // Deactivating is always allowed. Activating requires the operator to have
+    // marked the provider validated first; the DB CHECK enforces this too, but
+    // gating here surfaces a clear message instead of a constraint error.
+    if (!row.is_active && row.provider_validated_at === null) {
+      setConfigId(row.id);
+      setConfigNotice(null);
+      setConfigError(
+        'Mark the provider validated before activating. Wire the IdP handshake in Supabase, then use Mark validated.',
+      );
+      return;
+    }
     update.mutate({ id: row.id, patch: { is_active: !row.is_active } });
+  }
+
+  function handleConfigure(row: SsoConnection) {
+    setConfigError(null);
+    setConfigNotice(null);
+    setConfigId(row.id);
+  }
+
+  function handleMarkValidated(row: SsoConnection) {
+    setConfigError(null);
+    setConfigNotice(null);
+    update.mutate(
+      { id: row.id, patch: { provider_validated_at: new Date().toISOString() } },
+      {
+        onSuccess: () =>
+          setConfigNotice('Provider marked validated. You can activate the connection now.'),
+        onError: (err: unknown) =>
+          setConfigError(err instanceof Error ? err.message : 'Mark validated failed.'),
+      },
+    );
+  }
+
+  function handleSaveSaml() {
+    setConfigError(null);
+    setConfigNotice(null);
+    if (!configConn) return;
+    configureSaml.mutate(
+      {
+        sso_connection_id: configConn.id,
+        idp_entity_id: saml.idpEntityId.trim(),
+        idp_sso_url: saml.idpSsoUrl.trim(),
+        idp_x509_cert: saml.idpX509Cert.trim(),
+        sp_entity_id: saml.spEntityId.trim(),
+        sp_acs_url: saml.spAcsUrl.trim(),
+      },
+      {
+        onSuccess: () =>
+          setConfigNotice('SAML metadata saved. Wire the provider in Supabase, then mark it validated.'),
+        onError: (err: unknown) =>
+          setConfigError(err instanceof Error ? err.message : 'Save failed.'),
+      },
+    );
+  }
+
+  function handleSaveOidc() {
+    setConfigError(null);
+    setConfigNotice(null);
+    if (!configConn) return;
+    configureOidc.mutate(
+      {
+        sso_connection_id: configConn.id,
+        issuer_url: oidc.issuerUrl.trim(),
+        authorization_endpoint: oidc.authorizationEndpoint.trim(),
+        token_endpoint: oidc.tokenEndpoint.trim(),
+        userinfo_endpoint: oidc.userinfoEndpoint.trim(),
+        client_id: oidc.clientId.trim(),
+        client_secret: oidc.clientSecret.trim(),
+      },
+      {
+        onSuccess: () =>
+          setConfigNotice('OIDC metadata saved. Wire the provider in Supabase, then mark it validated.'),
+        onError: (err: unknown) =>
+          setConfigError(err instanceof Error ? err.message : 'Save failed.'),
+      },
+    );
   }
 
   async function handleDelete(row: SsoConnection) {
@@ -164,13 +272,36 @@ export function SsoConnectionsPage() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <RelativeTime value={row.created_at} />
+                  <span
+                    className={`font-sans text-xs uppercase tracking-wide ${
+                      row.provider_validated_at ? 'text-success' : 'text-ink-faint'
+                    }`}
+                    data-testid="sso-validated-badge"
+                  >
+                    {row.provider_validated_at ? 'Validated' : 'Not validated'}
+                  </span>
                   <StatusBadge status={row.is_active ? 'active' : 'inactive'} />
                   {canWrite ? (
                     <>
                       <Button
                         variant="secondary"
+                        onClick={() => handleConfigure(row)}
+                        data-testid="sso-configure-button"
+                      >
+                        Configure
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => handleToggleActive(row)}
-                        disabled={update.isPending}
+                        disabled={
+                          update.isPending ||
+                          (!row.is_active && row.provider_validated_at === null)
+                        }
+                        title={
+                          !row.is_active && row.provider_validated_at === null
+                            ? 'Mark the provider validated before activating.'
+                            : undefined
+                        }
                         data-testid="sso-toggle-button"
                       >
                         {row.is_active ? 'Deactivate' : 'Activate'}
@@ -259,6 +390,173 @@ export function SsoConnectionsPage() {
               data-testid="sso-create-button"
             >
               {create.isPending ? 'Adding...' : 'Add connection'}
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {canWrite && configConn ? (
+        <section
+          className="border border-line bg-bg-2 p-5 flex flex-col gap-4"
+          data-testid="sso-config-section"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="font-display text-2xl tracking-wide text-ink">
+              CONFIGURE PROVIDER
+            </h2>
+            <Button
+              variant="ghost"
+              onClick={() => setConfigId(null)}
+              data-testid="sso-config-close"
+            >
+              Close
+            </Button>
+          </div>
+          <p className="font-sans text-sm text-ink-dim">
+            {configConn.display_name} · {configConn.provider.toUpperCase()}. Store
+            the identity-provider metadata, then wire the matching provider in the
+            Supabase project. Mark the connection validated once the handshake is
+            confirmed. Only a validated connection can be activated.
+          </p>
+
+          {configConn.provider === 'saml' ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <TextInput
+                label="IdP entity ID"
+                name="saml_idp_entity_id"
+                value={saml.idpEntityId}
+                onChange={(e) => setSaml({ ...saml, idpEntityId: e.target.value })}
+                data-testid="saml-idp-entity-id"
+              />
+              <TextInput
+                label="IdP SSO URL"
+                name="saml_idp_sso_url"
+                value={saml.idpSsoUrl}
+                onChange={(e) => setSaml({ ...saml, idpSsoUrl: e.target.value })}
+                data-testid="saml-idp-sso-url"
+              />
+              <TextInput
+                label="SP entity ID"
+                name="saml_sp_entity_id"
+                value={saml.spEntityId}
+                onChange={(e) => setSaml({ ...saml, spEntityId: e.target.value })}
+                data-testid="saml-sp-entity-id"
+              />
+              <TextInput
+                label="SP ACS URL"
+                name="saml_sp_acs_url"
+                value={saml.spAcsUrl}
+                onChange={(e) => setSaml({ ...saml, spAcsUrl: e.target.value })}
+                data-testid="saml-sp-acs-url"
+              />
+              <label className="flex flex-col gap-2 md:col-span-2">
+                <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                  IdP x509 certificate
+                </span>
+                <textarea
+                  className="bg-bg-2 border border-line text-ink px-4 py-3 font-mono text-xs focus:outline-none focus:border-accent min-h-[8rem]"
+                  value={saml.idpX509Cert}
+                  onChange={(e) => setSaml({ ...saml, idpX509Cert: e.target.value })}
+                  data-testid="saml-idp-x509-cert"
+                />
+              </label>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <TextInput
+                label="Issuer URL"
+                name="oidc_issuer_url"
+                value={oidc.issuerUrl}
+                onChange={(e) => setOidc({ ...oidc, issuerUrl: e.target.value })}
+                data-testid="oidc-issuer-url"
+              />
+              <TextInput
+                label="Authorization endpoint"
+                name="oidc_authorization_endpoint"
+                value={oidc.authorizationEndpoint}
+                onChange={(e) =>
+                  setOidc({ ...oidc, authorizationEndpoint: e.target.value })
+                }
+                data-testid="oidc-authorization-endpoint"
+              />
+              <TextInput
+                label="Token endpoint"
+                name="oidc_token_endpoint"
+                value={oidc.tokenEndpoint}
+                onChange={(e) => setOidc({ ...oidc, tokenEndpoint: e.target.value })}
+                data-testid="oidc-token-endpoint"
+              />
+              <TextInput
+                label="Userinfo endpoint"
+                name="oidc_userinfo_endpoint"
+                value={oidc.userinfoEndpoint}
+                onChange={(e) => setOidc({ ...oidc, userinfoEndpoint: e.target.value })}
+                data-testid="oidc-userinfo-endpoint"
+              />
+              <TextInput
+                label="Client ID"
+                name="oidc_client_id"
+                value={oidc.clientId}
+                onChange={(e) => setOidc({ ...oidc, clientId: e.target.value })}
+                data-testid="oidc-client-id"
+              />
+              <TextInput
+                label="Client secret"
+                name="oidc_client_secret"
+                type="password"
+                value={oidc.clientSecret}
+                onChange={(e) => setOidc({ ...oidc, clientSecret: e.target.value })}
+                data-testid="oidc-client-secret"
+              />
+            </div>
+          )}
+
+          {configError ? (
+            <p
+              role="alert"
+              className="font-sans text-sm text-accent border-l-2 border-accent pl-3 py-2 bg-accent/5"
+              data-testid="sso-config-error"
+            >
+              {configError}
+            </p>
+          ) : null}
+          {configNotice ? (
+            <p
+              className="font-sans text-sm text-success border-l-2 border-success pl-3 py-2 bg-success/5"
+              data-testid="sso-config-notice"
+            >
+              {configNotice}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-3">
+            {configConn.provider === 'saml' ? (
+              <Button
+                onClick={handleSaveSaml}
+                disabled={!isSamlConfigSubmittable(saml, configureSaml.isPending)}
+                data-testid="sso-save-saml"
+              >
+                {configureSaml.isPending ? 'Saving...' : 'Save SAML metadata'}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSaveOidc}
+                disabled={!isOidcConfigSubmittable(oidc, configureOidc.isPending)}
+                data-testid="sso-save-oidc"
+              >
+                {configureOidc.isPending ? 'Saving...' : 'Save OIDC metadata'}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => handleMarkValidated(configConn)}
+              disabled={update.isPending || configConn.provider_validated_at !== null}
+              title={
+                configConn.provider_validated_at !== null ? 'Already validated.' : undefined
+              }
+              data-testid="sso-mark-validated"
+            >
+              {configConn.provider_validated_at !== null ? 'Validated' : 'Mark validated'}
             </Button>
           </div>
         </section>
