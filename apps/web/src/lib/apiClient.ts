@@ -54,7 +54,8 @@ export async function apiRequest<T>(
   const init: RequestInit = { method, headers };
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
 
-  // Bounded transient-failure auto-retry (R-W13-UX-03a). The same `init`
-  // (and thus the same Idempotency-Key) is replayed, so a retry is safe.
+  // Bounded transient-failure auto-retry (R-W13-UX-03a) plus Retry-After-aware
+  // 429 backoff (F-Wave13-RETRY-AFTER-429-01). The same `init` (and thus the
+  // same Idempotency-Key) is replayed, so a retry is safe.
   return executeRequest<T>(url, init, fetch);
 }

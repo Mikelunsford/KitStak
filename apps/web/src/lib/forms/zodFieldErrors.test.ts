@@ -10,21 +10,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import type { ReactElement } from 'react';
 
 import { zodIssuesToFieldErrors } from './zodFieldErrors';
-import { TextInput } from '@/components/ui/TextInput';
+import { renderTextInput } from '@/components/ui/TextInput';
 
 interface RNode {
   type: unknown;
   props: Record<string, unknown> & { children?: unknown };
 }
-
-// forwardRef components expose a `.render(props, ref)` callable. The public
-// ForwardRefExoticComponent type does not surface it, so narrow it here for the
-// element-tree walk (no jsdom, matching the repo convention).
-type RenderFn = (props: Record<string, unknown>, ref: unknown) => ReactElement;
-const renderTextInput = (TextInput as unknown as { render: RenderFn }).render;
 
 function walk(node: unknown): RNode[] {
   if (!node || typeof node !== 'object') return [];
@@ -106,10 +99,12 @@ describe('TextInput renders a field-level error', () => {
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     const errors = zodIssuesToFieldErrors(parsed.error);
+    const codeError = errors.code;
+    if (codeError === undefined) throw new Error('expected a mapped error for code');
 
-    // forwardRef component: call its render fn with props + a null ref.
+    // Invoke the exported render function directly with props + a null ref.
     const el = renderTextInput(
-      { label: 'Account code', value: '', error: errors.code },
+      { label: 'Account code', value: '', error: codeError },
       null,
     );
     const tree = walk(el);

@@ -61,24 +61,83 @@ export class ApiError extends Error {
  *      a non-GET retry can never double-apply.
  *
  *   2. We retry only on transient signals: a thrown fetch error (network
- *      layer, the browser never got an HTTP response) or a 5xx server
- *      status. A 4xx is a deterministic client error (validation, auth,
- *      not-found, idempotency conflict); retrying it would only repeat the
- *      same failure, so we let it through on the first response. A 429 is
- *      NOT auto-retried either: a rate limit must honor the server
- *      Retry-After rather than replay at 0ms and amplify the overload, so it
- *      surfaces to the caller (Retry-After-aware backoff is a follow-up,
- *      F-Wave13-RETRY-AFTER-429-01).
+ *      layer, the browser never got an HTTP response), a 5xx server status,
+ *      or a 429 rate limit. A non-429 4xx is a deterministic client error
+ *      (validation, auth, not-found, idempotency conflict); retrying it would
+ *      only repeat the same failure, so we let it through on the first
+ *      response. A 429 IS retried, but unlike a network error or 5xx (which
+ *      replay immediately) it first waits out the server Retry-After
+ *      (delay-seconds or HTTP-date, capped) so the replay never amplifies the
+ *      overload (F-Wave13-RETRY-AFTER-429-01).
  */
 export const MAX_RETRIES = 1;
 
+/** 429 Too Many Requests: retried after honoring Retry-After, not immediately. */
+export const TOO_MANY_REQUESTS = 429;
+
 /**
- * HTTP statuses safe to auto-retry: 5xx server errors only. 429 is excluded on
- * purpose (a rate limit needs Retry-After backoff, not an immediate replay).
+ * Retry-After backoff bounds for a 429 replay. When the server sends no
+ * Retry-After (or an unparseable one) we wait a short default before the single
+ * bounded retry; we never block the UI longer than the cap even if the server
+ * asks for more.
+ */
+export const RETRY_AFTER_DEFAULT_MS = 1_000;
+export const RETRY_AFTER_MAX_MS = 60_000;
+
+/**
+ * HTTP statuses safe to replay IMMEDIATELY (no backoff): 5xx server errors only.
+ * 429 is excluded here on purpose because it is retried on a separate path that
+ * first waits out the server Retry-After (see executeRequest).
  */
 export function isRetryableStatus(status: number): boolean {
   return status >= 500 && status <= 599;
 }
+
+/**
+ * Parse an HTTP Retry-After header value into a wait in milliseconds, or null
+ * when absent/unparseable so the caller can fall back to a default. Supports
+ * both RFC 7231 §7.1.3 forms: delay-seconds (a non-negative integer count of
+ * seconds) and HTTP-date (an absolute time, taken relative to `nowMs`, never
+ * negative). Pure (takes `nowMs`) so the date branch is deterministically
+ * testable.
+ */
+export function parseRetryAfterMs(value: string | null, nowMs: number): number | null {
+  if (value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  // delay-seconds: an integer number of seconds (no sign, no fraction).
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed) * 1000;
+  }
+  // A numeric-looking value that is not a bare integer (a fraction like "1.5",
+  // a sign, a stray dot) is a malformed delay-seconds, never an HTTP-date.
+  // Reject it so the caller applies the default backoff, rather than letting
+  // Date.parse misread it (Date.parse("1.5") yields a year-2001 instant, which
+  // clamps to a 0ms wait and defeats the backoff).
+  if (/^[\d.+-]+$/.test(trimmed)) return null;
+  // HTTP-date: wait until that instant (clamped at zero for an already-past date).
+  const dateMs = Date.parse(trimmed);
+  if (Number.isNaN(dateMs)) return null;
+  return Math.max(0, dateMs - nowMs);
+}
+
+/**
+ * The bounded wait before a 429 replay: the parsed Retry-After (or the default
+ * when missing/unparseable), capped so a hostile or buggy header can never
+ * freeze the UI.
+ */
+export function retryAfterDelayMs(value: string | null, nowMs: number): number {
+  const parsed = parseRetryAfterMs(value, nowMs);
+  const base = parsed ?? RETRY_AFTER_DEFAULT_MS;
+  return Math.min(base, RETRY_AFTER_MAX_MS);
+}
+
+export type SleepImpl = (ms: number) => Promise<void>;
+
+const defaultSleep: SleepImpl = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 export type FetchImpl = (
   input: string,
@@ -127,14 +186,18 @@ export async function parseResponse<T>(response: Response): Promise<T> {
 /**
  * Run a prepared request through `fetchImpl` with a bounded transient-failure
  * retry. The `init` (and thus its Idempotency-Key header) is reused verbatim
- * on every attempt. Exported for unit testing the retry contract; production
- * callers go through `apiRequest`.
+ * on every attempt, so a non-GET replay dedupes server-side instead of
+ * double-applying. Network errors and 5xx replay immediately; a 429 replays
+ * after waiting out Retry-After. `sleep` is injectable so the 429 backoff is
+ * testable without a real timer. Exported for unit testing the retry contract;
+ * production callers go through `apiRequest`.
  */
 export async function executeRequest<T>(
   url: string,
   init: RequestInit,
   fetchImpl: FetchImpl,
   maxRetries: number = MAX_RETRIES,
+  sleep: SleepImpl = defaultSleep,
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -156,6 +219,25 @@ export async function executeRequest<T>(
         ERROR_CODES.INTERNAL_ERROR,
         response.status,
         'Transient upstream failure',
+      );
+      // Release the discarded body's stream lock before replaying.
+      void response.body?.cancel();
+      continue;
+    }
+
+    if (response.status === TOO_MANY_REQUESTS && attempt < maxRetries) {
+      // Rate limited. Unlike a 5xx, wait out the server Retry-After (capped)
+      // before replaying the SAME init (same Idempotency-Key), so we honor the
+      // limit instead of replaying at 0ms and amplifying the overload.
+      lastError = new ApiError(
+        ERROR_CODES.RATE_LIMITED,
+        response.status,
+        'Rate limited',
+      );
+      // Release the discarded body's stream lock before we wait, then replay.
+      void response.body?.cancel();
+      await sleep(
+        retryAfterDelayMs(response.headers.get(HTTP_HEADERS.RETRY_AFTER), Date.now()),
       );
       continue;
     }

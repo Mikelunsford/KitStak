@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { transitionInvalidationKeys } from './transitionInvalidation';
-import { receivingOrdersKeys } from '@/lib/queryKeys/ops';
+import { receivingOrdersKeys, shipmentsKeys, productionRunsKeys } from '@/lib/queryKeys/ops';
 import { wmsPutawayKeys } from '@/lib/queryKeys/wms';
 import { invoiceKeys } from '@/lib/queryKeys/invoices';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
@@ -22,6 +22,8 @@ import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 const RECEIVING_ID = 'rcv-00000000-0000-4000-8000-000000000001';
 const PUTAWAY_ID = 'pa-00000000-0000-4000-8000-000000000001';
 const INVOICE_ID = 'inv-00000000-0000-4000-8000-000000000001';
+const SHIPMENT_ID = 'shp-00000000-0000-4000-8000-000000000001';
+const PRODUCTION_RUN_ID = 'prn-00000000-0000-4000-8000-000000000001';
 
 // Deep-compare helper so expect().toContainEqual works on readonly tuples.
 function asMutable(key: ReadonlyArray<unknown>): unknown[] {
@@ -87,5 +89,34 @@ describe('transitionInvalidationKeys', () => {
     expect(keys).toContainEqual(asMutable(invoiceKeys.detail(INVOICE_ID)));
     expect(keys).toContainEqual(asMutable(invoiceKeys.all));
     expect(keys).toContainEqual(asMutable(auditLogKeys.byEntity('invoice', INVOICE_ID)));
+  });
+
+  // F-Wave13-UX-INVALIDATION-REMAINDER-01: the shipment and production-run
+  // transition hooks now route through this shared contract, so lock that their
+  // key factories expose the detail/all shape the helper depends on.
+  it('works for the shipment entity factory', () => {
+    const keys = transitionInvalidationKeys(
+      shipmentsKeys,
+      'shipment',
+      SHIPMENT_ID,
+    ).map(asMutable);
+
+    expect(keys).toContainEqual(asMutable(shipmentsKeys.detail(SHIPMENT_ID)));
+    expect(keys).toContainEqual(asMutable(shipmentsKeys.all));
+    expect(keys).toContainEqual(asMutable(auditLogKeys.byEntity('shipment', SHIPMENT_ID)));
+  });
+
+  it('works for the production-run entity factory', () => {
+    const keys = transitionInvalidationKeys(
+      productionRunsKeys,
+      'production_run',
+      PRODUCTION_RUN_ID,
+    ).map(asMutable);
+
+    expect(keys).toContainEqual(asMutable(productionRunsKeys.detail(PRODUCTION_RUN_ID)));
+    expect(keys).toContainEqual(asMutable(productionRunsKeys.all));
+    expect(keys).toContainEqual(
+      asMutable(auditLogKeys.byEntity('production_run', PRODUCTION_RUN_ID)),
+    );
   });
 });
