@@ -14,6 +14,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/analytics';
+import { buildManufacturingRunTransitionedProps } from '@/lib/hooks/pillarAnalytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { manufacturingRunsKeys } from '@/lib/queryKeys/manufacturing';
 import {
@@ -92,9 +94,13 @@ export function useStartManufacturingRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => startManufacturingRun(id),
-    onSuccess: () => {
+    onSuccess: (run) => {
       void qc.invalidateQueries({ queryKey: manufacturingRunsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('manufacturing_run', id) });
+      track(
+        'manufacturing_run_transitioned',
+        buildManufacturingRunTransitionedProps(run.id, run.status),
+      );
     },
   });
 }
@@ -103,9 +109,13 @@ export function useCompleteManufacturingRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => completeManufacturingRun(id),
-    onSuccess: () => {
+    onSuccess: (run) => {
       void qc.invalidateQueries({ queryKey: manufacturingRunsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('manufacturing_run', id) });
+      track(
+        'manufacturing_run_transitioned',
+        buildManufacturingRunTransitionedProps(run.id, run.status),
+      );
     },
   });
 }
@@ -114,9 +124,15 @@ export function useCancelManufacturingRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => cancelManufacturingRun(id),
-    onSuccess: () => {
+    onSuccess: (run) => {
       void qc.invalidateQueries({ queryKey: manufacturingRunsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('manufacturing_run', id) });
+      // R-W13-OBS-01: emit the manufacturing-run FSM transition funnel event.
+      // Run id and post-transition status enum only; no item names or money.
+      track(
+        'manufacturing_run_transitioned',
+        buildManufacturingRunTransitionedProps(run.id, run.status),
+      );
     },
   });
 }

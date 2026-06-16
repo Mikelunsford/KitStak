@@ -6,6 +6,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/analytics';
+import { buildJobRunTransitionedProps } from '@/lib/hooks/pillarAnalytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import {
   jobRunsKeys,
@@ -111,9 +113,13 @@ function useTransitionJobRun(id: string, fn: (id: string) => Promise<JobRun>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => fn(id),
-    onSuccess: () => {
+    onSuccess: (run) => {
       void qc.invalidateQueries({ queryKey: jobRunsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(JOB_RUN_ENTITY, id) });
+      // R-W13-OBS-01: emit the job-run FSM transition funnel event. The run
+      // id and the post-transition status enum are the only properties; no
+      // names, project labels, or money leave the SPA.
+      track('job_run_transitioned', buildJobRunTransitionedProps(run.id, run.status));
     },
   });
 }

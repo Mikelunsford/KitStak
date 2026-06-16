@@ -16,6 +16,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/analytics';
+import { buildLaborTimeClockedProps } from '@/lib/hooks/pillarAnalytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import {
   membersKeys,
@@ -371,8 +373,14 @@ export function useClockInTimeEntry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: TimeEntryClockIn) => clockInTimeEntry(input),
-    onSuccess: () => {
+    onSuccess: (entry) => {
       void qc.invalidateQueries({ queryKey: timeEntriesKeys.all });
+      // R-W13-OBS-01: emit the KitForce labor funnel event on clock-in. The
+      // entry id and member id are opaque UUIDs; no names, hours, or rate.
+      track(
+        'labor_time_clocked',
+        buildLaborTimeClockedProps(entry.id, 'clock_in', entry.member_id ?? null),
+      );
     },
   });
 }
@@ -381,9 +389,15 @@ export function useClockOutTimeEntry(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: TimeEntryClockOut) => clockOutTimeEntry(id, input),
-    onSuccess: () => {
+    onSuccess: (entry) => {
       void qc.invalidateQueries({ queryKey: timeEntriesKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('time_entry', id) });
+      // R-W13-OBS-01: emit the KitForce labor funnel event on clock-out. The
+      // entry id and member id are opaque UUIDs; no names, minutes, or rate.
+      track(
+        'labor_time_clocked',
+        buildLaborTimeClockedProps(entry.id, 'clock_out', entry.member_id ?? null),
+      );
     },
   });
 }
