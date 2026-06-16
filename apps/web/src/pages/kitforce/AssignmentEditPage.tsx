@@ -65,7 +65,7 @@ export function AssignmentEditPage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Workforce / Assignments" title="Edit assignment" />
+      <PageHeader eyebrow="KitForce / Assignments" title="Edit assignment" />
       {!canUpdate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to edit assignments.

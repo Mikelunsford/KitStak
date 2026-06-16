@@ -156,7 +156,7 @@ export function SalesOrdersListPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Sell / Sales Orders"
+        eyebrow="Co-Pack and Ecom / Sales orders"
         title="Sales Orders"
         meta={meta}
         actions={

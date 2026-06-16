@@ -136,7 +136,7 @@ export function StockMovementsPage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Ship / Stock movements" title="Stock movements" />
+      <PageHeader eyebrow="Inventory / Stock movements" title="Stock movements" />
       {!isLoading && rows.length === 0 ? (
         <ListEmptyState
           entity="movement"

@@ -149,7 +149,7 @@ export function ReceivingOrderDetailPage() {
         }
       />
       <PageHeader
-        eyebrow="Make / Receiving"
+        eyebrow="3PL Operations / Receiving"
         title={`Receiving ${d.receiving_number ?? d.id.slice(0, 8)}`}
       />
 

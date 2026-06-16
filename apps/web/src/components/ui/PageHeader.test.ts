@@ -40,7 +40,7 @@ describe('PageHeader', () => {
   it('renders eyebrow, meta, and actions when provided', () => {
     const el = PageHeader({
       title: 'Quotes',
-      eyebrow: 'Sell / Quotes',
+      eyebrow: 'Quotes',
       meta: '5 quotes',
       actions: createElement('button', { 'data-testid': 'cta' }, 'New quote'),
     });
@@ -48,7 +48,7 @@ describe('PageHeader', () => {
     const strings = tree
       .map((n) => n.props.children)
       .filter((c): c is string => typeof c === 'string');
-    expect(strings).toContain('Sell / Quotes');
+    expect(strings).toContain('Quotes');
     expect(strings).toContain('5 quotes');
     expect(tree.some((n) => n.props?.['data-testid'] === 'cta')).toBe(true);
   });

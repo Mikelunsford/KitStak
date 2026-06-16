@@ -180,7 +180,7 @@ export function KittingJobDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Make / Kitting Jobs"
+        eyebrow="Co-Pack and Ecom / Kitting jobs"
         title={`Kitting job ${d.job_number ?? d.id.slice(0, 8)}`}
         meta={<StatusBadge status={d.status} />}
       />

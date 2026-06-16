@@ -31,13 +31,14 @@ slide-in drawer opened by the Topbar hamburger.
 |                |                                                            |
 |  [home] DASH   |   { route content renders here }                          |
 |                |                                                            |
-|  v SELL        |                                                            |
-|    Quote...    |                                                            |
-|  v MAKE        |                                                            |
-|  v SHIP        |                                                            |
-|  v GET PAID    |                                                            |
-|  v LIBRARY     |                                                            |
-|  v WORKFORCE   |                                                            |
+|  v SPINE       |                                                            |
+|    CRM...      |                                                            |
+|  v 3PL OPS     |                                                            |
+|  v MANUFACTURE |                                                            |
+|  v CO-PACK     |                                                            |
+|  v KITFORCE    |                                                            |
+|  v KITCOST     |                                                            |
+|  v WMS         |                                                            |
 |                |                                                            |
 |  ---- ADMIN ---|                                                            |
 |  Settings      |                                                            |
@@ -71,60 +72,86 @@ slide-in drawer opened by the Topbar hamburger.
 
 ### Sidebar detail (`components/shell/Sidebar.tsx`, `sidebarModes.ts`)
 
-Job-mode IA: the rail is grouped by stage of work, not by pillar. Each mode is a
-collapsible group; expansion state persists per user in localStorage. The mode that
-owns the active route auto-expands. Per-route entries hide when their `requiresFlag`
-is off for the active org.
+Pillar-grouped IA (ADR 0003, supersedes the retired UX-Q1 job-modes): the rail is
+one always-on SPINE section sub-grouped by domain, then one collapsible section per
+lit add-on. Each section is a collapsible group; expansion state persists per user in
+localStorage. The section that owns the active route auto-expands. Per-route entries
+hide when their `requiresFlag` is off for the active org. The page-header eyebrow on
+each surface mirrors this taxonomy (for example "Purchasing / Vendors", "Finance /
+Period close", "KitForce / Members").
 
 ```
 [home] DASHBOARD                         -> /dashboard
 
-v SELL        Quote, qualify, and close work.
+v SPINE       The always-on backbone. Customers through cash.
+  CRM
+  | Customers             /crm/customers
+  | Contacts              /crm/contacts
   | Leads                 /crm/leads
   | Opportunities         /crm/opportunities
   | Activities            /crm/activities
-  | Quotes                /3pl-operations/quotes
-  | Sales orders          /copack/orders            ( plugins.copack_ecom )
-
-v MAKE        Build it. Track the lines.
-  | Projects              /3pl-operations/projects
-  | Bills of materials    /3pl-operations/boms
-  | Manufacturing runs    /manufacturing/runs       ( plugins.manufacturing )
-  | Kitting jobs          /copack/kitting           ( plugins.copack_ecom )
-  | Receiving             /3pl-operations/receiving
-
-v SHIP        Outbound and stock movements.
-  | Shipments             /3pl-operations/shipments
-  | Fulfillments          /copack/fulfillments      ( plugins.copack_ecom )
-  | Stock levels          /3pl-operations/stock/levels
-  | Stock movements       /3pl-operations/stock/movements
-
-v GET PAID    Invoice, collect, reconcile.
+  Quotes
+  | Quotes                /quotes
+  Projects
+  | Projects              /projects
+  Catalog
+  | Items                 /catalog/items
+  | Bills of materials    /catalog/boms
+  | Value-added services  /catalog/vas
+  Inventory
+  | Warehouses            /inventory/warehouses
+  | Stock levels          /inventory/stock/levels
+  | Stock movements       /inventory/stock/movements
+  Purchasing
+  | Vendors               /purchasing/vendors
+  | Purchase orders       /purchasing/purchase-orders
+  | Vendor bills          /purchasing/vendor-bills
+  | Expenses              /purchasing/expenses
+  Invoicing
   | Invoices              /invoicing/invoices
   | Credit notes          /invoicing/credit-notes
   | Payments              /invoicing/payments
-  | Cost dashboard        /kitcost/dashboard
+  Finance
   | Chart of accounts     /finance/coa
   | Period close          /finance/period-close
   | Journal entries       /finance/journal-entries  ( finance.journal_entries.enabled )
+  Settings
+  | Sales config          /settings/sales-config/taxes
 
-v LIBRARY     Reference data and procurement.
-  | Customers             /crm/customers
-  | Contacts              /crm/contacts
-  | Sales channels        /copack/channels          ( plugins.copack_ecom )
-  | Items                 /3pl-operations/items
-  | Warehouses            /3pl-operations/warehouses
-  | Vendors               /3pl-operations/vendors
-  | Purchase orders       /3pl-operations/purchase-orders
-  | Vendor bills          /3pl-operations/vendor-bills
-  | Expenses              /3pl-operations/expenses
+v 3PL OPERATIONS   Accounts, job builders, receiving, and shipping. ( plugins.three_pl )
+  | Accounts              /3pl-operations/accounts
+  | Job Builders          /3pl-operations/job-builders
+  | Supply Plans          /3pl-operations/supply-plans
+  | Job Runs              /3pl-operations/job-runs
+  | Billing Review        /3pl-operations/billing-reviews
+  | Profitability         /3pl-operations/profitability
+  | Receiving             /3pl-operations/receiving
+  | Shipments             /3pl-operations/shipments
 
-v WORKFORCE   People, schedules, and labor.
-  | Members               /kitforce/members         ( plugins.kitforce )
-  | Teams                 /kitforce/teams           ( plugins.kitforce )
-  | Schedule              /kitforce/shifts          ( plugins.kitforce )
-  | Assignments          /kitforce/assignments      ( plugins.kitforce )
-  | Time entries          /kitforce/time-entries    ( plugins.kitforce )
+v MANUFACTURING    Production runs and the floor. ( plugins.manufacturing )
+  | Runs                  /manufacturing/runs
+
+v CO-PACK AND ECOM Sales orders, kitting, and fulfillment. ( plugins.copack_ecom )
+  | Sales orders          /copack/orders
+  | Kitting jobs          /copack/kitting
+  | Fulfillments          /copack/fulfillments
+  | Sales channels        /copack/channels
+
+v KITFORCE    People, schedules, and labor. ( plugins.kitforce )
+  | Members               /kitforce/members
+  | Teams                 /kitforce/teams
+  | Schedule              /kitforce/shifts
+  | Assignments           /kitforce/assignments
+  | Time entries          /kitforce/time-entries
+
+v KITCOST     Cost and margin. ( plugins.kitcost )
+  | Cost dashboard        /kitcost/dashboard
+
+v WMS         Bins, putaway, and lots. ( plugins.wms )
+  | Locations             /wms/locations
+  | Putaway               /wms/putaway
+  | Bin stock             /wms/bin-stock
+  | Lots                  /wms/lots
 
 ---- ADMIN ----  (always shown; pages guard on AdminProtectedRoute)
   Settings /admin/settings   Branding /admin/branding   Feature flags /admin/flags
@@ -142,7 +169,7 @@ v WORKFORCE   People, schedules, and labor.
 +------------------+ . . . . . . . . . . .   slide-in w-64 drawer over a
 | [x]              | .  dimmed backdrop  .   black/40 backdrop. Pathname
 | DASHBOARD        | .                   .   change closes it automatically.
-| v SELL ...       | .                   .
+| v SPINE ...      | .                   .
 +------------------+ . . . . . . . . . . .
 ```
 
@@ -598,8 +625,8 @@ of the same data the dashboard previews (first 5).
 The flow the dashboard, sidebar, and detail archetypes are all built to serve.
 
 ```
-SELL                          MAKE                 SHIP            GET PAID
-----                          ----                 ----            --------
+QUOTE                         PRODUCE              FULFILL         COLLECT
+-----                         -------              -------         -------
 Lead                          Project              Shipment        Invoice
   -> qualify                    (from quote)         (pick/pack)      (from project/quote)
 Opportunity                   Manufacturing run      -> ship          -> send to customer
@@ -701,7 +728,7 @@ danger    accent (red)         Lost, Void, Overdue, Cancelled
 
 ```
 +----------------------------------------------------------------------+
-|  SELL / Quotes                                       (eyebrow, mono)  |
+|  Quotes                                              (eyebrow, mono)  |
 |  QUOTES                                       [ + New quote ]         |
 |  312 total  .  8 awaiting approval                  (meta summary)    |
 |  ------------------------------------------------------------------   |
@@ -731,7 +758,7 @@ and server pagination replacing the client-side slice.
 
 ```
 +----------------------------------------------------------------------+
-|  SELL / Quotes / QUOTE-0001                                          |
+|  Quotes / QUOTE-0001                                                |
 |  QUOTE-0001   (Sent)                  [ Approve ]   [ ...overflow ]  |  title+badge+primary+menu
 |  ------------------------------------------------------------------   |
 |  +--------------------------------+  +----------------------------+  |
@@ -791,7 +818,7 @@ and server pagination replacing the client-side slice.
 
 ```
 +----------------------------------------------------------------------+
-|  SELL / Pipeline                                                     |
+|  CRM / Opportunities                                                |
 |  PIPELINE                                     [ + New opportunity ]  |
 |  ------------------------------------------------------------------   |
 |  +------------+ +------------+ +------------+ +------------+          |

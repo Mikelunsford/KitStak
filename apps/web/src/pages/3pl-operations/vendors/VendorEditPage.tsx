@@ -69,7 +69,7 @@ export function VendorEditPage() {
 
   return (
     <section className="px-8 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader title="Edit vendor" eyebrow="Library / Vendors" />
+      <PageHeader title="Edit vendor" eyebrow="Purchasing / Vendors" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 font-sans">
         <label className="flex flex-col gap-1">
           <span className="text-sm text-ink-dim">Display name</span>

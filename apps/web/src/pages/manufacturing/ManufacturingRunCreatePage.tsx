@@ -79,7 +79,7 @@ export function ManufacturingRunCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Make / Manufacturing runs" title="New manufacturing run" />
+      <PageHeader eyebrow="Manufacturing / Runs" title="New manufacturing run" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create manufacturing runs.

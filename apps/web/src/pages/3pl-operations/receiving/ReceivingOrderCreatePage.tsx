@@ -137,7 +137,7 @@ export function ReceivingOrderCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Make / Receiving" title="New receiving order" />
+      <PageHeader eyebrow="3PL Operations / Receiving" title="New receiving order" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">

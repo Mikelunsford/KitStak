@@ -75,7 +75,7 @@ export function ExpensesListPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Library / Expenses"
+        eyebrow="Purchasing / Expenses"
         title="Expenses"
         meta={meta}
         actions={

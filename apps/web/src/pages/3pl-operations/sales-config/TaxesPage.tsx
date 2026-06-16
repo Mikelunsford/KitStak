@@ -73,7 +73,7 @@ export function TaxesPage() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Sales config / Taxes"
+        eyebrow="Settings / Sales config / Taxes"
         title="Taxes"
         meta={meta}
         actions={
