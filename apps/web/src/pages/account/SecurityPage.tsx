@@ -15,8 +15,14 @@
 // successful password set) call markPasswordPromptSeen so the dashboard
 // stops redirecting on subsequent visits.
 //
+// R-W13-AUTH-01 adds the two-factor (TOTP) enrollment surface below the
+// password form via MfaEnrollmentSection: any user can add an authenticator
+// app, verify it, and remove it. The factor lifecycle is handled by Supabase
+// Auth; the Kitstak MFA gate (has_verified_totp + requireMfaVerified) reads
+// the verified factor this section creates.
+//
 // Visible to any authenticated user (route guard: 'protected'). No cap
-// check: every user has the right to manage their own password.
+// check: every user has the right to manage their own password and 2FA.
 
 import { FormEvent, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -28,6 +34,7 @@ import { supabase } from '@/lib/supabase';
 import { useMe } from '@/lib/hooks/useMe';
 import { markPasswordPromptSeen } from '@/pages/firstSigninPromptState';
 import { FirstSigninWelcomeBanner } from './FirstSigninWelcomeBanner';
+import { MfaEnrollmentSection } from './MfaEnrollmentSection';
 import {
   MIN_PASSWORD_LENGTH,
   validatePasswordPair,
@@ -204,6 +211,8 @@ export function SecurityPage() {
           ) : null}
         </form>
       </section>
+
+      <MfaEnrollmentSection />
     </section>
   );
 }
