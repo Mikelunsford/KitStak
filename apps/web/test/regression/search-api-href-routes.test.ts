@@ -8,6 +8,8 @@
 //   quote     /3pl-operations/quotes/:id
 //   invoice   /invoicing/invoices/:id
 //   project   /3pl-operations/projects/:id
+//   item      /catalog/items/:id            (R-W13-SRCH-01)
+//   job_run   /3pl-operations/job-runs/:id  (R-W13-SRCH-01)
 //
 // This test reads both source files as plain text and does not import or
 // execute them. That makes it safe in a Node environment (no Deno shim
@@ -70,8 +72,10 @@ describe('search-api href prefixes point at real SPA routes', () => {
 
   const prefixes = extractHrefPrefixes(searchApiSrc);
 
-  it('extracts exactly four href prefixes from search-api/index.ts', () => {
-    expect(prefixes).toHaveLength(4);
+  it('extracts exactly six href prefixes from search-api/index.ts', () => {
+    // Four original groups (customer, quote, invoice, project) plus the two
+    // R-W13-SRCH-01 additions (item, job_run).
+    expect(prefixes).toHaveLength(6);
   });
 
   it('customer href prefix is /crm/customers/ (not /sales/customers/)', () => {
@@ -97,6 +101,19 @@ describe('search-api href prefixes point at real SPA routes', () => {
     const projectPrefix = prefixes.find((p) => p.includes('project'));
     expect(projectPrefix).toBe('/3pl-operations/projects/');
     expect(searchApiSrc).not.toContain('/sales/projects/');
+  });
+
+  it('item href prefix is /catalog/items/ (canonical spine catalog route)', () => {
+    const itemPrefix = prefixes.find((p) => p.includes('/items/'));
+    expect(itemPrefix).toBe('/catalog/items/');
+    // The 3PL-namespaced catalog path is a redirect alias, not the search
+    // target; the canonical detail route lives on the spine.
+    expect(searchApiSrc).not.toContain('/3pl-operations/items/');
+  });
+
+  it('job_run href prefix is /3pl-operations/job-runs/ (job number lookup)', () => {
+    const jobRunPrefix = prefixes.find((p) => p.includes('/job-runs/'));
+    expect(jobRunPrefix).toBe('/3pl-operations/job-runs/');
   });
 
   it('every href prefix has a matching :id detail route in routes.ts', () => {
