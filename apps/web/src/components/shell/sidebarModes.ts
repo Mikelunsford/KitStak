@@ -398,6 +398,21 @@ export function visibleRoutesForMode(
   return mode.routes.filter((r) => isRouteVisible(r, flags));
 }
 
+/**
+ * Filter an already-flag-filtered route list by a free-text query, matching
+ * case-insensitively against the route label. A blank or whitespace-only query
+ * returns the list unchanged. Kept pure so the sidebar type-to-filter matching
+ * rule is unit-testable without rendering the Sidebar.
+ */
+export function filterRoutesByQuery(
+  routes: ReadonlyArray<ModeRoute>,
+  query: string,
+): ReadonlyArray<ModeRoute> {
+  const q = query.trim().toLowerCase();
+  if (q === '') return routes;
+  return routes.filter((route) => route.label.toLowerCase().includes(q));
+}
+
 export interface SidebarRouteGroup {
   /** Domain sub-group label (SPINE), or undefined for ungrouped add-on routes. */
   label: string | undefined;
