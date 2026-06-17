@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Built and held for the operator merge nod, not on prod.
+Nothing currently held. All shipped work is versioned below.
 
-- **SSO store-metadata MVP (F-Wave13-SSO-HANDSHAKE-01, #298, migration 0118)**: `sso_connections.provider_validated_at` plus a CHECK that a connection cannot be active until validated; an `oidc_configs` table mirroring the `saml_configs` Pattern B RLS; and `settings-api` `POST /sso/saml-metadata` and `/sso/oidc-metadata` to store IdP metadata (requires `org.sso.write`, gated behind `auth.sso_saml`, Idempotency-Key enforced, cross-tenant or unknown connection returns 404). The SPA Configure panel stores metadata, Mark-validated sets `provider_validated_at`, and Activate is gated until validated. The OIDC `client_secret` is deferred to the live-handshake phase (not stored, so no plaintext secret at rest). The live identity-provider handshake stays an operator step. Verified on staging; four-lens reviewed.
+## [0.23.1] · 2026-06-17 Recompute-error parity on the line handlers (run closeout)
+
+### Fixed
+
+- **Surface the recompute-totals RPC error (F-UIUX-RECOMPUTE-ERR-PARITY-01)**: the quote add and remove line handlers, and the invoice create, update, and delete line handlers, now check the `recompute_quote_totals` / `recompute_invoice_totals` RPC result and surface a failure instead of swallowing it, so a failed header recompute can no longer leave the line cents updated while the document totals drift stale. The quote line PATCH (#324) already carried this guard; this brings the other five call sites to parity.
 
 ## [0.23.0] · 2026-06-17 Rail consistency and the held backend trio (PRs #321 to #324)
 
@@ -76,6 +80,12 @@ A dropped whole-app UI/UX reconfiguration spec was verified against the code fir
 ### Fixed
 
 - **Detail-subtitle name resolution (#300)**: quote, invoice, and project detail subtitles no longer flash the raw foreign-key UUID on first paint. They use the existing `fallbackLabel` helper (short prefix while loading, resolved name once settled), matching the breadcrumb treatment already on those pages.
+
+## [0.19.2] · 2026-06-16 SSO store-metadata MVP (#298, migration 0118)
+
+### Added
+
+- **SSO store-metadata MVP (F-Wave13-SSO-HANDSHAKE-01, #298, migration 0118)**: `sso_connections.provider_validated_at` plus a CHECK that a connection cannot be active until validated; an `oidc_configs` table mirroring the `saml_configs` Pattern B RLS; and `settings-api` `POST /sso/saml-metadata` and `/sso/oidc-metadata` to store IdP metadata (requires `org.sso.write`, gated behind `auth.sso_saml`, Idempotency-Key enforced, cross-tenant or unknown connection returns 404). The SPA Configure panel stores metadata, Mark-validated sets `provider_validated_at`, and Activate is gated until validated. The OIDC `client_secret` is deferred to the live-handshake phase (not stored, so no plaintext secret at rest); the live identity-provider handshake stays an operator step. Live on prod (migration 0118).
 
 ## [0.19.1] · 2026-06-15 Wave 13 closeout follow-ups (PRs #296, #297)
 
