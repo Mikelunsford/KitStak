@@ -6,8 +6,11 @@
 //
 // The credit-note FSM, the canFinanceTransition gates, the void
 // destructiveConfirm, and the StateStepper are preserved verbatim. The apply
-// flow stays a separate route and is intentionally untouched here
-// (F-Wave10-CREDIT-NOTE-APPLY-FSM-01 owns the apply CTA / status gating).
+// flow stays a separate route; this page now surfaces an "Apply to invoice" CTA
+// to it when the note is issued with a positive remaining balance and the
+// caller holds credit_notes.apply (F-UIUX-CREDIT-NOTE-APPLY-CTA-01, the CTA
+// portion of F-Wave10-CREDIT-NOTE-APPLY-FSM-01). The gate lives in
+// creditNoteApplyGate.ts.
 
 import { Link, useParams } from 'react-router-dom';
 
@@ -23,8 +26,10 @@ import {
   useVoidCreditNote,
 } from '@/lib/hooks/useCreditNotes';
 import { useInvoice } from '@/lib/hooks/useInvoices';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { formatCents } from '@/lib/money';
+import { canApplyCreditNote } from './creditNoteApplyGate';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
@@ -50,6 +55,7 @@ export function CreditNoteDetailPage() {
   const sourceInvoice = useInvoice(sourceInvoiceId ?? '');
   const issueMutation = useIssueCreditNote();
   const voidMutation = useVoidCreditNote();
+  const { can } = useCapabilities();
 
   if (!creditNoteId) return <p>Missing credit note id.</p>;
   if (cn.isLoading) return <p className="px-8 py-8">Loading.</p>;
@@ -71,6 +77,12 @@ export function CreditNoteDetailPage() {
     status !== 'voided' &&
     canFinanceTransition(creditNoteStateMachine, status, 'voided');
   const transitionPending = issueMutation.isPending || voidMutation.isPending;
+
+  // F-UIUX-CREDIT-NOTE-APPLY-CTA-01: surface the apply route on the detail when
+  // the note is issued with balance left and the caller can apply credit notes.
+  const showApply =
+    canApplyCreditNote(status, row.amount_cents, row.applied_cents) &&
+    can('credit_notes.apply');
 
   const onVoid = async () => {
     if (
@@ -145,6 +157,14 @@ export function CreditNoteDetailPage() {
             weight behind the in-app confirm modal. Both hide once the FSM no
             longer permits the move. */}
         <div className="flex flex-wrap items-start gap-2">
+          {showApply && (
+            <Link
+              to={`/invoicing/credit-notes/${creditNoteId}/apply`}
+              className="px-5 py-2.5 font-sans font-medium tracking-wide transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent bg-accent text-ink hover:bg-accent-bright"
+            >
+              Apply to invoice
+            </Link>
+          )}
           {canIssue && (
             <Button
               onClick={() => issueMutation.mutate(creditNoteId)}
