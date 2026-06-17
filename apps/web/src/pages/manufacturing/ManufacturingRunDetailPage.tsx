@@ -20,6 +20,7 @@ import { EntityLabel } from '@/components/data/EntityLabel';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -129,6 +130,22 @@ export function ManufacturingRunDetailPage() {
   const isStarted = d.status === 'started';
   const linesEditable = isDraft || isStarted;
 
+  // F-UIUX-RAIL-FIRST-EDGE-01 (Pattern D, UX-Q7 reopened): the rail's immediate
+  // next happy-path step is interactive only for the SAFE FIRST EDGE
+  // draft -> started, which reuses the existing Start mutation. The rail never
+  // offers started -> completed: that edge is destructive (it writes
+  // production_consumed and production_produced stock movements) and stays
+  // behind the Complete button's destructiveConfirm. Gate mirrors the Start
+  // button: draft state, holds manufacturing.run.start, and the path's next
+  // step is exactly `started`. The server stays the authority.
+  const railNext = nextStepperState(
+    STATE_STEPPER_PATHS.manufacturing_run.path,
+    d.status,
+  );
+  const canAdvanceRail =
+    railNext === 'started' && isDraft && caps.can('manufacturing.run.start');
+  const advance = () => start.mutate();
+
   function onAddConsumed(e: FormEvent) {
     e.preventDefault();
     if (!conItemId) return;
@@ -222,7 +239,11 @@ export function ManufacturingRunDetailPage() {
           { label: d.run_number ?? d.id.slice(0, 8) },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control ONLY for the safe first edge draft -> started,
+          which fires the same Start mutation as the button below. It is never
+          interactive for started -> completed (destructive). Past, current, and
+          the terminal step stay display-only. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.manufacturing_run.path]}
         current={d.status}
@@ -236,6 +257,8 @@ export function ManufacturingRunDetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={start.isPending}
       />
       <PageHeader
         title={`Manufacturing run ${d.run_number ?? d.id.slice(0, 8)}`}
