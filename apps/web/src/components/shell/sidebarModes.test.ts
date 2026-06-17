@@ -15,6 +15,7 @@ import {
   SIDEBAR_MODES,
   isRouteVisible,
   visibleRoutesForMode,
+  filterRoutesByQuery,
   findActiveMode,
   groupRoutesByDomain,
   type ModeKey,
@@ -478,5 +479,40 @@ describe('groupRoutesByDomain (SPINE sub-grouping for a11y)', () => {
 
   it('returns an empty array for no routes', () => {
     expect(groupRoutesByDomain([])).toEqual([]);
+  });
+});
+
+describe('filterRoutesByQuery (sidebar type-to-filter)', () => {
+  const spine = SIDEBAR_MODES.find((m) => m.key === 'spine')!;
+
+  it('returns the same list reference for a blank query', () => {
+    expect(filterRoutesByQuery(spine.routes, '')).toBe(spine.routes);
+  });
+
+  it('returns the same list reference for a whitespace-only query', () => {
+    expect(filterRoutesByQuery(spine.routes, '   ')).toBe(spine.routes);
+  });
+
+  it('matches route labels case-insensitively', () => {
+    const result = filterRoutesByQuery(spine.routes, 'INVOICE');
+    expect(result.map((r) => r.path)).toContain('/invoicing/invoices');
+    expect(
+      result.every((r) => r.label.toLowerCase().includes('invoice')),
+    ).toBe(true);
+  });
+
+  it('matches on a substring of the label', () => {
+    const result = filterRoutesByQuery(spine.routes, 'cust');
+    expect(result.map((r) => r.label)).toEqual(['Customers']);
+  });
+
+  it('returns an empty list when nothing matches', () => {
+    expect(filterRoutesByQuery(spine.routes, 'zzznotathing')).toEqual([]);
+  });
+
+  it('does not mutate the input list', () => {
+    const before = spine.routes.length;
+    filterRoutesByQuery(spine.routes, 'cust');
+    expect(spine.routes.length).toBe(before);
   });
 });

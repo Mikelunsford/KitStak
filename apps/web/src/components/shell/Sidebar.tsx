@@ -10,6 +10,7 @@ import {
   Home,
   KeyRound,
   Palette,
+  Search,
   Settings,
   Upload,
   Users,
@@ -18,9 +19,11 @@ import {
 } from 'lucide-react';
 
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import {
   SIDEBAR_MODES,
   findActiveMode,
+  filterRoutesByQuery,
   groupRoutesByDomain,
   visibleRoutesForMode,
   type ModeKey,
@@ -85,16 +88,12 @@ function readPersistedExpanded(): Set<ModeKey> | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid: ModeKey[] = [
-      'spine',
-      'three_pl',
-      'manufacturing',
-      'copack',
-      'kitforce',
-      'kitcost',
-    ];
-    const filtered = parsed.filter((v): v is ModeKey =>
-      typeof v === 'string' && (valid as string[]).includes(v),
+    // Derive the allow-list from SIDEBAR_MODES so a newly added section (wms
+    // was previously omitted here) can never silently drop from persisted
+    // state again.
+    const valid = new Set<string>(SIDEBAR_MODES.map((m) => m.key));
+    const filtered = parsed.filter(
+      (v): v is ModeKey => typeof v === 'string' && valid.has(v),
     );
     return new Set(filtered);
   } catch {
@@ -112,8 +111,12 @@ function writePersistedExpanded(expanded: Set<ModeKey>): void {
 }
 
 function defaultExpanded(): Set<ModeKey> {
-  // First load: every mode expanded so the operator discovers the routes.
-  return new Set(SIDEBAR_MODES.map((m) => m.key));
+  // First load: open only the always-on SPINE backbone (the daily drivers:
+  // Customers, Quotes, Invoices). Add-on sections stay collapsed until the
+  // operator opens one or navigates into it (findActiveMode auto-expands the
+  // active section). Replaces the prior open-everything default that buried the
+  // most-used links behind a scroll (spec diagnosis P2).
+  return new Set<ModeKey>(['spine']);
 }
 
 function cn(...parts: Array<string | false | null | undefined>): string {
@@ -130,6 +133,9 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   const flags = orgFlags.data;
   const { pathname } = useLocation();
   const activeMode = useMemo(() => findActiveMode(pathname), [pathname]);
+
+  const { role } = useCapabilities();
+  const [query, setQuery] = useState('');
 
   const [expanded, setExpanded] = useState<Set<ModeKey>>(() => {
     const persisted = readPersistedExpanded();
@@ -163,29 +169,68 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
     if (onClose) onClose();
   };
 
+  const trimmedQuery = query.trim();
+  const lowerQuery = trimmedQuery.toLowerCase();
+  const canSeeAdmin = role === 'org_owner' || role === 'org_admin';
+
+  // Recomputed every render (cheap: 7 sections, ~40 routes). Mirrors the prior
+  // inline section map, plus an optional label filter while the operator types.
+  const filteredSections = SIDEBAR_MODES.map((mode) => ({
+    mode,
+    routes: filterRoutesByQuery(visibleRoutesForMode(mode, flags), query),
+  })).filter((section) => section.routes.length > 0);
+
+  const visibleAdminLinks = trimmedQuery
+    ? ADMIN_LINKS.filter((link) =>
+        link.label.toLowerCase().includes(lowerQuery),
+      )
+    : ADMIN_LINKS;
+
+  const showDashboardLink =
+    trimmedQuery === '' || 'dashboard'.includes(lowerQuery);
+
+  const hasAnyMatch =
+    showDashboardLink ||
+    filteredSections.length > 0 ||
+    (canSeeAdmin && visibleAdminLinks.length > 0);
+
   const navContent = (
     <>
-      <NavLink
-        to="/dashboard"
-        end
-        onClick={onNavClick}
-        className={({ isActive }) =>
-          cn(
-            'flex items-center gap-2 px-3 py-2 text-sm font-sans tracking-wide',
-            isActive
-              ? 'bg-bg-2 text-ink border-l-2 border-accent'
-              : 'text-ink-dim hover:bg-bg-2 hover:text-ink',
-          )
-        }
-      >
-        <Home className="h-4 w-4" />
-        DASHBOARD
-      </NavLink>
+      <div className="px-1 pb-1">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-dim" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter navigation"
+            aria-label="Filter navigation"
+            className="w-full border border-line bg-bg-2 py-1.5 pl-7 pr-2 text-xs font-sans text-ink placeholder:text-ink-dim focus:border-accent focus:outline-none"
+          />
+        </div>
+      </div>
 
-      {SIDEBAR_MODES.map((mode) => {
-        const visibleRoutes = visibleRoutesForMode(mode, flags);
-        if (visibleRoutes.length === 0) return null;
-        const isOpen = expanded.has(mode.key);
+      {showDashboardLink && (
+        <NavLink
+          to="/dashboard"
+          end
+          onClick={onNavClick}
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-2 px-3 py-2 text-sm font-sans tracking-wide',
+              isActive
+                ? 'bg-bg-2 text-ink border-l-2 border-accent'
+                : 'text-ink-dim hover:bg-bg-2 hover:text-ink',
+            )
+          }
+        >
+          <Home className="h-4 w-4" />
+          DASHBOARD
+        </NavLink>
+      )}
+
+      {filteredSections.map(({ mode, routes }) => {
+        const isOpen = trimmedQuery !== '' ? true : expanded.has(mode.key);
         const isActive = activeMode === mode.key;
         const Icon = mode.icon;
         return (
@@ -216,7 +261,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
             </button>
             {isOpen && (
               <div className="ml-6 flex flex-col border-l border-line pl-2">
-                {groupRoutesByDomain(visibleRoutes).map((grp, gi) => {
+                {groupRoutesByDomain(routes).map((grp, gi) => {
                   // SPINE domains render as a labelled role="group" with a
                   // sub-header so the backbone reads (and is announced to
                   // assistive tech) as CRM / Catalog / Inventory rather than
@@ -270,32 +315,40 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
         );
       })}
 
-      <div className="mt-4 border-t border-line pt-4">
-        <div className="px-3 pb-1 font-display text-xs tracking-wider uppercase text-ink-dim">
-          Admin
+      {canSeeAdmin && visibleAdminLinks.length > 0 && (
+        <div className="mt-4 border-t border-line pt-4">
+          <div className="px-3 pb-1 font-display text-xs tracking-wider uppercase text-ink-dim">
+            Admin
+          </div>
+          {visibleAdminLinks.map((link) => {
+            const LinkIcon = link.icon;
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                onClick={onNavClick}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-2 px-3 py-1.5 text-xs font-sans tracking-wide',
+                    isActive
+                      ? 'bg-accent/10 text-ink'
+                      : 'text-ink-dim hover:text-ink hover:bg-bg-2',
+                  )
+                }
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                {link.label}
+              </NavLink>
+            );
+          })}
         </div>
-        {ADMIN_LINKS.map((link) => {
-          const LinkIcon = link.icon;
-          return (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              onClick={onNavClick}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 px-3 py-1.5 text-xs font-sans tracking-wide',
-                  isActive
-                    ? 'bg-accent/10 text-ink'
-                    : 'text-ink-dim hover:text-ink hover:bg-bg-2',
-                )
-              }
-            >
-              <LinkIcon className="h-3.5 w-3.5" />
-              {link.label}
-            </NavLink>
-          );
-        })}
-      </div>
+      )}
+
+      {trimmedQuery !== '' && !hasAnyMatch && (
+        <p className="px-3 py-2 text-xs font-sans text-ink-dim">
+          No navigation items match your filter.
+        </p>
+      )}
     </>
   );
 
