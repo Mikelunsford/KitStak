@@ -16,7 +16,8 @@ const CreditNoteListSchema = z.array(CreditNoteSchema);
 const CnAllocListSchema = z.array(CreditNoteAllocationSchema);
 
 export type CreditNoteCreate = {
-  credit_note_number: string;
+  // Optional override. Omit to let the server assign the next CN- number.
+  credit_note_number?: string;
   customer_id?: string;
   source_invoice_id?: string;
   currency_code?: string;

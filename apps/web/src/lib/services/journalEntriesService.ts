@@ -30,7 +30,8 @@ export type JournalEntryLineInput = {
 };
 
 export type JournalEntryCreate = {
-  entry_number: string;
+  // Optional override. Omit to let the server assign the next JE-M- number.
+  entry_number?: string;
   entry_date: string;
   period_year: number;
   period_month: number;

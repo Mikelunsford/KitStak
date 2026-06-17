@@ -34,17 +34,18 @@ export function CreditNoteCreatePage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const body: {
-      credit_note_number: string;
+      credit_note_number?: string;
       customer_id?: string;
       source_invoice_id?: string;
       currency_code?: string;
       amount_cents: number | string;
       reason?: string;
     } = {
-      credit_note_number: creditNoteNumber,
       amount_cents: amountCents,
       currency_code: currency,
     };
+    const trimmedNumber = creditNoteNumber.trim();
+    if (trimmedNumber) body.credit_note_number = trimmedNumber;
     if (customerId) body.customer_id = customerId;
     if (sourceInvoiceId) body.source_invoice_id = sourceInvoiceId;
     if (reason) body.reason = reason;
@@ -61,7 +62,7 @@ export function CreditNoteCreatePage() {
           label="Credit note number"
           value={creditNoteNumber}
           onChange={(e) => setCreditNoteNumber(e.target.value)}
-          required
+          placeholder="Leave blank to auto-assign"
         />
         <CustomerPicker
           value={customerId}
