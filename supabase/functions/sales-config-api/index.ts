@@ -237,6 +237,53 @@ async function validateConfigRefs(
   }
 }
 
+// `default_for_org` on taxes and payment_methods is enforced by a partial
+// unique index (one default per org per type) and flipped atomically by the
+// SECURITY DEFINER RPCs set_default_tax / set_default_payment_method. A raw
+// insert/update of `default_for_org = true` bypasses the unset-the-prior-default
+// step and violates the index. These two helpers strip the column from the raw
+// write object and report the matching RPC, so the generic create/update path
+// performs the write without the flag and then routes the flip through the RPC.
+const SET_DEFAULT_RPC: Record<string, { rpc: string; param: string }> = {
+  taxes: { rpc: 'set_default_tax', param: 'p_tax_id' },
+  payment_methods: { rpc: 'set_default_payment_method', param: 'p_method_id' },
+};
+
+// Remove `default_for_org` from a raw write object for the default-bearing
+// config tables and return whether the caller asked to set this row as the
+// default. Returns false (and leaves the object untouched) for any other table
+// or when the flag is absent / not strictly true. Unsetting on edit is
+// intentionally non-destructive: a false / absent flag does not touch the
+// existing default. The default only changes by setting another row default.
+function extractDefaultFlag(
+  table: string,
+  write: Record<string, unknown>,
+): boolean {
+  if (!(table in SET_DEFAULT_RPC)) return false;
+  const wantsDefault = write.default_for_org === true;
+  delete write.default_for_org;
+  return wantsDefault;
+}
+
+// Route the atomic default flip through the matching SECURITY DEFINER RPC for
+// the affected row id. Called only after a successful insert/update and only
+// when the caller set default_for_org === true, inside the same idempotency
+// closure so create-plus-flip is one replay-safe unit.
+async function applyDefaultFlip(
+  client: ReturnType<typeof admin>,
+  table: string,
+  rowId: string,
+): Promise<void> {
+  const mapping = SET_DEFAULT_RPC[table];
+  if (!mapping) return;
+  const { error } = await client.rpc(mapping.rpc, { [mapping.param]: rowId });
+  if (error) {
+    if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+    if (/FORBIDDEN/.test(error.message)) throw new ApiError('FORBIDDEN', 403);
+    throw internalError('sales-config-api', error);
+  }
+}
+
 function genericCreate<S extends z.ZodTypeAny>(table: string, schema: S, route: string) {
   return async (ctx: RouteCtx) => {
     const caller = requireCaller(ctx.req);
@@ -253,9 +300,19 @@ function genericCreate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
           created_by: caller.userId,
           updated_by: caller.userId,
         };
+        // Strip default_for_org so the raw insert never writes a default-true
+        // row that violates the partial unique index; flip via the RPC below.
+        const wantsDefault = extractDefaultFlag(table, insert);
         const { data, error } = await client
           .from(table).insert(insert).select('*').maybeSingle();
         if (error) throw internalError('sales-config-api', error);
+        // create-plus-flip is one idempotent unit: the flip runs inside this
+        // same respondWithIdempotency closure, so a replay returns the stored
+        // response and never double-flips.
+        if (wantsDefault && data) {
+          await applyDefaultFlip(client, table, (data as { id: string }).id);
+          return created({ ...(data as Record<string, unknown>), default_for_org: true });
+        }
         return created(data);
       },
     );
@@ -278,12 +335,24 @@ function genericUpdate<S extends z.ZodTypeAny>(table: string, schema: S, route: 
           updated_by: caller.userId,
           updated_at: new Date().toISOString(),
         };
+        // Strip default_for_org from the raw patch. A false / absent flag is
+        // intentionally non-destructive: unchecking the box on edit does not
+        // clear the org default; the default only changes by setting another
+        // row default. A true flag routes through the atomic-flip RPC below.
+        const wantsDefault = extractDefaultFlag(table, patch);
         const { data, error } = await client
           .from(table).update(patch)
           .eq('id', ctx.params.id).eq('org_id', caller.orgId)
           .select('*').maybeSingle();
         if (error) throw internalError('sales-config-api', error);
         if (!data) throw new ApiError('NOT_FOUND', 404);
+        // create-plus-flip / update-plus-flip stays one idempotent unit: the
+        // flip runs inside this same respondWithIdempotency closure so a replay
+        // returns the stored response and never double-flips.
+        if (wantsDefault) {
+          await applyDefaultFlip(client, table, (data as { id: string }).id);
+          return ok({ ...(data as Record<string, unknown>), default_for_org: true });
+        }
         return ok(data);
       },
     );
