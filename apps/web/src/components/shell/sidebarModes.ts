@@ -1,67 +1,73 @@
-// Pillar-grouped sidebar IA (Wave 12, plan section 5.5, decision D4).
+// Task-based sidebar IA (UI/UX reconfiguration, plan section 5).
 //
-// The sidebar moves from the six UX-Q1 job-modes (SELL, MAKE, SHIP, GET PAID,
-// LIBRARY, WORKFORCE) to pillar-grouped sections that map onto the white-paper
-// spine plus add-ons model: one always-on SPINE backbone section, then one
-// section per lit add-on. This SUPERSEDES the UX-Q1 job-mode decision locked
-// 2026-05-21 (Kitstak_UX_Revision_Questions 2026-05-21.md, Q1).
+// The sidebar moves from pillar-grouped sections (one always-on SPINE backbone
+// plus one section per lit add-on) to eight task groups shaped around what
+// operators do: SELL, BUY, INVENTORY AND WAREHOUSE, PRODUCTION AND FULFILLMENT,
+// MONEY, WORKFORCE, INSIGHTS, SETTINGS. Each add-on surface folds into the task
+// group it belongs to and renders only when the org is entitled and the user's
+// role permits. This SUPERSEDES the Wave 12 pillar IA (which itself superseded
+// the UX-Q1 six-job-mode decision).
 //
-// The change is sidebar-only. This file is fully decoupled from the route
-// table (it does not import routes.ts), URLs do not change, and the flat
-// ROUTES table stays the single source of truth (CLAUDE.md "flat ROUTES table"
-// rule). Old paths still resolve via SpineMoveRedirect.
+// The change is sidebar-only. This file is fully decoupled from the route table
+// (it does not import routes.ts), URLs do not change, and the flat ROUTES table
+// stays the single source of truth (CLAUDE.md "flat ROUTES table" rule). A route
+// can sit in a different task group from its URL prefix: catalog Items live under
+// INVENTORY, the commercial 3PL surfaces live under PRODUCTION AND FULFILLMENT,
+// and the admin surfaces live under SETTINGS, all without moving a single path.
 //
-// Sections, in order:
-//   1. SPINE       — always on. The backbone every org gets: CRM, Quotes,
-//                    Projects, Catalog, Inventory, Purchasing, Invoicing,
-//                    Finance, Settings. Sub-grouped by domain (the `group`
-//                    field on each route drives a sub-header in Sidebar.tsx).
-//   2. 3PL OPS     — gated plugins.three_pl. The 3PL add-on commercial and
-//                    execution surfaces (Accounts, Receiving, Shipments today;
-//                    Job Builders / Job Runs / Supply Plans / Billing Review /
-//                    Profitability land here as later A-phases ship).
-//   3. MANUFACTURING — gated plugins.manufacturing.
-//   4. CO-PACK AND ECOM — gated plugins.copack_ecom.
-//   5. KITFORCE    — gated plugins.kitforce.
-//   6. KITCOST     — gated plugins.kitcost.
-//   7. WMS         gated plugins.wms. Warehouse execution (add-on six,
-//                  ADR 0002): bins, putaway, lots. Chassis shipped in Phase
-//                  B0; the section routes (Locations, Bin stock, Putaway,
-//                  Lots) land per phase B1 to B4.
+// Gating is layered and orthogonal:
+//   - Per-route `requiresFlag` keeps the existing SPA render gate: an add-on link
+//     hides when the org lacks the plugin. Because each route keeps its own flag,
+//     one task group can mix always-on spine routes with entitlement-gated add-on
+//     routes (INVENTORY shows catalog + stock always, plus WMS bins and 3PL
+//     receiving only when those add-ons are on). A group with zero visible routes
+//     is dropped by the Sidebar.
+//   - Per-section `requiresAnyCap` is a role-scope render gate: the section shows
+//     only when the user holds at least one of the listed read capabilities. The
+//     caps chosen are the broad read caps every internal role already has for the
+//     domain, so a viewer keeps read access; only genuinely role-restricted areas
+//     (WORKFORCE) drop for roles without any read there (sales, viewer).
+//   - SETTINGS sets `adminOnly`, mirroring the prior owner/admin Admin block and
+//     the AdminProtectedRoute guard on /admin/*.
 //
-// Per-route `requiresFlag` keeps the existing SPA-render gate: a link is hidden
-// when the org lacks the plugin. The server-side bundle gates (404) and
-// per-route FEATURE_DISABLED guards are unaffected; this is a pure render gate.
+// The constitutional 403 FEATURE_DISABLED / 404 bundle-gate API guards are
+// unaffected; the server stays the authority. This is a pure SPA render
+// adjustment for button and link hiding only.
 
 import {
   ArrowLeftRight,
   Blocks,
+  BookOpen,
   Boxes,
   Briefcase,
   Building,
   Building2,
-  BookOpen,
   CalendarCheck,
   ClipboardList,
   Clock,
   Contact,
   CreditCard,
   DollarSign,
+  Download,
   Factory,
   FileMinus,
   FileSpreadsheet,
   FileText,
+  Flag,
   HardHat,
+  Hash,
+  KeyRound,
   Layers,
-  LayoutGrid,
   Lock,
   MapPin,
   Package,
   PackageCheck,
   PackageOpen,
   PackagePlus,
+  Palette,
   Receipt,
   ReceiptText,
+  Settings,
   ShoppingCart,
   SlidersHorizontal,
   Sparkles,
@@ -70,6 +76,7 @@ import {
   Target,
   Truck,
   TrendingUp,
+  Upload,
   UserCog,
   Users,
   UsersRound,
@@ -79,40 +86,41 @@ import {
 } from 'lucide-react';
 
 import { FEATURE_FLAGS } from '@/lib/constants';
+import type { Capability, RoleCode } from '@/lib/capabilities';
 
 export type ModeKey =
-  | 'spine'
-  | 'three_pl'
-  | 'manufacturing'
-  | 'copack'
-  | 'kitforce'
-  | 'kitcost'
-  | 'wms';
+  | 'sell'
+  | 'buy'
+  | 'inventory'
+  | 'production'
+  | 'money'
+  | 'workforce'
+  | 'insights'
+  | 'settings';
 
 export interface ModeRoute {
   path: string;
   label: string;
   icon: LucideIcon;
   /**
-   * Optional domain sub-group label. Used inside the SPINE section to render
-   * a sub-header (e.g. "CRM", "Catalog") above the routes that share it.
-   * Routes are listed in group order; Sidebar.tsx emits a sub-header each time
-   * the group changes. Add-on sections leave this undefined and render flat.
+   * Optional domain sub-group label. Used inside a task section to render a
+   * sub-header (e.g. "CRM", "Invoicing") above the routes that share it. Routes
+   * are listed in group order; Sidebar.tsx emits a sub-header each time the group
+   * changes. Single-domain sections (BUY, WORKFORCE, INSIGHTS) leave this
+   * undefined and render flat.
    */
   group?: string;
   /**
-   * Optional org_feature_flags.flag_key. When set, the route is hidden from
-   * the sidebar when the flag is off for the active org. Existing pillar-level
-   * 403 FEATURE_DISABLED API guards are unaffected; this is a pure SPA-render
-   * gate.
+   * Optional org_feature_flags.flag_key. When set, the route is hidden from the
+   * sidebar when the flag is off for the active org. Existing pillar-level 403
+   * FEATURE_DISABLED API guards are unaffected; this is a pure SPA render gate.
    */
   requiresFlag?: string;
   /**
-   * Optional capability key. Reserved for future use; the current sidebar does
-   * not filter on caps because the SPA already mirrors the role policy at the
-   * link layer and the server is authority.
+   * Optional capability key. Reserved for future per-route role scoping; the
+   * current sidebar role-scopes at the section level via ModeSpec.requiresAnyCap.
    */
-  requiresCap?: string;
+  requiresCap?: Capability;
 }
 
 export interface ModeSpec {
@@ -122,15 +130,26 @@ export interface ModeSpec {
   /** One-line description in plain English, period-ending. */
   subtitle: string;
   icon: LucideIcon;
+  /**
+   * When set, the section renders only if the active role holds at least one of
+   * these capabilities. Undefined means no role gate (entitlement and per-route
+   * flags still apply). Choose broad read caps so read-only roles keep access.
+   */
+  requiresAnyCap?: ReadonlyArray<Capability>;
+  /** When true, the section renders only for org_owner / org_admin. */
+  adminOnly?: boolean;
   routes: ReadonlyArray<ModeRoute>;
 }
 
 export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   {
-    key: 'spine',
-    label: 'SPINE',
-    subtitle: 'The always-on backbone. Customers through cash.',
-    icon: LayoutGrid,
+    key: 'sell',
+    label: 'SELL',
+    subtitle: 'Win the work. Customers through quotes and projects.',
+    icon: Target,
+    // Two broad read caps both held by every internal role, so SELL stays
+    // visible to all of them (Projects rides along; its read cap is implied).
+    requiresAnyCap: ['crm.customers.read', 'quotes.quote.read'],
     routes: [
       // CRM
       { path: '/crm/customers', label: 'Customers', icon: Users, group: 'CRM' },
@@ -142,23 +161,177 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/quotes', label: 'Quotes', icon: FileText, group: 'Quotes' },
       // Projects
       { path: '/projects', label: 'Projects', icon: Briefcase, group: 'Projects' },
+    ],
+  },
+  {
+    key: 'buy',
+    label: 'BUY',
+    subtitle: 'Source and pay for what you bring in.',
+    icon: ShoppingCart,
+    requiresAnyCap: ['vendors.vendor.read'],
+    routes: [
+      { path: '/purchasing/vendors', label: 'Vendors', icon: Building2 },
+      { path: '/purchasing/purchase-orders', label: 'Purchase orders', icon: Receipt },
+      { path: '/purchasing/vendor-bills', label: 'Vendor bills', icon: ReceiptText },
+      { path: '/purchasing/expenses', label: 'Expenses', icon: CreditCard },
+    ],
+  },
+  {
+    key: 'inventory',
+    label: 'INVENTORY AND WAREHOUSE',
+    subtitle: 'Catalog, stock, receiving, and shipping.',
+    icon: Warehouse,
+    requiresAnyCap: ['warehouses.warehouse.read'],
+    routes: [
       // Catalog
       { path: '/catalog/items', label: 'Items', icon: Package, group: 'Catalog' },
       { path: '/catalog/boms', label: 'Bills of materials', icon: Layers, group: 'Catalog' },
       { path: '/catalog/vas', label: 'Value-added services', icon: Sparkles, group: 'Catalog' },
-      // Inventory
-      { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse, group: 'Inventory' },
-      { path: '/inventory/stock/levels', label: 'Stock levels', icon: Boxes, group: 'Inventory' },
-      { path: '/inventory/stock/movements', label: 'Stock movements', icon: ArrowLeftRight, group: 'Inventory' },
-      // Purchasing
-      { path: '/purchasing/vendors', label: 'Vendors', icon: Building2, group: 'Purchasing' },
-      { path: '/purchasing/purchase-orders', label: 'Purchase orders', icon: Receipt, group: 'Purchasing' },
-      { path: '/purchasing/vendor-bills', label: 'Vendor bills', icon: ReceiptText, group: 'Purchasing' },
-      { path: '/purchasing/expenses', label: 'Expenses', icon: CreditCard, group: 'Purchasing' },
+      // Stock
+      { path: '/inventory/stock/levels', label: 'Stock levels', icon: Boxes, group: 'Stock' },
+      { path: '/inventory/stock/movements', label: 'Stock movements', icon: ArrowLeftRight, group: 'Stock' },
+      // Warehouse
+      { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse, group: 'Warehouse' },
+      {
+        path: '/wms/locations',
+        label: 'Locations',
+        icon: MapPin,
+        group: 'Warehouse',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      // WMS (warehouse execution, add-on six)
+      {
+        path: '/wms/putaway',
+        label: 'Putaway',
+        icon: PackagePlus,
+        group: 'WMS',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      {
+        path: '/wms/bin-stock',
+        label: 'Bin stock',
+        icon: Boxes,
+        group: 'WMS',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      {
+        path: '/wms/lots',
+        label: 'Lots',
+        icon: Tags,
+        group: 'WMS',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+      },
+      // Receiving and shipping (3PL add-on)
+      {
+        path: '/3pl-operations/receiving',
+        label: 'Receiving',
+        icon: PackageOpen,
+        group: 'Receiving and shipping',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/shipments',
+        label: 'Shipments',
+        icon: Truck,
+        group: 'Receiving and shipping',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+    ],
+  },
+  {
+    key: 'production',
+    label: 'PRODUCTION AND FULFILLMENT',
+    subtitle: 'Build, kit, and fulfill the work.',
+    icon: Factory,
+    // No role gate: every route is entitlement-gated, so the section drops
+    // entirely when the org runs no production or fulfillment add-on.
+    routes: [
+      // Manufacturing add-on
+      {
+        path: '/manufacturing/runs',
+        label: 'Manufacturing runs',
+        icon: Factory,
+        group: 'Manufacturing',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
+      },
+      // Co-Pack and Ecom add-on
+      {
+        path: '/copack/orders',
+        label: 'Sales orders',
+        icon: ShoppingCart,
+        group: 'Co-Pack and Ecom',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
+      {
+        path: '/copack/kitting',
+        label: 'Kitting jobs',
+        icon: Boxes,
+        group: 'Co-Pack and Ecom',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
+      {
+        path: '/copack/fulfillments',
+        label: 'Fulfillments',
+        icon: PackageCheck,
+        group: 'Co-Pack and Ecom',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
+      {
+        path: '/copack/channels',
+        label: 'Sales channels',
+        icon: Store,
+        group: 'Co-Pack and Ecom',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
+      },
+      // 3PL Operations commercial layer
+      {
+        path: '/3pl-operations/accounts',
+        label: 'Accounts',
+        icon: Building,
+        group: '3PL Operations',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/job-builders',
+        label: 'Job builders',
+        icon: Blocks,
+        group: '3PL Operations',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/supply-plans',
+        label: 'Supply plans',
+        icon: ClipboardList,
+        group: '3PL Operations',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/job-runs',
+        label: 'Job runs',
+        icon: HardHat,
+        group: '3PL Operations',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
+        path: '/3pl-operations/billing-reviews',
+        label: 'Billing review',
+        icon: Receipt,
+        group: '3PL Operations',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+    ],
+  },
+  {
+    key: 'money',
+    label: 'MONEY',
+    subtitle: 'Invoices, payments, and the books.',
+    icon: DollarSign,
+    requiresAnyCap: ['invoices.read'],
+    routes: [
       // Invoicing
       { path: '/invoicing/invoices', label: 'Invoices', icon: FileSpreadsheet, group: 'Invoicing' },
-      { path: '/invoicing/credit-notes', label: 'Credit notes', icon: FileMinus, group: 'Invoicing' },
       { path: '/invoicing/payments', label: 'Payments', icon: DollarSign, group: 'Invoicing' },
+      { path: '/invoicing/credit-notes', label: 'Credit notes', icon: FileMinus, group: 'Invoicing' },
       // Finance
       { path: '/finance/coa', label: 'Chart of accounts', icon: Wallet, group: 'Finance' },
       { path: '/finance/period-close', label: 'Period close', icon: Lock, group: 'Finance' },
@@ -169,125 +342,14 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         group: 'Finance',
         requiresFlag: FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
       },
-      // Settings
-      {
-        path: '/settings/sales-config/taxes',
-        label: 'Sales config',
-        icon: SlidersHorizontal,
-        group: 'Settings',
-      },
     ],
   },
   {
-    key: 'three_pl',
-    label: '3PL OPERATIONS',
-    subtitle: 'Accounts, job builders, receiving, and shipping.',
-    icon: Truck,
-    routes: [
-      // Accounts is the Wave 12 commercial-layer entry (Phase A1); Job Builders
-      // is the Phase A2 entry; Supply Plans is A5; Job Runs is A6; Billing Review
-      // and Profitability are A7.
-      {
-        path: '/3pl-operations/accounts',
-        label: 'Accounts',
-        icon: Building,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/job-builders',
-        label: 'Job Builders',
-        icon: Blocks,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/supply-plans',
-        label: 'Supply Plans',
-        icon: ClipboardList,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/job-runs',
-        label: 'Job Runs',
-        icon: HardHat,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/billing-reviews',
-        label: 'Billing Review',
-        icon: Receipt,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/profitability',
-        label: 'Profitability',
-        icon: TrendingUp,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/receiving',
-        label: 'Receiving',
-        icon: PackageOpen,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-      {
-        path: '/3pl-operations/shipments',
-        label: 'Shipments',
-        icon: Truck,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
-      },
-    ],
-  },
-  {
-    key: 'manufacturing',
-    label: 'MANUFACTURING',
-    subtitle: 'Production runs and the floor.',
-    icon: Factory,
-    routes: [
-      {
-        path: '/manufacturing/runs',
-        label: 'Runs',
-        icon: Factory,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_MANUFACTURING,
-      },
-    ],
-  },
-  {
-    key: 'copack',
-    label: 'CO-PACK AND ECOM',
-    subtitle: 'Sales orders, kitting, and fulfillment.',
-    icon: Boxes,
-    routes: [
-      {
-        path: '/copack/orders',
-        label: 'Sales orders',
-        icon: ShoppingCart,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
-      },
-      {
-        path: '/copack/kitting',
-        label: 'Kitting jobs',
-        icon: Boxes,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
-      },
-      {
-        path: '/copack/fulfillments',
-        label: 'Fulfillments',
-        icon: PackageCheck,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
-      },
-      {
-        path: '/copack/channels',
-        label: 'Sales channels',
-        icon: Store,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_COPACK_ECOM,
-      },
-    ],
-  },
-  {
-    key: 'kitforce',
-    label: 'KITFORCE',
+    key: 'workforce',
+    label: 'WORKFORCE',
     subtitle: 'People, schedules, and labor.',
     icon: HardHat,
+    requiresAnyCap: ['kitforce.member.read'],
     routes: [
       {
         path: '/kitforce/members',
@@ -322,10 +384,11 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     ],
   },
   {
-    key: 'kitcost',
-    label: 'KITCOST',
-    subtitle: 'Cost and margin.',
-    icon: DollarSign,
+    key: 'insights',
+    label: 'INSIGHTS',
+    subtitle: 'Cost, margin, and profitability.',
+    icon: TrendingUp,
+    requiresAnyCap: ['kitcost.dashboard.view', 'threepl.profitability.read'],
     routes: [
       {
         path: '/kitcost/dashboard',
@@ -333,42 +396,39 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: DollarSign,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITCOST,
       },
+      {
+        path: '/3pl-operations/profitability',
+        label: 'Profitability',
+        icon: TrendingUp,
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
     ],
   },
   {
-    key: 'wms',
-    label: 'WMS',
-    subtitle: 'Bins, putaway, and lots.',
-    icon: Warehouse,
+    key: 'settings',
+    label: 'SETTINGS',
+    subtitle: 'Configure the org and your team.',
+    icon: Settings,
+    adminOnly: true,
     routes: [
-      // Add-on six (warehouse execution; ADR 0002). Phase B0 stands up the
-      // gated section; the route entries below are the Phase 1 surfaces, each
-      // landing as its phase ships its list page (Locations B1, Bin stock B2,
-      // Putaway B3, Lots B4). All gated plugins.wms, which defaults off.
+      // Organization
+      { path: '/admin/settings', label: 'Organization', icon: Building2, group: 'Organization' },
+      { path: '/admin/members', label: 'Members', icon: Users, group: 'Organization' },
+      { path: '/admin/sso', label: 'Single sign-on', icon: KeyRound, group: 'Organization' },
+      { path: '/admin/billing', label: 'Billing', icon: CreditCard, group: 'Organization' },
+      // Configuration
       {
-        path: '/wms/locations',
-        label: 'Locations',
-        icon: MapPin,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+        path: '/settings/sales-config/taxes',
+        label: 'Sales config',
+        icon: SlidersHorizontal,
+        group: 'Configuration',
       },
-      {
-        path: '/wms/putaway',
-        label: 'Putaway',
-        icon: PackagePlus,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
-      },
-      {
-        path: '/wms/bin-stock',
-        label: 'Bin stock',
-        icon: Boxes,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
-      },
-      {
-        path: '/wms/lots',
-        label: 'Lots',
-        icon: Tags,
-        requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
-      },
+      { path: '/admin/branding', label: 'Branding', icon: Palette, group: 'Configuration' },
+      { path: '/admin/numbering', label: 'Numbering', icon: Hash, group: 'Configuration' },
+      { path: '/admin/flags', label: 'Feature flags', icon: Flag, group: 'Configuration' },
+      // Data
+      { path: '/imports', label: 'Imports', icon: Upload, group: 'Data' },
+      { path: '/exports', label: 'Exports', icon: Download, group: 'Data' },
     ],
   },
 ] as const;
@@ -399,6 +459,45 @@ export function visibleRoutesForMode(
 }
 
 /**
+ * Compute whether a task section should render for the active role. A section
+ * with `adminOnly` shows only for org_owner / org_admin. A section with
+ * `requiresAnyCap` shows only when the role holds at least one of those caps. A
+ * section with neither is always role-visible (entitlement gating still applies
+ * per route). Kept pure so the role-scope rule is unit-testable without a
+ * renderer.
+ */
+export function isModeVisible(
+  mode: ModeSpec,
+  role: RoleCode | null,
+  can: (cap: Capability) => boolean,
+): boolean {
+  if (mode.adminOnly === true) {
+    return role === 'org_owner' || role === 'org_admin';
+  }
+  if (mode.requiresAnyCap === undefined) return true;
+  return mode.requiresAnyCap.some((cap) => can(cap));
+}
+
+/**
+ * The task section to open by default for a role on first load, so the operator
+ * lands on their home domain rather than a closed wall. Sales opens SELL, ops
+ * opens INVENTORY, accounting opens MONEY; owner, admin, viewer, and unknown
+ * roles open SELL (the customers-through-cash backbone). The active section is
+ * auto-expanded on top of this by the Sidebar.
+ */
+export function defaultOpenModeForRole(role: RoleCode | null): ModeKey {
+  switch (role) {
+    case 'ops':
+      return 'inventory';
+    case 'accounting':
+      return 'money';
+    case 'sales':
+    default:
+      return 'sell';
+  }
+}
+
+/**
  * Filter an already-flag-filtered route list by a free-text query, matching
  * case-insensitively against the route label. A blank or whitespace-only query
  * returns the list unchanged. Kept pure so the sidebar type-to-filter matching
@@ -414,16 +513,16 @@ export function filterRoutesByQuery(
 }
 
 export interface SidebarRouteGroup {
-  /** Domain sub-group label (SPINE), or undefined for ungrouped add-on routes. */
+  /** Domain sub-group label, or undefined for ungrouped (flat) routes. */
   label: string | undefined;
   routes: ReadonlyArray<ModeRoute>;
 }
 
 /**
  * Collapse an ordered, already-flag-filtered route list into consecutive runs
- * that share a `group` label. SPINE routes split into one run per domain (CRM,
- * Catalog, ...); add-on routes (no group) collect into a single
- * label-undefined run. Sidebar.tsx renders each labelled run as a
+ * that share a `group` label. Multi-domain sections split into one run per
+ * sub-group (CRM, Catalog, ...); single-domain sections (no group) collect into
+ * a single label-undefined run. Sidebar.tsx renders each labelled run as a
  * `role="group"` with `aria-label` so the domain sub-grouping is announced to
  * assistive tech, not just shown visually.
  */
@@ -443,12 +542,11 @@ export function groupRoutesByDomain(
 }
 
 /**
- * Find which section owns a pathname. Used by Sidebar to auto-expand the
- * section that contains the active route on first render.
+ * Find which section owns a pathname. Used by Sidebar to auto-expand the section
+ * that contains the active route on first render.
  *
- * Matches by exact path or prefix-with-slash so deep-link nav (e.g.
- * /quotes/:id or /3pl-operations/accounts/:id) still highlights the right
- * section.
+ * Matches by exact path or prefix-with-slash so deep-link nav (e.g. /quotes/:id
+ * or /3pl-operations/accounts/:id) still highlights the right section.
  */
 export function findActiveMode(pathname: string): ModeKey | null {
   for (const mode of SIDEBAR_MODES) {

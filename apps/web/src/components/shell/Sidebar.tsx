@@ -1,83 +1,47 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import {
-  ChevronDown,
-  ChevronRight,
-  CreditCard,
-  Download,
-  Flag,
-  Hash,
-  Home,
-  KeyRound,
-  Palette,
-  Search,
-  Settings,
-  Upload,
-  Users,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Search, X } from 'lucide-react';
 
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import type { RoleCode } from '@/lib/capabilities';
 import {
   SIDEBAR_MODES,
+  defaultOpenModeForRole,
   findActiveMode,
   filterRoutesByQuery,
   groupRoutesByDomain,
+  isModeVisible,
   visibleRoutesForMode,
   type ModeKey,
 } from './sidebarModes';
 
 /**
- * Sidebar. Pillar-grouped IA (Wave 12, plan section 5.5). A single always-on
- * SPINE section (sub-grouped by domain) followed by one collapsible section
- * per lit add-on (3PL Operations, Manufacturing, Co-Pack and Ecom, KitForce,
- * KitCost). This supersedes the UX-Q1 job-mode IA. See sidebarModes.ts for the
- * section-to-route mapping and rationale; the URLs of underlying routes are
- * unchanged.
+ * Sidebar. Task-based IA (UI/UX reconfiguration, plan section 5). Eight
+ * collapsible task sections (SELL, BUY, INVENTORY AND WAREHOUSE, PRODUCTION AND
+ * FULFILLMENT, MONEY, WORKFORCE, INSIGHTS, SETTINGS), each shaped around what
+ * operators do rather than the data model. Add-on surfaces fold into the task
+ * group they belong to. This supersedes the Wave 12 pillar IA. See
+ * sidebarModes.ts for the section-to-route mapping and rationale; the URLs of
+ * underlying routes are unchanged.
  *
- * Per-route flag gating: add-on routes carry requiresFlag so the link hides
- * when the org lacks the plugin, and journal entries hide inside SPINE when
- * finance.journal_entries.enabled is off. The constitutional 403
- * FEATURE_DISABLED / 404 bundle-gate API guards are unchanged; this is a pure
- * SPA-render adjustment.
+ * Per-route flag gating: add-on routes carry requiresFlag so the link hides when
+ * the org lacks the plugin; a section with no visible routes is dropped. One task
+ * group can therefore mix always-on spine routes with entitlement-gated add-on
+ * routes. The constitutional 403 FEATURE_DISABLED / 404 bundle-gate API guards
+ * are unchanged; this is a pure SPA render adjustment.
  *
- * Within the SPINE section, routes carry a `group` label (CRM, Catalog,
- * Inventory, etc.); a sub-header renders each time the group changes so the
- * long backbone list reads as domains rather than a flat wall of links.
+ * Role scoping: each section is shown via isModeVisible. Most sections gate on a
+ * broad read capability so read-only roles keep access; SETTINGS is owner/admin
+ * only, folding the former Admin block (org, configuration, data) into the IA.
+ *
+ * Within a section, routes carry a `group` label (CRM, Invoicing, etc.); a
+ * sub-header renders each time the group changes so a long section reads as
+ * domains rather than a flat wall of links.
  *
  * Below the `md:` breakpoint this renders as a slide-in drawer driven by
- * AppShell. At md and above it stays a fixed `w-56` rail. The Admin section
- * remains below the sections so settings stay reachable without being part of
- * the pillar IA.
+ * AppShell. At md and above it stays a fixed `w-56` rail.
  */
-
-interface AdminLink {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-const ADMIN_LINKS: ReadonlyArray<AdminLink> = [
-  { to: '/admin/settings', label: 'Settings', icon: Settings },
-  { to: '/admin/branding', label: 'Branding', icon: Palette },
-  { to: '/admin/flags', label: 'Feature flags', icon: Flag },
-  { to: '/admin/numbering', label: 'Numbering', icon: Hash },
-  // F-Wave9-STAFF-INVITE-CHASSIS-01: /admin/members staff invite surface.
-  { to: '/admin/members', label: 'Members', icon: Users },
-  // R-W13-AUTH-01: /admin/sso single sign-on connection management.
-  // AdminProtectedRoute restricts to org_owner / org_admin; org.sso.* caps
-  // gate the buttons on the page itself.
-  { to: '/admin/sso', label: 'Single sign-on', icon: KeyRound },
-  // Stripe wiring (item 9): /admin/billing. AdminProtectedRoute already
-  // restricts to org_owner / org_admin; the upcoming caps PR refines this
-  // via org.billing.read (owner + admin). No SPA-side cap check needed --
-  // the route guard is authoritative.
-  { to: '/admin/billing', label: 'Billing', icon: CreditCard },
-  { to: '/imports', label: 'Imports', icon: Upload },
-  { to: '/exports', label: 'Exports', icon: Download },
-];
 
 const STORAGE_KEY = 'kitstak.sidebar.modes.expanded';
 
@@ -110,13 +74,13 @@ function writePersistedExpanded(expanded: Set<ModeKey>): void {
   }
 }
 
-function defaultExpanded(): Set<ModeKey> {
-  // First load: open only the always-on SPINE backbone (the daily drivers:
-  // Customers, Quotes, Invoices). Add-on sections stay collapsed until the
-  // operator opens one or navigates into it (findActiveMode auto-expands the
-  // active section). Replaces the prior open-everything default that buried the
-  // most-used links behind a scroll (spec diagnosis P2).
-  return new Set<ModeKey>(['spine']);
+function defaultExpanded(role: RoleCode | null): Set<ModeKey> {
+  // First load: open the role's home task section (sales -> SELL, ops ->
+  // INVENTORY, accounting -> MONEY, everyone else -> SELL). Other sections stay
+  // collapsed until the operator opens one or navigates into it (findActiveMode
+  // auto-expands the active section). This keeps the daily drivers one glance
+  // away without opening the whole tree (spec diagnosis P2).
+  return new Set<ModeKey>([defaultOpenModeForRole(role)]);
 }
 
 function cn(...parts: Array<string | false | null | undefined>): string {
@@ -134,14 +98,13 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   const { pathname } = useLocation();
   const activeMode = useMemo(() => findActiveMode(pathname), [pathname]);
 
-  const { role } = useCapabilities();
+  const { role, can } = useCapabilities();
   const [query, setQuery] = useState('');
 
   const [expanded, setExpanded] = useState<Set<ModeKey>>(() => {
-    const persisted = readPersistedExpanded();
-    const base = persisted ?? defaultExpanded();
-    if (activeMode) base.add(activeMode);
-    return base;
+    const base = readPersistedExpanded() ?? defaultExpanded(role);
+    // Immutable: never mutate the Set returned by the initializer source.
+    return activeMode ? new Set<ModeKey>([...base, activeMode]) : base;
   });
 
   useEffect(() => {
@@ -171,28 +134,23 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
 
   const trimmedQuery = query.trim();
   const lowerQuery = trimmedQuery.toLowerCase();
-  const canSeeAdmin = role === 'org_owner' || role === 'org_admin';
 
-  // Recomputed every render (cheap: 7 sections, ~40 routes). Mirrors the prior
-  // inline section map, plus an optional label filter while the operator types.
-  const filteredSections = SIDEBAR_MODES.map((mode) => ({
-    mode,
-    routes: filterRoutesByQuery(visibleRoutesForMode(mode, flags), query),
-  })).filter((section) => section.routes.length > 0);
-
-  const visibleAdminLinks = trimmedQuery
-    ? ADMIN_LINKS.filter((link) =>
-        link.label.toLowerCase().includes(lowerQuery),
-      )
-    : ADMIN_LINKS;
+  // Recomputed every render (cheap: 8 sections, ~50 routes). Role-scope each
+  // section (isModeVisible), then flag-filter its routes and apply the
+  // type-to-filter query. A section with no visible routes is dropped.
+  const filteredSections = SIDEBAR_MODES.filter((mode) =>
+    isModeVisible(mode, role, can),
+  )
+    .map((mode) => ({
+      mode,
+      routes: filterRoutesByQuery(visibleRoutesForMode(mode, flags), query),
+    }))
+    .filter((section) => section.routes.length > 0);
 
   const showDashboardLink =
     trimmedQuery === '' || 'dashboard'.includes(lowerQuery);
 
-  const hasAnyMatch =
-    showDashboardLink ||
-    filteredSections.length > 0 ||
-    (canSeeAdmin && visibleAdminLinks.length > 0);
+  const hasAnyMatch = showDashboardLink || filteredSections.length > 0;
 
   const navContent = (
     <>
@@ -314,35 +272,6 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
           </div>
         );
       })}
-
-      {canSeeAdmin && visibleAdminLinks.length > 0 && (
-        <div className="mt-4 border-t border-line pt-4">
-          <div className="px-3 pb-1 font-display text-xs tracking-wider uppercase text-ink-dim">
-            Admin
-          </div>
-          {visibleAdminLinks.map((link) => {
-            const LinkIcon = link.icon;
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                onClick={onNavClick}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2 px-3 py-1.5 text-xs font-sans tracking-wide',
-                    isActive
-                      ? 'bg-accent/10 text-ink'
-                      : 'text-ink-dim hover:text-ink hover:bg-bg-2',
-                  )
-                }
-              >
-                <LinkIcon className="h-3.5 w-3.5" />
-                {link.label}
-              </NavLink>
-            );
-          })}
-        </div>
-      )}
 
       {trimmedQuery !== '' && !hasAnyMatch && (
         <p className="px-3 py-2 text-xs font-sans text-ink-dim">

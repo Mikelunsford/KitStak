@@ -1,27 +1,26 @@
 // Page taxonomy labels (R-W13-IA-01).
 //
-// The page-header eyebrow on every list and detail surface is the breadcrumb
-// taxonomy the operator reads to know where a page sits. Before Wave 13 those
-// eyebrows used the retired UX-Q1 job-mode words (SELL, MAKE, SHIP, GET PAID,
-// LIBRARY, WORKFORCE), which no longer match the pillar-grouped sidebar that
-// shipped with ADR 0003. A page could read "Library / Vendors" while the
-// sidebar filed Vendors under the Purchasing domain of the SPINE section.
+// The page-header eyebrow on every list and detail surface tells the operator
+// which DOMAIN a page belongs to (for example "Invoicing / Invoices",
+// "3PL Operations / Accounts"). This is a domain axis.
 //
-// This module is the single source of truth for the top-of-eyebrow taxonomy
-// word. Each constant equals the sidebar section label (SIDEBAR_MODES[].label,
-// title-cased for the eyebrow) or, for SPINE surfaces, the domain sub-group
-// label that drives the SPINE sub-headers (ModeRoute.group). Keeping these as
-// named constants lets the regression test assert that the eyebrows and the
-// sidebar grouping cannot drift apart again.
+// The UI/UX reconfiguration regrouped the sidebar onto a separate TASK axis
+// (SELL, BUY, INVENTORY AND WAREHOUSE, PRODUCTION AND FULFILLMENT, MONEY,
+// WORKFORCE, INSIGHTS, SETTINGS), where one task group folds in several domains
+// and add-ons. The eyebrow taxonomy and the sidebar section labels are therefore
+// intentionally decoupled now: the eyebrow names the domain, the sidebar names
+// the task. These constants stay stable domain words so page eyebrows do not
+// churn when the sidebar grouping changes. The retired UX-Q1 job-mode words
+// (MAKE, SHIP, GET PAID, LIBRARY) must never reappear here.
 //
 // Eyebrow shape stays "<Taxonomy> / <Resource>" so the existing PageHeader
 // mono eyebrow renders unchanged. The separator stays a forward slash, which
 // the branding rule allows (only em dashes and double hyphens are forbidden).
 
 /**
- * SPINE domain sub-groups. These mirror the `group` field on the SPINE routes
- * in sidebarModes.ts (CRM, Quotes, Projects, Catalog, Inventory, Purchasing,
- * Invoicing, Finance, Settings).
+ * Spine domain eyebrow words (CRM, Quotes, Projects, Catalog, Inventory,
+ * Purchasing, Invoicing, Finance, Settings). These name the domain a backbone
+ * page belongs to, independent of which task section the sidebar files it under.
  */
 export const SPINE_DOMAINS = {
   CRM: 'CRM',
@@ -36,9 +35,9 @@ export const SPINE_DOMAINS = {
 } as const;
 
 /**
- * Add-on section taxonomy words. These mirror the SIDEBAR_MODES section labels
- * for the lit add-ons, written in title case for the eyebrow (the sidebar
- * renders them uppercase via CSS).
+ * Add-on domain eyebrow words for the lit add-ons, written in title case (3PL
+ * Operations, Manufacturing, Co-Pack and Ecom, KitForce, KitCost, WMS). These
+ * name the add-on a page belongs to, independent of the task-based sidebar.
  */
 export const ADDON_TAXONOMY = {
   THREE_PL: '3PL Operations',
