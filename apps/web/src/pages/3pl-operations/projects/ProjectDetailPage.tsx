@@ -377,7 +377,7 @@ export function ProjectDetailPage() {
                   to={`/crm/customers/${customerId}`}
                   className="text-ink hover:text-accent"
                 >
-                  {customer.data?.display_name ?? customerId}
+                  {fallbackLabel(customer.data?.display_name, customerId)}
                 </Link>
               </span>
             )}
@@ -396,7 +396,7 @@ export function ProjectDetailPage() {
                   className="text-ink hover:text-accent"
                   data-testid="source-quote-link"
                 >
-                  {sourceQuote.data?.quote.number ?? sourceQuoteId}
+                  {fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}
                 </Link>
               </span>
             )}
