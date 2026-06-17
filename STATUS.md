@@ -1,5 +1,15 @@
 # Kitstak Status
 
+## 2026-06-17 Rail consistency and the held backend trio shipped to prod
+
+The two deferred rail follow-ups (#321) and the three held backend items (#322 auto-numbering, #323 default-org, #324 inline-line) all built, merged, and LIVE on prod the same day as the F-UIUX rollout. CHANGELOG `0.23.0`; journal `03-workspace/journal/2026-06-17-rail-and-backend-trio.md`. Prod at migration `0119`. The operator said "proceed with your recommendations and ship and build", then "ship the held PRs too if CI passes"; each backend PR was built to the scoped recommendations, gated, and merged on green CI with the prod deploy watched.
+
+Scoping flipped the framing: the backend trio was mostly already built. Default-for-org shipped its columns, the one-default partial unique indexes, and the atomic-flip RPCs in migration 0011 (no migration needed, just edge routing + SPA). Credit-note numbering was already seeded (no migration). The invoice line PATCH already existed end to end (UI-only). The only genuinely new backend work was migration 0119 (journal-entry numbering, `JE-M-` prefix clear of the auto-JE `JE-` namespace) and the quote line PATCH endpoint.
+
+#321 (rail consistency): opportunity ADVANCE STAGE controls cap-gated on `crm.opportunities.stage.transition` (ops/accounting/viewer lose the dead buttons); interactive rail first-edge on mfg/production/credit-note, pinned to the safe initial edge. #322 (auto-numbering): credit-note + journal-entry create auto-assign from the numbering chassis; migration 0119 (JE only) applied clean to prod + staging; number field stays an optional override. #323 (default-org): create/update routes a checked default through the atomic-flip RPC inside the idempotency closure (fixes the 500-on-second-default), Set-as-default list buttons, quote-create org-default pre-select. #324 (inline-line): new quote line PATCH (money recompute server-authoritative via exported `computeLineMath`, tax re-snapshot, idempotency, draft guard, ownership scoping) plus the invoice inline editor (reusing the existing PATCH); adversarial review APPROVE with two null-row hardening fixes folded in.
+
+Remaining: the SSO #298 CHANGELOG `[Unreleased]` doc-lag is still open. New small follow-up `F-UIUX-RECOMPUTE-ERR-PARITY-01` (addLineItem/removeLineItem share the pre-existing unchecked recompute RPC pattern the quote PATCH now guards).
+
 ## 2026-06-17 F-UIUX rollout completed (the deferred phase-2 follow-ups)
 
 The deferred F-UIUX-* follow-ups from the 2026-06-16 phase-2 bundle, built and held for the operator merge. Five SPA-only PRs (#315 to #319), presentation layer only: no schema, migration, RLS, money, idempotency, audit_log, or contract change. Each branched off `main` on disjoint files so they merge in any order; the index chunk held at roughly 35.8 kB gz under the 40 kB `size-limit` throughout. CHANGELOG `0.22.0`; journal `03-workspace/journal/2026-06-17-uiux-rollout-completion.md`. Ultracode auto mode: four parallel read-only mapping agents grounded the design first, then a unit-per-branch build with an adversarial review on the logic-heavy units.
