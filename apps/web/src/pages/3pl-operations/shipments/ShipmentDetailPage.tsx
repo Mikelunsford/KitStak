@@ -11,6 +11,7 @@ import { EntityLabel } from '@/components/data/EntityLabel';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -56,6 +57,32 @@ export function ShipmentDetailPage() {
   // and the record is immutable.
   const linesEditable = d.status === 'created' || d.status === 'picking';
 
+  // UX-Q7 reopened (Pattern D): the shipment happy path is created -> picking ->
+  // shipped. `created -> picking` is a normal FSM transition (transition.mutate,
+  // gated by shipments.shipment.update). The rail advance routes the `shipped`
+  // step through the dedicated Ship action (ship.mutate, gated by shipments.ship)
+  // because that is the proper ship flow that runs the ship RPC and emits stock
+  // movements. `shipped` is also a raw FSM target in `next`, so we exclude it
+  // from the transition branch and gate it solely on shipments.ship; that keeps
+  // the rail button from appearing for an operator who could not run the Ship
+  // action it dispatches.
+  const railNext = nextStepperState(STATE_STEPPER_PATHS.shipment.path, d.status);
+  const canAdvanceRail =
+    railNext !== null &&
+    ((railNext !== 'shipped' &&
+      (next as readonly string[]).includes(railNext) &&
+      caps.can('shipments.shipment.update')) ||
+      (railNext === 'shipped' &&
+        d.status === 'picking' &&
+        caps.can('shipments.ship')));
+  const advance = (toState: string) => {
+    if (toState === 'shipped') {
+      ship.mutate({ lines: [] });
+    } else {
+      transition.mutate(toState as ShipmentStatus);
+    }
+  };
+
   const onAddLine = (e: FormEvent) => {
     e.preventDefault();
     if (!selectedItemId) return;
@@ -87,7 +114,12 @@ export function ShipmentDetailPage() {
           { label: d.shipment_number ?? d.id.slice(0, 8) },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control. `created -> picking` reuses the start-pick
+          transition; `picking -> shipped` reuses the separate Ship action
+          (ship.mutate). It is only interactive when the operator holds the
+          authorizing capability for that move. Past, current, and
+          further-future steps stay display-only. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.shipment.path]}
         current={d.status}
@@ -99,6 +131,8 @@ export function ShipmentDetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={transition.isPending || ship.isPending}
       />
       <PageHeader
         eyebrow="3PL Operations / Shipments"

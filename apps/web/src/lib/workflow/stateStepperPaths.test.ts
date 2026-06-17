@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
   titleCaseStateLabel,
   type StateStepperEntity,
 } from './stateStepperPaths';
@@ -217,5 +218,45 @@ describe('stateStepperPaths (UX-Q7)', () => {
     expect(sentIdx).toBeGreaterThanOrEqual(0);
     expect(partialIdx).toBeGreaterThan(sentIdx);
     expect(paidIdx).toBeGreaterThan(partialIdx);
+  });
+});
+
+describe('nextStepperState (Pattern D, UX-Q7 reopened)', () => {
+  // A small fixed path stands in for any entity. The helper is path-agnostic
+  // so a representative four-step path exercises every branch.
+  const path = [
+    { state: 'draft' },
+    { state: 'submitted' },
+    { state: 'approved' },
+    { state: 'project_pending' },
+  ] as const;
+
+  it('returns the next state for a mid-path state', () => {
+    expect(nextStepperState(path, 'submitted')).toBe('approved');
+  });
+
+  it('returns the second state for the first state', () => {
+    expect(nextStepperState(path, 'draft')).toBe('submitted');
+  });
+
+  it('returns null for the terminal state', () => {
+    expect(nextStepperState(path, 'project_pending')).toBeNull();
+  });
+
+  it('returns null for an off-path or unknown state', () => {
+    expect(nextStepperState(path, 'cancelled')).toBeNull();
+  });
+
+  it('returns null for an empty path', () => {
+    expect(nextStepperState([], 'draft')).toBeNull();
+  });
+
+  it('works against a real STATE_STEPPER_PATHS entry', () => {
+    expect(
+      nextStepperState(STATE_STEPPER_PATHS.expense.path, 'approved'),
+    ).toBe('paid');
+    expect(
+      nextStepperState(STATE_STEPPER_PATHS.expense.path, 'reimbursed'),
+    ).toBeNull();
   });
 });

@@ -23,6 +23,7 @@ import { formatCents } from '@/lib/money';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 
 export function ExpenseDetailPage() {
@@ -56,6 +57,20 @@ export function ExpenseDetailPage() {
     draft: 'expenses.expense.submit',
   };
 
+  // UX-Q7 reopened (Pattern D): the rail's immediate next happy-path status is
+  // interactive only when it is a transition this page already exposes (it is in
+  // `next`) and the operator holds the capability that authorizes it. Every
+  // expense forward edge (draft -> submitted -> approved -> paid -> reimbursed)
+  // is a manual transition driven by the same buttons below, so the gate maps
+  // cleanly; advance reuses the same mutation and the server enforces the cap.
+  const railNext = nextStepperState(STATE_STEPPER_PATHS.expense.path, d.status);
+  const canAdvanceRail =
+    railNext !== null &&
+    (next as readonly string[]).includes(railNext) &&
+    (capByTarget[railNext] === undefined || caps.can(capByTarget[railNext]));
+  const advance = (toState: string) =>
+    transition.mutate(toState as ExpenseStatus);
+
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
       <Breadcrumbs
@@ -64,7 +79,12 @@ export function ExpenseDetailPage() {
           { label: d.expense_number ?? d.id.slice(0, 8) },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control that advances the expense (advance maps it to the
+          same transition mutation as the action buttons below). It is only
+          interactive when that next status is a transition this page exposes and
+          the operator holds the authorizing capability. Past, current, and
+          further-future steps stay display-only. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.expense.path]}
         current={d.status}
@@ -76,6 +96,8 @@ export function ExpenseDetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={transition.isPending}
       />
       <PageHeader
         title={`Expense ${d.expense_number ?? d.id.slice(0, 8)}`}

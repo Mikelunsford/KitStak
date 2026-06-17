@@ -300,3 +300,24 @@ export function isOffPath(entity: StateStepperEntity, state: string): boolean {
   const def = STATE_STEPPER_PATHS[entity];
   return def.offPath.includes(state);
 }
+
+/**
+ * Pattern D helper (UX-Q7 reopened): returns the single immediate next
+ * happy-path state for a stepper path, or `null` when there is none.
+ *
+ * A detail page passes its own path plus the current state and uses the
+ * result to decide whether the rail's next step should be offered as an
+ * interactive advance. It returns `null` when the current state is the
+ * terminal step, or when the current state is not on the happy path at all
+ * (off-path or unknown). The caller still gates the returned state against
+ * the transitions and capabilities it already exposes; this helper only
+ * answers "what is the next path state".
+ */
+export function nextStepperState(
+  path: ReadonlyArray<{ state: string }>,
+  current: string,
+): string | null {
+  const i = path.findIndex((s) => s.state === current);
+  if (i === -1 || i >= path.length - 1) return null;
+  return path[i + 1]!.state;
+}
