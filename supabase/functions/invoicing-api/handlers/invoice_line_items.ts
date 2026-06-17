@@ -229,7 +229,14 @@ export async function createLineItem(ctx: RouteCtx): Promise<Response> {
           detail: error.message,
         });
       }
-      await admin().rpc('recompute_invoice_totals', { p_invoice_id: invoiceId });
+      const { error: rpcErr } = await admin().rpc('recompute_invoice_totals', {
+        p_invoice_id: invoiceId,
+      });
+      if (rpcErr) {
+        throw new ApiError('INTERNAL_ERROR', 500, 'recompute failed', {
+          detail: rpcErr.message,
+        });
+      }
       return created(rowToLine(data));
     },
   );
@@ -305,7 +312,14 @@ export async function patchLineItem(ctx: RouteCtx): Promise<Response> {
           detail: error.message,
         });
       }
-      await admin().rpc('recompute_invoice_totals', { p_invoice_id: invoiceId });
+      const { error: rpcErr } = await admin().rpc('recompute_invoice_totals', {
+        p_invoice_id: invoiceId,
+      });
+      if (rpcErr) {
+        throw new ApiError('INTERNAL_ERROR', 500, 'recompute failed', {
+          detail: rpcErr.message,
+        });
+      }
       return ok(rowToLine(data));
     },
   );
@@ -332,7 +346,14 @@ export async function deleteLineItem(ctx: RouteCtx): Promise<Response> {
           detail: error.message,
         });
       }
-      await admin().rpc('recompute_invoice_totals', { p_invoice_id: invoiceId });
+      const { error: rpcErr } = await admin().rpc('recompute_invoice_totals', {
+        p_invoice_id: invoiceId,
+      });
+      if (rpcErr) {
+        throw new ApiError('INTERNAL_ERROR', 500, 'recompute failed', {
+          detail: rpcErr.message,
+        });
+      }
       return noContent();
     },
   );

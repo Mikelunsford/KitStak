@@ -1,5 +1,12 @@
 # Kitstak Status
 
+## 2026-06-17 Run closeout: nothing outstanding
+
+The two shelf items from the rail-and-backend run are cleared, so nothing from this run is left for follow-up. CHANGELOG `0.23.1` (the recompute fix) plus the SSO reconcile to `0.19.2`.
+
+- **Recompute-error parity (`F-UIUX-RECOMPUTE-ERR-PARITY-01`)**: the quote add and remove line handlers and the invoice create, update, and delete line handlers now surface a `recompute_quote_totals` / `recompute_invoice_totals` RPC failure instead of swallowing it (the quote line PATCH from #324 already had the guard; this brings the other five call sites to parity). Edge-only change to quotes-api and invoicing-api; both pass `deno check`. No migration, money math, RLS, or idempotency change (it only turns a swallowed error into a thrown one).
+- **SSO #298 doc-lag reconciled**: the store-metadata MVP has been live on prod since migration 0118, but the CHANGELOG still listed it under `[Unreleased]` as built-and-held. Moved to a versioned `[0.19.2]` section (past tense, live on prod) and `[Unreleased]` is now clean. No code change.
+
 ## 2026-06-17 Rail consistency and the held backend trio shipped to prod
 
 The two deferred rail follow-ups (#321) and the three held backend items (#322 auto-numbering, #323 default-org, #324 inline-line) all built, merged, and LIVE on prod the same day as the F-UIUX rollout. CHANGELOG `0.23.0`; journal `03-workspace/journal/2026-06-17-rail-and-backend-trio.md`. Prod at migration `0119`. The operator said "proceed with your recommendations and ship and build", then "ship the held PRs too if CI passes"; each backend PR was built to the scoped recommendations, gated, and merged on green CI with the prod deploy watched.
@@ -8,7 +15,7 @@ Scoping flipped the framing: the backend trio was mostly already built. Default-
 
 #321 (rail consistency): opportunity ADVANCE STAGE controls cap-gated on `crm.opportunities.stage.transition` (ops/accounting/viewer lose the dead buttons); interactive rail first-edge on mfg/production/credit-note, pinned to the safe initial edge. #322 (auto-numbering): credit-note + journal-entry create auto-assign from the numbering chassis; migration 0119 (JE only) applied clean to prod + staging; number field stays an optional override. #323 (default-org): create/update routes a checked default through the atomic-flip RPC inside the idempotency closure (fixes the 500-on-second-default), Set-as-default list buttons, quote-create org-default pre-select. #324 (inline-line): new quote line PATCH (money recompute server-authoritative via exported `computeLineMath`, tax re-snapshot, idempotency, draft guard, ownership scoping) plus the invoice inline editor (reusing the existing PATCH); adversarial review APPROVE with two null-row hardening fixes folded in.
 
-Remaining: the SSO #298 CHANGELOG `[Unreleased]` doc-lag is still open. New small follow-up `F-UIUX-RECOMPUTE-ERR-PARITY-01` (addLineItem/removeLineItem share the pre-existing unchecked recompute RPC pattern the quote PATCH now guards).
+Closed out (see the run-closeout section above): `F-UIUX-RECOMPUTE-ERR-PARITY-01` shipped and the SSO #298 doc-lag is reconciled. Nothing from this run remains for follow-up.
 
 ## 2026-06-17 F-UIUX rollout completed (the deferred phase-2 follow-ups)
 

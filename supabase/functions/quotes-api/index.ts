@@ -277,7 +277,10 @@ const addLineItem = async (ctx: RouteCtx) => {
         .from('quote_line_items').insert(insert).select('*').maybeSingle();
       if (error) throw internalError('quotes-api', error);
 
-      await client.rpc('recompute_quote_totals', { p_quote_id: ctx.params.id });
+      const { error: rpcErr } = await client.rpc('recompute_quote_totals', {
+        p_quote_id: ctx.params.id,
+      });
+      if (rpcErr) throw internalError('quotes-api', rpcErr);
       return created(data);
     },
   );
@@ -404,7 +407,10 @@ const removeLineItem = async (ctx: RouteCtx) => {
         .from('quote_line_items').delete()
         .eq('id', ctx.params.lineId).eq('quote_id', ctx.params.id);
       if (error) throw internalError('quotes-api', error);
-      await client.rpc('recompute_quote_totals', { p_quote_id: ctx.params.id });
+      const { error: rpcErr } = await client.rpc('recompute_quote_totals', {
+        p_quote_id: ctx.params.id,
+      });
+      if (rpcErr) throw internalError('quotes-api', rpcErr);
       return ok({ id: ctx.params.lineId, deleted: true });
     },
   );
