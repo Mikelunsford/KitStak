@@ -27,6 +27,13 @@
 //     caps chosen are the broad read caps every internal role already has for the
 //     domain, so a viewer keeps read access; only genuinely role-restricted areas
 //     (WORKFORCE) drop for roles without any read there (sales, viewer).
+//   - Per-route `requiresCap` is a finer role-scope render gate layered on top of
+//     the section gate: each nav entry hides when the user lacks that entry's own
+//     read capability, so a section that a role can open still drops the specific
+//     links that role cannot read (a viewer keeps Customers but loses any link
+//     whose read cap the viewer does not hold). Routes without a clear read cap
+//     (add-on action-only resources, PUTAWAY, every SETTINGS entry) leave it
+//     undefined and ride on the section gate alone.
 //   - SETTINGS sets `adminOnly`, mirroring the prior owner/admin Admin block and
 //     the AdminProtectedRoute guard on /admin/*.
 //
@@ -117,8 +124,13 @@ export interface ModeRoute {
    */
   requiresFlag?: string;
   /**
-   * Optional capability key. Reserved for future per-route role scoping; the
-   * current sidebar role-scopes at the section level via ModeSpec.requiresAnyCap.
+   * Optional read capability key. Active per-route role-scope gate layered on top
+   * of the section gate (ModeSpec.requiresAnyCap): when set, the nav entry hides
+   * unless the active role holds this read capability, so a section a role can
+   * open still drops the specific links that role cannot read. Undefined means no
+   * per-route gate, so the entry rides on the section gate alone (used for add-on
+   * action-only resources that expose no read cap, PUTAWAY, and SETTINGS entries).
+   * SPA render hiding only; the server stays the authority.
    */
   requiresCap?: Capability;
 }
@@ -152,15 +164,15 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     requiresAnyCap: ['crm.customers.read', 'quotes.quote.read'],
     routes: [
       // CRM
-      { path: '/crm/customers', label: 'Customers', icon: Users, group: 'CRM' },
-      { path: '/crm/contacts', label: 'Contacts', icon: Contact, group: 'CRM' },
-      { path: '/crm/leads', label: 'Leads', icon: TrendingUp, group: 'CRM' },
-      { path: '/crm/opportunities', label: 'Opportunities', icon: Target, group: 'CRM' },
-      { path: '/crm/activities', label: 'Activities', icon: CalendarCheck, group: 'CRM' },
+      { path: '/crm/customers', label: 'Customers', icon: Users, group: 'CRM', requiresCap: 'crm.customers.read' },
+      { path: '/crm/contacts', label: 'Contacts', icon: Contact, group: 'CRM', requiresCap: 'crm.contacts.read' },
+      { path: '/crm/leads', label: 'Leads', icon: TrendingUp, group: 'CRM', requiresCap: 'crm.leads.read' },
+      { path: '/crm/opportunities', label: 'Opportunities', icon: Target, group: 'CRM', requiresCap: 'crm.opportunities.read' },
+      { path: '/crm/activities', label: 'Activities', icon: CalendarCheck, group: 'CRM', requiresCap: 'crm.activities.read' },
       // Quotes
-      { path: '/quotes', label: 'Quotes', icon: FileText, group: 'Quotes' },
+      { path: '/quotes', label: 'Quotes', icon: FileText, group: 'Quotes', requiresCap: 'quotes.quote.read' },
       // Projects
-      { path: '/projects', label: 'Projects', icon: Briefcase, group: 'Projects' },
+      { path: '/projects', label: 'Projects', icon: Briefcase, group: 'Projects', requiresCap: 'projects.project.read' },
     ],
   },
   {
@@ -170,10 +182,10 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     icon: ShoppingCart,
     requiresAnyCap: ['vendors.vendor.read'],
     routes: [
-      { path: '/purchasing/vendors', label: 'Vendors', icon: Building2 },
-      { path: '/purchasing/purchase-orders', label: 'Purchase orders', icon: Receipt },
-      { path: '/purchasing/vendor-bills', label: 'Vendor bills', icon: ReceiptText },
-      { path: '/purchasing/expenses', label: 'Expenses', icon: CreditCard },
+      { path: '/purchasing/vendors', label: 'Vendors', icon: Building2, requiresCap: 'vendors.vendor.read' },
+      { path: '/purchasing/purchase-orders', label: 'Purchase orders', icon: Receipt, requiresCap: 'purchase_orders.purchase_order.read' },
+      { path: '/purchasing/vendor-bills', label: 'Vendor bills', icon: ReceiptText, requiresCap: 'vendor_bills.vendor_bill.read' },
+      { path: '/purchasing/expenses', label: 'Expenses', icon: CreditCard, requiresCap: 'expenses.expense.read' },
     ],
   },
   {
@@ -184,23 +196,26 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     requiresAnyCap: ['warehouses.warehouse.read'],
     routes: [
       // Catalog
-      { path: '/catalog/items', label: 'Items', icon: Package, group: 'Catalog' },
-      { path: '/catalog/boms', label: 'Bills of materials', icon: Layers, group: 'Catalog' },
-      { path: '/catalog/vas', label: 'Value-added services', icon: Sparkles, group: 'Catalog' },
+      { path: '/catalog/items', label: 'Items', icon: Package, group: 'Catalog', requiresCap: 'items.item.read' },
+      { path: '/catalog/boms', label: 'Bills of materials', icon: Layers, group: 'Catalog', requiresCap: 'stock.bom.read' },
+      { path: '/catalog/vas', label: 'Value-added services', icon: Sparkles, group: 'Catalog', requiresCap: 'vas.service.read' },
       // Stock
-      { path: '/inventory/stock/levels', label: 'Stock levels', icon: Boxes, group: 'Stock' },
-      { path: '/inventory/stock/movements', label: 'Stock movements', icon: ArrowLeftRight, group: 'Stock' },
+      { path: '/inventory/stock/levels', label: 'Stock levels', icon: Boxes, group: 'Stock', requiresCap: 'stock.level.read' },
+      { path: '/inventory/stock/movements', label: 'Stock movements', icon: ArrowLeftRight, group: 'Stock', requiresCap: 'stock.movement.read' },
       // Warehouse
-      { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse, group: 'Warehouse' },
+      { path: '/inventory/warehouses', label: 'Warehouses', icon: Warehouse, group: 'Warehouse', requiresCap: 'warehouses.warehouse.read' },
       {
         path: '/wms/locations',
         label: 'Locations',
         icon: MapPin,
         group: 'Warehouse',
         requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+        requiresCap: 'wms.location.read',
       },
       // WMS (warehouse execution, add-on six)
       {
+        // No wms.putaway.read cap exists (putaway is a create/start action surface),
+        // so this entry rides on the section gate and its plugin flag alone.
         path: '/wms/putaway',
         label: 'Putaway',
         icon: PackagePlus,
@@ -213,6 +228,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Boxes,
         group: 'WMS',
         requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+        requiresCap: 'wms.bin_stock.read',
       },
       {
         path: '/wms/lots',
@@ -220,6 +236,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Tags,
         group: 'WMS',
         requiresFlag: FEATURE_FLAGS.PLUGINS_WMS,
+        requiresCap: 'wms.lot.read',
       },
       // Receiving and shipping (3PL add-on)
       {
@@ -228,6 +245,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: PackageOpen,
         group: 'Receiving and shipping',
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+        requiresCap: 'receiving.order.read',
       },
       {
         path: '/3pl-operations/shipments',
@@ -235,6 +253,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: Truck,
         group: 'Receiving and shipping',
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+        requiresCap: 'shipments.shipment.read',
       },
     ],
   },
@@ -329,18 +348,19 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     requiresAnyCap: ['invoices.read'],
     routes: [
       // Invoicing
-      { path: '/invoicing/invoices', label: 'Invoices', icon: FileSpreadsheet, group: 'Invoicing' },
-      { path: '/invoicing/payments', label: 'Payments', icon: DollarSign, group: 'Invoicing' },
-      { path: '/invoicing/credit-notes', label: 'Credit notes', icon: FileMinus, group: 'Invoicing' },
+      { path: '/invoicing/invoices', label: 'Invoices', icon: FileSpreadsheet, group: 'Invoicing', requiresCap: 'invoices.read' },
+      { path: '/invoicing/payments', label: 'Payments', icon: DollarSign, group: 'Invoicing', requiresCap: 'payments.read' },
+      { path: '/invoicing/credit-notes', label: 'Credit notes', icon: FileMinus, group: 'Invoicing', requiresCap: 'credit_notes.read' },
       // Finance
-      { path: '/finance/coa', label: 'Chart of accounts', icon: Wallet, group: 'Finance' },
-      { path: '/finance/period-close', label: 'Period close', icon: Lock, group: 'Finance' },
+      { path: '/finance/coa', label: 'Chart of accounts', icon: Wallet, group: 'Finance', requiresCap: 'coa.read' },
+      { path: '/finance/period-close', label: 'Period close', icon: Lock, group: 'Finance', requiresCap: 'period_close.read' },
       {
         path: '/finance/journal-entries',
         label: 'Journal entries',
         icon: BookOpen,
         group: 'Finance',
         requiresFlag: FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED,
+        requiresCap: 'journal_entries.read',
       },
     ],
   },
@@ -356,30 +376,35 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         label: 'Members',
         icon: UsersRound,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+        requiresCap: 'kitforce.member.read',
       },
       {
         path: '/kitforce/teams',
         label: 'Teams',
         icon: UserCog,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+        requiresCap: 'kitforce.team.read',
       },
       {
         path: '/kitforce/shifts',
         label: 'Schedule',
         icon: CalendarCheck,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+        requiresCap: 'kitforce.shift.read',
       },
       {
         path: '/kitforce/assignments',
         label: 'Assignments',
         icon: ClipboardList,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+        requiresCap: 'kitforce.assignment.read',
       },
       {
         path: '/kitforce/time-entries',
         label: 'Time entries',
         icon: Clock,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITFORCE,
+        requiresCap: 'kitforce.time_entry.read',
       },
     ],
   },
@@ -395,12 +420,14 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         label: 'Cost dashboard',
         icon: DollarSign,
         requiresFlag: FEATURE_FLAGS.PLUGINS_KITCOST,
+        requiresCap: 'kitcost.dashboard.view',
       },
       {
         path: '/3pl-operations/profitability',
         label: 'Profitability',
         icon: TrendingUp,
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+        requiresCap: 'threepl.profitability.read',
       },
     ],
   },
@@ -448,14 +475,34 @@ export function isRouteVisible(
 }
 
 /**
+ * Compute whether a route passes its per-route role-scope gate. Routes without
+ * `requiresCap` are always cap-visible (they ride on the section gate); routes
+ * with one show only when the active role holds that read capability. Pure, so
+ * the per-route role-scope rule is unit-testable without a renderer.
+ */
+export function isRouteCapVisible(
+  route: ModeRoute,
+  can: (cap: Capability) => boolean,
+): boolean {
+  if (route.requiresCap === undefined) return true;
+  return can(route.requiresCap);
+}
+
+/**
  * Return the routes inside a section that the operator should see, after
- * applying per-route flag gating.
+ * applying per-route flag gating and, when a capability predicate is supplied,
+ * per-route role-scope gating. The `can` parameter is optional so callers that
+ * gate only by entitlement (and the flag-only unit tests) keep flag-only
+ * behavior; pass it to also drop links the active role cannot read.
  */
 export function visibleRoutesForMode(
   mode: ModeSpec,
   flags: Record<string, boolean>,
+  can?: (cap: Capability) => boolean,
 ): ReadonlyArray<ModeRoute> {
-  return mode.routes.filter((r) => isRouteVisible(r, flags));
+  return mode.routes.filter(
+    (r) => isRouteVisible(r, flags) && (can === undefined || isRouteCapVisible(r, can)),
+  );
 }
 
 /**
