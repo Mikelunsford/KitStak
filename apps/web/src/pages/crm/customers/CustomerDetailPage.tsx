@@ -1,18 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import {
-  type LucideIcon,
-  Activity,
-  CreditCard,
-  FileText,
-  Folder,
-  Receipt,
-  Users,
-} from 'lucide-react';
+import { Activity, CreditCard, FileText, Folder, Receipt, Users } from 'lucide-react';
 
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
-import { DetailSectionEmptyCoaching } from '@/components/shell/DetailSectionEmptyCoaching';
+import { RelatedSection } from '@/components/shell/RelatedSection';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -308,65 +300,6 @@ export function CustomerDetailPage() {
         }
       />
       <Tabs aria-label="Customer detail" tabs={tabs} />
-    </section>
-  );
-}
-
-interface RelatedSectionProps {
-  title: string;
-  /** Singular entity noun for the coaching surface, e.g. "quote". */
-  entity: string;
-  ctaLabel: string;
-  ctaHref: string;
-  isLoading: boolean;
-  /**
-   * Sentence-cased explainer rendered by DetailSectionEmptyCoaching when
-   * the related list is empty. Should answer "what is this section for?".
-   * Authored per-section in the CustomerDetailPage caller so each list
-   * carries the right operator-readable context.
-   */
-  emptyExplainer: string;
-  /** Optional lucide icon for the coaching surface. */
-  emptyIcon?: LucideIcon;
-  count: number;
-  children: ReactNode;
-}
-
-function RelatedSection({
-  title,
-  entity,
-  ctaLabel,
-  ctaHref,
-  isLoading,
-  emptyExplainer,
-  emptyIcon,
-  count,
-  children,
-}: RelatedSectionProps) {
-  return (
-    <section className="flex flex-col gap-2">
-      <header className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-display tracking-wide text-ink">{title}</h2>
-        <Link
-          to={ctaHref}
-          className="px-3 py-1 bg-bg-2 border border-line font-display tracking-wider text-xs"
-        >
-          {ctaLabel.toUpperCase()}
-        </Link>
-      </header>
-      {isLoading ? (
-        <p className="font-sans text-sm text-ink-dim">Loading.</p>
-      ) : count > 0 ? (
-        <ul className="flex flex-col gap-1">{children}</ul>
-      ) : (
-        <DetailSectionEmptyCoaching
-          entity={entity}
-          explainer={emptyExplainer}
-          ctaLabel={ctaLabel}
-          ctaTo={ctaHref}
-          icon={emptyIcon}
-        />
-      )}
     </section>
   );
 }
