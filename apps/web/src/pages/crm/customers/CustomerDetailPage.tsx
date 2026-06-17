@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Tabs, type TabSpec } from '@/components/ui/Tabs';
 import { formatCents } from '@/lib/money';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useInviteCustomerToPortal } from '@/lib/hooks/useCustomers';
@@ -91,6 +92,204 @@ export function CustomerDetailPage() {
   const contacts = contactsQuery.data ?? [];
   const activities = activitiesQuery.data ?? [];
 
+  const tabs: TabSpec[] = [
+    {
+      key: 'overview',
+      label: 'Overview',
+      panel: (
+        <div className="flex flex-col gap-8">
+          <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
+            <dt className="text-ink-dim">Kind</dt>
+            <dd>{c.kind}</dd>
+            <dt className="text-ink-dim">Status</dt>
+            <dd>
+              <StatusBadge status={c.status} />
+            </dd>
+            <dt className="text-ink-dim">Email</dt>
+            <dd>{c.primary_email ?? ''}</dd>
+            <dt className="text-ink-dim">Phone</dt>
+            <dd>{c.primary_phone ?? ''}</dd>
+            <dt className="text-ink-dim">Tax id</dt>
+            <dd>{c.tax_id ?? ''}</dd>
+            <dt className="text-ink-dim">Default currency</dt>
+            <dd>{c.default_currency_code ?? ''}</dd>
+          </dl>
+
+          <InviteToPortalSection
+            customerId={c.id}
+            customerEmail={c.primary_email}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'quotes',
+      label: 'Quotes',
+      panel: (
+        <RelatedSection
+          title="QUOTES"
+          entity="quote"
+          ctaLabel="New quote"
+          ctaHref={`/quotes/new?customer_id=${c.id}`}
+          isLoading={quotesQuery.isLoading}
+          emptyExplainer="Quotes are priced proposals you send to win the work. Approved quotes convert to projects."
+          emptyIcon={FileText}
+          count={relatedQuotes.length}
+        >
+          {relatedQuotes.map((q) => (
+            <li key={q.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
+              <Link to={`/quotes/${q.id}`} className="underline">
+                {q.number}
+                {q.title ? ` . ${q.title}` : ''}
+              </Link>
+              <span className="ml-2 inline-flex"><StatusBadge status={q.state} /></span>
+            </li>
+          ))}
+        </RelatedSection>
+      ),
+    },
+    {
+      key: 'projects',
+      label: 'Projects',
+      panel: (
+        <RelatedSection
+          title="PROJECTS"
+          entity="project"
+          ctaLabel="New project"
+          ctaHref={`/projects/new?customer_id=${c.id}`}
+          isLoading={projectsQuery.isLoading}
+          emptyExplainer="Projects are the units of work you deliver to this customer. Each one tracks materials, phases, and shipments."
+          emptyIcon={Folder}
+          count={relatedProjects.length}
+        >
+          {relatedProjects.map((p) => (
+            <li key={p.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
+              <Link to={`/projects/${p.id}`} className="underline">
+                {p.number}
+                {p.name ? ` . ${p.name}` : ''}
+              </Link>
+              <span className="ml-2 inline-flex"><StatusBadge status={p.state} /></span>
+            </li>
+          ))}
+        </RelatedSection>
+      ),
+    },
+    {
+      key: 'invoices',
+      label: 'Invoices',
+      panel: (
+        <RelatedSection
+          title="INVOICES"
+          entity="invoice"
+          ctaLabel="New invoice"
+          ctaHref={`/invoicing/invoices/new?customer_id=${c.id}`}
+          isLoading={invoicesQuery.isLoading}
+          emptyExplainer="Invoices bill this customer for delivered work. Send one to start the receivable clock."
+          emptyIcon={Receipt}
+          count={invoices.length}
+        >
+          {invoices.map((inv) => (
+            <li
+              key={inv.id}
+              className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
+            >
+              <Link to={`/invoicing/invoices/${inv.id}`} className="underline">
+                {inv.invoice_number}
+              </Link>
+              <span className="ml-2 inline-flex"><StatusBadge status={inv.status} /></span>
+            </li>
+          ))}
+        </RelatedSection>
+      ),
+    },
+    {
+      key: 'payments',
+      label: 'Payments',
+      panel: (
+        <RelatedSection
+          title="PAYMENTS"
+          entity="payment"
+          ctaLabel="Receive payment"
+          ctaHref={`/invoicing/payments/new?customer_id=${c.id}`}
+          isLoading={paymentsQuery.isLoading}
+          emptyExplainer="Payments record money received against this customer's invoices. Log them to close out receivables."
+          emptyIcon={CreditCard}
+          count={payments.length}
+        >
+          {payments.map((p) => (
+            <li
+              key={p.id}
+              className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
+            >
+              <span>{p.payment_number}</span>
+              <span className="text-ink-dim ml-2 text-xs font-mono">
+                {formatCents(p.amount_cents, p.currency_code ?? 'USD')}
+              </span>
+            </li>
+          ))}
+        </RelatedSection>
+      ),
+    },
+    {
+      key: 'contacts',
+      label: 'Contacts',
+      panel: (
+        <RelatedSection
+          title="CONTACTS"
+          entity="contact"
+          ctaLabel="New contact"
+          ctaHref={`/crm/contacts/new?customer_id=${c.id}&return_to=${encodeURIComponent(`/crm/customers/${c.id}`)}`}
+          isLoading={contactsQuery.isLoading}
+          emptyExplainer="Contacts are the people at this customer you work with. Add buyers, AP clerks, and warehouse leads to keep the line of communication clear."
+          emptyIcon={Users}
+          count={contacts.length}
+        >
+          {contacts.map((ct) => (
+            <li
+              key={ct.id}
+              className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
+            >
+              <Link to={`/crm/contacts/${ct.id}`} className="underline">
+                {[ct.first_name, ct.last_name].filter(Boolean).join(' ')}
+              </Link>
+              {ct.title ? (
+                <span className="text-ink-dim ml-2 text-xs">{ct.title}</span>
+              ) : null}
+            </li>
+          ))}
+        </RelatedSection>
+      ),
+    },
+    {
+      key: 'activities',
+      label: 'Activities',
+      panel: (
+        <RelatedSection
+          title="ACTIVITIES"
+          entity="activity"
+          ctaLabel="New activity"
+          ctaHref={`/crm/activities/new?entity_type=customer&entity_id=${c.id}`}
+          isLoading={activitiesQuery.isLoading}
+          emptyExplainer="Activities log calls, emails, and meetings with this customer so the next handoff has the history."
+          emptyIcon={Activity}
+          count={activities.length}
+        >
+          {activities.map((a) => (
+            <li
+              key={a.id}
+              className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
+            >
+              <span>{a.subject}</span>
+              <span className="text-ink-dim ml-2 text-xs font-mono">
+                {a.kind} . {a.status}
+              </span>
+            </li>
+          ))}
+        </RelatedSection>
+      ),
+    },
+  ];
+
   return (
     <section className="px-8 py-10 max-w-4xl mx-auto flex flex-col gap-8">
       <Breadcrumbs
@@ -108,161 +307,7 @@ export function CustomerDetailPage() {
           </Link>
         }
       />
-      <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Kind</dt>
-        <dd>{c.kind}</dd>
-        <dt className="text-ink-dim">Status</dt>
-        <dd><StatusBadge status={c.status} /></dd>
-        <dt className="text-ink-dim">Email</dt>
-        <dd>{c.primary_email ?? ''}</dd>
-        <dt className="text-ink-dim">Phone</dt>
-        <dd>{c.primary_phone ?? ''}</dd>
-        <dt className="text-ink-dim">Tax id</dt>
-        <dd>{c.tax_id ?? ''}</dd>
-        <dt className="text-ink-dim">Default currency</dt>
-        <dd>{c.default_currency_code ?? ''}</dd>
-      </dl>
-
-      <InviteToPortalSection
-        customerId={c.id}
-        customerEmail={c.primary_email}
-      />
-
-      <RelatedSection
-        title="QUOTES"
-        entity="quote"
-        ctaLabel="New quote"
-        ctaHref={`/quotes/new?customer_id=${c.id}`}
-        isLoading={quotesQuery.isLoading}
-        emptyExplainer="Quotes are priced proposals you send to win the work. Approved quotes convert to projects."
-        emptyIcon={FileText}
-        count={relatedQuotes.length}
-      >
-        {relatedQuotes.map((q) => (
-          <li key={q.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
-            <Link to={`/quotes/${q.id}`} className="underline">
-              {q.number}
-              {q.title ? ` . ${q.title}` : ''}
-            </Link>
-            <span className="ml-2 inline-flex"><StatusBadge status={q.state} /></span>
-          </li>
-        ))}
-      </RelatedSection>
-
-      <RelatedSection
-        title="PROJECTS"
-        entity="project"
-        ctaLabel="New project"
-        ctaHref={`/projects/new?customer_id=${c.id}`}
-        isLoading={projectsQuery.isLoading}
-        emptyExplainer="Projects are the units of work you deliver to this customer. Each one tracks materials, phases, and shipments."
-        emptyIcon={Folder}
-        count={relatedProjects.length}
-      >
-        {relatedProjects.map((p) => (
-          <li key={p.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
-            <Link to={`/projects/${p.id}`} className="underline">
-              {p.number}
-              {p.name ? ` . ${p.name}` : ''}
-            </Link>
-            <span className="ml-2 inline-flex"><StatusBadge status={p.state} /></span>
-          </li>
-        ))}
-      </RelatedSection>
-
-      <RelatedSection
-        title="INVOICES"
-        entity="invoice"
-        ctaLabel="New invoice"
-        ctaHref={`/invoicing/invoices/new?customer_id=${c.id}`}
-        isLoading={invoicesQuery.isLoading}
-        emptyExplainer="Invoices bill this customer for delivered work. Send one to start the receivable clock."
-        emptyIcon={Receipt}
-        count={invoices.length}
-      >
-        {invoices.map((inv) => (
-          <li
-            key={inv.id}
-            className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
-          >
-            <Link to={`/invoicing/invoices/${inv.id}`} className="underline">
-              {inv.invoice_number}
-            </Link>
-            <span className="ml-2 inline-flex"><StatusBadge status={inv.status} /></span>
-          </li>
-        ))}
-      </RelatedSection>
-
-      <RelatedSection
-        title="PAYMENTS"
-        entity="payment"
-        ctaLabel="Receive payment"
-        ctaHref={`/invoicing/payments/new?customer_id=${c.id}`}
-        isLoading={paymentsQuery.isLoading}
-        emptyExplainer="Payments record money received against this customer's invoices. Log them to close out receivables."
-        emptyIcon={CreditCard}
-        count={payments.length}
-      >
-        {payments.map((p) => (
-          <li
-            key={p.id}
-            className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
-          >
-            <span>{p.payment_number}</span>
-            <span className="text-ink-dim ml-2 text-xs font-mono">
-              {formatCents(p.amount_cents, p.currency_code ?? 'USD')}
-            </span>
-          </li>
-        ))}
-      </RelatedSection>
-
-      <RelatedSection
-        title="CONTACTS"
-        entity="contact"
-        ctaLabel="New contact"
-        ctaHref={`/crm/contacts/new?customer_id=${c.id}&return_to=${encodeURIComponent(`/crm/customers/${c.id}`)}`}
-        isLoading={contactsQuery.isLoading}
-        emptyExplainer="Contacts are the people at this customer you work with. Add buyers, AP clerks, and warehouse leads to keep the line of communication clear."
-        emptyIcon={Users}
-        count={contacts.length}
-      >
-        {contacts.map((ct) => (
-          <li
-            key={ct.id}
-            className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
-          >
-            <Link to={`/crm/contacts/${ct.id}`} className="underline">
-              {[ct.first_name, ct.last_name].filter(Boolean).join(' ')}
-            </Link>
-            {ct.title ? (
-              <span className="text-ink-dim ml-2 text-xs">{ct.title}</span>
-            ) : null}
-          </li>
-        ))}
-      </RelatedSection>
-
-      <RelatedSection
-        title="ACTIVITIES"
-        entity="activity"
-        ctaLabel="New activity"
-        ctaHref={`/crm/activities/new?entity_type=customer&entity_id=${c.id}`}
-        isLoading={activitiesQuery.isLoading}
-        emptyExplainer="Activities log calls, emails, and meetings with this customer so the next handoff has the history."
-        emptyIcon={Activity}
-        count={activities.length}
-      >
-        {activities.map((a) => (
-          <li
-            key={a.id}
-            className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
-          >
-            <span>{a.subject}</span>
-            <span className="text-ink-dim ml-2 text-xs font-mono">
-              {a.kind} . {a.status}
-            </span>
-          </li>
-        ))}
-      </RelatedSection>
+      <Tabs aria-label="Customer detail" tabs={tabs} />
     </section>
   );
 }
