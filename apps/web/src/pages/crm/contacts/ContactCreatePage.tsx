@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker } from '@/components/ui/pickers';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { createContact } from '@/lib/services/contactsService';
 import { safeSameOriginPath } from '@/lib/safePath';
@@ -47,6 +48,20 @@ export function ContactCreatePage() {
     mutationFn: (body: ContactCreate) => createContact(body),
     onSuccess: (created: Contact) => {
       void qc.invalidateQueries({ queryKey: contactsKeys.all });
+      // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+      // next verb. The toast action is an independent alternate path to the
+      // activity form (ActivityCreatePage reads ?entity_type= and ?entity_id=);
+      // it does not change the final navigate, which still honors return_to.
+      const contactName = [firstName.trim(), lastName.trim()]
+        .filter((part) => part.length > 0)
+        .join(' ');
+      nextStepToast(`Contact ${contactName} created. Add an activity next.`, {
+        label: 'Add activity',
+        onClick: () =>
+          navigate(
+            `/crm/activities/new?entity_type=contact&entity_id=${created.id}`,
+          ),
+      });
       // PR-6 / B6: prefer the validated return_to (same-origin path)
       // over the default contact-detail destination so a customer-page
       // entry round-trips back to that customer.

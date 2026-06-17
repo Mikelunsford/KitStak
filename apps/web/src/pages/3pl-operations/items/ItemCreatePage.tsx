@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { useCreateItem } from '@/lib/hooks/useItems';
 
 export function ItemCreatePage() {
@@ -41,6 +42,12 @@ export function ItemCreatePage() {
       },
       {
         onSuccess: (result) => {
+          // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create. Message
+          // only: BomCreatePage does not read a ?parent_item_id= query param
+          // (it starts from a blank finished-item picker), so a "Create BOM"
+          // action would land on a page that ignores the prefill. We do not
+          // link to a route that drops the param.
+          nextStepToast(`Item ${sku} created.`);
           navigate(`/catalog/items/${result.id}`);
         },
       },

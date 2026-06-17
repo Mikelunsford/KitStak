@@ -15,6 +15,7 @@ import { useCreateShipment } from '@/lib/hooks/useOps';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useProject } from '@/lib/hooks/useProjects';
 import { createShipmentLineItem } from '@/lib/services/shipmentLineItemsService';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { parseProjectIdParam } from '@/lib/urlParams';
 import type { Shipment } from '@/lib/types/vendors_inventory_ops';
 
@@ -134,6 +135,14 @@ export function ShipmentCreatePage() {
       setSubmittingLines(false);
     }
 
+    // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+    // next verb. With staged lines the shipment is ready to pack and ship;
+    // without, the next step is adding lines on the detail page.
+    nextStepToast(
+      lines.length > 0
+        ? 'Shipment created. Pack and ship it next.'
+        : 'Shipment created. Add line items next.',
+    );
     navigate(`/3pl-operations/shipments/${createdId}`);
   }
 

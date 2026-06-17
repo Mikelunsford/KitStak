@@ -7,9 +7,12 @@ import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { PercentInput } from '@/components/forms/PercentInput';
 import { VendorPicker, ItemPicker } from '@/components/ui/pickers';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { useCreatePurchaseOrder } from '@/lib/hooks/usePurchaseOrders';
 import { createPoLineItem } from '@/lib/services/poLineItemsService';
 import type { PoLineItem } from '@/lib/types/vendors_inventory_ops';
+
+import { poCreatedMessage } from './poCreatedToast';
 
 /**
  * POCreatePage. Closes G-PO-FORM-01 (VendorPicker replaces raw UUID input)
@@ -116,6 +119,11 @@ export function POCreatePage() {
         );
       }
 
+      // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+      // next verb. linesToPost is the real count of non-empty lines POSTed;
+      // with lines the PO is ready to send, without it the next step is adding
+      // lines on the detail page.
+      nextStepToast(poCreatedMessage(out.po_number, linesToPost.length));
       navigate(`/purchasing/purchase-orders/${out.id}`);
     } catch (err) {
       setError((err as Error).message);
