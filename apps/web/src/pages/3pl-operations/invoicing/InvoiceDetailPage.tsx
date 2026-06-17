@@ -266,7 +266,7 @@ export function InvoiceDetailPage() {
                     to={`/crm/customers/${customerId}`}
                     className="text-ink hover:text-accent"
                   >
-                    {customer.data?.display_name ?? customerId}
+                    {fallbackLabel(customer.data?.display_name, customerId)}
                   </Link>
                 </span>
               )}
@@ -277,7 +277,7 @@ export function InvoiceDetailPage() {
                     to={`/projects/${projectId}`}
                     className="text-ink hover:text-accent"
                   >
-                    {project.data?.project.number ?? projectId}
+                    {fallbackLabel(project.data?.project.number, projectId)}
                   </Link>
                 </span>
               )}
@@ -288,7 +288,7 @@ export function InvoiceDetailPage() {
                     to={`/quotes/${sourceQuoteId}`}
                     className="text-ink hover:text-accent"
                   >
-                    {sourceQuote.data?.quote.number ?? sourceQuoteId}
+                    {fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}
                   </Link>
                 </span>
               )}

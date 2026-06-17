@@ -288,7 +288,7 @@ export function QuoteDetailPage() {
                     to={`/crm/customers/${customerId}`}
                     className="text-ink hover:text-accent"
                   >
-                    {customer.data?.display_name ?? customerId}
+                    {fallbackLabel(customer.data?.display_name, customerId)}
                   </Link>
                 </span>
               ) : null}
