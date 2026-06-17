@@ -1,32 +1,32 @@
 /**
- * StateStepper. Display-only horizontal progress stepper that visualizes
- * an entity's position on its FSM happy-path. Implements UX-Q7 from the
- * 2026-05-21 UX revision walk.
+ * StateStepper. Horizontal progress stepper that visualizes an entity's
+ * position on its FSM happy-path. Originally display-only (UX-Q7, 2026-05-21).
  *
- * Operator decision (locked at UX-Q7): the stepper is DISPLAY-ONLY. It
- * renders the current step but is NOT clickable. State transitions still
- * happen via the existing buttons (Submit / Approve / Send / etc.) on
- * each detail page. The stepper visualizes progress; the buttons drive
- * transitions. This keeps the mental model clean and avoids accidental
- * navigations through what looks like a control surface.
+ * UX-Q7 reopened (UI/UX reconfiguration, 2026-06-16, Pattern D): the stepper now
+ * supports an OPTIONAL interactive next step. When the caller passes `onAdvance`,
+ * the single immediate-next happy-path step renders as a button that fires
+ * `onAdvance(nextState)`. The caller maps that state to the same transition its
+ * action buttons already use, so the server stays the authority and no new
+ * transition path is introduced. Every other step (past, current, and any
+ * further-future step) stays display-only, so the rail never looks like a
+ * many-step control surface. With no `onAdvance`, the stepper is display-only
+ * exactly as before, so the pages that have not opted in are unchanged.
  *
- * Placement on each FSM-driven detail page: below the breadcrumbs from
- * #110 and above the page <h1> title. The stepper replaces the static
- * state pill (previously rendered as `<span class="...font-mono uppercase">`
- * in the header) entirely on those pages.
+ * Placement on each FSM-driven detail page: below the breadcrumbs from #110 and
+ * above the page <h1> title. The stepper replaces the static state pill on those
+ * pages.
  *
  * Visual:
  *   * Past steps     -> filled accent-color dot, line in `ink`
  *   * Current step   -> outlined accent-color dot, label rendered prominently
  *   * Future steps   -> ink-dim dot, ink-dim line, muted label
+ *   * Next step (interactive) -> the future-step styling inside a button with a
+ *     hover/focus affordance and an "Advance to ..." aria-label
  *   * Off-path final -> separate "off-path" badge to the right of the stepper
  *
- * Mobile: the flex row wraps. On the narrowest viewports the stepper
- * stacks vertically because `flex-wrap` allows steps to wrap to the next
- * line; each step keeps its dot-then-label vertical anchor.
- *
- * No `onClick`, `Link`, or `role="button"` on any of the step dots or
- * labels. The component is purely informational.
+ * Mobile: the flex row wraps. On the narrowest viewports the stepper stacks
+ * vertically because `flex-wrap` allows steps to wrap to the next line; each step
+ * keeps its dot-then-label vertical anchor.
  */
 
 export interface StateStepperStep {
@@ -80,10 +80,22 @@ export interface StateStepperProps {
    * have not yet wired the audit_log read.
    */
   visitedStates?: readonly string[] | undefined;
+  /**
+   * Optional (Pattern D, UX-Q7 reopened). When supplied, the single immediate
+   * next happy-path step (currentIndex + 1) renders as a button that fires
+   * `onAdvance(nextState)`. The caller maps the state to the same transition its
+   * action buttons use; the server remains the authority. Omit it to keep the
+   * stepper display-only. Ignored when the current state is off-path or terminal
+   * (no next step to advance to).
+   */
+  onAdvance?: ((toState: string) => void) | undefined;
+  /** When true, the interactive next step is disabled (a transition is in flight). */
+  advancePending?: boolean | undefined;
 }
 
 export function StateStepper(props: StateStepperProps) {
-  const { steps, current, offPath, visitedStates } = props;
+  const { steps, current, offPath, visitedStates, onAdvance, advancePending } =
+    props;
 
   // Resolve the current index. If the current state is not on the happy path,
   // the index is -1 and we render the whole path as muted plus the off-path
@@ -91,6 +103,13 @@ export function StateStepper(props: StateStepperProps) {
   const currentIndex = steps.findIndex((s) => s.state === current);
   const isOffPath = currentIndex === -1;
   const visitedSet = visitedStates ? new Set(visitedStates) : null;
+
+  // Pattern D: the single immediate next happy-path step is interactive when the
+  // caller supplied onAdvance and the current state is on-path with a step ahead.
+  // nextIndex === -1 means off-path; nextIndex === steps.length means terminal.
+  const nextIndex = isOffPath ? -1 : currentIndex + 1;
+  const canAdvanceNext =
+    onAdvance !== undefined && nextIndex !== -1 && nextIndex < steps.length;
 
   return (
     <div
@@ -170,19 +189,42 @@ export function StateStepper(props: StateStepperProps) {
               data-phase={phase}
               aria-current={isCurrent ? 'step' : undefined}
             >
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-block h-3 w-3 ${dotClass}`}
-                  aria-hidden="true"
-                  data-testid="state-stepper-dot"
-                />
-                <span
-                  className={`font-sans text-xs uppercase tracking-wide ${labelClass}`}
-                  data-testid="state-stepper-label"
+              {canAdvanceNext && index === nextIndex ? (
+                <button
+                  type="button"
+                  onClick={() => onAdvance?.(step.state)}
+                  disabled={advancePending}
+                  aria-label={`Advance to ${step.label}`}
+                  data-testid="state-stepper-advance"
+                  className="group flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {step.label}
-                </span>
-              </div>
+                  <span
+                    className={`inline-block h-3 w-3 ${dotClass} group-hover:border-accent`}
+                    aria-hidden="true"
+                    data-testid="state-stepper-dot"
+                  />
+                  <span
+                    className={`font-sans text-xs uppercase tracking-wide ${labelClass} group-hover:text-ink`}
+                    data-testid="state-stepper-label"
+                  >
+                    {step.label}
+                  </span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block h-3 w-3 ${dotClass}`}
+                    aria-hidden="true"
+                    data-testid="state-stepper-dot"
+                  />
+                  <span
+                    className={`font-sans text-xs uppercase tracking-wide ${labelClass}`}
+                    data-testid="state-stepper-label"
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              )}
               {!isLast && (
                 <span
                   className={`inline-block h-px w-6 ${connectorClass}`}

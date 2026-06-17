@@ -4,7 +4,7 @@
 // NextStepCTA.test.ts in this repo: vitest runs without jsdom/testing-library,
 // so we call the function component directly and walk the returned React
 // element tree to lock the constitutional invariants:
-//   - the component is display-only (no onClick handlers anywhere)
+//   - the component is display-only by default; interactive only via onAdvance
 //   - past / current / future styling is correct
 //   - off-path renders the muted path + accent badge
 //   - terminal step has no trailing connector
@@ -164,10 +164,10 @@ describe('StateStepper (UX-Q7)', () => {
     expect(steps.every((s) => s.props['aria-current'] === undefined)).toBe(true);
   });
 
-  it('contains NO onClick handlers anywhere in the rendered tree (display-only)', () => {
-    // UX-Q7 locked decision: stepper is display-only, not clickable. This
-    // test guards against accidentally adding an interaction handler that
-    // would change the operator's mental model.
+  it('is display-only when onAdvance is omitted (no onClick handlers)', () => {
+    // UX-Q7 reopened (Pattern D): the stepper is interactive ONLY when the
+    // caller passes onAdvance. Without it the rail stays display-only, so the
+    // pages that have not opted in are unchanged. This locks that default.
     const result = StateStepper({
       steps: QUOTE_STEPS,
       current: 'submitted',
@@ -180,7 +180,7 @@ describe('StateStepper (UX-Q7)', () => {
     expect(withOnClick.length).toBe(0);
   });
 
-  it('renders no <a>, <button>, or <Link> elements (display-only)', () => {
+  it('renders no button or link elements when onAdvance is omitted (display-only default)', () => {
     const result = StateStepper({ steps: QUOTE_STEPS, current: 'approved' });
     const interactive = collectElements(result, (el) => {
       if (el.type === 'a' || el.type === 'button') return true;
@@ -352,5 +352,68 @@ describe('StateStepper (UX-Q7)', () => {
     const connector = collectByTestId(pending, 'state-stepper-connector')[0]!;
     const cls = connector.props.className ?? '';
     expect(cls).toContain('bg-ink-faint');
+  });
+
+  // -----------------------------------------------------------------------
+  // UX-Q7 reopened (Pattern D): the optional interactive next step.
+  // -----------------------------------------------------------------------
+  it('renders the immediate next step as a single advance button when onAdvance is supplied', () => {
+    const calls: string[] = [];
+    const result = StateStepper({
+      steps: QUOTE_STEPS,
+      current: 'draft',
+      onAdvance: (s) => calls.push(s),
+    });
+    const advances = collectByTestId(result, 'state-stepper-advance');
+    expect(advances.length).toBe(1);
+    // Exactly one button in the whole tree: current and further-future steps
+    // stay display-only.
+    const buttons = collectElements(result, (el) => el.type === 'button');
+    expect(buttons.length).toBe(1);
+    // Clicking fires onAdvance with the NEXT state (submitted), not the current.
+    (advances[0]!.props.onClick as () => void)();
+    expect(calls).toEqual(['submitted']);
+  });
+
+  it('targets the next happy step relative to the current state', () => {
+    const calls: string[] = [];
+    const result = StateStepper({
+      steps: QUOTE_STEPS,
+      current: 'approved',
+      onAdvance: (s) => calls.push(s),
+    });
+    const advance = collectByTestId(result, 'state-stepper-advance')[0]!;
+    (advance.props.onClick as () => void)();
+    expect(calls).toEqual(['project_pending']);
+  });
+
+  it('renders no advance button when the current state is off-path', () => {
+    const result = StateStepper({
+      steps: QUOTE_STEPS,
+      current: 'cancelled',
+      offPath: { state: 'cancelled', label: 'Cancelled' },
+      onAdvance: () => {},
+    });
+    expect(collectByTestId(result, 'state-stepper-advance').length).toBe(0);
+  });
+
+  it('renders no advance button at a terminal current step (no next step)', () => {
+    const result = StateStepper({
+      steps: QUOTE_STEPS,
+      current: 'project_pending',
+      onAdvance: () => {},
+    });
+    expect(collectByTestId(result, 'state-stepper-advance').length).toBe(0);
+  });
+
+  it('disables the advance button while advancePending', () => {
+    const result = StateStepper({
+      steps: QUOTE_STEPS,
+      current: 'draft',
+      onAdvance: () => {},
+      advancePending: true,
+    });
+    const advance = collectByTestId(result, 'state-stepper-advance')[0]!;
+    expect(advance.props.disabled).toBe(true);
   });
 });

@@ -126,6 +126,20 @@ export function QuoteDetailPage() {
     (jobTypes.data ?? []).find((j) => j.id === quote.job_type_id)?.name ?? null;
   const jobTypeEditable = !['cancelled', 'project_pending'].includes(state);
 
+  // UX-Q7 reopened (Pattern D): the rail's next step advances the quote through
+  // its happy path using the same handlers as the action buttons below. The
+  // quote FSM allows every consecutive happy-path edge (draft -> submitted ->
+  // approved -> project_pending), so the next rail step is always a valid move;
+  // the server enforces the cap, exactly as the buttons do.
+  const advanceQuote = (toState: string) => {
+    if (!id) return;
+    if (toState === 'submitted') submit.mutate(id);
+    else if (toState === 'approved') approve.mutate(id);
+    else if (toState === 'project_pending') convert.mutate(id);
+  };
+  const advancePending =
+    submit.isPending || approve.isPending || convert.isPending;
+
   // F-Wave8-PDF-QUOTE-DOWNLOAD-01. Build the quote render payload from the
   // loaded quote and its line items, call the pdf-worker, and trigger a
   // download via a hidden anchor. Mirrors InvoiceDetailPage's onDownloadPdf.
@@ -261,11 +275,12 @@ export function QuoteDetailPage() {
           { label: quote.number },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
-          static state pill that previously lived in the header. Placed
-          BELOW the breadcrumbs and ABOVE the page title because the
-          stepper sets the workflow context the operator carries into
-          everything below it (title, CTA, line items). */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control that advances the quote (advanceQuote maps it to
+          the same submit / approve / convert handlers as the buttons below).
+          Past, current, and further-future steps stay display-only. Placed below
+          the breadcrumbs and above the title so the stepper sets the workflow
+          context the operator carries into everything below it. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.quote.path]}
         current={state}
@@ -274,6 +289,8 @@ export function QuoteDetailPage() {
             ? { state, label: formatQuoteStateLabel(state) }
             : undefined
         }
+        onAdvance={advanceQuote}
+        advancePending={advancePending}
       />
       <PageHeader
         title={quote.number}
