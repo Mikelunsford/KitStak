@@ -47,6 +47,7 @@ import {
 } from '../../_shared/workflow/finance.ts';
 import { BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
+import { nextDocNumber } from '../../_shared/numbering.ts';
 
 const CN_COLS =
   'id, org_id, credit_note_number, customer_id, source_invoice_id, status, ' +
@@ -56,7 +57,11 @@ const CN_COLS =
 const ALLOC_COLS = 'id, credit_note_id, invoice_id, amount_cents, created_at';
 
 const CreditNoteCreateSchema = z.object({
-  credit_note_number: z.string().min(1),
+  // Optional override. When absent or whitespace-only the handler allocates the
+  // next CN-YYYY-NNNNN via the org-scoped numbering chassis (next_doc_number).
+  // The CN- numbering_sequences row is already seeded for every org, so no
+  // migration accompanies this change.
+  credit_note_number: z.string().min(1).optional(),
   customer_id: z.string().uuid().optional(),
   source_invoice_id: z.string().uuid().optional(),
   currency_code: z.string().min(3).max(3).default('USD'),
@@ -165,9 +170,16 @@ export async function createCreditNote(ctx: RouteCtx): Promise<Response> {
       if (body.source_invoice_id) {
         await assertRefInOrg('invoices', caller, body.source_invoice_id);
       }
+      // Operator may pass a credit_note_number to override; otherwise the
+      // org-scoped numbering chassis allocates the next CN-YYYY-NNNNN string.
+      // Empty / whitespace-only strings are treated as absent so the SPA can
+      // drop the field entirely. Mirrors the createInvoice pattern.
+      const creditNoteNumber = body.credit_note_number?.trim()
+        ? body.credit_note_number.trim()
+        : await nextDocNumber(caller.orgId, 'credit_note');
       const insert = {
         org_id: caller.orgId,
-        credit_note_number: body.credit_note_number,
+        credit_note_number: creditNoteNumber,
         customer_id: body.customer_id ?? null,
         source_invoice_id: body.source_invoice_id ?? null,
         currency_code: body.currency_code,

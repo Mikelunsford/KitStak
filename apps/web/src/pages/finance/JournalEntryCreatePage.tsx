@@ -101,13 +101,14 @@ export function JournalEntryCreatePage() {
         return input;
       });
 
+    const trimmedNumber = entryNumber.trim();
     const body = {
-      entry_number: entryNumber,
       entry_date: entryDate,
       period_year: year,
       period_month: month,
       source_type: 'manual' as const,
       lines: lineInputs,
+      ...(trimmedNumber ? { entry_number: trimmedNumber } : {}),
       ...(memo ? { memo } : {}),
     };
 
@@ -126,7 +127,7 @@ export function JournalEntryCreatePage() {
             label="Entry number"
             value={entryNumber}
             onChange={(e) => setEntryNumber(e.target.value)}
-            required
+            placeholder="Leave blank to auto-assign"
           />
           <TextInput
             label="Entry date"

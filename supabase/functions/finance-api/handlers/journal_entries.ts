@@ -37,6 +37,7 @@ import {
 } from '../../_shared/types/finance.ts';
 import { requireFinanceJeFlag, BUNDLE } from '../_helpers.ts';
 import { requireCap } from '../../_shared/handler-helpers.ts';
+import { nextDocNumber } from '../../_shared/numbering.ts';
 
 const JE_COLS =
   'id, org_id, entry_number, entry_date, period_year, period_month, status, ' +
@@ -55,7 +56,12 @@ const JeLineInputSchema = z.object({
 });
 
 const JeCreateSchema = z.object({
-  entry_number: z.string().min(1),
+  // Optional override for the manual lane. When absent or whitespace-only the
+  // handler allocates the next JE-M-YYYY-NNNNN via the org-scoped numbering
+  // chassis (migration 0119). The JE-M- prefix is distinct from the JE-
+  // namespace the 0024 auto-JE triggers mint, so manual and auto entries never
+  // collide on journal_entries.unique(org_id, entry_number).
+  entry_number: z.string().min(1).optional(),
   entry_date: z.string(),
   period_year: z.number().int(),
   period_month: z.number().int().min(1).max(12),
@@ -175,9 +181,17 @@ export async function createJournalEntry(ctx: RouteCtx): Promise<Response> {
       );
       // source_id varies by source_type and may point at an external reference;
       // cross-tenant validation deferred.
+      // Operator may pass an entry_number to override; otherwise the org-scoped
+      // numbering chassis allocates the next JE-M-YYYY-NNNNN string. Empty /
+      // whitespace-only strings are treated as absent so the SPA can drop the
+      // field entirely. The 0024 auto-JE path mints its own JE- entry numbers
+      // and is untouched.
+      const entryNumber = body.entry_number?.trim()
+        ? body.entry_number.trim()
+        : await nextDocNumber(caller.orgId, 'journal_entry');
       const insert = {
         org_id: caller.orgId,
-        entry_number: body.entry_number,
+        entry_number: entryNumber,
         entry_date: body.entry_date,
         period_year: body.period_year,
         period_month: body.period_month,
