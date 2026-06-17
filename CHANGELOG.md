@@ -10,6 +10,22 @@ Built and held for the operator merge nod, not on prod.
 
 - **SSO store-metadata MVP (F-Wave13-SSO-HANDSHAKE-01, #298, migration 0118)**: `sso_connections.provider_validated_at` plus a CHECK that a connection cannot be active until validated; an `oidc_configs` table mirroring the `saml_configs` Pattern B RLS; and `settings-api` `POST /sso/saml-metadata` and `/sso/oidc-metadata` to store IdP metadata (requires `org.sso.write`, gated behind `auth.sso_saml`, Idempotency-Key enforced, cross-tenant or unknown connection returns 404). The SPA Configure panel stores metadata, Mark-validated sets `provider_validated_at`, and Activate is gated until validated. The OIDC `client_secret` is deferred to the live-handshake phase (not stored, so no plaintext secret at rest). The live identity-provider handshake stays an operator step. Verified on staging; four-lens reviewed.
 
+## [0.23.0] · 2026-06-17 Rail consistency and the held backend trio (PRs #321 to #324)
+
+The two deferred rail follow-ups plus the three held backend items, all shipped to prod the same day. The scoping pass found the backend trio was mostly already built: default-for-org shipped its columns, one-default unique indexes, and atomic-flip RPCs back in migration 0011; credit-note numbering was already seeded; and the invoice line PATCH already existed end to end. Only one small migration (journal-entry numbering) and one new endpoint (the quote line PATCH) were genuinely new. Prod advanced to migration 0119.
+
+### Added
+
+- **Inline draft-line editing (#324, F-UIUX-INLINE-LINES-01)**: quote and invoice draft lines gain an in-place Edit affordance. A new `PATCH /quotes/:id/line-items/:lineId` endpoint mirrors the create handler (cap-gated, server-side draft guard, ownership double-scoped to line and quote id, `assertRefInOrg` on item/vas/tax, idempotency-wrapped under a unique route key) and recomputes the four line cents server-side via the now-exported `computeLineMath`, re-resolving `tax_rate_snapshot` on a `tax_id` change. No migration (the UPDATE RLS policy shipped in 0116). The invoice side reused its already-built PATCH; only the editor UI was added. An adversarial review hardened two null-row edge cases and surfaced the recompute RPC error.
+- **Interactive rail on three more first edges (#321, F-UIUX-RAIL-FIRST-EDGE-01)**: the Pattern D rail is wired on the safe first edge of the manufacturing run (draft to started), production run (planned to in_progress), and credit note (draft to issued), each pinned so it never offers the destructive complete or the navigate-to-apply step.
+- **Set-as-default for taxes and payment methods (#323, F-UIUX-DEFAULT-FOR-ORG-01)**: the two sales-config list pages gain a cap-gated Set-as-default row action over the existing atomic-flip RPC.
+
+### Changed
+
+- **Auto-assigned document numbers for credit notes and journal entries (#322, F-UIUX-AUTONUMBER-JE-01)**: both create paths allocate the next document number from the org-scoped numbering chassis when the field is left blank, so the operator no longer hand-types one. Credit notes needed no migration (the CN- row was already seeded); journal entries got migration 0119 with a JE-M- prefix kept clear of the JE- namespace the auto-JE triggers use. The number field stays an optional override.
+- **Default-for-org checkbox made effective (#323, F-UIUX-DEFAULT-FOR-ORG-01)**: the tax and payment-method create/update path routes a checked default through the atomic-flip RPC instead of a raw column write (which previously 500ed on a second default), inside the idempotency closure; unchecking on edit is non-destructive. Quote create now pre-selects the org-default tax and payment method when the header fields are blank.
+- **Opportunity stage controls cap-gated (#321, F-UIUX-RAIL-OPP-CLIENT-CAP-01)**: the ADVANCE STAGE buttons and rail hide for roles without `crm.opportunities.stage.transition`, matching the other detail pages.
+
 ## [0.22.0] · 2026-06-17 UI/UX reconfiguration: the deferred F-UIUX rollout (PRs #315 to #319)
 
 The deferred F-UIUX-* follow-ups from the 0.21.0 phase-2 bundle, completed as five SPA-only PRs. Presentation layer only: no schema, migration, RLS, money, idempotency, audit_log, or contract change. Each branched off `main` on disjoint files so they merge in any order; the index chunk held at roughly 35.8 kB gz under the 40 kB `size-limit` throughout. Grounded by four parallel read-only mapping agents before any edit; the logic-heavy units (the interactive rail gating and the per-route nav caps) carried an adversarial review.
