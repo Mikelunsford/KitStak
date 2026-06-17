@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -7,6 +8,9 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { useCreateQuote } from '@/lib/hooks/useQuotes';
 import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
+import { useTaxesList } from '@/lib/hooks/useTaxes';
+import { paymentMethodsKeys } from '@/lib/queryKeys/paymentMethods';
+import { listPaymentMethods } from '@/lib/services/paymentMethodsService';
 import { addLineItem } from '@/lib/services/quotesService';
 import type { CreateQuoteRequest } from '@/lib/types/sales';
 
@@ -39,6 +43,11 @@ export function QuoteCreatePage() {
   const [searchParams] = useSearchParams();
   const create = useCreateQuote();
   const { data: currencies } = useCurrenciesList();
+  const { data: taxes } = useTaxesList();
+  const { data: paymentMethods } = useQuery({
+    queryKey: paymentMethodsKeys.list(),
+    queryFn: () => listPaymentMethods(),
+  });
 
   const prefilledCustomerId = searchParams.get('customer_id');
 
@@ -58,6 +67,25 @@ export function QuoteCreatePage() {
   const [lines, setLines] = useState<QuoteLineDraft[]>([]);
   const [linesError, setLinesError] = useState<string | null>(null);
   const [submittingLines, setSubmittingLines] = useState(false);
+
+  // Honor the "leave blank to use the org default" placeholder: seed the
+  // header default_tax_id / payment_method_id from the org default once the
+  // lists arrive, but only when the field is still blank. Seeding on the
+  // empty-string transition means an operator's explicit choice (typed or
+  // cleared) is never clobbered; the guard makes the effect idempotent.
+  useEffect(() => {
+    const defaultTax = (taxes ?? []).find((tax) => tax.default_for_org);
+    if (defaultTax) {
+      setDefaultTaxId((current) => (current === '' ? defaultTax.id : current));
+    }
+  }, [taxes]);
+
+  useEffect(() => {
+    const defaultMethod = (paymentMethods ?? []).find((m) => m.default_for_org);
+    if (defaultMethod) {
+      setPaymentMethodId((current) => (current === '' ? defaultMethod.id : current));
+    }
+  }, [paymentMethods]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();

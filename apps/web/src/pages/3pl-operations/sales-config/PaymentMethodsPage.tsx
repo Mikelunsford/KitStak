@@ -3,58 +3,23 @@
 // hand-rolled header, link-as-button CTA, and table. default_for_org stays a
 // plain Yes/No descriptor (it is a flag, not a lifecycle status).
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { paymentMethodsKeys } from '@/lib/queryKeys/paymentMethods';
-import { listPaymentMethods } from '@/lib/services/paymentMethodsService';
+import {
+  listPaymentMethods,
+  setDefaultPaymentMethod,
+} from '@/lib/services/paymentMethodsService';
 import type { PaymentMethod } from '@/lib/types/sales';
 
 const PAGE_SIZE = 50;
-
-const COLUMNS: ReadonlyArray<DataColumn<PaymentMethod>> = [
-  {
-    key: 'code',
-    header: 'Code',
-    cellClassName: 'font-mono',
-    render: (m) => m.code,
-  },
-  {
-    key: 'label',
-    header: 'Label',
-    render: (m) => m.label,
-  },
-  {
-    key: 'kind',
-    header: 'Kind',
-    cellClassName: 'text-ink-dim',
-    render: (m) => m.kind,
-  },
-  {
-    key: 'default',
-    header: 'Default',
-    cellClassName: 'text-ink-dim',
-    render: (m) => (m.default_for_org ? 'Yes' : 'No'),
-  },
-  {
-    key: 'edit',
-    header: '',
-    align: 'right',
-    render: (m) => (
-      <Link
-        to={`/settings/sales-config/payment-methods/${m.id}/edit`}
-        className="text-xs text-ink-dim hover:text-accent"
-      >
-        Edit
-      </Link>
-    ),
-  },
-];
 
 export function PaymentMethodsPage() {
   const { data, isLoading } = useQuery({
@@ -62,6 +27,78 @@ export function PaymentMethodsPage() {
     queryFn: () => listPaymentMethods(),
   });
   const [page, setPage] = useState(0);
+  const caps = useCapabilities();
+  const queryClient = useQueryClient();
+
+  // The server is authority; the cap only hides the button. The atomic-flip
+  // RPC behind setDefaultPaymentMethod unsets the prior default in the same
+  // statement, so we just invalidate the list on success.
+  const setDefault = useMutation({
+    mutationFn: (id: string) => setDefaultPaymentMethod(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: paymentMethodsKeys.list() });
+    },
+  });
+
+  const canSetDefault = caps.can('payment_methods.method.set_default');
+
+  const columns = useMemo<ReadonlyArray<DataColumn<PaymentMethod>>>(
+    () => [
+      {
+        key: 'code',
+        header: 'Code',
+        cellClassName: 'font-mono',
+        render: (m) => m.code,
+      },
+      {
+        key: 'label',
+        header: 'Label',
+        render: (m) => m.label,
+      },
+      {
+        key: 'kind',
+        header: 'Kind',
+        cellClassName: 'text-ink-dim',
+        render: (m) => m.kind,
+      },
+      {
+        key: 'default',
+        header: 'Default',
+        cellClassName: 'text-ink-dim',
+        render: (m) => (m.default_for_org ? 'Yes' : 'No'),
+      },
+      {
+        key: 'set-default',
+        header: '',
+        align: 'right',
+        render: (m) =>
+          canSetDefault && !m.default_for_org ? (
+            <button
+              type="button"
+              onClick={() => setDefault.mutate(m.id)}
+              disabled={setDefault.isPending}
+              className="text-xs text-ink-dim hover:text-accent disabled:opacity-50"
+            >
+              Set as default
+            </button>
+          ) : null,
+      },
+      {
+        key: 'edit',
+        header: '',
+        align: 'right',
+        render: (m) => (
+          <Link
+            to={`/settings/sales-config/payment-methods/${m.id}/edit`}
+            className="text-xs text-ink-dim hover:text-accent"
+          >
+            Edit
+          </Link>
+        ),
+      },
+    ],
+    [canSetDefault, setDefault],
+  );
 
   const rows = data ?? [];
   const totalCount = rows.length;
@@ -85,12 +122,17 @@ export function PaymentMethodsPage() {
         }
       />
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         rows={pageRows}
         getRowKey={(m) => m.id}
         loading={isLoading}
         empty="No payment methods yet."
       />
+      {setDefault.isError ? (
+        <p className="font-sans text-sm text-accent">
+          Failed to set the default payment method.
+        </p>
+      ) : null}
       {totalCount > PAGE_SIZE ? (
         <Pagination
           page={page}
