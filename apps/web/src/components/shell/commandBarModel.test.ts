@@ -7,9 +7,12 @@ import { describe, it, expect } from 'vitest';
 import {
   GROUP_ORDER,
   GROUP_LABEL,
+  buildCommandGroups,
   flattenResults,
+  flattenRows,
   moveIndex,
   orderedGroups,
+  type CommandRow,
 } from './commandBarModel';
 import type { SearchResult, SearchResultItem } from '@/lib/types/cross_cutting';
 
@@ -85,6 +88,57 @@ describe('flattenResults', () => {
 
   it('returns empty for undefined', () => {
     expect(flattenResults(undefined)).toEqual([]);
+  });
+});
+
+describe('buildCommandGroups / flattenRows (verbs plus entities)', () => {
+  const verbRows: CommandRow[] = [
+    {
+      key: 'action-/quotes/new',
+      title: 'New quote',
+      subtitle: 'Action',
+      href: '/quotes/new',
+    },
+  ];
+
+  it('puts the Actions group first, then entity groups in order', () => {
+    const groups = buildCommandGroups(verbRows, RESULT);
+    expect(groups.map((g) => g.key)).toEqual([
+      'action',
+      'customer',
+      'item',
+      'job_run',
+    ]);
+    expect(groups[0]?.label).toBe('Actions');
+  });
+
+  it('omits the Actions group when there are no verbs', () => {
+    const groups = buildCommandGroups([], RESULT);
+    expect(groups.map((g) => g.key)).toEqual(['customer', 'item', 'job_run']);
+  });
+
+  it('maps entity items to rows with a stable key, title, and href', () => {
+    const groups = buildCommandGroups([], RESULT);
+    const customerRows = groups.find((g) => g.key === 'customer')!.rows;
+    expect(customerRows[0]).toMatchObject({ title: 'Acme', href: '/x/Acme' });
+    expect(customerRows[0]?.key).toBe(
+      'customer-00000000-0000-0000-0000-000000000000',
+    );
+  });
+
+  it('flattens verbs first, then entities in display order', () => {
+    const groups = buildCommandGroups(verbRows, RESULT);
+    expect(flattenRows(groups).map((r) => r.title)).toEqual([
+      'New quote',
+      'Acme',
+      'Acorn',
+      'SKU-AC-1',
+      'JR-0007',
+    ]);
+  });
+
+  it('flattenRows returns empty for no groups', () => {
+    expect(flattenRows([])).toEqual([]);
   });
 });
 

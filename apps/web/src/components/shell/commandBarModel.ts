@@ -66,6 +66,75 @@ export function flattenResults(result: SearchResult | undefined): SearchResultIt
   return flat;
 }
 
+// ---------------------------------------------------------------------------
+// Unified command rows. The palette renders two kinds of result in one listbox:
+// action verbs ("New quote", "Receive payment") and entity matches from
+// search-api. Action verbs cannot be SearchResultItems (that schema is an
+// enum-typed entity_type plus a UUID entity_id), so both kinds collapse into a
+// lightweight CommandRow for rendering and keyboard navigation. Selecting any
+// row just navigates to its href.
+// ---------------------------------------------------------------------------
+
+export interface CommandRow {
+  /** Stable React key, unique across the whole flattened list. */
+  key: string;
+  title: string;
+  subtitle: string | null;
+  href: string;
+}
+
+export interface CommandRowGroup {
+  /** Group key: 'action' for verbs, otherwise the SearchResultGroup. */
+  key: 'action' | SearchResultGroup;
+  label: string;
+  rows: CommandRow[];
+}
+
+/** Convert one entity search item into a command row. */
+function entityRow(item: SearchResultItem): CommandRow {
+  return {
+    key: `${item.entity_type}-${item.entity_id}`,
+    title: item.title,
+    subtitle: item.subtitle,
+    href: item.href,
+  };
+}
+
+/**
+ * Build the full grouped row model the palette renders: an Actions group first
+ * (when any verb matched), then the entity groups in GROUP_ORDER. Keeping the
+ * verbs ahead of entity matches puts the executable shortcuts at the top of the
+ * list where Enter lands by default.
+ */
+export function buildCommandGroups(
+  actionRows: ReadonlyArray<CommandRow>,
+  result: SearchResult | undefined,
+): CommandRowGroup[] {
+  const out: CommandRowGroup[] = [];
+  if (actionRows.length > 0) {
+    out.push({ key: 'action', label: 'Actions', rows: [...actionRows] });
+  }
+  for (const g of orderedGroups(result)) {
+    out.push({ key: g.group, label: g.label, rows: g.items.map(entityRow) });
+  }
+  return out;
+}
+
+/**
+ * Flatten the grouped rows into a single list in display order. The flat index
+ * is what arrow-key navigation moves over; each row keeps its href so Enter can
+ * navigate directly to the active row.
+ */
+export function flattenRows(
+  groups: ReadonlyArray<CommandRowGroup>,
+): CommandRow[] {
+  const flat: CommandRow[] = [];
+  for (const g of groups) {
+    for (const row of g.rows) flat.push(row);
+  }
+  return flat;
+}
+
 /**
  * Move the active index by `delta` over a list of `count` rows, wrapping at
  * both ends. With no rows the active index stays at -1 (nothing selectable).

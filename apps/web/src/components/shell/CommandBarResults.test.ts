@@ -1,4 +1,4 @@
-// Component tests for CommandBarResults (R-W13-SRCH-01).
+// Component tests for CommandBarResults (R-W13-SRCH-01, F-UIUX-PALETTE-VERBS-01).
 //
 // Follows the pure-TS element-tree-walk pattern used by StateStepper.test.ts
 // and Breadcrumbs.test.ts: Vitest runs without jsdom/testing-library, so we
@@ -7,15 +7,14 @@
 //   - listbox/option roles and labels
 //   - the active row is the one whose flat index matches activeIndex
 //   - exactly one option is aria-selected at a time
-//   - selecting a row invokes onSelect with that row's item
-//   - rows render in flattened display order across groups
+//   - selecting a row invokes onSelect with that row
+//   - rows render in flattened display order across groups (Actions first)
 
 import { describe, it, expect } from 'vitest';
 import { isValidElement, type ReactElement, type ReactNode } from 'react';
 
 import { CommandBarResults } from './CommandBarResults';
-import type { CommandBarGroup } from './commandBarModel';
-import type { SearchResultItem } from '@/lib/types/cross_cutting';
+import type { CommandRow, CommandRowGroup } from './commandBarModel';
 
 interface ElementProps {
   children?: ReactNode;
@@ -50,34 +49,25 @@ function collectElements(
   return out;
 }
 
-function mkItem(
-  entity_type: SearchResultItem['entity_type'],
-  title: string,
-): SearchResultItem {
-  return {
-    entity_type,
-    entity_id: `id-${title}`,
-    title,
-    subtitle: `sub-${title}`,
-    href: `/go/${title}`,
-  };
+function mkRow(key: string, title: string): CommandRow {
+  return { key, title, subtitle: `sub-${title}`, href: `/go/${title}` };
 }
 
-const GROUPS: CommandBarGroup[] = [
+const GROUPS: CommandRowGroup[] = [
   {
-    group: 'customer',
+    key: 'action',
+    label: 'Actions',
+    rows: [{ key: 'action-/quotes/new', title: 'New quote', subtitle: 'Action', href: '/quotes/new' }],
+  },
+  {
+    key: 'customer',
     label: 'Customers',
-    items: [mkItem('customer', 'Acme'), mkItem('customer', 'Acorn')],
+    rows: [mkRow('customer-1', 'Acme'), mkRow('customer-2', 'Acorn')],
   },
   {
-    group: 'item',
+    key: 'item',
     label: 'Items',
-    items: [mkItem('item', 'SKU-1')],
-  },
-  {
-    group: 'job_run',
-    label: 'Job runs',
-    items: [mkItem('job_run', 'JR-9')],
+    rows: [mkRow('item-1', 'SKU-1')],
   },
 ];
 
@@ -86,7 +76,7 @@ function options(node: ReactNode) {
 }
 
 describe('CommandBarResults (R-W13-SRCH-01)', () => {
-  it('renders a listbox with an accessible label', () => {
+  it('renders a single listbox with an accessible label', () => {
     const tree = CommandBarResults({
       groups: GROUPS,
       activeIndex: 0,
@@ -98,18 +88,18 @@ describe('CommandBarResults (R-W13-SRCH-01)', () => {
     expect(listboxes[0]!.props['aria-label']).toBe('Search results');
   });
 
-  it('renders one option per flattened item in display order', () => {
+  it('renders one option per flattened row in display order (Actions first)', () => {
     const tree = CommandBarResults({
       groups: GROUPS,
       activeIndex: -1,
       onSelect: () => {},
       onHover: () => {},
     });
-    const titles = options(tree).map((el) => el.props['data-flat-index']);
-    expect(titles).toEqual([0, 1, 2, 3]);
+    const indices = options(tree).map((el) => el.props['data-flat-index']);
+    expect(indices).toEqual([0, 1, 2, 3]);
   });
 
-  it('renders a group label for each populated group', () => {
+  it('renders a group label for each populated group, Actions first', () => {
     const tree = CommandBarResults({
       groups: GROUPS,
       activeIndex: 0,
@@ -120,7 +110,7 @@ describe('CommandBarResults (R-W13-SRCH-01)', () => {
       tree,
       (el) => el.props['data-testid'] === 'command-bar-group-label',
     ).map((el) => asArray(el.props.children)[0]);
-    expect(labels).toEqual(['Customers', 'Items', 'Job runs']);
+    expect(labels).toEqual(['Actions', 'Customers', 'Items']);
   });
 
   it('marks exactly the active flat index as aria-selected', () => {
@@ -150,22 +140,22 @@ describe('CommandBarResults (R-W13-SRCH-01)', () => {
     expect(selected.length).toBe(0);
   });
 
-  it('invokes onSelect with the row item on mouse-down (Enter-equivalent path)', () => {
-    let chosen: SearchResultItem | null = null;
+  it('invokes onSelect with the row on mouse-down (Enter-equivalent path)', () => {
+    let chosen: CommandRow | null = null;
     const tree = CommandBarResults({
       groups: GROUPS,
       activeIndex: 0,
-      onSelect: (item) => {
-        chosen = item;
+      onSelect: (row) => {
+        chosen = row;
       },
       onHover: () => {},
     });
     const opts = options(tree);
-    // The third flattened row is the single item SKU-1.
-    const target = opts.find((el) => el.props['data-flat-index'] === 2)!;
+    // The first flattened row is the action verb "New quote".
+    const target = opts.find((el) => el.props['data-flat-index'] === 0)!;
     target.props.onMouseDown?.({ preventDefault: () => {} });
     expect(chosen).not.toBeNull();
-    expect((chosen as unknown as SearchResultItem).title).toBe('SKU-1');
-    expect((chosen as unknown as SearchResultItem).href).toBe('/go/SKU-1');
+    expect((chosen as unknown as CommandRow).title).toBe('New quote');
+    expect((chosen as unknown as CommandRow).href).toBe('/quotes/new');
   });
 });
