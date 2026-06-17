@@ -95,11 +95,11 @@ export function DashboardPage() {
 
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-12">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-6xl font-display tracking-wide text-ink">
-          BUILT TO SHIP.
+      <header className="flex flex-col gap-1">
+        <h1 className="text-3xl font-display tracking-wide text-ink">
+          DASHBOARD
         </h1>
-        <p className="font-sans text-lg text-ink-dim max-w-2xl">
+        <p className="font-sans text-sm text-ink-dim">
           Signed in to {appName}. Your work for the day is below.
         </p>
       </header>
