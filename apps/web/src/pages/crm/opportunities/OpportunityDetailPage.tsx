@@ -8,6 +8,7 @@ import { useCustomer } from '@/lib/hooks/useCustomer';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
@@ -62,6 +63,18 @@ export function OpportunityDetailPage() {
     canCrmTransition(opportunityStageMachine, o.stage, s),
   );
 
+  // UX-Q7 reopened (Pattern D): the rail's immediate next happy-path stage is
+  // interactive only when it is also a stage the page already exposes as a
+  // manual advance button. Every opportunity rail edge (discovery -> evaluation
+  // -> proposal -> negotiation -> closed_won) is a manual stage transition, so
+  // the gate matches `allowed`; advance maps to the same mutation the buttons
+  // use and the server enforces the cap.
+  const railNext = nextStepperState(STATE_STEPPER_PATHS.opportunity.path, o.stage);
+  const canAdvanceRail =
+    railNext !== null && (allowed as readonly string[]).includes(railNext);
+  const advance = (toState: string) =>
+    mutation.mutate(toState as OpportunityStageState);
+
   // G-OPP-FLOW-01: "Create quote from opportunity" carries the customer_id
   // through the query string to QuoteCreatePage, which reads it via
   // useSearchParams().get('customer_id') and pre-fills the customer picker.
@@ -75,11 +88,14 @@ export function OpportunityDetailPage() {
           { label: o.display_name },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. Replaces the
-          Stage row in the dl below; visualizes discovery -> evaluation
-          -> proposal -> negotiation -> closed_won. closed_lost is the
-          off-path sink. Existing stage-advance buttons below remain
-          unchanged - they drive transitions; the stepper only visualizes. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control that advances the opportunity stage (advance maps
+          it to the same transition mutation as the ADVANCE STAGE buttons below).
+          It is only interactive when that next stage is also in `allowed`, so
+          the rail never offers a move the buttons would not. Past, current, and
+          further-future steps stay display-only. Visualizes discovery ->
+          evaluation -> proposal -> negotiation -> closed_won; closed_lost is the
+          off-path sink. The existing stage-advance buttons remain unchanged. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.opportunity.path]}
         current={o.stage}
@@ -91,6 +107,8 @@ export function OpportunityDetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={mutation.isPending}
       />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-4xl font-display tracking-wide text-ink">

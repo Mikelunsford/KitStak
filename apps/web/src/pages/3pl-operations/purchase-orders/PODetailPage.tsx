@@ -11,6 +11,7 @@ import { DetailLayout } from '@/components/ui/DetailLayout';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 import {
   usePurchaseOrder, usePurchaseOrderLines, useTransitionPurchaseOrder,
@@ -49,6 +50,22 @@ export function PODetailPage() {
   const allowedNext = PURCHASE_ORDER_FSM.transitions
     .filter((t) => t.from === data.status)
     .map((t) => t.to);
+
+  // UX-Q7 reopened (Pattern D): the rail's immediate next happy-path status is
+  // interactive only when the operator holds the PO transition capability, the
+  // page already exposes that transition (it is in `allowedNext`), and the FSM
+  // permits it. The manual forward edges (draft -> submitted -> approved ->
+  // partial_received -> received -> closed) are all in `allowedNext`, so the rail
+  // mirrors the existing buttons exactly; advance reuses the same mutation and
+  // the server enforces the cap.
+  const railNext = nextStepperState(STATE_STEPPER_PATHS.purchase_order.path, data.status);
+  const canAdvanceRail =
+    railNext !== null &&
+    caps.can('purchase_orders.purchase_order.transition') &&
+    (allowedNext as readonly string[]).includes(railNext) &&
+    canTransitionVio(PURCHASE_ORDER_FSM, data.status, railNext as PurchaseOrderStatus);
+  const advance = (toState: string) =>
+    transition.mutate(toState as PurchaseOrderStatus);
 
   // F-Wave8-PDF-PO-DOWNLOAD-01. Build the PO render payload from the loaded
   // purchase order and its line items, call the pdf-worker, and trigger a
@@ -101,7 +118,12 @@ export function PODetailPage() {
           { label: data.po_number ?? data.id.slice(0, 8) },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control that advances the purchase order (advance maps it
+          to the same transition mutation as the action buttons below). It is
+          only interactive when the operator holds the transition capability, the
+          page already exposes that transition, and the FSM permits it. Past,
+          current, and further-future steps stay display-only. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.purchase_order.path]}
         current={data.status}
@@ -113,6 +135,8 @@ export function PODetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={transition.isPending}
       />
       <PageHeader
         title={`PO ${data.po_number ?? data.id.slice(0, 8)}`}
