@@ -10,7 +10,9 @@ import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
 import { addLineItem } from '@/lib/services/quotesService';
 import type { CreateQuoteRequest } from '@/lib/types/sales';
 
+import { nextStepToast } from '@/lib/nextStepToast';
 import { QuoteCreateLinesEditor } from './QuoteCreateLinesEditor';
+import { quoteCreatedMessage } from './quoteCreatedToast';
 import {
   quoteDraftsToLineRequests,
   type QuoteLineDraft,
@@ -99,6 +101,10 @@ export function QuoteCreatePage() {
           }
           setSubmittingLines(false);
         }
+        // F-UIUX-TOASTS-01 (Pattern A): confirm the create and name the next
+        // verb. With staged lines the quote is ready to send; without, the next
+        // step is adding lines on the detail page the operator just landed on.
+        nextStepToast(quoteCreatedMessage(result.number, requests.length));
         navigate(`/quotes/${result.id}`);
       },
     });
