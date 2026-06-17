@@ -7,11 +7,12 @@ import { quotesKeys } from '@/lib/queryKeys/quotes';
 import {
   listQuotes, getQuote, createQuote, updateQuote, submitQuote, approveQuote,
   reviseQuote, cancelQuote, sendQuote, convertQuoteToProject,
-  addLineItem, removeLineItem,
+  addLineItem, updateLineItem, removeLineItem,
   type ListQuotesFilters,
 } from '@/lib/services/quotesService';
 import type {
   CreateQuoteRequest, UpdateQuoteRequest, CreateQuoteLineRequest,
+  UpdateQuoteLineRequest,
 } from '@/lib/types/sales';
 import { buildQuoteLinesFromTemplate } from '@/lib/quotes/applyJobTemplate';
 import type { JobTemplate, JobTemplateLine } from '@/lib/services/jobTemplatesService';
@@ -135,6 +136,17 @@ export function useAddLineItem(quoteId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateQuoteLineRequest) => addLineItem(quoteId, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+    },
+  });
+}
+
+export function useUpdateLineItem(quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lineId, payload }: { lineId: string; payload: UpdateQuoteLineRequest }) =>
+      updateLineItem(quoteId, lineId, payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
     },

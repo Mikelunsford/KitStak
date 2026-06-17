@@ -83,7 +83,9 @@ interface OrgFixture {
   leadId: string;
   opportunityId: string;
   itemId: string;
+  taxId: string;
   quoteId: string;
+  quoteLineId: string;
   projectId: string;
   invoiceId: string;
   paymentId: string;
@@ -304,12 +306,31 @@ async function bootstrapOrg(
     sku: `RLS-PROBE-${label}-${FIXTURE_SUFFIX}`.slice(0, 32),
     name: `Probe Item ${label}`,
   });
+  const taxId = await ins('taxes', {
+    code: `RLS-TAX-${label}-${FIXTURE_SUFFIX}`.slice(0, 32),
+    name: `Probe Tax ${label}`,
+    rate_bps: 825,
+  });
   const quoteId = await ins('quotes', {
     number: docNum('Q'),
     customer_id: customerId,
     currency_code: 'USD',
     state: 'draft',
   });
+  // A draft quote line so the cross-tenant PATCH /line-items/:lineId probe has
+  // a real target id under org A's quote (quote_line_items is parented, not
+  // org_id stamped, so it is inserted via the raw admin client, not `ins`).
+  const quoteLineId = await (async () => {
+    const { data, error } = await sb
+      .from('quote_line_items')
+      .insert({ quote_id: quoteId, name: `Probe Line ${label}`, kind: 'item' })
+      .select('id')
+      .single();
+    if (error) {
+      throw new Error(`seed quote_line_items failed: ${error.message}`);
+    }
+    return data.id as string;
+  })();
   const projectId = await ins('projects', {
     number: docNum('P'),
     customer_id: customerId,
@@ -390,7 +411,9 @@ async function bootstrapOrg(
     leadId,
     opportunityId,
     itemId,
+    taxId,
     quoteId,
+    quoteLineId,
     projectId,
     invoiceId,
     paymentId,
@@ -420,6 +443,7 @@ async function teardownOrg(fixture: OrgFixture | null): Promise<void> {
     'invoice_line_items', 'invoice_versions', 'invoices',
     'project_phases', 'projects',
     'quote_approvals', 'quote_versions', 'quote_line_items', 'quotes',
+    'taxes',
     'items', 'opportunities', 'leads', 'contacts', 'customers',
     'warehouses',
     'org_feature_flags', 'org_branding', 'org_settings',
@@ -614,6 +638,34 @@ test.describe('@rls cross-tenant probe matrix', () => {
       'PATCH',
       `/quotes-api/quotes/${orgA!.quoteId}`,
       { notes: 'cross-tenant attempt' },
+    );
+    expect(res.status, GATE_404_MESSAGE).toBe(404);
+  });
+
+  test('@rls quotes-api line-item PATCH across tenants 404s', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    // orgB caller PATCHing a line under orgA's quote. The parent-quote org
+    // check resolves to NOT_FOUND before any write, so a foreign line id can
+    // never be edited. 404, never 403.
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'PATCH',
+      `/quotes-api/quotes/${orgA!.quoteId}/line-items/${orgA!.quoteLineId}`,
+      { unit_price_cents: 999999 },
+    );
+    expect(res.status, GATE_404_MESSAGE).toBe(404);
+  });
+
+  test('@rls quotes-api line-item PATCH with cross-tenant tax_id 404s', async () => {
+    if (!orgA || !orgB) test.skip(true, 'fixtures not ready');
+    // orgB caller PATCHing its OWN line (parent quote passes the org check) but
+    // pointing tax_id at orgA's tax. assertRefInOrg('taxes') must reject the
+    // foreign ref with 404 (never 403) before the tax-rate re-snapshot.
+    const res = await callFn(
+      orgB!.ownerJwt,
+      'PATCH',
+      `/quotes-api/quotes/${orgB!.quoteId}/line-items/${orgB!.quoteLineId}`,
+      { tax_id: orgA!.taxId },
     );
     expect(res.status, GATE_404_MESSAGE).toBe(404);
   });

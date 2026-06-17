@@ -19,6 +19,7 @@ import {
   useInvoice,
   useInvoiceLineItems,
   useCreateInvoiceLineItem,
+  useUpdateInvoiceLineItem,
   useDeleteInvoiceLineItem,
   useSendInvoice,
   useCancelInvoice,
@@ -61,6 +62,7 @@ export function InvoiceDetailPage() {
   const invoice = useInvoice(invoiceId);
   const lines = useInvoiceLineItems(invoiceId);
   const addLine = useCreateInvoiceLineItem(invoiceId);
+  const updateLine = useUpdateInvoiceLineItem(invoiceId);
   const deleteLine = useDeleteInvoiceLineItem(invoiceId);
   const sendMutation = useSendInvoice();
   const cancelMutation = useCancelInvoice();
@@ -99,6 +101,19 @@ export function InvoiceDetailPage() {
   const [lineDesc, setLineDesc] = useState('');
   const [lineQty, setLineQty] = useState('1');
   const [linePrice, setLinePrice] = useState('0');
+  // Inline invoice-line edit. The invoice line encoding differs from the quote:
+  // decimal `quantity`, flat `discount_cents`, decimal-fraction
+  // `tax_rate_snapshot` (0.0825 = 8.25%), and `unit_price_cents` in cents. These
+  // fields are the trusted inputs; the invoicing handler re-derives
+  // tax_amount_cents and line_total_cents server-side (A1), so the SPA never
+  // sends totals. Reuses the page's own TextInput primitives, not the quote
+  // editor.
+  const [editLineId, setEditLineId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState('');
+  const [editQty, setEditQty] = useState('1');
+  const [editPrice, setEditPrice] = useState('0');
+  const [editTaxRate, setEditTaxRate] = useState('0');
+  const [editDiscount, setEditDiscount] = useState('0');
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   // F-Wave9-AUDIT-V3-WAVE-F-01: inline Receive Payment modal. Replaces
@@ -156,6 +171,51 @@ export function InvoiceDetailPage() {
           setLineDesc('');
           setLineQty('1');
           setLinePrice('0');
+        },
+      },
+    );
+  };
+
+  const beginEditLine = (l: {
+    id: string;
+    description: string;
+    quantity: number | string;
+    unit_price_cents: number | string;
+    tax_rate_snapshot: number | string;
+    discount_cents: number | string;
+  }) => {
+    setEditLineId(l.id);
+    setEditDesc(l.description);
+    setEditQty(String(l.quantity));
+    setEditPrice(String(l.unit_price_cents));
+    setEditTaxRate(String(l.tax_rate_snapshot));
+    setEditDiscount(String(l.discount_cents));
+  };
+
+  const cancelEditLine = () => {
+    setEditLineId(null);
+    updateLine.reset();
+  };
+
+  const onSaveLine = (e: FormEvent) => {
+    e.preventDefault();
+    if (!editLineId) return;
+    // The handler server-recomputes tax_amount_cents + line_total_cents from
+    // these trusted inputs (A1), so the SPA never sends totals.
+    updateLine.mutate(
+      {
+        lineId: editLineId,
+        body: {
+          description: editDesc,
+          quantity: editQty,
+          unit_price_cents: editPrice,
+          tax_rate_snapshot: editTaxRate,
+          discount_cents: editDiscount,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditLineId(null);
         },
       },
     );
@@ -461,9 +521,14 @@ export function InvoiceDetailPage() {
             </td>
             <td className="py-2 text-right">
               {canEditLines && (
-                <Button variant="ghost" onClick={() => deleteLine.mutate(l.id)}>
-                  Remove
-                </Button>
+                <span className="flex justify-end gap-1">
+                  <Button variant="ghost" onClick={() => beginEditLine(l)}>
+                    Edit
+                  </Button>
+                  <Button variant="ghost" onClick={() => deleteLine.mutate(l.id)}>
+                    Remove
+                  </Button>
+                </span>
               )}
             </td>
           </>
@@ -507,6 +572,60 @@ export function InvoiceDetailPage() {
           </>
         )}
       />
+
+      {canEditLines && editLineId && (
+        <form
+          onSubmit={onSaveLine}
+          className="flex flex-col gap-3 border border-accent p-4"
+        >
+          <h3 className="font-display tracking-wider text-ink">EDIT LINE</h3>
+          <div className="flex gap-3 flex-wrap items-end">
+            <TextInput
+              label="Description"
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              required
+            />
+            <TextInput
+              label="Qty"
+              value={editQty}
+              onChange={(e) => setEditQty(e.target.value)}
+              inputMode="decimal"
+            />
+            <TextInput
+              label="Unit price (cents)"
+              value={editPrice}
+              onChange={(e) => setEditPrice(e.target.value)}
+              inputMode="numeric"
+            />
+            <TextInput
+              label="Tax rate (e.g. 0.0825)"
+              value={editTaxRate}
+              onChange={(e) => setEditTaxRate(e.target.value)}
+              inputMode="decimal"
+            />
+            <TextInput
+              label="Discount (cents)"
+              value={editDiscount}
+              onChange={(e) => setEditDiscount(e.target.value)}
+              inputMode="numeric"
+            />
+            <Button type="submit" disabled={updateLine.isPending}>
+              {updateLine.isPending ? 'Saving.' : 'Save line'}
+            </Button>
+            <Button type="button" variant="ghost" onClick={cancelEditLine}>
+              Cancel
+            </Button>
+          </div>
+          {updateLine.error && (
+            <p className="font-sans text-sm text-accent">
+              {updateLine.error instanceof Error
+                ? updateLine.error.message
+                : 'Save line failed.'}
+            </p>
+          )}
+        </form>
+      )}
 
       <section>
         <h2 className="text-2xl font-display tracking-wide text-ink mb-3">PAYMENTS</h2>

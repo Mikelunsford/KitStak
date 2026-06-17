@@ -3,6 +3,7 @@ import {
   QuoteSchema, QuoteLineItemSchema,
   type Quote, type QuoteLineItem,
   type CreateQuoteRequest, type UpdateQuoteRequest, type CreateQuoteLineRequest,
+  type UpdateQuoteLineRequest,
   type ConvertQuoteToProjectRequest,
 } from '@/lib/types/sales';
 import { z } from 'zod';
@@ -65,6 +66,18 @@ export async function addLineItem(
   const raw = await apiRequest<unknown>(`/quotes-api/quotes/${quoteId}/line-items`, {
     method: 'POST', body: payload,
   });
+  return QuoteLineItemSchema.parse(raw);
+}
+
+export async function updateLineItem(
+  quoteId: string,
+  lineId: string,
+  payload: UpdateQuoteLineRequest,
+): Promise<QuoteLineItem> {
+  const raw = await apiRequest<unknown>(
+    `/quotes-api/quotes/${quoteId}/line-items/${lineId}`,
+    { method: 'PATCH', body: payload },
+  );
   return QuoteLineItemSchema.parse(raw);
 }
 
