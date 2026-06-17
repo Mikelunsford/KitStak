@@ -26,7 +26,8 @@ import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
   CreateQuoteRequestSchema, UpdateQuoteRequestSchema,
-  CreateQuoteLineRequestSchema, ConvertQuoteToProjectRequestSchema,
+  CreateQuoteLineRequestSchema, UpdateQuoteLineRequestSchema,
+  ConvertQuoteToProjectRequestSchema,
   QuoteStateSchema,
 } from '../_shared/types/sales.ts';
 import { QUOTE_FSM, canTransition, type QuoteState } from '../_shared/workflow/sales.ts';
@@ -183,7 +184,11 @@ const deleteQuote = async (ctx: RouteCtx) => {
 // carry a per-line currency_code because Kitstak is single-currency-per-
 // document. The same convention holds on invoice lines and purchase-order
 // lines. No schema change.
-const computeLineMath = (line: {
+// Exported so the Deno unit test can lock its encoding + rounding contract and
+// the new patchLineItem handler can reuse it. The math is UNCHANGED from when it
+// was a private const (truncating BigInt division); create/edit parity holds
+// because both handlers feed the same function.
+export const computeLineMath = (line: {
   quantity_e3: number | string;
   unit_price_cents: number | string;
   discount_bps: number;
@@ -274,6 +279,110 @@ const addLineItem = async (ctx: RouteCtx) => {
 
       await client.rpc('recompute_quote_totals', { p_quote_id: ctx.params.id });
       return created(data);
+    },
+  );
+};
+
+// Inline draft-line edit. Mirrors addLineItem: cap-gate, draft guard, in-org ref
+// checks, server-authoritative recompute. PATCH is partial, so we load the
+// current row, overlay only the sent input fields, then recompute the four
+// line_*_cents from the merged values. Any client-supplied line_*_cents in the
+// body is IGNORED (never read into the patch object below). When tax_id is sent
+// we RE-RESOLVE tax_rate_snapshot from taxes.rate_bps exactly as addLineItem
+// does, because the DB BEFORE-INSERT snapshot trigger does not fire on UPDATE.
+const patchLineItem = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.lineId, 'lineId');
+  const body = await parseBody(ctx.req, UpdateQuoteLineRequestSchema);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/quotes/:id/line-items/:lineId-patch', body,
+    async () => {
+      const client = admin();
+      // Confirm parent quote is in this org and still editable.
+      const { data: parent, error: pErr } = await client
+        .from('quotes').select('id, org_id, state')
+        .eq('id', ctx.params.id).eq('org_id', caller.orgId).maybeSingle();
+      if (pErr) throw internalError('quotes-api', pErr);
+      if (!parent) throw new ApiError('NOT_FOUND', 404);
+      if (!['draft', 'revise_requested'].includes(parent.state as string)) {
+        throw new ApiError('STATE_CONFLICT', 409, 'quote is not editable in current state');
+      }
+
+      // Load the existing line, scoped to the parent quote so a foreign lineId
+      // (or a line under a different quote) resolves to NOT_FOUND, never a leak.
+      const { data: existing, error: exErr } = await client
+        .from('quote_line_items').select('*')
+        .eq('id', ctx.params.lineId).eq('quote_id', ctx.params.id).maybeSingle();
+      if (exErr) throw internalError('quotes-api', exErr);
+      if (!existing) throw new ApiError('NOT_FOUND', 404);
+      const current = existing as Record<string, unknown>;
+
+      if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
+      if (body.vas_id) { await assertRefInOrg('value_added_services', caller, body.vas_id); }
+      if (body.tax_id) { await assertRefInOrg('taxes', caller, body.tax_id); }
+
+      // Overlay only the sent input fields onto the existing row. kind is frozen
+      // (not in the schema). line_*_cents are never copied from the body.
+      const patch: Record<string, unknown> = { updated_by: caller.userId };
+      for (
+        const k of [
+          'position', 'item_id', 'vas_id', 'sku', 'name', 'description',
+          'quantity_e3', 'unit_price_cents', 'discount_bps', 'is_taxable',
+        ] as const
+      ) {
+        if (body[k] !== undefined) patch[k] = body[k];
+      }
+
+      // Tax re-snapshot. When tax_id is explicitly present in the body, re-read
+      // taxes.rate_bps into tax_rate_snapshot (cleared to 0 when tax_id is set
+      // to null). When tax_id is absent from the body, keep the stored snapshot.
+      let taxRate = Number((current.tax_rate_snapshot as number | null) ?? 0);
+      if (body.tax_id !== undefined) {
+        patch.tax_id = body.tax_id ?? null;
+        taxRate = 0;
+        if (body.tax_id) {
+          const { data: tax } = await client
+            .from('taxes').select('rate_bps').eq('id', body.tax_id).maybeSingle();
+          if (tax) taxRate = Number((tax as { rate_bps: number }).rate_bps ?? 0);
+        }
+        patch.tax_rate_snapshot = taxRate;
+      }
+
+      // Recompute the four line_*_cents from the merged values. Client-supplied
+      // totals are not in `patch`, so they cannot reach the persisted row. The
+      // `?? <default>` fallbacks mirror the create-schema defaults (quantity_e3
+      // 1000, unit_price_cents 0, discount_bps 0, is_taxable true): a no-op on a
+      // normal row, but they keep a legacy or directly-inserted row carrying a
+      // null in a required numeric column from crashing BigInt() or silently
+      // zeroing the tax.
+      const math = computeLineMath({
+        quantity_e3:
+          (patch.quantity_e3 ?? current.quantity_e3 ?? 1000) as number | string,
+        unit_price_cents:
+          (patch.unit_price_cents ?? current.unit_price_cents ?? 0) as number | string,
+        discount_bps: Number(patch.discount_bps ?? current.discount_bps ?? 0),
+        tax_rate_snapshot: taxRate,
+        is_taxable: Boolean(patch.is_taxable ?? current.is_taxable ?? true),
+      });
+      patch.line_subtotal_cents = math.line_subtotal_cents;
+      patch.line_discount_cents = math.line_discount_cents;
+      patch.line_tax_cents = math.line_tax_cents;
+      patch.line_total_cents = math.line_total_cents;
+
+      const { data, error } = await client
+        .from('quote_line_items').update(patch)
+        .eq('id', ctx.params.lineId).eq('quote_id', ctx.params.id)
+        .select('*').maybeSingle();
+      if (error) throw internalError('quotes-api', error);
+      if (!data) throw new ApiError('NOT_FOUND', 404);
+
+      const { error: rpcErr } = await client.rpc('recompute_quote_totals', {
+        p_quote_id: ctx.params.id,
+      });
+      if (rpcErr) throw internalError('quotes-api', rpcErr);
+      return ok(data);
     },
   );
 };
@@ -681,6 +790,7 @@ const ROUTES: Route[] = [
   { method: 'DELETE', path: '/quotes/:id',                          handler: deleteQuote },
 
   { method: 'POST',   path: '/quotes/:id/line-items',               handler: addLineItem },
+  { method: 'PATCH',  path: '/quotes/:id/line-items/:lineId',       handler: patchLineItem },
   { method: 'DELETE', path: '/quotes/:id/line-items/:lineId',       handler: removeLineItem },
 
   { method: 'POST',   path: '/quotes/:id/submit',                   handler: submitQuote },

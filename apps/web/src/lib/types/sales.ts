@@ -540,6 +540,39 @@ export const CreateQuoteLineRequestSchema = z.object({
 });
 export type CreateQuoteLineRequest = z.infer<typeof CreateQuoteLineRequestSchema>;
 
+// Inline draft-line edit. PATCH /quotes/:id/line-items/:lineId overlays only the
+// sent fields onto the existing line, then the handler RE-COMPUTES the four
+// server-derived line_*_cents from the merged values via computeLineMath. Every
+// editable field is optional so the operator can change one cell at a time.
+//
+// FROZEN: `kind` is deliberately omitted. The kind (item / vas / discount /
+// note) changes the meaning of a line; allowing it to flip on a partial edit
+// would let an item line silently become a discount line. A kind change is a
+// remove-plus-add, not an in-place edit.
+//
+// OMITTED (server-derived, ignored if a client sends them): line_subtotal_cents,
+// line_discount_cents, line_tax_cents, line_total_cents. These are always
+// recomputed server-side from the trusted inputs; a forged total can never
+// reach the quote header sum (recompute_quote_totals).
+//
+// tax_rate_snapshot is also server-owned: when tax_id is sent the handler
+// re-resolves it from taxes.rate_bps (the DB BEFORE-INSERT snapshot trigger
+// does not fire on UPDATE).
+export const UpdateQuoteLineRequestSchema = z.object({
+  position: z.number().int().optional(),
+  item_id: UuidSchema.nullable().optional(),
+  vas_id: UuidSchema.nullable().optional(),
+  sku: z.string().nullable().optional(),
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  quantity_e3: QuantityE3Schema.optional(),
+  unit_price_cents: CentsSchema.optional(),
+  discount_bps: BpsSchema.optional(),
+  tax_id: UuidSchema.nullable().optional(),
+  is_taxable: z.boolean().optional(),
+});
+export type UpdateQuoteLineRequest = z.infer<typeof UpdateQuoteLineRequestSchema>;
+
 export const ConvertQuoteToProjectRequestSchema = z.object({
   project_number: z.string().nullable().optional(),
 });

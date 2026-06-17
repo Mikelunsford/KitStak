@@ -23,7 +23,7 @@ import { ItemPicker } from '@/components/ui/pickers';
 import {
   useQuote, useSubmitQuote, useApproveQuote, useReviseQuote,
   useCancelQuote, useSendQuote, useConvertQuoteToProject,
-  useAddLineItem, useRemoveLineItem, useUpdateQuote,
+  useAddLineItem, useUpdateLineItem, useRemoveLineItem, useUpdateQuote,
 } from '@/lib/hooks/useQuotes';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useMe } from '@/lib/hooks/useMe';
@@ -74,6 +74,7 @@ export function QuoteDetailPage() {
   const { id } = useParams();
   const { data, isLoading, error } = useQuote(id);
   const addLine = useAddLineItem(id ?? '');
+  const updateLine = useUpdateLineItem(id ?? '');
   const removeLine = useRemoveLineItem(id ?? '');
   const submit = useSubmitQuote();
   const approve = useApproveQuote();
@@ -96,6 +97,20 @@ export function QuoteDetailPage() {
   const [lineIsTaxable, setLineIsTaxable] = useState(true);
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // Inline draft-line edit. editLineId tracks which line the operator is
+  // editing; the edit fields mirror the ADD LINE inputs (same primitives) and
+  // are seeded from the line's current values when Edit is clicked. The handler
+  // only edits an existing line in place; kind is frozen server-side so it is
+  // not exposed here.
+  const [editLineId, setEditLineId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editSku, setEditSku] = useState('');
+  const [editQty, setEditQty] = useState<number | null>(1000);
+  const [editPrice, setEditPrice] = useState<number | null>(0);
+  const [editDiscountBps, setEditDiscountBps] = useState<number | null>(0);
+  const [editTaxId, setEditTaxId] = useState('');
+  const [editIsTaxable, setEditIsTaxable] = useState(true);
 
   const customerId = data?.quote.customer_id ?? null;
   const customer = useCustomer(customerId ?? undefined);
@@ -215,6 +230,49 @@ export function QuoteDetailPage() {
     );
   };
 
+  const beginEditLine = (l: QuoteLineItem) => {
+    setEditLineId(l.id);
+    setEditName(l.name);
+    setEditSku(l.sku ?? '');
+    setEditQty(Number(l.quantity_e3));
+    setEditPrice(Number(l.unit_price_cents));
+    setEditDiscountBps(l.discount_bps);
+    setEditTaxId(l.tax_id ?? '');
+    setEditIsTaxable(l.is_taxable);
+  };
+
+  const cancelEditLine = () => {
+    setEditLineId(null);
+    updateLine.reset();
+  };
+
+  const onSaveLine = (e: FormEvent) => {
+    e.preventDefault();
+    if (!id || !editLineId) return;
+    // Server re-snapshots tax and recomputes every line_*_cents from these
+    // trusted inputs; the SPA never sends totals. tax_id is sent as a value
+    // (string or null) so the handler re-resolves the rate even when cleared.
+    updateLine.mutate(
+      {
+        lineId: editLineId,
+        payload: {
+          name: editName,
+          sku: editSku || null,
+          quantity_e3: editQty ?? 0,
+          unit_price_cents: editPrice ?? 0,
+          discount_bps: editDiscountBps ?? 0,
+          tax_id: editTaxId || null,
+          is_taxable: editIsTaxable,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditLineId(null);
+        },
+      },
+    );
+  };
+
   const lineColumns: DataColumn<QuoteLineItem>[] = [
     { key: 'name', header: 'Name', render: (l) => l.name },
     {
@@ -251,9 +309,14 @@ export function QuoteDetailPage() {
       align: 'right',
       render: (l) =>
         ['draft', 'revise_requested'].includes(state) ? (
-          <Button variant="ghost" onClick={() => removeLine.mutate(l.id)}>
-            Remove
-          </Button>
+          <span className="flex justify-end gap-1">
+            <Button variant="ghost" onClick={() => beginEditLine(l)}>
+              Edit
+            </Button>
+            <Button variant="ghost" onClick={() => removeLine.mutate(l.id)}>
+              Remove
+            </Button>
+          </span>
         ) : null,
     },
   ];
@@ -497,6 +560,71 @@ export function QuoteDetailPage() {
           </span>
         </div>
       </div>
+
+      {['draft', 'revise_requested'].includes(state) && editLineId && (
+        <form
+          onSubmit={onSaveLine}
+          className="flex flex-col gap-3 border border-accent p-4"
+        >
+          <h3 className="font-display tracking-wider text-ink">EDIT LINE</h3>
+          <div className="flex gap-3 flex-wrap items-end">
+            <TextInput
+              label="Name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              required
+            />
+            <TextInput
+              label="SKU"
+              value={editSku}
+              onChange={(e) => setEditSku(e.target.value)}
+            />
+            <QuantityInput
+              label="Quantity"
+              value={editQty}
+              onChange={setEditQty}
+            />
+            <DollarInput
+              label="Unit price"
+              value={editPrice}
+              onChange={setEditPrice}
+            />
+            <PercentInput
+              label="Discount"
+              value={editDiscountBps}
+              onChange={setEditDiscountBps}
+            />
+            <TextInput
+              label="Tax id (optional)"
+              value={editTaxId}
+              onChange={(e) => setEditTaxId(e.target.value)}
+            />
+            <label className="flex items-center gap-2 mt-6">
+              <input
+                type="checkbox"
+                checked={editIsTaxable}
+                onChange={(e) => setEditIsTaxable(e.target.checked)}
+              />
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Taxable
+              </span>
+            </label>
+            <Button type="submit" disabled={updateLine.isPending}>
+              {updateLine.isPending ? 'Saving.' : 'Save line'}
+            </Button>
+            <Button type="button" variant="ghost" onClick={cancelEditLine}>
+              Cancel
+            </Button>
+          </div>
+          {updateLine.error && (
+            <p className="font-sans text-sm text-accent">
+              {updateLine.error instanceof Error
+                ? updateLine.error.message
+                : 'Save line failed.'}
+            </p>
+          )}
+        </form>
+      )}
 
       {['draft', 'revise_requested'].includes(state) && id && (
         <ApplyTemplatePanel quoteId={id} basePosition={nextLinePosition} />
