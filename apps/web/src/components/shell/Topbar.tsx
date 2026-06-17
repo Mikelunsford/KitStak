@@ -1,12 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDown, KeyRound, LogOut, Menu, UserCircle2 } from 'lucide-react';
+import {
+  ChevronDown,
+  KeyRound,
+  LogOut,
+  Menu,
+  Search,
+  UserCircle2,
+} from 'lucide-react';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
 import { useMe } from '@/lib/hooks/useMe';
 import { useSwitchOrg } from '@/lib/hooks/useSwitchOrg';
 import { Logo } from '@/components/ui/Logo';
+import { lazyWithReload } from '@/lib/lazyWithReload';
+
+// CreateMenu is lazy-split so its useCapabilities (the capability matrix) and
+// useOrgFlags imports stay out of the eager SPA index chunk, keeping it under
+// the 40 kB size-limit budget (same discipline as the lazy Sidebar). The
+// fallback is null: the quick-create button fills in a beat after the shell
+// paints.
+const CreateMenu = lazyWithReload(() =>
+  import('./CreateMenu').then((m) => ({ default: m.CreateMenu })),
+);
 
 /**
  * Topbar. persistent top chrome.
@@ -26,9 +43,11 @@ import { Logo } from '@/components/ui/Logo';
 export interface TopbarProps {
   /** Mobile hamburger handler. AppShell wires this for `< md`. */
   onMenuClick?: () => void;
+  /** Opens the global command palette. AppShell wires this to the CommandBar. */
+  onOpenCommandBar?: () => void;
 }
 
-export function Topbar({ onMenuClick }: TopbarProps = {}) {
+export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
   const { state, signOut } = useAuth();
   const isAuthed = state.status === 'authenticated';
   const me = useMe({ enabled: isAuthed });
@@ -113,6 +132,23 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
       </div>
 
       <div className="flex items-center gap-3">
+        {onOpenCommandBar ? (
+          <button
+            type="button"
+            onClick={onOpenCommandBar}
+            className="flex items-center gap-2 border border-line px-2 py-1 text-sm text-ink-dim hover:bg-bg-2 hover:text-ink"
+            aria-label="Search"
+            data-testid="topbar-search"
+          >
+            <Search className="h-4 w-4" />
+            <span className="hidden font-sans lg:inline">Search</span>
+          </button>
+        ) : null}
+
+        <Suspense fallback={null}>
+          <CreateMenu />
+        </Suspense>
+
         {/* Workspace switcher */}
         <div className="relative" ref={orgMenuRef}>
           <button

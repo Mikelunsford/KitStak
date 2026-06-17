@@ -85,7 +85,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen flex-col bg-bg text-ink">
       <TrialBanner />
-      <Topbar onMenuClick={() => setMobileNavOpen(true)} />
+      <Topbar
+        onMenuClick={() => setMobileNavOpen(true)}
+        onOpenCommandBar={() => setCommandBarOpen(true)}
+      />
       <div className="flex flex-1 overflow-hidden">
         <Suspense fallback={<SidebarFallback />}>
           <Sidebar
