@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { PageHeader } from '@/components/ui/PageHeader';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { customersKeys } from '@/lib/queryKeys/customers';
 import { createCustomer } from '@/lib/services/customersService';
 import {
@@ -91,6 +92,13 @@ export function CustomerCreatePage() {
     mutationFn: (body: CustomerCreate) => createCustomer(body),
     onSuccess: (created) => {
       void qc.invalidateQueries({ queryKey: customersKeys.all });
+      // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+      // next verb. ContactCreatePage reads ?customer_id= so the action lands
+      // there with this customer already chosen.
+      nextStepToast(`Customer ${displayName} created. Add a contact next.`, {
+        label: 'Add contact',
+        onClick: () => navigate(`/crm/contacts/new?customer_id=${created.id}`),
+      });
       navigate(`/crm/customers/${created.id}`);
     },
     onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create.'),

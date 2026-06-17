@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { leadsKeys } from '@/lib/queryKeys/leads';
 import { createLead } from '@/lib/services/leadsService';
 import {
@@ -40,6 +41,15 @@ export function LeadCreatePage() {
     mutationFn: (body: LeadCreate) => createLead(body),
     onSuccess: (created: Lead) => {
       void qc.invalidateQueries({ queryKey: leadsKeys.all });
+      // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+      // next verb. Message only: OpportunityCreatePage requires a customer FK
+      // and can only prefill from ?customer_id=. A lead has no customer FK and
+      // OpportunityCreatePage cannot start usefully blank from a lead, so a
+      // "Convert" action would land on a form it cannot prefill. Conversion
+      // runs through the dedicated LeadConvertPage from the lead detail page.
+      nextStepToast(
+        `Lead ${created.display_name} created. Convert to opportunity next.`,
+      );
       navigate(`/crm/leads/${created.id}`);
     },
     onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save lead.'),

@@ -14,6 +14,7 @@ import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
 import { useCreateReceivingOrder } from '@/lib/hooks/useOps';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { createReceivingOrderLineItem } from '@/lib/services/receivingOrderLineItemsService';
+import { nextStepToast } from '@/lib/nextStepToast';
 import type { ReceivingOrder } from '@/lib/types/vendors_inventory_ops';
 import { parseProjectIdParam } from './receivingProjectParam';
 
@@ -130,6 +131,14 @@ export function ReceivingOrderCreatePage() {
       setSubmittingLines(false);
     }
 
+    // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+    // next verb. With staged lines the receiving order is ready to receive and
+    // put away; without, the next step is adding lines on the detail page.
+    nextStepToast(
+      lines.length > 0
+        ? 'Receiving order created. Receive and put it away next.'
+        : 'Receiving order created. Add line items next.',
+    );
     navigate(`/3pl-operations/receiving/${createdId}`);
   }
 

@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { useCreateVendor } from '@/lib/hooks/useVendors';
 
 const FormSchema = z.object({
@@ -55,6 +56,16 @@ export function VendorCreatePage() {
       },
       {
         onSuccess: (created) => {
+          // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name
+          // the next verb. POCreatePage reads ?vendor_id= so the action lands
+          // there with this vendor already chosen.
+          nextStepToast(`Vendor ${display} created. Create a PO next.`, {
+            label: 'Create PO',
+            onClick: () =>
+              navigate(
+                `/purchasing/purchase-orders/new?vendor_id=${created.id}`,
+              ),
+          });
           navigate(`/purchasing/vendors/${created.id}`);
         },
       },

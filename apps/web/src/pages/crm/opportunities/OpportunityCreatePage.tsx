@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker } from '@/components/ui/pickers';
+import { nextStepToast } from '@/lib/nextStepToast';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import { createOpportunity } from '@/lib/services/opportunitiesService';
 import {
@@ -45,6 +46,19 @@ export function OpportunityCreatePage() {
     mutationFn: (body: OpportunityCreate) => createOpportunity(body),
     onSuccess: (created: Opportunity) => {
       void qc.invalidateQueries({ queryKey: opportunitiesKeys.all });
+      // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+      // next verb. ActivityCreatePage reads ?entity_type= and ?entity_id= so
+      // the action lands there scoped to this opportunity.
+      nextStepToast(
+        `Opportunity ${displayName} created. Add an activity next.`,
+        {
+          label: 'Add activity',
+          onClick: () =>
+            navigate(
+              `/crm/activities/new?entity_type=opportunity&entity_id=${created.id}`,
+            ),
+        },
+      );
       navigate(`/crm/opportunities/${created.id}`);
     },
     onError: (e) =>

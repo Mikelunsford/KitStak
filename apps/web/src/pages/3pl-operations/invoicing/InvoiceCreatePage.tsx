@@ -12,8 +12,10 @@ import { useShipmentLineItems } from '@/lib/hooks/useOps';
 import { createInvoiceLineItem } from '@/lib/services/invoiceLineItemsService';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { addDaysIso, todayIsoDate } from '@/lib/dates';
+import { nextStepToast } from '@/lib/nextStepToast';
 
 import { deriveInvoiceProjectId } from './deriveInvoiceProjectId';
+import { invoiceCreatedMessage } from './invoiceCreatedToast';
 import {
   projectLineToInvoiceLineCreate,
   shipmentLineToInvoiceLineCreate,
@@ -200,6 +202,13 @@ export function InvoiceCreatePage() {
         setSubmittingLines(false);
       }
 
+      // F-UIUX-TOASTS-ROLLOUT-01 (Pattern A): confirm the create and name the
+      // next verb. linesToCreate is the real total of source-derived plus
+      // manually staged lines the page POSTed; with lines the invoice is ready
+      // to issue, without it the next step is adding lines on the detail page.
+      nextStepToast(
+        invoiceCreatedMessage(inv.invoice_number, linesToCreate.length),
+      );
       navigate(`/invoicing/invoices/${inv.id}`);
     } catch {
       // surfaced via mutation state; banner below renders the message
