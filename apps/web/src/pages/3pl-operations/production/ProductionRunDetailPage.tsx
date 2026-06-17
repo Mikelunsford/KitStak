@@ -27,6 +27,7 @@ import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 
 export function ProductionRunDetailPage() {
@@ -40,6 +41,24 @@ export function ProductionRunDetailPage() {
   if (run.error || !run.data)
     return <p className="px-8 py-12 text-accent">Production run not found.</p>;
   const d = run.data;
+
+  // F-UIUX-RAIL-FIRST-EDGE-01 (Pattern D, UX-Q7 reopened): the rail's immediate
+  // next happy-path step is interactive only for the SAFE FIRST EDGE
+  // planned -> in_progress, which reuses the existing Start mutation. The rail
+  // never offers in_progress -> completed: that edge is destructive (it writes
+  // production_consumed and production_produced stock movements) and stays
+  // behind the Complete button's destructiveConfirm. Gate mirrors the Start
+  // button: planned status, holds production.start, and the path's next step is
+  // exactly `in_progress`. The server stays the authority.
+  const railNext = nextStepperState(
+    STATE_STEPPER_PATHS.production_run.path,
+    d.status,
+  );
+  const canAdvanceRail =
+    railNext === 'in_progress' &&
+    d.status === 'planned' &&
+    caps.can('production.start');
+  const advance = () => start.mutate();
 
   async function onComplete() {
     // UX-Q8: Complete on a production run writes production_consumed and
@@ -65,7 +84,11 @@ export function ProductionRunDetailPage() {
           { label: d.run_number ?? d.id.slice(0, 8) },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control ONLY for the safe first edge planned -> in_progress,
+          which fires the same Start mutation as the button below. It is never
+          interactive for in_progress -> completed (destructive). Past, current,
+          and the terminal step stay display-only. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.production_run.path]}
         current={d.status}
@@ -77,6 +100,8 @@ export function ProductionRunDetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={start.isPending}
       />
       <PageHeader title={`Production run ${d.run_number ?? d.id.slice(0, 8)}`} />
 

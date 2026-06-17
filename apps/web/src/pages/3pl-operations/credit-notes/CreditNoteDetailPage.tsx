@@ -33,6 +33,7 @@ import { canApplyCreditNote } from './creditNoteApplyGate';
 import {
   STATE_STEPPER_PATHS,
   isOffPath,
+  nextStepperState,
 } from '@/lib/workflow/stateStepperPaths';
 import {
   creditNoteStateMachine,
@@ -84,6 +85,22 @@ export function CreditNoteDetailPage() {
     canApplyCreditNote(status, row.amount_cents, row.applied_cents) &&
     can('credit_notes.apply');
 
+  // F-UIUX-RAIL-FIRST-EDGE-01 (Pattern D, UX-Q7 reopened): the rail's immediate
+  // next happy-path step is interactive only for the SAFE FIRST EDGE
+  // draft -> issued, which reuses the existing Issue mutation. The rail never
+  // offers issued -> applied: that step is a navigate-to-apply Link (a separate
+  // route, not a mutation), so it must never render as an inline advance. Gate
+  // mirrors the Issue button (canIssue) plus the credit_notes.write cap the
+  // server enforces with requireCap, and pins the next step to exactly
+  // `issued`. The server stays the authority.
+  const railNext = nextStepperState(
+    STATE_STEPPER_PATHS.credit_note.path,
+    row.status,
+  );
+  const canAdvanceRail =
+    railNext === 'issued' && canIssue && can('credit_notes.write');
+  const advance = () => issueMutation.mutate(creditNoteId);
+
   const onVoid = async () => {
     if (
       !(await destructiveConfirm({
@@ -105,8 +122,12 @@ export function CreditNoteDetailPage() {
           { label: row.credit_note_number },
         ]}
       />
-      {/* UX-Q7: display-only horizontal progress stepper. voided is the
-          off-path sink. */}
+      {/* UX-Q7 reopened (Pattern D): the rail's immediate next step is an
+          interactive control ONLY for the safe first edge draft -> issued, which
+          fires the same Issue mutation as the button below. It is never
+          interactive for issued -> applied: that step is a navigate-to-apply
+          Link, not a mutation. voided is the off-path sink. Past, current, and
+          the terminal step stay display-only. */}
       <StateStepper
         steps={[...STATE_STEPPER_PATHS.credit_note.path]}
         current={row.status}
@@ -118,6 +139,8 @@ export function CreditNoteDetailPage() {
               }
             : undefined
         }
+        onAdvance={canAdvanceRail ? advance : undefined}
+        advancePending={transitionPending}
       />
       <PageHeader
         title={row.credit_note_number}

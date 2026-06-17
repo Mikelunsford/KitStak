@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { StateStepper } from '@/components/shell/StateStepper';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import {
   STATE_STEPPER_PATHS,
@@ -25,6 +26,7 @@ import {
 export function OpportunityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
+  const caps = useCapabilities();
   const query = useQuery({
     queryKey: id ? opportunitiesKeys.detail(id) : ['crm', 'opportunities', 'detail', 'noop'],
     queryFn: () => getOpportunity(id as string),
@@ -63,15 +65,22 @@ export function OpportunityDetailPage() {
     canCrmTransition(opportunityStageMachine, o.stage, s),
   );
 
+  // F-UIUX-RAIL-OPP-CLIENT-CAP-01: the stage-transition capability that the
+  // server enforces with requireCap. The SPA mirrors it for render hiding only.
+  const canTransitionStage = caps.can('crm.opportunities.stage.transition');
+
   // UX-Q7 reopened (Pattern D): the rail's immediate next happy-path stage is
   // interactive only when it is also a stage the page already exposes as a
-  // manual advance button. Every opportunity rail edge (discovery -> evaluation
-  // -> proposal -> negotiation -> closed_won) is a manual stage transition, so
-  // the gate matches `allowed`; advance maps to the same mutation the buttons
-  // use and the server enforces the cap.
+  // manual advance button AND the operator holds the stage-transition cap.
+  // Every opportunity rail edge (discovery -> evaluation -> proposal ->
+  // negotiation -> closed_won) is a manual stage transition, so the gate
+  // matches `allowed`; advance maps to the same mutation the buttons use and
+  // the server enforces the cap.
   const railNext = nextStepperState(STATE_STEPPER_PATHS.opportunity.path, o.stage);
   const canAdvanceRail =
-    railNext !== null && (allowed as readonly string[]).includes(railNext);
+    railNext !== null &&
+    canTransitionStage &&
+    (allowed as readonly string[]).includes(railNext);
   const advance = (toState: string) =>
     mutation.mutate(toState as OpportunityStageState);
 
@@ -148,34 +157,43 @@ export function OpportunityDetailPage() {
         <dt className="text-ink-dim">Expected close</dt>
         <dd>{o.expected_close_date ?? ''}</dd>
       </dl>
-      <div className="flex flex-col gap-2">
-        <h2 className="font-display tracking-wider text-sm text-ink-dim">
-          ADVANCE STAGE
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {allowed.length === 0 ? (
-            <p className="text-ink-dim text-sm font-sans">No transitions available.</p>
-          ) : (
-            allowed.map((s) => (
-              <button
-                key={s}
-                onClick={() => mutation.mutate(s)}
-                disabled={mutation.isPending}
-                className="px-3 py-1 bg-bg-2 border border-line text-sm font-display tracking-wider disabled:opacity-50"
-              >
-                {s.toUpperCase().replace('_', ' ')}
-              </button>
-            ))
+      {/* F-UIUX-RAIL-OPP-CLIENT-CAP-01: hide the entire ADVANCE STAGE block
+          (heading + button cluster + transition error) when the operator lacks
+          crm.opportunities.stage.transition, mirroring how PODetailPage renders
+          nothing without the transition cap. This intentionally hides the
+          (otherwise dead) buttons from ops, accounting, and viewer, who lack the
+          cap. When the cap is held but the FSM offers no forward move, the
+          existing "No transitions available." copy still shows. */}
+      {canTransitionStage && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-display tracking-wider text-sm text-ink-dim">
+            ADVANCE STAGE
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {allowed.length === 0 ? (
+              <p className="text-ink-dim text-sm font-sans">No transitions available.</p>
+            ) : (
+              allowed.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => mutation.mutate(s)}
+                  disabled={mutation.isPending}
+                  className="px-3 py-1 bg-bg-2 border border-line text-sm font-display tracking-wider disabled:opacity-50"
+                >
+                  {s.toUpperCase().replace('_', ' ')}
+                </button>
+              ))
+            )}
+          </div>
+          {mutation.error && (
+            <p className="font-sans text-sm text-accent">
+              {mutation.error instanceof Error
+                ? mutation.error.message
+                : 'Transition failed.'}
+            </p>
           )}
         </div>
-        {mutation.error && (
-          <p className="font-sans text-sm text-accent">
-            {mutation.error instanceof Error
-              ? mutation.error.message
-              : 'Transition failed.'}
-          </p>
-        )}
-      </div>
+      )}
 
       <section className="mt-6">
         <h2 className="text-2xl font-display tracking-wide text-ink mb-3">HISTORY</h2>
