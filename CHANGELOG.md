@@ -10,6 +10,26 @@ Built and held for the operator merge nod, not on prod.
 
 - **SSO store-metadata MVP (F-Wave13-SSO-HANDSHAKE-01, #298, migration 0118)**: `sso_connections.provider_validated_at` plus a CHECK that a connection cannot be active until validated; an `oidc_configs` table mirroring the `saml_configs` Pattern B RLS; and `settings-api` `POST /sso/saml-metadata` and `/sso/oidc-metadata` to store IdP metadata (requires `org.sso.write`, gated behind `auth.sso_saml`, Idempotency-Key enforced, cross-tenant or unknown connection returns 404). The SPA Configure panel stores metadata, Mark-validated sets `provider_validated_at`, and Activate is gated until validated. The OIDC `client_secret` is deferred to the live-handshake phase (not stored, so no plaintext secret at rest). The live identity-provider handshake stays an operator step. Verified on staging; four-lens reviewed.
 
+## [0.20.0] · 2026-06-16 UI/UX reconfiguration quick wins (PRs #300 to #304, #306)
+
+A dropped whole-app UI/UX reconfiguration spec was verified against the code first and found to be roughly seventy percent already shipped: the state-driven detail action bars (Send, Approve, Receive payment, gated by `canTransition`), the customer hub related-record sections, the dashboard work-card queue, the Cmd or Ctrl-K command palette, and the empty-state coaching all already existed. The verified delta shipped as six SPA-only PRs, presentation layer only, no schema and no migration. Operator scope was quick wins; the larger structural items the spec wanted but that would reverse recently shipped or locked decisions (the full pillar to task-group nav re-key, the interactive lifecycle rail) stayed deferred.
+
+### Added
+
+- **Tabs primitive (#304)**: a hand-rolled, dependency-free `components/ui/Tabs.tsx` implementing the WAI-ARIA tabs pattern (roving tabindex, arrow / Home / End keys, automatic activation) with the active tab synced to a URL search param so tabs are deep-linkable and back-button friendly. The pure helpers `resolveActiveTabKey` and `nextTabIndex` are unit-tested.
+- **Topbar search and create menu (#303)**: a visible Search button that opens the existing Cmd or Ctrl-K command palette (previously reachable by shortcut only, with no on-screen affordance), plus a Create quick-create menu scoped to what the caller can both perform (capability) and reach (plugin entitlement) via a new pure `createMenuActions` registry. The menu is lazy-split into `CreateMenu.tsx` so the capability matrix stays out of the eager index chunk.
+- **Sidebar type-to-filter (#302)**: a filter box at the top of the sidebar that narrows sections and links by label, backed by a pure `filterRoutesByQuery` helper.
+
+### Changed
+
+- **Sidebar default-open and Admin scoping (#302)**: the sidebar opens only the always-on SPINE backbone on first load instead of every section, and the Admin links are hidden for non-admins via `useCapabilities` (mirroring `AdminProtectedRoute`; the route guard stays authoritative, so this is presentation only). The persisted-expanded allow-list is now derived from `SIDEBAR_MODES`, closing a latent omission of the `wms` key.
+- **Dashboard header (#301)**: the operational dashboard leads with a compact page title instead of the oversized marketing hero; the live work-card queue and setup checklist are unchanged.
+- **Customer hub on tabs (#306)**: `CustomerDetailPage` renders its Overview plus six related-record sets (Quotes, Projects, Invoices, Payments, Contacts, Activities) as tabs instead of a long vertical stack, reusing the existing sections and their quick-create CTAs verbatim.
+
+### Fixed
+
+- **Detail-subtitle name resolution (#300)**: quote, invoice, and project detail subtitles no longer flash the raw foreign-key UUID on first paint. They use the existing `fallbackLabel` helper (short prefix while loading, resolved name once settled), matching the breadcrumb treatment already on those pages.
+
 ## [0.19.1] · 2026-06-15 Wave 13 closeout follow-ups (PRs #296, #297)
 
 The first follow-ups spawned by the Wave 13 closeout, merged to prod. Schema advanced to migration 0117.
