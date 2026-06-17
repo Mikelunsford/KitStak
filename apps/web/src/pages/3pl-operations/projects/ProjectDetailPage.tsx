@@ -34,6 +34,7 @@ import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
+import { Tabs } from '@/components/ui/Tabs';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { ItemPicker } from '@/components/ui/pickers';
 import {
@@ -507,7 +508,14 @@ export function ProjectDetailPage() {
           </section>
         )}
 
-        <section>
+        <Tabs
+          aria-label="Project detail"
+          tabs={[
+            {
+              key: 'materials',
+              label: 'Materials',
+              panel: (
+                <section>
           <h2 className="text-2xl font-display tracking-wider text-ink mb-3">MATERIALS</h2>
           {lineItems.isLoading ? (
             <p className="text-ink-dim text-sm">Loading materials.</p>
@@ -571,8 +579,13 @@ export function ProjectDetailPage() {
             </form>
           )}
         </section>
-
-        <section>
+              ),
+            },
+            {
+              key: 'phases',
+              label: 'Phases',
+              panel: (
+                <section>
           <h2 className="text-2xl font-display tracking-wider text-ink mb-3">PHASES</h2>
           {phases.length === 0 ? (
             <DetailSectionEmptyCoaching
@@ -619,8 +632,13 @@ export function ProjectDetailPage() {
             )}
           </form>
         </section>
-
-        <section>
+              ),
+            },
+            {
+              key: 'receiving',
+              label: 'Receiving',
+              panel: (
+                <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-2xl font-display tracking-wider text-ink">RECEIVING</h2>
             <Link
@@ -654,11 +672,16 @@ export function ProjectDetailPage() {
             </ul>
           )}
         </section>
-
-        {/* F-Wave9-AUDIT-V3-WAVE-C4-01: MANUFACTURING RUNS section. Server
+              ),
+            },
+            {
+              key: 'manufacturing',
+              label: 'Manufacturing',
+              panel: (
+                /* F-Wave9-AUDIT-V3-WAVE-C4-01: MANUFACTURING RUNS section. Server
             filtered by project_id. Mirrors the receiving + shipments
-            section layouts above and below. */}
-        <section>
+            section layouts above and below. */
+                <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-2xl font-display tracking-wider text-ink">MANUFACTURING RUNS</h2>
             <Link
@@ -698,8 +721,13 @@ export function ProjectDetailPage() {
             </ul>
           )}
         </section>
-
-        <section>
+              ),
+            },
+            {
+              key: 'shipments',
+              label: 'Shipments',
+              panel: (
+                <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-2xl font-display tracking-wider text-ink">SHIPMENTS</h2>
             <Link
@@ -739,8 +767,13 @@ export function ProjectDetailPage() {
             </ul>
           )}
         </section>
-
-        <section>
+              ),
+            },
+            {
+              key: 'invoices',
+              label: 'Invoices',
+              panel: (
+                <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-2xl font-display tracking-wider text-ink">INVOICES</h2>
             {state === 'completed' && (
@@ -780,6 +813,10 @@ export function ProjectDetailPage() {
             </ul>
           )}
         </section>
+              ),
+            },
+          ]}
+        />
       </DetailLayout>
     </section>
   );
