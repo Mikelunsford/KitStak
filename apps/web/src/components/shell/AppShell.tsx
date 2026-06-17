@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 
 import { Topbar } from './Topbar';
 import { TrialBanner } from './TrialBanner';
-import { CommandBar } from './CommandBar';
 import { lazyWithReload } from '@/lib/lazyWithReload';
 
 /**
@@ -24,6 +23,18 @@ import { lazyWithReload } from '@/lib/lazyWithReload';
  */
 const Sidebar = lazyWithReload(() =>
   import('./Sidebar').then((m) => ({ default: m.Sidebar })),
+);
+
+/**
+ * CommandBar is lazy-split for the same index-budget reason as Sidebar
+ * (F-UIUX-PALETTE-VERBS-01). The palette gained action verbs gated by
+ * useCapabilities, which pulls the capability matrix in; behind a lazy boundary
+ * that weight (plus the palette's own code) lives in its own chunk instead of
+ * the eager index chunk. It is mounted only while open, so the chunk loads on
+ * the first Cmd/Ctrl-K, not on every authenticated render.
+ */
+const CommandBar = lazyWithReload(() =>
+  import('./CommandBar').then((m) => ({ default: m.CommandBar })),
 );
 
 function SidebarFallback() {
@@ -98,7 +109,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Suspense>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
-      <CommandBar open={commandBarOpen} onClose={closeCommandBar} />
+      {commandBarOpen && (
+        <Suspense fallback={null}>
+          <CommandBar open onClose={closeCommandBar} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -25,8 +25,15 @@ import { Search } from 'lucide-react';
 
 import { useGlobalSearch } from '@/lib/hooks/useCrossCutting';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
-import type { SearchResultItem } from '@/lib/types/cross_cutting';
-import { flattenResults, moveIndex, orderedGroups } from './commandBarModel';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import {
+  buildCommandGroups,
+  flattenRows,
+  moveIndex,
+  type CommandRow,
+} from './commandBarModel';
+import { ACTION_VERBS, visibleActionVerbs } from './commandBarActions';
 import {
   CommandBarResults,
   LISTBOX_ID,
@@ -55,8 +62,21 @@ export function CommandBar({ open, onClose }: CommandBarProps) {
 
   const query = useGlobalSearch(debounced, { enabled: open && debounced.length > 0 });
 
-  const groups = useMemo(() => orderedGroups(query.data), [query.data]);
-  const flat = useMemo(() => flattenResults(query.data), [query.data]);
+  const { can } = useCapabilities();
+  const flags = useOrgFlags().data;
+
+  // Action verbs (filtered by query + capability + entitlement) lead the list,
+  // then entity matches from search-api. Verbs are local, so they show
+  // immediately without waiting on the network round-trip.
+  const actionRows = useMemo(
+    () => visibleActionVerbs(ACTION_VERBS, debounced, can, flags),
+    [debounced, can, flags],
+  );
+  const groups = useMemo(
+    () => buildCommandGroups(actionRows, query.data),
+    [actionRows, query.data],
+  );
+  const flat = useMemo(() => flattenRows(groups), [groups]);
 
   // Reset the query and active row each time the palette opens, then focus the
   // input. A stale query from a prior open would flash old results.
@@ -80,9 +100,9 @@ export function CommandBar({ open, onClose }: CommandBarProps) {
   }, [flat.length]);
 
   const select = useCallback(
-    (item: SearchResultItem) => {
+    (row: CommandRow) => {
       onClose();
-      navigate(item.href);
+      navigate(row.href);
     },
     [navigate, onClose],
   );
@@ -123,9 +143,6 @@ export function CommandBar({ open, onClose }: CommandBarProps) {
 
   if (!open) return null;
 
-  const showEmpty =
-    debounced.length > 0 && !query.isLoading && !query.isError && flat.length === 0;
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-24"
@@ -163,23 +180,23 @@ export function CommandBar({ open, onClose }: CommandBarProps) {
           />
         </div>
 
-        {query.isLoading && debounced.length > 0 ? (
-          <p className="px-3 py-3 text-sm text-ink-dim">Searching.</p>
-        ) : query.isError ? (
-          <p className="px-3 py-3 text-sm text-ink-dim">
-            Search is unavailable. Try again.
-          </p>
-        ) : showEmpty ? (
-          <p data-testid="command-bar-empty" className="px-3 py-3 text-sm text-ink-dim">
-            No results.
-          </p>
-        ) : flat.length > 0 ? (
+        {flat.length > 0 ? (
           <CommandBarResults
             groups={groups}
             activeIndex={activeIndex}
             onSelect={select}
             onHover={setActiveIndex}
           />
+        ) : query.isLoading && debounced.length > 0 ? (
+          <p className="px-3 py-3 text-sm text-ink-dim">Searching.</p>
+        ) : query.isError ? (
+          <p className="px-3 py-3 text-sm text-ink-dim">
+            Search is unavailable. Try again.
+          </p>
+        ) : debounced.length > 0 ? (
+          <p data-testid="command-bar-empty" className="px-3 py-3 text-sm text-ink-dim">
+            No results.
+          </p>
         ) : (
           <p className="px-3 py-3 text-sm text-ink-dim">
             Type to search across your workspace.

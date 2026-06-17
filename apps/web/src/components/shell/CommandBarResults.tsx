@@ -1,4 +1,5 @@
-// Presentational result list for the Cmd/Ctrl-K command bar (R-W13-SRCH-01).
+// Presentational result list for the Cmd/Ctrl-K command bar (R-W13-SRCH-01,
+// F-UIUX-PALETTE-VERBS-01).
 //
 // Pure given props and free of any data-fetching imports (no apiClient, no
 // search hook) so it can be unit-tested by walking the returned element tree
@@ -7,10 +8,11 @@
 //
 // Uses the listbox/option ARIA pattern. The container (CommandBar) owns the
 // text input and drives the active row through aria-activedescendant, so DOM
-// focus stays on the input while arrow keys move the highlighted option.
+// focus stays on the input while arrow keys move the highlighted option. Action
+// verbs and entity matches render as one unified list of CommandRow so a single
+// flat index and one listbox cover both.
 
-import type { SearchResultItem } from '@/lib/types/cross_cutting';
-import type { CommandBarGroup } from './commandBarModel';
+import type { CommandRow, CommandRowGroup } from './commandBarModel';
 
 export const LISTBOX_ID = 'command-bar-listbox';
 
@@ -19,9 +21,9 @@ export function optionId(index: number): string {
 }
 
 export interface CommandBarResultsProps {
-  groups: CommandBarGroup[];
+  groups: CommandRowGroup[];
   activeIndex: number;
-  onSelect: (item: SearchResultItem) => void;
+  onSelect: (row: CommandRow) => void;
   onHover: (flatIndex: number) => void;
 }
 
@@ -41,7 +43,7 @@ export function CommandBarResults({
       className="max-h-80 overflow-y-auto"
     >
       {groups.map((g) => (
-        <li key={g.group} role="group" aria-label={g.label}>
+        <li key={g.key} role="group" aria-label={g.label}>
           <p
             data-testid="command-bar-group-label"
             className="px-3 pt-3 pb-1 font-sans text-xs uppercase tracking-wide text-ink-dim"
@@ -49,12 +51,12 @@ export function CommandBarResults({
             {g.label}
           </p>
           <ul>
-            {g.items.map((item) => {
+            {g.rows.map((row) => {
               flatIndex += 1;
               const index = flatIndex;
               const active = index === activeIndex;
               return (
-                <li key={`${item.entity_type}-${item.entity_id}`}>
+                <li key={row.key}>
                   <button
                     type="button"
                     id={optionId(index)}
@@ -67,7 +69,7 @@ export function CommandBarResults({
                     // the input blur that would otherwise close the palette.
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      onSelect(item);
+                      onSelect(row);
                     }}
                     onMouseMove={() => onHover(index)}
                     className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
@@ -75,11 +77,11 @@ export function CommandBarResults({
                     }`}
                   >
                     <span className="truncate font-medium text-ink">
-                      {item.title}
+                      {row.title}
                     </span>
-                    {item.subtitle ? (
+                    {row.subtitle ? (
                       <span className="ml-3 truncate text-xs text-ink-dim">
-                        {item.subtitle}
+                        {row.subtitle}
                       </span>
                     ) : null}
                   </button>
