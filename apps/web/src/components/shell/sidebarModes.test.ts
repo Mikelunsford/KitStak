@@ -16,6 +16,7 @@ import { Factory, Target } from 'lucide-react';
 import {
   SIDEBAR_MODES,
   isRouteVisible,
+  isRouteCapVisible,
   visibleRoutesForMode,
   isModeVisible,
   defaultOpenModeForRole,
@@ -445,6 +446,119 @@ describe('visibleRoutesForMode (flag gating)', () => {
     expect(
       visibleRoutesForMode(wf, { [FEATURE_FLAGS.PLUGINS_KITFORCE]: false }),
     ).toHaveLength(0);
+  });
+});
+
+describe('visibleRoutesForMode (per-route capability gating)', () => {
+  const ALL_FLAGS_ON: Record<string, boolean> = Object.values(FEATURE_FLAGS).reduce(
+    (acc, flag) => {
+      acc[flag] = true;
+      return acc;
+    },
+    {} as Record<string, boolean>,
+  );
+
+  it('drops only the denied route from SELL while its siblings remain', () => {
+    const sell = SIDEBAR_MODES.find((m) => m.key === 'sell')!;
+    // Allow everything except crm.leads.read.
+    const can = (cap: Capability) => cap !== 'crm.leads.read';
+    const paths = visibleRoutesForMode(sell, {}, can).map((r) => r.path);
+    expect(paths).not.toContain('/crm/leads');
+    // Siblings (each gated on a different read cap) stay.
+    expect(paths).toContain('/crm/customers');
+    expect(paths).toContain('/crm/contacts');
+    expect(paths).toContain('/crm/opportunities');
+    expect(paths).toContain('/crm/activities');
+    expect(paths).toContain('/quotes');
+    expect(paths).toContain('/projects');
+  });
+
+  it('keeps a route with no requiresCap (PRODUCTION Putaway-style) even when can denies all', () => {
+    // PUTAWAY carries a flag but no read cap; with its flag on and an all-denying
+    // predicate it must still survive (it rides on the section gate alone).
+    const inv = SIDEBAR_MODES.find((m) => m.key === 'inventory')!;
+    const putaway = inv.routes.find((r) => r.path === '/wms/putaway')!;
+    expect(putaway.requiresCap).toBeUndefined();
+    const denyAll = () => false;
+    const paths = visibleRoutesForMode(
+      inv,
+      { [FEATURE_FLAGS.PLUGINS_WMS]: true },
+      denyAll,
+    ).map((r) => r.path);
+    expect(paths).toContain('/wms/putaway');
+    // A capped sibling under the same flag is dropped by the all-denying predicate.
+    expect(paths).not.toContain('/wms/locations');
+  });
+
+  it('every PRODUCTION route survives an all-denying predicate (all are requiresCap-undefined)', () => {
+    const prod = SIDEBAR_MODES.find((m) => m.key === 'production')!;
+    const denyAll = () => false;
+    const visible = visibleRoutesForMode(prod, ALL_FLAGS_ON, denyAll);
+    // Every PRODUCTION entry is action-cap-only (requiresCap undefined), so the
+    // per-route gate never drops them; only the section gate governs PRODUCTION.
+    expect(visible.map((r) => r.path)).toEqual(prod.routes.map((r) => r.path));
+    for (const route of prod.routes) {
+      expect(route.requiresCap, `requiresCap on ${route.path}`).toBeUndefined();
+    }
+  });
+
+  it('matches the real canon: an ops role keeps invoicing reads but loses the ledger reads in MONEY', () => {
+    // ops holds invoices.read / payments.read / credit_notes.read, but NOT
+    // coa.read / period_close.read / journal_entries.read.
+    const can = canFor('ops');
+    const money = SIDEBAR_MODES.find((m) => m.key === 'money')!;
+    // Turn the journal-entries flag on so its drop is the cap gate, not the flag.
+    const paths = visibleRoutesForMode(
+      money,
+      { [FEATURE_FLAGS.FINANCE_JOURNAL_ENTRIES_ENABLED]: true },
+      can,
+    ).map((r) => r.path);
+    expect(paths).toContain('/invoicing/invoices');
+    expect(paths).toContain('/invoicing/payments');
+    expect(paths).toContain('/invoicing/credit-notes');
+    expect(paths).not.toContain('/finance/coa');
+    expect(paths).not.toContain('/finance/period-close');
+    expect(paths).not.toContain('/finance/journal-entries');
+  });
+
+  it('matches the real canon: a viewer holds every SELL read, so SELL stays intact', () => {
+    // viewer holds every crm.*.read plus quotes/projects read.
+    const can = canFor('viewer');
+    const sell = SIDEBAR_MODES.find((m) => m.key === 'sell')!;
+    const paths = visibleRoutesForMode(sell, {}, can).map((r) => r.path);
+    expect(paths).toEqual(sell.routes.map((r) => r.path));
+  });
+
+  it('every requiresCap set is a capability held by org_owner (canon sanity check)', () => {
+    for (const mode of SIDEBAR_MODES) {
+      for (const route of mode.routes) {
+        if (route.requiresCap === undefined) continue;
+        expect(
+          hasCap('org_owner', route.requiresCap),
+          `org_owner should hold ${route.requiresCap} (gate on ${route.path})`,
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+describe('isRouteCapVisible (per-route role-scope predicate)', () => {
+  it('returns true when the route has no requiresCap', () => {
+    const denyAll = () => false;
+    expect(
+      isRouteCapVisible({ path: '/wms/putaway', label: 'Putaway', icon: Factory }, denyAll),
+    ).toBe(true);
+  });
+
+  it('returns true only when the predicate grants the required cap', () => {
+    const route = {
+      path: '/crm/leads',
+      label: 'Leads',
+      icon: Target,
+      requiresCap: 'crm.leads.read' as Capability,
+    };
+    expect(isRouteCapVisible(route, (cap) => cap === 'crm.leads.read')).toBe(true);
+    expect(isRouteCapVisible(route, () => false)).toBe(false);
   });
 });
 

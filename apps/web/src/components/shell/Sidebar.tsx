@@ -136,14 +136,15 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   const lowerQuery = trimmedQuery.toLowerCase();
 
   // Recomputed every render (cheap: 8 sections, ~50 routes). Role-scope each
-  // section (isModeVisible), then flag-filter its routes and apply the
-  // type-to-filter query. A section with no visible routes is dropped.
+  // section (isModeVisible), then flag-filter its routes, drop any link the role
+  // cannot read (per-route requiresCap via the same `can` predicate), and apply
+  // the type-to-filter query. A section with no visible routes is dropped.
   const filteredSections = SIDEBAR_MODES.filter((mode) =>
     isModeVisible(mode, role, can),
   )
     .map((mode) => ({
       mode,
-      routes: filterRoutesByQuery(visibleRoutesForMode(mode, flags), query),
+      routes: filterRoutesByQuery(visibleRoutesForMode(mode, flags, can), query),
     }))
     .filter((section) => section.routes.length > 0);
 
