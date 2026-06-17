@@ -1,30 +1,48 @@
-// MemberDetailPage. KitForce pillar. Migration to the shared UI kit
-// (F-Wave10-UI-KIT-01): PageHeader (with the status as a StatusBadge in the
-// meta slot and the lifecycle actions in the actions slot) replaces the
-// hand-rolled header + raw status pill + button row. Members are a hub
-// (active <-> inactive toggle, no FSM), so this stays single-column with the
-// HISTORY section at the bottom (no DetailLayout).
+// MemberDetailPage. KitForce pillar. F-UIUX-HUB-TABS-MEMBER-01 turns the member
+// record from a leaf into a tabbed hub (matching the customer and vendor hubs):
+// an Overview tab carrying the member's own data plus its HISTORY timeline, then
+// one tab each for the member's assignments, time entries, and shifts.
 //
-// Preserved verbatim: the kitforce.member.read_rate gate on the default-rate
-// field, the deactivate destructiveConfirm (reactivate fires directly), and
-// the AuditTimeline.
+// The breadcrumbs, the PageHeader with its lifecycle actions, and the two
+// deactivate/reactivate error lines stay ABOVE the tabs: they are the member's
+// primary actions and stay visible on every tab.
+//
+// Preserved verbatim: the kitforce.member.update gate on Edit, the
+// kitforce.member.deactivate gate on Deactivate/Reactivate, the deactivate
+// destructiveConfirm (reactivate fires directly), the kitforce.member.read_rate
+// gate on the default-rate field (Overview) and on any time-entry rate, and the
+// AuditTimeline.
+//
+// Related lists are read-only. KitForce assignments, time entries, and shifts
+// are all created via inline forms on their LIST pages, not via dedicated create
+// routes that accept a member_id prefill, so none of the three related sections
+// use RelatedSection (its required CTA would be misleading). Each renders a plain
+// titled section with a coaching empty state and no CTA, mirroring the read-only
+// invoices list on ProjectDetailPage.
 
 import { Link, useParams } from 'react-router-dom';
 
-import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Tabs, type TabSpec } from '@/components/ui/Tabs';
 import {
   useMember,
   useDeactivateMember,
   useReactivateMember,
+  useAssignmentsList,
+  useTimeEntriesList,
+  useShiftsList,
 } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
-import { formatCents } from '@/lib/money';
-import { formatDateMedium } from '@/lib/dates';
+import {
+  MemberOverviewPanel,
+  MemberAssignmentsPanel,
+  MemberTimeEntriesPanel,
+  MemberShiftsPanel,
+} from './MemberRelatedTabs';
 
 export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +56,10 @@ export function MemberDetailPage() {
   const canReadRate = caps.can('kitforce.member.read_rate');
   const canDeactivate = caps.can('kitforce.member.deactivate');
   const canUpdate = caps.can('kitforce.member.update');
+
+  const assignments = useAssignmentsList(memberId ? { member_id: memberId } : {});
+  const timeEntries = useTimeEntriesList(memberId ? { member_id: memberId } : {});
+  const shifts = useShiftsList(memberId ? { member_id: memberId } : {});
 
   if (member.isLoading) {
     return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
@@ -60,6 +82,44 @@ export function MemberDetailPage() {
       return;
     deactivate.mutate({});
   }
+
+  const tabs: TabSpec[] = [
+    {
+      key: 'overview',
+      label: 'Overview',
+      panel: (
+        <MemberOverviewPanel member={d} memberId={id ?? null} canReadRate={canReadRate} />
+      ),
+    },
+    {
+      key: 'assignments',
+      label: 'Assignments',
+      panel: (
+        <MemberAssignmentsPanel
+          rows={assignments.data ?? []}
+          isLoading={assignments.isLoading}
+        />
+      ),
+    },
+    {
+      key: 'time-entries',
+      label: 'Time entries',
+      panel: (
+        <MemberTimeEntriesPanel
+          rows={timeEntries.data ?? []}
+          isLoading={timeEntries.isLoading}
+          canReadRate={canReadRate}
+        />
+      ),
+    },
+    {
+      key: 'shifts',
+      label: 'Shifts',
+      panel: (
+        <MemberShiftsPanel rows={shifts.data ?? []} isLoading={shifts.isLoading} />
+      ),
+    },
+  ];
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
@@ -117,35 +177,7 @@ export function MemberDetailPage() {
         </p>
       ) : null}
 
-      <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
-        <dt className="text-ink-dim">Member number</dt>
-        <dd className="text-ink font-mono">{d.member_number ?? 'None'}</dd>
-        <dt className="text-ink-dim">Email</dt>
-        <dd className="text-ink">{d.email ?? '·'}</dd>
-        <dt className="text-ink-dim">Phone</dt>
-        <dd className="text-ink">{d.phone ?? '·'}</dd>
-        {canReadRate ? (
-          <>
-            <dt className="text-ink-dim">Default hourly rate</dt>
-            <dd className="text-ink font-mono">
-              {d.default_hourly_rate_cents != null
-                ? `${formatCents(d.default_hourly_rate_cents, 'USD')}/hr`
-                : 'None'}
-            </dd>
-          </>
-        ) : null}
-        <dt className="text-ink-dim">Notes</dt>
-        <dd className="text-ink whitespace-pre-wrap">{d.notes ?? ''}</dd>
-        <dt className="text-ink-dim">Created</dt>
-        <dd className="text-ink">{formatDateMedium(d.created_at)}</dd>
-      </dl>
-
-      <section>
-        <h2 className="mb-3 text-2xl font-display tracking-wide text-ink">
-          HISTORY
-        </h2>
-        <AuditTimeline entityType="workforce_member" entityId={id ?? null} />
-      </section>
+      <Tabs aria-label="Member detail" tabs={tabs} />
     </section>
   );
 }
