@@ -25,6 +25,25 @@ filter by it and cost roll-ups treat customer-supplied material as zero cost to 
 4. Quick-create form factoring: bespoke per-entity modals (five). The item modal also
    carries the supply_source control.
 
+### Phase 3 money-logic decisions (operator, 2026-06-17)
+
+5. vendor_consigned is costed at normal (captured) cost to the org. Only the
+   not-org-owned sources roll up as zero.
+6. Four supply sources, not three: in_house, customer_supplied, vendor_consigned, and a
+   new third_party_consigned. third_party_consigned is material the org neither owns nor
+   pays for, so it rolls up as zero org cost like customer_supplied (flagged for operator
+   confirm at the merge halt).
+7. Zeroing predicate: effective source IN ('customer_supplied', 'third_party_consigned').
+   in_house and vendor_consigned keep normal cost.
+8. The KitCost project-margins fold over the stock_movements ledger keys its zeroing off
+   items.supply_source (the item default). The per-line override applies on the explicit
+   consumption-line schemas (receiving, shipment, manufacturing-consumed, kitting-consumed,
+   job-run-consumed), which is where captured cost and the job-profitability view read.
+9. Build all phases on one branch; open a single PR for the whole feature when done.
+
+Phases 0 through 2 are SHIPPED on the feature branch and green (typecheck, lint, 950 unit
+tests). Phase 3 follows below.
+
 ## Root cause, confirmed in code
 
 Both ticket hypotheses are confirmed.

@@ -4,8 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { useItem, useUpdateItem } from '@/lib/hooks/useItems';
+import { SUPPLY_SOURCE_OPTIONS } from '@/lib/supplySource';
 import { ItemPatchSchema } from '@/lib/types/sales';
-import type { Item } from '@/lib/types/sales';
+import type { Item, ItemSupplySource } from '@/lib/types/sales';
 
 export function ItemEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ export function ItemEditPage() {
   const [costCents, setCostCents] = useState<number | null>(null);
   const [reorderPoint, setReorderPoint] = useState('');
   const [barcode, setBarcode] = useState('');
+  const [supplySource, setSupplySource] = useState<ItemSupplySource>('in_house');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export function ItemEditPage() {
           : '',
       );
       setBarcode(query.data.barcode ?? '');
+      setSupplySource(query.data.supply_source);
     }
   }, [query.data]);
 
@@ -56,6 +59,7 @@ export function ItemEditPage() {
       cost_cents: costCents !== null ? String(costCents) : null,
       reorder_point: reorderTrimmed === '' ? null : Number(reorderTrimmed),
       barcode: barcode.trim() || null,
+      supply_source: supplySource,
     };
     const parsed = ItemPatchSchema.safeParse(draft);
     if (!parsed.success) {
@@ -147,6 +151,20 @@ export function ItemEditPage() {
             onChange={(e) => setBarcode(e.target.value)}
             className="bg-bg-2 border border-line px-3 py-2"
           />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-ink-dim">Supply source</span>
+          <select
+            value={supplySource}
+            onChange={(e) => setSupplySource(e.target.value as ItemSupplySource)}
+            className="bg-bg-2 border border-line px-3 py-2"
+          >
+            {SUPPLY_SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </label>
         {error ? <p className="text-accent text-sm">{error}</p> : null}
         {update.error ? (

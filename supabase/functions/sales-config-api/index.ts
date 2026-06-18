@@ -90,6 +90,9 @@ const ItemWriteSchema = z.object({
   unit_of_measure: z.string().nullable().optional(),
   reorder_point: z.number().nonnegative().nullable().optional(),
   barcode: z.string().nullable().optional(),
+  supply_source: z.enum([
+    'in_house', 'customer_supplied', 'vendor_consigned', 'third_party_consigned',
+  ]).default('in_house'),
   is_active: z.boolean().default(true),
   is_taxable: z.boolean().default(true),
   is_sellable: z.boolean().default(true),

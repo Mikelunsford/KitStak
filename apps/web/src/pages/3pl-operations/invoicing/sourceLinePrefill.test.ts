@@ -29,6 +29,7 @@ const mkItem = (overrides: Record<string, unknown> = {}) => ({
   unit_of_measure: null,
   reorder_point: null,
   barcode: null,
+  supply_source: 'in_house' as const,
   is_active: true,
   is_taxable: true,
   is_sellable: true,

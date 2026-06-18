@@ -6,7 +6,8 @@ import { QuickCreateItemModal } from '@/components/quick-create/QuickCreateItemM
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { itemsKeys } from '@/lib/queryKeys/items';
 import { listItems } from '@/lib/services/itemsService';
-import type { Item, ItemKind } from '@/lib/types/sales';
+import { SUPPLY_SOURCE_LABEL } from '@/lib/supplySource';
+import type { Item, ItemKind, ItemSupplySource } from '@/lib/types/sales';
 
 /**
  * ItemPicker. Typeahead combobox over the items catalog (sales-config-api),
@@ -27,7 +28,9 @@ export interface ItemPickerProps {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  filter?: { kind?: 'good' | 'service'; active?: boolean } | undefined;
+  filter?:
+    | { kind?: 'good' | 'service'; active?: boolean; supply_source?: ItemSupplySource }
+    | undefined;
 }
 
 const GOOD_KINDS: ItemKind[] = ['product', 'kit', 'bundle'];
@@ -68,9 +71,12 @@ export function ItemPicker({
       if (filter?.kind === 'service' && !SERVICE_KINDS.includes(i.kind)) {
         return false;
       }
+      if (filter?.supply_source && i.supply_source !== filter.supply_source) {
+        return false;
+      }
       return true;
     });
-  }, [data, justCreated, filter?.active, filter?.kind]);
+  }, [data, justCreated, filter?.active, filter?.kind, filter?.supply_source]);
 
   return (
     <>
@@ -79,7 +85,11 @@ export function ItemPicker({
         onChange={(id, item) => onChange(id, item)}
         options={options}
         getOptionId={(i) => i.id}
-        getOptionLabel={(i) => `${i.sku} · ${i.name}`}
+        getOptionLabel={(i) =>
+          i.supply_source === 'in_house'
+            ? `${i.sku} · ${i.name}`
+            : `${i.sku} · ${i.name} · ${SUPPLY_SOURCE_LABEL[i.supply_source]}`
+        }
         label={label}
         required={required}
         disabled={disabled}

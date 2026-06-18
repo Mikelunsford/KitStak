@@ -13,9 +13,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
+import { SUPPLY_SOURCE_OPTIONS } from '@/lib/supplySource';
 import { useCreateItem } from '@/lib/hooks/useItems';
-import type { Item } from '@/lib/types/sales';
+import type { Item, ItemSupplySource } from '@/lib/types/sales';
 
 export interface QuickCreateItemModalProps {
   open: boolean;
@@ -34,11 +36,13 @@ export function QuickCreateItemModal({
   const create = useCreateItem();
   const [sku, setSku] = useState('');
   const [name, setName] = useState(initialName);
+  const [supplySource, setSupplySource] = useState<ItemSupplySource>('in_house');
 
   useEffect(() => {
     if (!open) return;
     setSku('');
     setName(initialName);
+    setSupplySource('in_house');
     create.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialName]);
@@ -55,7 +59,11 @@ export function QuickCreateItemModal({
     e.preventDefault();
     if (!valid) return;
     try {
-      const item = await create.mutateAsync({ sku: skuTrimmed, name: nameTrimmed });
+      const item = await create.mutateAsync({
+        sku: skuTrimmed,
+        name: nameTrimmed,
+        supply_source: supplySource,
+      });
       onCreated(item);
     } catch {
       // Error surfaces via the inline banner below.
@@ -96,6 +104,21 @@ export function QuickCreateItemModal({
           placeholder="Standard widget"
           required
         />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Supply source
+          </span>
+          <Select
+            value={supplySource}
+            onChange={(e) => setSupplySource(e.target.value as ItemSupplySource)}
+          >
+            {SUPPLY_SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </label>
         {errorMessage && (
           <p className="font-sans text-sm text-danger">{errorMessage}</p>
         )}

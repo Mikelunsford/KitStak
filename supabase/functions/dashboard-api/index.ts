@@ -475,16 +475,28 @@ const kitcostSummary: Route = {
       if (itemIds.length > 0) {
         const { data: items } = await client
           .from('items')
-          .select('id,unit_cost_cents')
+          .select('id,unit_cost_cents,supply_source')
           .eq('org_id', orgId)
           .in('id', itemIds);
+        // Material the org neither owns nor pays for rolls up as zero org cost
+        // (migration 0120). Map these items to 0 so they neither seed a catalog
+        // cost nor fall through to the receiving fallback below.
+        const zeroCostSources = new Set([
+          'customer_supplied',
+          'third_party_consigned',
+        ]);
         const costByItem = new Map<string, bigint>();
         for (const it of (items ?? []) as Array<Record<string, unknown>>) {
+          const id = it.id as string;
+          if (zeroCostSources.has(it.supply_source as string)) {
+            costByItem.set(id, 0n);
+            continue;
+          }
           // Only seed from catalog when unit_cost_cents is non-null; a
           // null catalog cost should fall through to the receiving
           // fallback below.
           if (it.unit_cost_cents !== null && it.unit_cost_cents !== undefined) {
-            costByItem.set(it.id as string, asBig(it.unit_cost_cents));
+            costByItem.set(id, asBig(it.unit_cost_cents));
           }
         }
         // BNEW-6: fall back to receiving_order_line_items.unit_cost_cents
@@ -634,13 +646,23 @@ const kitcostSummary: Route = {
         if (itemIds.length > 0) {
           const { data: items } = await client
             .from('items')
-            .select('id,unit_cost_cents')
+            .select('id,unit_cost_cents,supply_source')
             .eq('org_id', orgId)
             .in('id', itemIds);
+          // Zero org cost for material the org neither owns nor pays for
+          // (migration 0120). Keyed off the item default per the supply-source
+          // costing decision (the stock_movements ledger carries no per-line
+          // override).
+          const zeroCostSources = new Set([
+            'customer_supplied',
+            'third_party_consigned',
+          ]);
           costByItem = new Map(
             ((items ?? []) as Array<Record<string, unknown>>).map((it) => [
               it.id as string,
-              asBig(it.unit_cost_cents),
+              zeroCostSources.has(it.supply_source as string)
+                ? 0n
+                : asBig(it.unit_cost_cents),
             ]),
           );
         }
