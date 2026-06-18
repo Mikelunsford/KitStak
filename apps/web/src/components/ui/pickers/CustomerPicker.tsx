@@ -1,12 +1,20 @@
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { EntityPicker } from '@/components/ui/EntityPicker';
+import { QuickCreateCustomerModal } from '@/components/quick-create/QuickCreateCustomerModal';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { customersKeys } from '@/lib/queryKeys/customers';
 import { listCustomers } from '@/lib/services/customersService';
+import type { Customer } from '@/lib/types/crm';
 
 /**
- * CustomerPicker. Reusable FK-resolution dropdown that fetches the org's
- * customers via the crm-api list endpoint and surfaces display_name. RLS
- * filters server-side; the picker shows what the caller is allowed to see.
+ * CustomerPicker. Typeahead combobox over the org's customers (crm-api list
+ * endpoint, RLS-scoped), with an inline "+ New customer" row gated on the
+ * crm.customers.write capability (F-UIUX-ENTITYPICKER-01). On inline create the
+ * new customer is auto-selected and merged into the list so the operator never
+ * leaves the form. Public props are unchanged from the prior native-select
+ * version, so call sites need no edits.
  *
  * Used by quote / project / invoice / payment / credit-note create forms.
  */
@@ -29,6 +37,10 @@ export function CustomerPicker({
   placeholder = 'Select a customer.',
   filter,
 }: CustomerPickerProps) {
+  const { can } = useCapabilities();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [justCreated, setJustCreated] = useState<Customer | null>(null);
+
   const filters = filter?.status ? { status: filter.status } : {};
   const { data, isLoading } = useQuery({
     queryKey: customersKeys.list(filters as Record<string, unknown>),
@@ -38,30 +50,43 @@ export function CustomerPicker({
     retry: 1,
   });
 
-  const items = data ?? [];
+  // Merge a just-created record ahead of the refetch so the picker can show its
+  // label immediately. Once the invalidated list refetches with the row, the
+  // dedupe drops the local copy.
+  const options = useMemo(() => {
+    const base = data ?? [];
+    if (justCreated && !base.some((c) => c.id === justCreated.id)) {
+      return [justCreated, ...base];
+    }
+    return base;
+  }, [data, justCreated]);
 
   return (
-    <label className="flex flex-col gap-2">
-      {label && (
-        <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-          {label}
-          {required && <span className="text-accent ml-1">*</span>}
-        </span>
-      )}
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+    <>
+      <EntityPicker<Customer>
+        value={value}
+        onChange={(id) => onChange(id)}
+        options={options}
+        getOptionId={(c) => c.id}
+        getOptionLabel={(c) => c.display_name}
+        label={label}
         required={required}
-        disabled={disabled || isLoading}
-        className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
-      >
-        <option value="">{isLoading ? 'Loading.' : placeholder}</option>
-        {items.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.display_name}
-          </option>
-        ))}
-      </select>
-    </label>
+        disabled={disabled}
+        loading={isLoading}
+        placeholder={placeholder}
+        allowCreate={can('crm.customers.write')}
+        createLabel="New customer"
+        onCreate={() => setCreateOpen(true)}
+      />
+      <QuickCreateCustomerModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(customer) => {
+          setJustCreated(customer);
+          onChange(customer.id);
+          setCreateOpen(false);
+        }}
+      />
+    </>
   );
 }
