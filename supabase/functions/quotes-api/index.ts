@@ -16,9 +16,13 @@ import { z } from 'zod';
 
 import { type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created,
   requireCap,
 } from '../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
 import { ok, ApiError, internalError } from '../_shared/responses.ts';
 import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller } from '../_shared/tenant.ts';
@@ -35,12 +39,23 @@ import { nextDocNumber } from '../_shared/numbering.ts';
 
 const BUNDLE = 'quotes-api';
 
+// Workstream C (UI scan): the list toolbar searches the quote number and job
+// title, sorts an allowlist of NOT NULL columns, and pages by keyset on the
+// active sort column. These params are optional and additive; with none of them
+// the route behaves as before (created_at desc, first page).
+const QUOTE_SEARCH_COLS = ['number', 'title'] as const;
+const QUOTE_SORT_COLS = ['created_at', 'total_cents', 'state', 'number'] as const;
+const QUOTE_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 // --- list / get ---
 
 const listQuotes = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'quotes.quote.read');
   const limit = parseLimit(ctx.url);
+  const sort = parseSort(ctx.url, QUOTE_SORT_COLS, QUOTE_DEFAULT_SORT);
+  const search = parseSearch(ctx.url);
+  const cursor = decodeSortCursor(ctx.url.searchParams.get('cursor'));
   const state = ctx.url.searchParams.get('state');
   // F-Wave7-LISTFILTER-01: customer_id FK filter lifts the CustomerDetailPage
   // client-side .filter(...) into a SQL where-clause. RLS Pattern A wraps the
@@ -50,15 +65,19 @@ const listQuotes = async (ctx: RouteCtx) => {
   let q = client
     .from('quotes').select('*')
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
   if (state) q = q.eq('state', state);
   if (customerId) q = q.eq('customer_id', customerId);
+  if (search) q = q.or(buildSearchOr(QUOTE_SEARCH_COLS, search));
+  q = q
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) q = q.or(buildKeysetOr(sort, cursor));
   const { data, error } = await q;
   if (error) throw internalError('quotes-api', error);
-  const rows = data ?? [];
-  return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
+  const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+  return ok(paginateSorted(rows, limit, sort.column));
 };
 
 const getQuote = async (ctx: RouteCtx) => {

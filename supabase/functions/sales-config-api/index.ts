@@ -26,6 +26,10 @@ import {
   admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency,
   created, requireCap,
 } from '../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
 import { ok, ApiError, internalError } from '../_shared/responses.ts';
 import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller } from '../_shared/tenant.ts';
@@ -155,6 +159,49 @@ function genericList(table: string, orderCol = 'created_at') {
     return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
   };
 }
+
+// Workstream C (UI scan): the items list toolbar searches the SKU and name,
+// sorts an allowlist of NOT NULL columns, pages by keyset on the active sort
+// column, and exposes the kind / category / active / supply_source facets. A
+// dedicated handler (genericList stays for the other config tables) so only
+// the items list grows these params; all are optional and additive.
+const ITEM_SEARCH_COLS = ['sku', 'name'] as const;
+const ITEM_SORT_COLS = ['created_at', 'name', 'sku', 'unit_price_cents'] as const;
+const ITEM_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+const listItems = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'items.item.read');
+  const limit = parseLimit(ctx.url);
+  const sort = parseSort(ctx.url, ITEM_SORT_COLS, ITEM_DEFAULT_SORT);
+  const search = parseSearch(ctx.url);
+  const cursor = decodeSortCursor(ctx.url.searchParams.get('cursor'));
+  const kind = ctx.url.searchParams.get('kind');
+  const categoryId = ctx.url.searchParams.get('category_id');
+  const supplySource = ctx.url.searchParams.get('supply_source');
+  const activeParam = ctx.url.searchParams.get('active');
+  const client = admin();
+  let q = client
+    .from('items').select('*')
+    .eq('org_id', caller.orgId)
+    .is('deleted_at', null);
+  if (kind) q = q.eq('kind', kind);
+  if (categoryId) q = q.eq('category_id', categoryId);
+  if (supplySource) q = q.eq('supply_source', supplySource);
+  if (activeParam === 'true' || activeParam === 'false') {
+    q = q.eq('is_active', activeParam === 'true');
+  }
+  if (search) q = q.or(buildSearchOr(ITEM_SEARCH_COLS, search));
+  q = q
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) q = q.or(buildKeysetOr(sort, cursor));
+  const { data, error } = await q;
+  if (error) throw internalError('sales-config-api', error);
+  const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+  return ok(paginateSorted(rows, limit, sort.column));
+};
 
 function genericGet(table: string) {
   return async (ctx: RouteCtx) => {
@@ -505,7 +552,7 @@ const ROUTES: Route[] = [
   { method: 'DELETE', path: '/pricing-tiers/:id',        handler: genericSoftDelete('pricing_tiers', '/pricing-tiers/:id') },
 
   // items
-  { method: 'GET',    path: '/items',                    handler: genericList('items') },
+  { method: 'GET',    path: '/items',                    handler: listItems },
   { method: 'GET',    path: '/items/:id',                handler: genericGet('items') },
   { method: 'POST',   path: '/items',                    handler: genericCreate('items', ItemWriteSchema, '/items') },
   { method: 'PATCH',  path: '/items/:id',                handler: genericUpdate('items', ItemWriteSchema.partial(), '/items/:id') },

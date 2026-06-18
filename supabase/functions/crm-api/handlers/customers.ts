@@ -16,13 +16,15 @@ import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
 import {
   CustomerCreateSchema,
@@ -96,13 +98,21 @@ async function fetchCustomerRow(
   return data as unknown as CustomerRow;
 }
 
+// Workstream C (UI scan): the customer list toolbar searches the display name
+// and primary email (the legacy ?q maps through parseSearch), sorts an
+// allowlist of NOT NULL columns, and pages by keyset on the active sort column.
+const CUSTOMER_SEARCH_COLS = ['display_name', 'primary_email'] as const;
+const CUSTOMER_SORT_COLS = ['created_at', 'display_name', 'status'] as const;
+const CUSTOMER_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCap(caller, 'crm.customers.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
-  const q = url.searchParams.get('q');
+  const sort = parseSort(url, CUSTOMER_SORT_COLS, CUSTOMER_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
   const kind = url.searchParams.get('kind');
 
@@ -110,19 +120,17 @@ export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
     .from('customers')
     .select(CUSTOMER_COLS)
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
 
   if (status) query = query.eq('status', status);
   if (kind) query = query.eq('kind', kind);
-  if (q) query = query.ilike('display_name', `%${q}%`);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
-  }
+  if (search) query = query.or(buildSearchOr(CUSTOMER_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
 
   const { data, error } = await query;
   if (error) {
@@ -130,9 +138,9 @@ export async function listCustomers({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as CustomerRow[];
-  const { items, next_cursor } = paginate(rows, limit);
-  return ok(items.map(rowToCustomer), { next_cursor });
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+  return ok(items.map((r) => rowToCustomer(r as unknown as CustomerRow)), { next_cursor });
 }
 
 export async function getCustomer({ req, params }: RouteCtx): Promise<Response> {

@@ -16,13 +16,15 @@ import { ApiError, ok, noContent, internalError } from '../../_shared/responses.
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
 import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
@@ -100,6 +102,14 @@ function rowToInvoice(row: InvoiceRow): Invoice {
   return InvoiceSchema.parse(row);
 }
 
+// Workstream C (UI scan): the invoice list toolbar searches the invoice number,
+// sorts an allowlist of NOT NULL columns, pages by keyset on the active sort
+// column, and adds the scan's open-balance toggle and overdue facet. All params
+// are optional and additive.
+const INVOICE_SEARCH_COLS = ['invoice_number'] as const;
+const INVOICE_SORT_COLS = ['created_at', 'total_cents', 'status', 'invoice_number'] as const;
+const INVOICE_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 async function fetchInvoiceRow(caller: Caller, id: string): Promise<InvoiceRow> {
   const { data, error } = await admin()
     .from('invoices')
@@ -122,40 +132,54 @@ export async function listInvoices({ req, url }: RouteCtx): Promise<Response> {
   requireCap(caller, 'invoices.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
+  const sort = parseSort(url, INVOICE_SORT_COLS, INVOICE_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
   const customerId = url.searchParams.get('customer_id');
   // F-Wave7-LISTFILTER-01: project_id FK filter lifted from client-side
   // .filter(...) on detail pages. RLS Pattern A wraps the org gate so a
   // cross-tenant project_id still resolves to 200 + [].
   const projectId = url.searchParams.get('project_id');
+  // Scan asks: an open-balance toggle (balance_cents > 0) and an overdue facet
+  // (past due date with an outstanding balance) on the invoice list.
+  const openBalance = url.searchParams.get('open_balance') === 'true';
+  const overdue = url.searchParams.get('overdue') === 'true';
 
   let query = admin()
     .from('invoices')
     .select(INVOICE_COLS)
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
 
   if (status) query = query.eq('status', status);
   if (customerId) query = query.eq('customer_id', customerId);
   if (projectId) query = query.eq('project_id', projectId);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
+  if (openBalance || overdue) query = query.gt('balance_cents', 0);
+  if (overdue) {
+    const today = new Date().toISOString().slice(0, 10);
+    query = query.lt('due_date', today);
   }
+  if (search) query = query.or(buildSearchOr(INVOICE_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
   const { data, error } = await query;
   if (error) {
     throw new ApiError('INTERNAL_ERROR', 500, 'invoice list failed', {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as InvoiceRow[];
-  const { items, next_cursor } = paginate(rows, limit);
-  return ok(items.map(rowToInvoice), next_cursor ? { next_cursor } : undefined);
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+  return ok(
+    items.map((r) => rowToInvoice(r as unknown as InvoiceRow)),
+    next_cursor ? { next_cursor } : undefined,
+  );
 }
 
 export async function getInvoice({ req, params }: RouteCtx): Promise<Response> {
