@@ -46,6 +46,7 @@ const USER_A = '00000000-0000-4000-8000-0000000000b1';
 const OWNER = { userId: USER_A, orgId: ORG_A, role: 'org_owner' as const };
 
 const WAREHOUSE_ID = '00000000-0000-4000-8000-0000000000c1';
+const CUSTOMER_ID = '00000000-0000-4000-8000-0000000000d1';
 
 function withThreePlFlag(extra: Record<string, Array<Record<string, unknown>>> = {}): MockState {
   return makeState({
@@ -95,7 +96,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
   });
 
   it('POST /quotes calls next_doc_number when number is absent', async () => {
-    const state = withThreePlFlag({ quotes: [] });
+    const state = withThreePlFlag({ quotes: [], customers: [{ id: CUSTOMER_ID, org_id: ORG_A }] });
     state.rpcResults['next_doc_number'] = {
       data: 'Q-2026-00001',
       error: null,
@@ -105,6 +106,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
       method: 'POST',
       headers: idemHeaders(),
       body: JSON.stringify({
+        customer_id: CUSTOMER_ID,
         currency_code: 'USD',
       }),
     });
@@ -120,7 +122,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
   });
 
   it('POST /quotes uses operator-supplied number verbatim and skips next_doc_number', async () => {
-    const state = withThreePlFlag({ quotes: [] });
+    const state = withThreePlFlag({ quotes: [], customers: [{ id: CUSTOMER_ID, org_id: ORG_A }] });
     state.rpcResults['next_doc_number'] = {
       data: 'Q-AUTO-SHOULD-NOT-APPEAR',
       error: null,
@@ -131,6 +133,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
       headers: idemHeaders(),
       body: JSON.stringify({
         number: 'Q-CUSTOM-001',
+        customer_id: CUSTOMER_ID,
         currency_code: 'USD',
       }),
     });
@@ -142,7 +145,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
   });
 
   it('POST /quotes treats whitespace-only number as absent', async () => {
-    const state = withThreePlFlag({ quotes: [] });
+    const state = withThreePlFlag({ quotes: [], customers: [{ id: CUSTOMER_ID, org_id: ORG_A }] });
     state.rpcResults['next_doc_number'] = {
       data: 'Q-2026-00002',
       error: null,
@@ -153,6 +156,7 @@ describe('quotes-api — auto-numbering (B8)', () => {
       headers: idemHeaders(),
       body: JSON.stringify({
         // number absent — handler should call next_doc_number
+        customer_id: CUSTOMER_ID,
         currency_code: 'USD',
       }),
     });
@@ -161,6 +165,23 @@ describe('quotes-api — auto-numbering (B8)', () => {
     expect(call).toBeDefined();
     const inserted = state.inserts.find((i) => i.table === 'quotes');
     expect(inserted?.row.number).toBe('Q-2026-00002');
+  });
+
+  it('POST /quotes rejects a create with no customer (422)', async () => {
+    const state = withThreePlFlag({ quotes: [], customers: [{ id: CUSTOMER_ID, org_id: ORG_A }] });
+    state.rpcResults['next_doc_number'] = { data: 'Q-2026-00001', error: null };
+    setActiveMockState(state);
+    const req = new Request('https://example.test/quotes', {
+      method: 'POST',
+      headers: idemHeaders(),
+      // no customer_id: a quote must belong to a customer (PR #339)
+      body: JSON.stringify({ currency_code: 'USD' }),
+    });
+    const res = await handler(req);
+    expect(res.status).toBe(422);
+    // rejected before numbering or insert
+    expect(state.rpcCalls.find((c) => c.name === 'next_doc_number')).toBeUndefined();
+    expect(state.inserts.find((i) => i.table === 'quotes')).toBeUndefined();
   });
 });
 

@@ -1,5 +1,15 @@
 # Kitstak Status
 
+## 2026-06-18 Inline quick-create repaired end to end; a quote now requires a customer
+
+The inline "+ New" quick-create on the reference pickers (customer, item, vendor, project, channel) was dead: clicking Save created nothing. Two structural bugs, both now fixed and live on prod, plus a guard against the gap that produced empty quotes. CHANGELOG `0.27.0`; journal `03-workspace/journal/2026-06-18-quickcreate-fix-and-quote-customer-required.md`. PRs #337, #338, #339.
+
+The first bug (PR #337): `Modal` rendered inline, so a quick-create `<form>` nested inside the host page's own `<form>`. Nested forms are invalid HTML and the browser drops the inner submit, so the create POST never fired. `Modal` now portals to `document.body`. The same PR carried the operator-requested UX, the pickers now show a "+ New X" button beside a search field instead of a row inside the dropdown.
+
+The second bug (PR #338): portaling moved the modal out of the host form in the DOM, but React event propagation follows the component tree, so the modal's submit bubbled to the host form and fired it too, minting an empty customer-less quote alongside the new customer. `Modal` now stops submit propagation at the dialog boundary.
+
+The guard (PR #339): the New Quote customer picker is required and `quotes-api` rejects a create with no `customer_id` (422), closing the gap that allowed customer-less quotes. The two stray draft quotes the bug produced were removed from the Kitstak org; the four older customer-less quotes from earlier testing were left in place.
+
 ## 2026-06-18 UI scan shipped to prod: name-first titles, one detail header, server list toolbar
 
 The 2026-06-17 UI scan (titles, repeated headers, list indexing) shipped end to end as five PRs (#331 to #335), all merged and live on prod. Prod advanced to migration `0124` (0123 search indexes, 0124 list-experience flag seed); advisors unchanged (the two deliberate RLS-internal exceptions only; the new pg_trgm extension is in the `extensions` schema, so it adds no advisor). CHANGELOG `0.26.0`; journal `03-workspace/journal/2026-06-18-ui-scan-titles-headers-list-indexing.md`; plan `03-workspace/specs/2026-06-17-ui-scan-titles-headers-list-indexing-plan.md`. The operator signed off on the plan, picked the ambitious forks (keyset-with-sort, full DB-backed saved views), and said full auto sweep; every PR merged on green CI with the prod deploy watched.
