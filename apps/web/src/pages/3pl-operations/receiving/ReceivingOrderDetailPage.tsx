@@ -17,6 +17,7 @@ import { DetailLayout } from '@/components/ui/DetailLayout';
 import { TextInput } from '@/components/ui/TextInput';
 import { Select } from '@/components/ui/Select';
 import { ItemPicker } from '@/components/ui/pickers';
+import { SupplySourceSelect } from '@/components/forms/SupplySourceSelect';
 import {
   useReceivingOrder, useTransitionReceivingOrder,
   useReceivingOrderLineItems, useCreateReceivingOrderLineItem,
@@ -30,6 +31,8 @@ import { FEATURE_FLAGS } from '@/lib/constants';
 import { RECEIVING_ORDER_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import type { ReceivingOrderStatus } from '@/lib/types/vendors_inventory_ops';
 import { formatCents } from '@/lib/money';
+import { isZeroCostSupplySource } from '@/lib/supplySource';
+import type { ItemSupplySource } from '@/lib/types/sales';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 
 export function ReceivingOrderDetailPage() {
@@ -76,6 +79,9 @@ export function ReceivingOrderDetailPage() {
   const [unitCost, setUnitCost] = useState('');
   const [uom, setUom] = useState('');
   const [reference, setReference] = useState('');
+  const [supplySource, setSupplySource] = useState<ItemSupplySource | null>(null);
+  const [itemDefaultSource, setItemDefaultSource] =
+    useState<ItemSupplySource | null>(null);
   const [lotId, setLotId] = useState('');
 
   // WMS Body B Phase B4 lot capture: an optional lot on the received line. The
@@ -100,6 +106,16 @@ export function ReceivingOrderDetailPage() {
   // transition to received.
   const linesEditable = d.status === 'created' || d.status === 'in_progress';
 
+  // The effective source for this line is the override if set, else the item
+  // default. Org cost is not captured for not-org-owned material, so the unit
+  // cost input is disabled (and sent null) when the effective source is
+  // customer_supplied or third_party_consigned.
+  const effectiveSupplySource: ItemSupplySource | null =
+    supplySource ?? itemDefaultSource;
+  const costDisabled =
+    effectiveSupplySource !== null &&
+    isZeroCostSupplySource(effectiveSupplySource);
+
   const onAddLine = (e: FormEvent) => {
     e.preventDefault();
     if (!selectedItemId) return;
@@ -107,9 +123,10 @@ export function ReceivingOrderDetailPage() {
       {
         item_id: selectedItemId,
         quantity: qty,
-        unit_cost_cents: unitCost === '' ? null : Number(unitCost),
+        unit_cost_cents: costDisabled || unitCost === '' ? null : Number(unitCost),
         uom: uom === '' ? null : uom,
         reference: reference === '' ? null : reference,
+        supply_source: supplySource,
         // Send lot_id only when WMS is on and a lot was chosen; otherwise omit it
         // so the line keeps a NULL lot (the no-lot partition).
         ...(wmsEnabled && lotId ? { lot_id: lotId } : {}),
@@ -121,6 +138,8 @@ export function ReceivingOrderDetailPage() {
           setUnitCost('');
           setUom('');
           setReference('');
+          setSupplySource(null);
+          setItemDefaultSource(null);
           setLotId('');
         },
       },
@@ -324,8 +343,9 @@ export function ReceivingOrderDetailPage() {
               <h3 className="font-display tracking-wider text-ink">ADD LINE</h3>
               <ItemPicker
                 value={selectedItemId}
-                onChange={(itemId) => {
+                onChange={(itemId, item) => {
                   setSelectedItemId(itemId);
+                  setItemDefaultSource(item?.supply_source ?? null);
                   // Reset the lot when the item changes so a stale lot picked for
                   // a prior item cannot ride onto a new item line (the lot list is
                   // item-filtered; the server also 404s a cross-item lot, but the
@@ -345,9 +365,14 @@ export function ReceivingOrderDetailPage() {
                 />
                 <TextInput
                   label="Unit cost (whole cents, e.g. 250 = $2.50)"
-                  value={unitCost}
+                  value={costDisabled ? '' : unitCost}
                   onChange={(e) => setUnitCost(e.target.value)}
                   inputMode="numeric"
+                  disabled={costDisabled}
+                />
+                <SupplySourceSelect
+                  value={supplySource}
+                  onChange={setSupplySource}
                 />
                 <TextInput
                   label="UOM"

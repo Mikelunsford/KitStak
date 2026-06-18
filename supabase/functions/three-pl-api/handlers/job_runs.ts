@@ -389,6 +389,7 @@ export async function createConsumedLine({ req, params }: RouteCtx): Promise<Res
         quantity: body.quantity ?? 0,
         unit_cost_cents: body.unit_cost_cents ?? null,
         uom: body.uom ?? null,
+        supply_source: body.supply_source ?? null,
         position,
         created_by: caller.userId,
         updated_by: caller.userId,
@@ -419,6 +420,7 @@ export async function patchConsumedLine({ req, params }: RouteCtx): Promise<Resp
       if (body.quantity !== undefined) patch.quantity = body.quantity;
       if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
       if (body.uom !== undefined) patch.uom = body.uom;
+      if (body.supply_source !== undefined) patch.supply_source = body.supply_source;
       if (body.position !== undefined) patch.position = body.position;
       const { data, error } = await admin()
         .from('job_run_daily_log_consumed_line_items').update(patch)

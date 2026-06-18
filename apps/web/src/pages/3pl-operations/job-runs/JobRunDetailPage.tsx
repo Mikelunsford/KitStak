@@ -22,6 +22,7 @@ import { DetailLayout } from '@/components/ui/DetailLayout';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ItemPicker } from '@/components/ui/pickers';
+import { SupplySourceSelect } from '@/components/forms/SupplySourceSelect';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useItem } from '@/lib/hooks/useItems';
@@ -47,6 +48,7 @@ import type {
   JobRunDailyLogConsumedLine,
   JobRunDailyLogProducedLine,
 } from '@/lib/services/jobRunsService';
+import type { ItemSupplySource } from '@/lib/types/sales';
 
 // Resolve an item_id to its name. Small N (lines per log) so a per-row read is
 // acceptable; falls back to the short id while loading.
@@ -77,6 +79,8 @@ function DailyLogLines({
 
   const [consumedItem, setConsumedItem] = useState<string | null>(null);
   const [consumedQty, setConsumedQty] = useState('1');
+  const [consumedSupplySource, setConsumedSupplySource] =
+    useState<ItemSupplySource | null>(null);
   const [producedItem, setProducedItem] = useState<string | null>(null);
   const [producedQty, setProducedQty] = useState('1');
 
@@ -134,11 +138,16 @@ function DailyLogLines({
     e.preventDefault();
     if (!consumedItem) return;
     addConsumed.mutate(
-      { item_id: consumedItem, quantity: consumedQty },
+      {
+        item_id: consumedItem,
+        quantity: consumedQty,
+        supply_source: consumedSupplySource,
+      },
       {
         onSuccess: () => {
           setConsumedItem(null);
           setConsumedQty('1');
+          setConsumedSupplySource(null);
         },
       },
     );
@@ -181,6 +190,10 @@ function DailyLogLines({
               value={consumedQty}
               onChange={(e) => setConsumedQty(e.target.value)}
               inputMode="decimal"
+            />
+            <SupplySourceSelect
+              value={consumedSupplySource}
+              onChange={setConsumedSupplySource}
             />
             <Button type="submit" disabled={addConsumed.isPending || !consumedItem}>
               {addConsumed.isPending ? 'Adding.' : 'Add consumed'}

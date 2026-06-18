@@ -17,6 +17,11 @@ const Uuid = z.string().uuid();
 const Cents = z.union([z.number().int(), z.string().regex(/^-?\d+$/)]);
 const Iso = z.string();
 const Currency = z.string().length(3);
+// Per-line supply-source override (migration 0121). NULL inherits the item
+// default; a non-null value wins for cost roll-ups via COALESCE(line, item).
+const SupplySource = z.enum([
+  'in_house', 'customer_supplied', 'vendor_consigned', 'third_party_consigned',
+]);
 
 // ---------------------------------------------------------------------------
 // three_pl_accounts (parent; status active/inactive flag, no rich FSM)
@@ -412,6 +417,7 @@ export const JobRunDailyLogConsumedLineSchema = z.object({
   quantity: Qty,
   unit_cost_cents: Cents.nullable(),
   uom: z.string().nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int(),
   created_at: Iso,
   updated_at: Iso,
@@ -423,6 +429,7 @@ export const JobRunDailyLogConsumedLineCreateSchema = z.object({
   quantity: Qty.optional(),
   unit_cost_cents: Cents.optional().nullable(),
   uom: z.string().min(1).max(16).optional().nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int().optional(),
 });
 export type JobRunDailyLogConsumedLineCreate = z.infer<typeof JobRunDailyLogConsumedLineCreateSchema>;
