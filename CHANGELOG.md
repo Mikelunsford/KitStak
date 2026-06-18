@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.25.0] · 2026-06-17 Per-line supply_source override (PR #329)
+
+The deferred follow-up to PR #327 (Option A). The override column shipped at the DB
+(migration `0121`) and is honored by `view_job_profitability` (`0122`); this wires it end to
+end so operators can set it per consumption line. No new migration (the columns already
+exist; prod stays at `0122`). Live on prod after the four edge bundles and the SPA deployed.
+Journal: `03-workspace/journal/2026-06-17-entitypicker-line-override.md`.
+
+### Added
+
+- **Per-line supply_source override (F-UIUX-ENTITYPICKER-LINE-OVERRIDE-01)**: a nullable
+  supply_source field on the read and create schemas of the five consumption-line types
+  (receiving, shipment, manufacturing-consumed, kitting-consumed, job-run-daily-log-consumed),
+  byte-identical across the `_shared` and `apps/web` mirrors of `vendors_inventory_ops.ts`,
+  `copack.ts`, and `threepl.ts`. The POST and PATCH handlers in ops-api, manufacturing-api,
+  copack-api, and three-pl-api accept and persist it. A new `SupplySourceSelect` control
+  ("inherit from item" plus the four values) lands on the add-line form of all five
+  consumption-line editors. Receiving captures the picked item's default source and disables
+  and nulls the unit-cost input when the effective source `COALESCE(override, item default)`
+  is `customer_supplied` or `third_party_consigned`, so org cost is not captured for material
+  the org neither owns nor pays for. No new cost-zeroing logic: the dashboard folds and the
+  job-profitability view were already supply-source aware. Read fields are `nullable().optional()`
+  (the additive-read-column convention) so legacy and mock rows still parse; money math, RLS,
+  idempotency, and the audit log are untouched.
+
 ## [0.24.0] · 2026-06-17 Inline quick-create EntityPicker and items.supply_source (PR #327)
 
 The 2026-06-17 smoke ticket: reference pickers were native selects with no way to create the
