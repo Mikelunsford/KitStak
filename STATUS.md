@@ -1,5 +1,15 @@
 # Kitstak Status
 
+## 2026-06-18 Branding overhaul: color wheel, text-on-brand color, logo/favicon upload
+
+The org Branding admin page (`/admin/branding`) went from hex-code typing and URL pasting to real white-label setup. CHANGELOG `0.30.0`; journal `03-workspace/journal/2026-06-18-branding-color-picker-and-asset-upload.md`. PR #342. Prod advanced to migration `0125`. The operator asked for "a color wheel and easily customizable" setup; after a planning pass the operator picked real file upload (not just a nicer URL flow), the native swatch + hex picker, and exposing the text-on-brand color. Merged on green; the migrate workflow shipped `0125` to prod and staging, both verified to carry the `branding` bucket.
+
+A new `ColorField` primitive pairs a native color swatch (the OS color wheel) with a synced hex field and a pure `normalizeHexColor` helper; it now drives the primary, accent, and the newly editable `on_primary` (text-on-brand) color, which was already in the schema and drove `--ink` at runtime but had no control and a hardcoded preview. Logo and favicon get a new `ImageUploadField` (drag-and-drop or click, live preview, with an "or paste a URL" fallback). Uploads go to a new public `branding` bucket via a single-use signed upload URL minted by `POST /settings-api/branding/logo/upload-url`, gated by the pre-existing `branding.logo.upload` capability and a per-kind size/type guard, org-scoped by path; the resolved public URL persists through the existing `PUT /branding` on save. Byte-identical `BrandingAssetUpload` schemas were added to both canon files.
+
+Key reframe: the `branding.logo.upload` capability already existed in the canon (built for exactly this, never used), and `PUT /branding` already accepted every field including `on_primary`, so the color work needed zero backend change and the upload route had a ready-made gate. The bucket is public for read only (favicon and PDF logo need anonymous read); writes are service-role only via the signed token, so no `storage.objects` policy was needed and the migration is just the bucket row. Advisors unchanged (the two deliberate SECURITY DEFINER exceptions only; the bucket adds none).
+
+Open follow-up (deferred, non-blocking): `F-BRANDING-ASSET-GC-01`, a sweep of orphaned `branding/` objects not referenced by any `org_branding` row (UUID-named uploads can orphan if a user uploads then leaves without saving). The deferred branding fields (font-family picker, email logo, support/privacy/terms URLs, custom CSS) are left for a later pass. One manual item remains: a browser click-through of the upload-and-repaint flow on a live build.
+
 ## 2026-06-18 System-wide default quote expiration
 
 The default-currency methodology applied to the quote expiration date: a system-wide default set in Settings, with the field moved off the main quote create flow into Advanced. CHANGELOG `0.29.0`; journal `03-workspace/journal/2026-06-18-default-quote-expiration.md`. PR #341. SPA only, no migration.

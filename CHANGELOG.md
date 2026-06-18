@@ -8,6 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.30.0] · 2026-06-18 Branding: color-wheel picker, text-on-brand color, logo/favicon upload (PR #342)
+
+The org Branding admin page (`/admin/branding`) goes from hex-code typing and URL pasting to real white-label setup: a color wheel, an editable text-on-brand color, and direct logo/favicon upload. Prod advanced to migration `0125` (the new public `branding` storage bucket); advisors unchanged (the same deliberate exceptions only, the bucket adds none).
+
+### Added
+
+- **`ColorField` primitive**: a native color swatch that opens the OS color wheel, synced two-way to a hex field, with a pure `normalizeHexColor` helper (three-digit expand, missing `#`, case fold). Used for the primary, accent, and the newly surfaced text-on-brand color.
+- **Text-on-brand color (`on_primary`) is now editable**: it was already in the schema and drove `--ink` at runtime, but the page never exposed it and the live preview faked it with a hardcoded value. The preview now reflects the real saved color.
+- **Logo and favicon upload**: a new `ImageUploadField` (drag-and-drop or click, live thumbnail preview, with an "or paste a URL" fallback). Files upload to a new public `branding` storage bucket via a signed upload URL; the resolved public URL persists through the existing `PUT /branding` on save.
+- **`POST /settings-api/branding/logo/upload-url`**: mints a single-use signed upload URL after a `branding.logo.upload` capability check and a per-kind size/type guard. The object path is org-scoped from the caller's org id (never client input). Public read only; writes are service-role only via the signed token.
+- **Byte-identical `BrandingAssetUpload` request/response schemas** added to both canon files (`_shared/types/identity.ts` and `apps/web/src/lib/types/identity.ts`); contract parity verified.
+
+### Migration
+
+- **`0125_branding_assets_bucket.sql`**: creates the public `branding` storage bucket (idempotent). Public read (the favicon and the PDF-worker logo need anonymous read); no `storage.objects` write policy (the signed token is the single write authority). No tenant-table RLS, money, idempotency, or `audit_log` change.
+
 ## [0.29.0] · 2026-06-18 System-wide default quote expiration (PR #341)
 
 The same methodology as the default currency, applied to the quote expiration date: a system-wide default set in Settings, with the field moved off the main quote create flow into Advanced. SPA only, no migration.
