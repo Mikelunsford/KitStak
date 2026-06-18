@@ -1,5 +1,17 @@
 # Kitstak Status
 
+## 2026-06-18 UI scan shipped to prod: name-first titles, one detail header, server list toolbar
+
+The 2026-06-17 UI scan (titles, repeated headers, list indexing) shipped end to end as five PRs (#331 to #335), all merged and live on prod. Prod advanced to migration `0124` (0123 search indexes, 0124 list-experience flag seed); advisors unchanged (the two deliberate RLS-internal exceptions only; the new pg_trgm extension is in the `extensions` schema, so it adds no advisor). CHANGELOG `0.26.0`; journal `03-workspace/journal/2026-06-18-ui-scan-titles-headers-list-indexing.md`; plan `03-workspace/specs/2026-06-17-ui-scan-titles-headers-list-indexing-plan.md`. The operator signed off on the plan, picked the ambitious forks (keyset-with-sort, full DB-backed saved views), and said full auto sweep; every PR merged on green CI with the prod deploy watched.
+
+Two operator-facing surfaces are behind per-org flags, default off, so prod is unchanged until flipped on `/admin/flags`. All six prod orgs now carry `feature.detail_header`, `feature.list_toolbar`, and `billing.trial_gate.enabled` seeded off (migration 0124 backfill; the trial-gate entry closed a prior seed gap).
+
+What shipped. A pure `displayTitle` resolver (A, #331, unflagged plumbing). A shared `DetailHeader` that leads with the human name and shows the number/status/customer/money once, on the quote, invoice, project, and customer pages behind `feature.detail_header` (B, #332). Server-side list search, sort, and keyset pagination on quotes/invoices/customers/items, plus migration 0123 (pg_trgm + trigram GIN + money/date btrees), backward compatible and shipped dark (C edge, #333). A `ListToolbar` + sortable `DataTable` headers + keyset `CursorPager` + `useServerList` state machine, wired on the four lists behind `feature.list_toolbar`, legacy client-slice view verbatim when off (C SPA, #334). Saved views in the toolbar wired onto the existing saved_views feature, plus the flag seed (#335).
+
+Key reframe: the planned saved_views backend (table + RLS + canon + CRUD) was already built in Wave 2 (migration 0034), so that PR collapsed to UI wiring and the HALT-for-operator gate on a new RLS table was moot. The keyset helper and the toolbar state machine were both adversarially reviewed and the findings folded in.
+
+Open follow-ups (all deferred, none blocking): the DetailHeader rollout to the remaining detail pages (`F-UISCAN-DETAIL-HEADER-TAIL-01`); the projects list toolbar; items category + supply_source facets; aging 30/60/90 buckets (overdue toggle ships now); per-list customer-name search; command-palette resolver alignment; `F-UISCAN-INDEX-CONCURRENTLY-01` (concurrent index rebuild at scale).
+
 ## 2026-06-17 Per-line supply_source override shipped to prod (feature complete)
 
 The deferred follow-up `F-UIUX-ENTITYPICKER-LINE-OVERRIDE-01` (PR #327 Option A) built and merged as PR #329 (squash `0cf26c0`) and LIVE on prod. CHANGELOG `0.25.0`; journal `03-workspace/journal/2026-06-17-entitypicker-line-override.md`. No new migration (the override columns already shipped in `0121`; prod stays at `0122`); live after the four edge bundles (ops-api, manufacturing-api, copack-api, three-pl-api) and the SPA deployed. The operator said "kick off", I built the whole follow-up, then "Get it done" merged it on green.

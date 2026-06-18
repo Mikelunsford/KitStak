@@ -8,6 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.26.0] · 2026-06-18 UI scan: name-first titles, one detail header, server list toolbar (PRs #331 to #335)
+
+The 2026-06-17 UI scan (`kitstak-ui-indexing-scan.md`) found three consistency gaps: lists led with the system number instead of the human name, every detail page repeated its identity two or three times, and lists offered at most a single status dropdown with no search, sort, facets, or saved views. Shipped as five PRs, all live on prod (migrations `0123` and `0124`; prod at max `0124`). The two operator-facing surfaces are behind per-org flags, default off, so prod is unchanged until an org flips them on `/admin/flags`. Plan: `03-workspace/specs/2026-06-17-ui-scan-titles-headers-list-indexing-plan.md`. Journal: `03-workspace/journal/2026-06-18-ui-scan-titles-headers-list-indexing.md`.
+
+### Added
+
+- **displayTitle resolver (PR #331, Workstream A)**: a pure `displayTitle(kind, record, relations)` that leads with the human name (quote title, project/customer/item name) and demotes the system number to a chip, deriving a title for the nameless entities (invoice, payment, sales order, fulfillment, receiving, shipment, runs) from already-resolved relations with a short id-prefix fallback for the load-in-flight race. `EntityLabel` now shares its `formatCodeName` helper. SPA-only, no canon change; 28 unit tests.
+- **Shared DetailHeader behind `feature.detail_header` (PR #332, Workstream B)**: one header that leads with the human name and carries the number chip, status pill, customer link, and headline money in a single row, each shown once, dropping the duplicated "Customer:" subtitle. Rolled out on the quote, invoice, project, and customer pages; status shows once (the three FSM pages keep their StateStepper and pass no pill; the customer hub shows it). The legacy header renders when the flag is off.
+- **Server list search, sort, and keyset pagination (PR #333, Workstream C edge)**: optional, backward-compatible `search` / `sort_by` / `sort_dir` / `cursor` params on the quotes, invoices, customers, and items list routes, backed by a shared keyset-with-sort helper (`_shared/list-query.ts`). Invoices add an open-balance toggle and an overdue facet. Migration `0123` installs `pg_trgm` and adds trigram GIN indexes on the searchable text columns plus money/date btrees for the amount sort and the balance/aging facets. Additive and idempotent; no RLS, money, idempotency, or audit_log change.
+- **Server list toolbar behind `feature.list_toolbar` (PR #334, Workstream C SPA)**: a `ListToolbar` (debounced search plus facet slot), sortable `DataTable` headers (closing `F-Wave10-UI-KIT-DATATABLE-SORT-01`), a keyset `CursorPager`, and a `useServerList` state machine (URL-synced sort and facets so the dashboard `?state=` deep-link still works). Each list page renders the toolbar view when the flag is on and the original client-slice view (verbatim) when off. `apiClient` gains `apiRequestWithMeta` so the invoices and customers lists, which carry `next_cursor` in `meta`, can paginate.
+- **Saved views in the toolbar plus flag seed (PR #335)**: a `SavedViewsBar` on each toolbar list saves the current view (search, sort, facets) and applies a saved one back, wired entirely onto the existing `saved_views` feature (table and RLS since migration `0034`). Migration `0124` seeds `feature.detail_header` and `feature.list_toolbar` (default off) into `seed_org_settings` and backfills every existing org so they are toggleable, and closes the noted `billing.trial_gate.enabled` seed gap. Additive and idempotent; the function replace keeps the exact signature, SECURITY DEFINER, and search_path.
+
+### Notes
+
+- The planned saved_views backend work was a no-op: the table, RLS (org plus owner / `is_shared`), the `saved_views.saved_view.{read,create,delete}` capabilities, the `SavedView` canon, the collaboration-api CRUD, and the SPA service all shipped in Wave 2. There is no new RLS table this run.
+- The keyset-with-sort helper and the `useServerList` state machine were both adversarially reviewed; the review's findings (a null-cursor throw, a UTF-8-safe cursor, a documented dual-`.or()` AND contract, a double-click Next guard, and a stale-closure URL-mirror fix) are folded in.
+- Prod advisors are unchanged: the new `pg_trgm` extension installs into the `extensions` schema, not `public`, so it adds no advisor.
+
 ## [0.25.0] · 2026-06-17 Per-line supply_source override (PR #329)
 
 The deferred follow-up to PR #327 (Option A). The override column shipped at the DB
