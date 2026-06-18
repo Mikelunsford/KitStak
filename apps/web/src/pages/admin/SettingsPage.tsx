@@ -14,6 +14,14 @@ import {
   DEFAULT_CURRENCY_GROUP,
   DEFAULT_CURRENCY_KEY,
 } from '@/lib/defaultCurrency';
+import {
+  resolveDefaultExpiration,
+  presetIdForDuration,
+  durationForPresetId,
+  EXPIRATION_PRESETS,
+  QUOTE_EXPIRATION_GROUP,
+  QUOTE_EXPIRATION_KEY,
+} from '@/lib/quoteExpiration';
 
 /**
  * Org settings admin page.
@@ -49,6 +57,26 @@ export function SettingsPage() {
   useEffect(() => {
     setCurrencyChoice(currentDefaultCurrency);
   }, [currentDefaultCurrency]);
+
+  // Default quote-expiration control: a duration-preset dropdown plus a custom
+  // day count, over the quotes/default_expiration setting.
+  const currentDefaultExpiration = useMemo(
+    () => resolveDefaultExpiration(queryData),
+    [queryData],
+  );
+  const currentExpId = presetIdForDuration(currentDefaultExpiration);
+  const [expChoice, setExpChoice] = useState(currentExpId);
+  const [customDays, setCustomDays] = useState(
+    currentExpId === 'custom' && currentDefaultExpiration
+      ? currentDefaultExpiration.amount
+      : 30,
+  );
+  useEffect(() => {
+    setExpChoice(currentExpId);
+    if (currentExpId === 'custom' && currentDefaultExpiration) {
+      setCustomDays(currentDefaultExpiration.amount);
+    }
+  }, [currentExpId, currentDefaultExpiration]);
 
   const grouped = useMemo(() => {
     const out = new Map<string, typeof queryData>();
@@ -140,6 +168,70 @@ export function SettingsPage() {
             disabled={upsert.isPending || currencyChoice === currentDefaultCurrency}
           >
             {upsert.isPending ? 'Saving.' : 'Save default'}
+          </Button>
+        </div>
+      </section>
+
+      <section className="border border-line p-4">
+        <h2 className="mb-1 font-display text-xl text-ink">
+          Default quote expiration
+        </h2>
+        <p className="mb-4 font-sans text-sm text-ink-dim">
+          New quotes start with this expiration (today plus the duration).
+          Operators can still override the date per quote under Advanced.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-2">
+            <span className="font-sans text-sm uppercase tracking-wide text-ink-dim">
+              Expiration
+            </span>
+            <select
+              value={expChoice}
+              onChange={(e) => setExpChoice(e.target.value)}
+              className="border border-line bg-bg-2 px-4 py-3 font-sans text-ink focus:border-accent focus:outline-none"
+            >
+              <option value="none">No default</option>
+              {EXPIRATION_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+              <option value="custom">Custom (days)</option>
+            </select>
+          </label>
+          {expChoice === 'custom' && (
+            <label className="flex flex-col gap-2">
+              <span className="font-sans text-sm uppercase tracking-wide text-ink-dim">
+                Days
+              </span>
+              <input
+                type="number"
+                min={1}
+                value={customDays}
+                onChange={(e) => setCustomDays(Number(e.target.value))}
+                className="w-28 border border-line bg-bg-2 px-4 py-3 font-sans text-ink focus:border-accent focus:outline-none"
+              />
+            </label>
+          )}
+          <Button
+            onClick={() => {
+              const duration = durationForPresetId(expChoice, customDays);
+              if (duration === null) {
+                remove.mutate({
+                  group: QUOTE_EXPIRATION_GROUP,
+                  key: QUOTE_EXPIRATION_KEY,
+                });
+              } else {
+                upsert.mutate({
+                  group_key: QUOTE_EXPIRATION_GROUP,
+                  setting_key: QUOTE_EXPIRATION_KEY,
+                  value: { unit: duration.unit, amount: duration.amount },
+                });
+              }
+            }}
+            disabled={upsert.isPending || remove.isPending}
+          >
+            {upsert.isPending || remove.isPending ? 'Saving.' : 'Save default'}
           </Button>
         </div>
       </section>
