@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.28.0] · 2026-06-18 System-wide default currency; currency moved off the main create flow (PR #340)
+
+Currency was a field on every create/money form, almost always left at USD. It now defaults from a system-wide setting and moves into the Advanced section of each form, so the common path is one fewer decision. SPA only, no migration.
+
+### Added
+
+- **Default Currency setting (Settings page)**: a dropdown that saves a system-wide `general/default_currency` setting. Stored in the existing settings store (no new column, no migration), readable by every staff role (`settings.read`) and writable from Settings (`settings.write`). The per-record `organizations.default_currency_code` column is left untouched.
+- **Shared `CurrencyField` plus `useDefaultCurrency`**: the field seeds itself from the org default exactly once on load, then the operator's choice flows through. Backed by a pure `resolveDefaultCurrency` resolver with five unit tests, split into `lib/defaultCurrency.ts` so it is testable without the supabase client.
+
+### Changed
+
+- **Currency moved into Advanced on the nine create/money forms** (quote, invoice, purchase order, sales order, payment, credit note, vendor bill, expense, project). Each form now defaults its currency from the system-wide setting and exposes the override under "Advanced (optional)" instead of on the main flow. SPA only; the wire contract is unchanged (each form still sends `currency_code`).
+
 ## [0.27.0] · 2026-06-18 Inline quick-create repaired + a quote now requires a customer (PRs #337, #338, #339)
 
 The inline "+ New" quick-create on the reference pickers never persisted: clicking Save created nothing, and a later state of the same bug created an empty quote instead. Two structural bugs fixed in sequence, plus a guard so a quote can no longer be created without a customer. Live on prod.

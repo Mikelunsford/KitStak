@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -8,6 +8,12 @@ import {
   useDeleteSetting,
 } from '@/lib/hooks/useSettings';
 import { useAuth } from '@/auth/AuthContext';
+import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
+import {
+  resolveDefaultCurrency,
+  DEFAULT_CURRENCY_GROUP,
+  DEFAULT_CURRENCY_KEY,
+} from '@/lib/defaultCurrency';
 
 /**
  * Org settings admin page.
@@ -33,6 +39,17 @@ export function SettingsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const queryData = query.data;
+
+  // Default-currency control: a dedicated dropdown over the general/
+  // default_currency setting. Settings are readable by every staff role, so the
+  // create forms can seed their currency from it; saving needs settings.write.
+  const { data: currencies } = useCurrenciesList();
+  const currentDefaultCurrency = resolveDefaultCurrency(queryData);
+  const [currencyChoice, setCurrencyChoice] = useState(currentDefaultCurrency);
+  useEffect(() => {
+    setCurrencyChoice(currentDefaultCurrency);
+  }, [currentDefaultCurrency]);
+
   const grouped = useMemo(() => {
     const out = new Map<string, typeof queryData>();
     for (const row of queryData ?? []) {
@@ -84,6 +101,48 @@ export function SettingsPage() {
           and key.
         </p>
       </header>
+
+      <section className="border border-line p-4">
+        <h2 className="mb-1 font-display text-xl text-ink">Default currency</h2>
+        <p className="mb-4 font-sans text-sm text-ink-dim">
+          The system-wide currency new quotes, invoices, and other documents
+          start with. Operators can still override it per document under
+          Advanced.
+        </p>
+        <div className="flex items-end gap-3">
+          <label className="flex flex-col gap-2">
+            <span className="font-sans text-sm uppercase tracking-wide text-ink-dim">
+              Currency
+            </span>
+            <select
+              value={currencyChoice}
+              onChange={(e) => setCurrencyChoice(e.target.value)}
+              className="border border-line bg-bg-2 px-4 py-3 font-sans text-ink focus:border-accent focus:outline-none"
+            >
+              {(currencies && currencies.length > 0
+                ? currencies
+                : [{ code: currencyChoice }]
+              ).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            onClick={() =>
+              upsert.mutate({
+                group_key: DEFAULT_CURRENCY_GROUP,
+                setting_key: DEFAULT_CURRENCY_KEY,
+                value: { code: currencyChoice },
+              })
+            }
+            disabled={upsert.isPending || currencyChoice === currentDefaultCurrency}
+          >
+            {upsert.isPending ? 'Saving.' : 'Save default'}
+          </Button>
+        </div>
+      </section>
 
       {query.isLoading ? (
         <p className="text-ink-dim">Loading.</p>

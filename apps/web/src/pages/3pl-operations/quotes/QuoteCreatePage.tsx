@@ -7,7 +7,7 @@ import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { useCreateQuote } from '@/lib/hooks/useQuotes';
-import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useTaxesList } from '@/lib/hooks/useTaxes';
 import { paymentMethodsKeys } from '@/lib/queryKeys/paymentMethods';
 import { listPaymentMethods } from '@/lib/services/paymentMethodsService';
@@ -42,7 +42,6 @@ export function QuoteCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const create = useCreateQuote();
-  const { data: currencies } = useCurrenciesList();
   const { data: taxes } = useTaxesList();
   const { data: paymentMethods } = useQuery({
     queryKey: paymentMethodsKeys.list(),
@@ -156,22 +155,6 @@ export function QuoteCreatePage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-            Currency
-          </span>
-          <select
-            value={currencyCode}
-            onChange={(e) => setCurrencyCode(e.target.value)}
-            className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
-          >
-            {(currencies ?? [{ code: 'USD' }]).map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.code}
-              </option>
-            ))}
-          </select>
-        </label>
         <TextInput
           label="Expiration date"
           type="date"
@@ -196,6 +179,7 @@ export function QuoteCreatePage() {
             Advanced (optional)
           </summary>
           <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currencyCode} onChange={setCurrencyCode} />
             <TextInput
               label="Default tax id"
               value={defaultTaxId}

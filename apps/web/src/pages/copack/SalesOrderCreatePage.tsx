@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, ProjectPicker, ChannelPicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useCreateSalesOrder } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { SalesOrderCreate } from '@/lib/types/copack';
@@ -92,11 +93,6 @@ export function SalesOrderCreatePage() {
           label="Project (optional)"
         />
         <TextInput
-          label="Currency (3-letter code)"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
-        />
-        <TextInput
           label="Ordered at"
           type="datetime-local"
           value={orderedAt}
@@ -113,6 +109,15 @@ export function SalesOrderCreatePage() {
             className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
+
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currency} onChange={setCurrency} />
+          </div>
+        </details>
 
         {create.error ? (
           <p className="text-accent font-sans text-sm">
