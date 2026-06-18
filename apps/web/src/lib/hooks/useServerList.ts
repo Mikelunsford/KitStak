@@ -99,16 +99,22 @@ export function useServerList<TRow>(
     setSearchParams(next, { replace: true });
   }
 
+  // Mirror the debounced search into the URL so a filtered view is shareable.
+  // The functional setSearchParams form reads the latest params (no stale
+  // searchParams closure), so a concurrent sort or facet change in the narrow
+  // debounce window is never dropped.
   useEffect(() => {
-    const current = searchParams.get('search') ?? '';
-    if (current === search) return;
-    mutateParams((p) => {
-      if (search) p.set('search', search);
-      else p.delete('search');
-    });
-    // mutateParams reads the latest searchParams; we only depend on `search`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+    setSearchParams(
+      (prev) => {
+        if ((prev.get('search') ?? '') === search) return prev;
+        const next = new URLSearchParams(prev);
+        if (search) next.set('search', search);
+        else next.delete('search');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [search, setSearchParams]);
 
   function onSort(sortKey: string) {
     mutateParams((p) => {
@@ -202,10 +208,14 @@ export function useServerList<TRow>(
     sortDir,
     onSort,
     canPrev: cursorStack.length > 0,
-    canNext: Boolean(nextCursor),
+    // Guard Next against a double-click during the in-flight page fetch: while
+    // keepPreviousData holds the prior page, nextCursor still points at the same
+    // cursor, so an unguarded second click would push it twice and corrupt the
+    // stack depth.
+    canNext: Boolean(nextCursor) && !query.isFetching,
     onPrev: () => setCursorStack((s) => s.slice(0, -1)),
     onNext: () => {
-      if (nextCursor) setCursorStack((s) => [...s, nextCursor]);
+      if (nextCursor && !query.isFetching) setCursorStack((s) => [...s, nextCursor]);
     },
   };
 }
