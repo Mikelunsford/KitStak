@@ -1,5 +1,41 @@
 # Kitstak Status
 
+## 2026-06-18 Production readiness pass: 78 to ~90, hard gate cleared
+
+`/ship-ready all` ran an eleven-agent parallel audit against the readiness
+rubric. Starting score 78.0 / 100, BLOCKED by one failing hard gate (the
+migration numbering gap at 0005/0006). After a safe non-schema remediation pass
+plus one operator-authorized constitution clarification, the estimated score is
+90.5 / 100 with zero failing hard gates and zero open P0 or P1. CHANGELOG
+`0.31.0`; scorecard `03-workspace/audits/readiness-2026-06-18.md`; closeout
+`03-workspace/journal/2026-06-18-production-readiness-pass.md`. Branch
+`chore/readiness-2026-06-18-safe` (`0277ccc`, `3e41c67`), PR not yet opened.
+
+The substantive correctness gates passed from the start: RLS isolation and the
+404/403 contract, money parity, idempotency, the audit hash chain, capability
+coverage, contract parity, bundle budget, lint, typecheck, and the unit and
+contract suites. The score was held down by ops, docs, and test-harness gaps,
+not by tenant-data, money, or auth risk.
+
+Closed this pass: ratified the numbering gap (`F-Wave6-MIG-01`, the only hard
+gate); wired `test:rls` and `test:e2e` into PR CI; made the nightly probes fail
+loud and open incident issues; authored the deploy and incident runbooks plus
+manufacturing, copack, kitforce, and kitcost docs; added FSM and capability
+tests; invoked the previously-dead axe-core sweep; extended the RLS probe matrix
+to the nine 3PL and WMS tables; fixed the README and the Kitstak and TS1
+branding nits. Gates green: lint, typecheck, test (97 unit + 98 regression
+files), test:contract, build, bundle-budget (index 37.14 kB gzip).
+
+Operator decisions on the run: ratify the gap (not backfill placeholders), and
+safe non-schema work only this pass. Deferred to a future operator-gated
+session (all forward migrations): `R-W14-MONEY-02` SQL banker's rounding (the
+last clean weighted point depends on it), `R-W14-MONEY-01` project-line tax
+snapshot, `R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry. Also
+deferred non-blocking: `LIGHTHOUSE_ENABLED` repo variable, a `req.json()` lint
+guard, and un-skipping the quote-to-cash smoke chain. Open manual item: open
+the PR and, if a verified number is wanted, re-dispatch the touched-category
+auditors after the money migration.
+
 ## 2026-06-18 Branding overhaul: color wheel, text-on-brand color, logo/favicon upload
 
 The org Branding admin page (`/admin/branding`) went from hex-code typing and URL pasting to real white-label setup. CHANGELOG `0.30.0`; journal `03-workspace/journal/2026-06-18-branding-color-picker-and-asset-upload.md`. PR #342. Prod advanced to migration `0125`. The operator asked for "a color wheel and easily customizable" setup; after a planning pass the operator picked real file upload (not just a nicer URL flow), the native swatch + hex picker, and exposing the text-on-brand color. Merged on green; the migrate workflow shipped `0125` to prod and staging, both verified to carry the `branding` bucket.

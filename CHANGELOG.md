@@ -8,6 +8,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.31.0] · 2026-06-18 Production readiness pass: safe non-schema remediation (`/ship-ready all`)
+
+An eleven-agent parallel audit scored the repo at 78.0 / 100, BLOCKED by one
+failing hard gate (the migration numbering gap). A safe, non-schema remediation
+pass plus one operator-authorized constitution clarification lifted it to an
+estimated 90.5 / 100 with zero failing hard gates and zero open P0 or P1
+findings. No migrations were written; money-SQL banker's-rounding work was
+deferred to a future operator-gated session. Scorecard:
+`03-workspace/audits/readiness-2026-06-18.md`; closeout:
+`03-workspace/journal/2026-06-18-production-readiness-pass.md`.
+
+### Changed
+
+- **Migration numbering rule clarified** (`CLAUDE.md`): the 0005 and 0006 slots
+  never existed and are ratified as a documented accepted artifact
+  (`F-Wave6-MIG-01`). The forward-only invariant is about never editing an
+  applied migration and never breaking the apply chain, not consecutive
+  integers. Cleared the only failing hard gate.
+- **CI now enforces `pnpm test:rls` and `pnpm test:e2e`** at PR time via a
+  staging-gated `rls-e2e` job (warns on fork PRs without secrets; the nightly
+  hard-fails).
+- **Nightly probes fail loud**: the RLS probe, audit-chain-verify, and
+  idempotency-gc workflows now error and exit non-zero on missing secrets
+  instead of passing green, and the two probe workflows open a tracked incident
+  issue on failure.
+- **Branding**: `Kitstak` rendered one-word capital-K in the logo and the
+  welcome banner; `TS1` codename removed from docs and README.
+
+### Added
+
+- **Operations runbooks**: `docs/operations/deploy.md` and `incidents.md`.
+- **Add-on docs**: manufacturing, copack, kitforce, and kitcost API and user
+  docs; the branding logo upload-url endpoint documented in
+  `docs/api/identity.md`.
+- **Tests**: FSM regression specs for period-close, organization, and the three
+  3PL status machines; a behavioral `CAPABILITIES_BY_ROLE` parity test; an
+  `@axe-core/playwright` accessibility sweep in the smoke spec.
+- **RLS probe coverage**: the nine 3PL and WMS tenant-scoped tables (migrations
+  0089-0110) added to the nightly cross-tenant matrix.
+- **WMS Body B closeout journal** (`wave-12-wms-body-b-closeout.md`).
+
+### Deferred (operator-gated, forward migrations)
+
+- `R-W14-MONEY-02` SQL banker's rounding, `R-W14-MONEY-01` project-line tax
+  snapshot, `R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry.
+
 ## [0.30.0] · 2026-06-18 Branding: color-wheel picker, text-on-brand color, logo/favicon upload (PR #342)
 
 The org Branding admin page (`/admin/branding`) goes from hex-code typing and URL pasting to real white-label setup: a color wheel, an editable text-on-brand color, and direct logo/favicon upload. Prod advanced to migration `0125` (the new public `branding` storage bucket); advisors unchanged (the same deliberate exceptions only, the bucket adds none).

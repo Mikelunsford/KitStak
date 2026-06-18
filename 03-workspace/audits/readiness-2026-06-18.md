@@ -1,7 +1,7 @@
 # Production Readiness Scorecard — 2026-06-18
 
 Scope: `all` (whole repo) · Target: 90 · Budget: 3 fix iterations
-Branch: `main` · HEAD: `f7f8cd2` · Migrations: 0001..0125 (0005, 0006 absent) · Edge bundles: 33
+Branch: `main` · HEAD: `f7f8cd2` · Migrations: 0001..0125 (0005, 0006 absent) · Edge bundles: 31 deployable
 
 Driver: `/ship-ready all`. Rubric: `.claude/PRODUCTION-READINESS.md`. Constitution: `CLAUDE.md`. DoD: `DEFINITION-OF-DONE.md`.
 
