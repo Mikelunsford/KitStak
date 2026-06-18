@@ -1,5 +1,13 @@
 # Kitstak Status
 
+## 2026-06-17 Per-line supply_source override shipped to prod (feature complete)
+
+The deferred follow-up `F-UIUX-ENTITYPICKER-LINE-OVERRIDE-01` (PR #327 Option A) built and merged as PR #329 (squash `0cf26c0`) and LIVE on prod. CHANGELOG `0.25.0`; journal `03-workspace/journal/2026-06-17-entitypicker-line-override.md`. No new migration (the override columns already shipped in `0121`; prod stays at `0122`); live after the four edge bundles (ops-api, manufacturing-api, copack-api, three-pl-api) and the SPA deployed. The operator said "kick off", I built the whole follow-up, then "Get it done" merged it on green.
+
+The per-line override is now wired end to end: a nullable supply_source on the read and create schemas of the five consumption-line types (byte-identical across the three canon pairs), accepted and persisted by the five POST/PATCH handlers, and exposed by a new SupplySourceSelect control ("inherit from item" plus the four values) on every consumption-line add-line form. Receiving captures the item's default source and disables/nulls the unit-cost input when the effective source COALESCE(override, item default) is customer_supplied or third_party_consigned. No new cost-zeroing logic was needed (the dashboard folds and the job-profitability view were already supply-source aware). A first pass made the read fields required-nullable, which broke two handler-mock regression tests (fixtures omit the column); switched to nullable optional, the additive-read-column convention.
+
+With this, the whole EntityPicker plus items.supply_source feature is FULLY SHIPPED with nothing deferred: the typeahead combobox pickers, the inline quick-create for all five entities, the item-level supply_source dimension and costing, and the per-line override on every consumption-line editor. CHANGELOG spans `0.24.0` (PR #327) and `0.25.0` (PR #329).
+
 ## 2026-06-17 Inline quick-create EntityPicker and items.supply_source shipped to prod
 
 The 2026-06-17 smoke ticket built and merged as one PR (#327, squash `0e4d0b2`) and LIVE on prod. CHANGELOG `0.24.0`; journal `03-workspace/journal/2026-06-17-entitypicker-inline-quickcreate.md`; plan `03-workspace/specs/2026-06-17-entitypicker-inline-quickcreate-and-item-supply-source-plan.md`. Prod advanced to migration `0122`. The operator approved the full plan, then "Merge on green"; CI went green and the merge plus the migrate, deploy-functions, and deploy-prod workflows all landed clean.
