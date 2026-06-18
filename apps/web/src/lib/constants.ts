@@ -50,6 +50,9 @@ export const FEATURE_FLAGS = {
   AUTH_SSO_SAML: 'auth.sso_saml',
   // Platform admin (bundle-level 404 gate for admin-console-api).
   PLATFORM_ADMIN_ENABLED: 'platform_admin.enabled',
+  // UI experience (SPA-only render flags; default off, no edge gate).
+  UI_DETAIL_HEADER: 'feature.detail_header',
+  UI_LIST_TOOLBAR: 'feature.list_toolbar',
 } as const;
 
 export type FeatureFlagKey =

@@ -32,6 +32,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailHeader } from '@/components/ui/DetailHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Tabs } from '@/components/ui/Tabs';
@@ -61,6 +62,9 @@ import {
 } from '@/lib/workflow/sales';
 import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents, roundHalfEven } from '@/lib/money';
+import { displayTitle } from '@/lib/displayTitle';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import type {
   JobTemplateSnapshotLine, ProjectLineItem, ProjectPhase,
@@ -109,6 +113,7 @@ export function ProjectDetailPage() {
   const addLine = useAddProjectLineItem(projectId);
   const removeLine = useRemoveProjectLineItem(projectId);
   const convertToInvoice = useConvertProjectToInvoice(projectId);
+  const orgFlags = useOrgFlags();
 
   const customerId = data?.project.customer_id ?? null;
   const sourceQuoteId = data?.project.source_quote_id ?? null;
@@ -152,6 +157,13 @@ export function ProjectDetailPage() {
 
   const { project, phases } = data;
   const state = project.state as ProjectState;
+
+  // Workstream B: name-first detail header behind feature.detail_header. No
+  // status pill; the StateStepper above owns the current state.
+  const detailHeaderV2 = orgFlags.data[FEATURE_FLAGS.UI_DETAIL_HEADER];
+  const projectTitle = displayTitle('project', project, {
+    customerName: customer.data?.display_name ?? null,
+  });
 
   // Wave 12 / A4: the Job Builder template this project was built from, plus the
   // frozen snapshot captured at conversion. The snapshot is the historical
@@ -366,59 +378,98 @@ export function ProjectDetailPage() {
         }
       />
 
-      <PageHeader
-        title={project.number}
-        meta={
-          <span className="flex flex-col gap-1">
-            <span>{project.name}</span>
-            {customerId && (
-              <span>
-                Customer:{' '}
-                <Link
-                  to={`/crm/customers/${customerId}`}
-                  className="text-ink hover:text-accent"
-                >
-                  {fallbackLabel(customer.data?.display_name, customerId)}
-                </Link>
+      {detailHeaderV2 ? (
+        <DetailHeader
+          title={projectTitle.title}
+          number={projectTitle.number}
+          customer={
+            customerId
+              ? {
+                  label: fallbackLabel(customer.data?.display_name, customerId),
+                  to: `/crm/customers/${customerId}`,
+                }
+              : null
+          }
+          money={{
+            label: 'Budget',
+            value: formatCents(project.budget_cents, project.currency_code),
+          }}
+          links={[
+            ...(sourceQuoteId
+              ? [
+                  {
+                    label: `Source quote ${fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}`,
+                    to: `/quotes/${sourceQuoteId}`,
+                    testId: 'source-quote-link',
+                  },
+                ]
+              : []),
+            ...(sourceTemplateId
+              ? [
+                  {
+                    label: `Built from template ${templateLabel ?? sourceTemplateId}`,
+                    to: `/3pl-operations/job-builders/${sourceTemplateId}`,
+                    testId: 'source-template-link',
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : (
+        <PageHeader
+          title={project.number}
+          meta={
+            <span className="flex flex-col gap-1">
+              <span>{project.name}</span>
+              {customerId && (
+                <span>
+                  Customer:{' '}
+                  <Link
+                    to={`/crm/customers/${customerId}`}
+                    className="text-ink hover:text-accent"
+                  >
+                    {fallbackLabel(customer.data?.display_name, customerId)}
+                  </Link>
+                </span>
+              )}
+              {sourceQuoteId && (
+                <span>
+                  Source quote:{' '}
+                  {/*
+                    PR-6 / B11: operator reported this link appeared red on
+                    the smoke walk. The resting className is `text-ink
+                    hover:text-accent`; the "red" was the hover state (accent
+                    is #c8102e). The data-testid lets the next smoke pass
+                    target resting vs hover precisely.
+                  */}
+                  <Link
+                    to={`/quotes/${sourceQuoteId}`}
+                    className="text-ink hover:text-accent"
+                    data-testid="source-quote-link"
+                  >
+                    {fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}
+                  </Link>
+                </span>
+              )}
+              {sourceTemplateId && (
+                <span>
+                  Built from template:{' '}
+                  <Link
+                    to={`/3pl-operations/job-builders/${sourceTemplateId}`}
+                    className="text-ink hover:text-accent"
+                    data-testid="source-template-link"
+                  >
+                    {templateLabel}
+                  </Link>
+                </span>
+              )}
+              <span className="font-mono">
+                Budget: {formatCents(project.budget_cents, project.currency_code)}
               </span>
-            )}
-            {sourceQuoteId && (
-              <span>
-                Source quote:{' '}
-                {/*
-                  PR-6 / B11: operator reported this link appeared red on
-                  the smoke walk. The resting className is `text-ink
-                  hover:text-accent`; the "red" was the hover state (accent
-                  is #c8102e). The data-testid lets the next smoke pass
-                  target resting vs hover precisely.
-                */}
-                <Link
-                  to={`/quotes/${sourceQuoteId}`}
-                  className="text-ink hover:text-accent"
-                  data-testid="source-quote-link"
-                >
-                  {fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}
-                </Link>
-              </span>
-            )}
-            {sourceTemplateId && (
-              <span>
-                Built from template:{' '}
-                <Link
-                  to={`/3pl-operations/job-builders/${sourceTemplateId}`}
-                  className="text-ink hover:text-accent"
-                  data-testid="source-template-link"
-                >
-                  {templateLabel}
-                </Link>
-              </span>
-            )}
-            <span className="font-mono">
-              Budget: {formatCents(project.budget_cents, project.currency_code)}
             </span>
-          </span>
-        }
-      />
+          }
+        />
+      )}
 
       <DetailLayout
         rail={

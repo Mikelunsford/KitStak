@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { Select } from '@/components/ui/Select';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailHeader } from '@/components/ui/DetailHeader';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { DollarInput } from '@/components/forms/DollarInput';
@@ -37,6 +38,9 @@ import {
   PDF_DRAFT_DISABLED_TOOLTIP,
 } from '@/lib/workflow/pdfGating';
 import { formatCents } from '@/lib/money';
+import { displayTitle } from '@/lib/displayTitle';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import {
   computeSendButtonFeedback,
@@ -84,6 +88,7 @@ export function QuoteDetailPage() {
   const convert = useConvertQuoteToProject();
   const updateQuote = useUpdateQuote(id ?? '');
   const jobTypes = useJobTypes();
+  const orgFlags = useOrgFlags();
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [lineName, setLineName] = useState('');
@@ -131,6 +136,13 @@ export function QuoteDetailPage() {
 
   const { quote, lineItems } = data;
   const state = quote.state as QuoteState;
+
+  // Workstream B: name-first detail header behind feature.detail_header.
+  // No status pill here; the StateStepper above owns the current state.
+  const detailHeaderV2 = orgFlags.data[FEATURE_FLAGS.UI_DETAIL_HEADER];
+  const quoteTitle = displayTitle('quote', quote, {
+    customerName: customer.data?.display_name ?? null,
+  });
 
   // Wave 12 / A3: 3PL job type display plus the next free line position used
   // when a Job Builder template appends its lines to this quote.
@@ -355,27 +367,46 @@ export function QuoteDetailPage() {
         onAdvance={advanceQuote}
         advancePending={advancePending}
       />
-      <PageHeader
-        title={quote.number}
-        meta={
-          quote.title || customerId ? (
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {quote.title ? <span>{quote.title}</span> : null}
-              {customerId ? (
-                <span>
-                  Customer:{' '}
-                  <Link
-                    to={`/crm/customers/${customerId}`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {fallbackLabel(customer.data?.display_name, customerId)}
-                  </Link>
-                </span>
-              ) : null}
-            </span>
-          ) : undefined
-        }
-      />
+      {detailHeaderV2 ? (
+        <DetailHeader
+          title={quoteTitle.title}
+          number={quoteTitle.number}
+          customer={
+            customerId
+              ? {
+                  label: fallbackLabel(customer.data?.display_name, customerId),
+                  to: `/crm/customers/${customerId}`,
+                }
+              : null
+          }
+          money={{
+            label: 'Total',
+            value: formatCents(quote.total_cents, quote.currency_code),
+          }}
+        />
+      ) : (
+        <PageHeader
+          title={quote.number}
+          meta={
+            quote.title || customerId ? (
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {quote.title ? <span>{quote.title}</span> : null}
+                {customerId ? (
+                  <span>
+                    Customer:{' '}
+                    <Link
+                      to={`/crm/customers/${customerId}`}
+                      className="text-ink hover:text-accent"
+                    >
+                      {fallbackLabel(customer.data?.display_name, customerId)}
+                    </Link>
+                  </span>
+                ) : null}
+              </span>
+            ) : undefined
+          }
+        />
+      )}
 
       <DetailLayout
         rail={
