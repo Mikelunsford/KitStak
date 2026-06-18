@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
+import { SupplySourceSelect } from '@/components/forms/SupplySourceSelect';
 import {
   useShipment, useTransitionShipment, useShipShipment,
   useShipmentLineItems, useCreateShipmentLineItem, useDeleteShipmentLineItem,
@@ -26,6 +27,7 @@ import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { SHIPMENT_FSM } from '@/lib/workflow/vendors_inventory_ops';
 import { shouldShowShipmentNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import type { ShipmentStatus } from '@/lib/types/vendors_inventory_ops';
+import type { ItemSupplySource } from '@/lib/types/sales';
 import { formatCents } from '@/lib/money';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { buildCreateInvoiceUrl, getShipmentProjectId } from './shipmentInvoiceLink';
@@ -46,6 +48,7 @@ export function ShipmentDetailPage() {
   const [unitCost, setUnitCost] = useState('');
   const [uom, setUom] = useState('');
   const [reference, setReference] = useState('');
+  const [supplySource, setSupplySource] = useState<ItemSupplySource | null>(null);
 
   if (s.isLoading) return <p className="px-8 py-12 text-ink-dim">Loading.</p>;
   if (s.error || !s.data) return <p className="px-8 py-12 text-accent">Shipment not found.</p>;
@@ -93,6 +96,7 @@ export function ShipmentDetailPage() {
         unit_cost_cents: unitCost === '' ? null : Number(unitCost),
         uom: uom === '' ? null : uom,
         reference: reference === '' ? null : reference,
+        supply_source: supplySource,
       },
       {
         onSuccess: () => {
@@ -101,6 +105,7 @@ export function ShipmentDetailPage() {
           setUnitCost('');
           setUom('');
           setReference('');
+          setSupplySource(null);
         },
       },
     );
@@ -302,6 +307,10 @@ export function ShipmentDetailPage() {
                   label="Reference"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
+                />
+                <SupplySourceSelect
+                  value={supplySource}
+                  onChange={setSupplySource}
                 />
                 <Button
                   type="submit"

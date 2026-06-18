@@ -27,6 +27,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
+import { SupplySourceSelect } from '@/components/forms/SupplySourceSelect';
+import type { ItemSupplySource } from '@/lib/types/sales';
 import {
   useManufacturingRun,
   useStartManufacturingRun,
@@ -113,6 +115,8 @@ export function ManufacturingRunDetailPage() {
   const [conQty, setConQty] = useState('1');
   const [conCost, setConCost] = useState('');
   const [conUom, setConUom] = useState('');
+  const [conSupplySource, setConSupplySource] =
+    useState<ItemSupplySource | null>(null);
 
   // Produced add form state.
   const [prodItemId, setProdItemId] = useState<string | null>(null);
@@ -155,6 +159,7 @@ export function ManufacturingRunDetailPage() {
         quantity: conQty,
         unit_cost_cents: conCost === '' ? null : Number(conCost),
         uom: conUom === '' ? null : conUom,
+        supply_source: conSupplySource,
       },
       {
         onSuccess: () => {
@@ -162,6 +167,7 @@ export function ManufacturingRunDetailPage() {
           setConQty('1');
           setConCost('');
           setConUom('');
+          setConSupplySource(null);
         },
       },
     );
@@ -470,6 +476,10 @@ export function ManufacturingRunDetailPage() {
                     label="UOM"
                     value={conUom}
                     onChange={(e) => setConUom(e.target.value)}
+                  />
+                  <SupplySourceSelect
+                    value={conSupplySource}
+                    onChange={setConSupplySource}
                   />
                   <Button
                     type="submit"

@@ -9,6 +9,11 @@ const Cents = z.union([z.number().int(), z.string().regex(/^-?\d+$/)]);
 const Qty = z.union([z.number(), z.string().regex(/^-?\d+(\.\d+)?$/)]);
 const Iso = z.string();
 const Currency = z.string().length(3);
+// Per-line supply-source override (migration 0121). NULL inherits the item
+// default; a non-null value wins for cost roll-ups via COALESCE(line, item).
+const SupplySource = z.enum([
+  'in_house', 'customer_supplied', 'vendor_consigned', 'third_party_consigned',
+]);
 
 // ---------------------------------------------------------------------------
 // Vendors
@@ -552,6 +557,7 @@ export const ReceivingOrderLineItemSchema = z.object({
   // receipt emitter threads this onto the spine ledger row so a lot-keyed bin
   // row forms. Nullable; NULL is the no-lot partition (the Phase 1 default).
   lot_id: Uuid.nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int(),
   created_at: Iso,
   updated_at: Iso,
@@ -567,6 +573,7 @@ export const ReceivingOrderLineItemCreateSchema = z.object({
   // WMS Body B Phase B4 (migration 0110): optional lot on a received line. The
   // server validates it is bound to the line item when set (assertLotForItem).
   lot_id: z.string().uuid().nullable().optional(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int().optional(),
 });
 export type ReceivingOrderLineItemCreate = z.infer<typeof ReceivingOrderLineItemCreateSchema>;
@@ -584,6 +591,7 @@ export const ShipmentLineItemSchema = z.object({
   unit_cost_cents: Cents.nullable(),
   uom: z.string().nullable(),
   reference: z.string().nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int(),
   created_at: Iso,
   updated_at: Iso,
@@ -596,6 +604,7 @@ export const ShipmentLineItemCreateSchema = z.object({
   unit_cost_cents: Cents.optional().nullable(),
   uom: z.string().min(1).max(16).optional().nullable(),
   reference: z.string().optional().nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int().optional(),
 });
 export type ShipmentLineItemCreate = z.infer<typeof ShipmentLineItemCreateSchema>;
@@ -675,6 +684,7 @@ export const ManufacturingRunConsumedLineItemSchema = z.object({
   unit_cost_cents: Cents.nullable(),
   uom: z.string().nullable(),
   reference: z.string().nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int(),
   created_at: Iso,
   updated_at: Iso,
@@ -687,6 +697,7 @@ export const ManufacturingRunConsumedLineItemCreateSchema = z.object({
   unit_cost_cents: Cents.optional().nullable(),
   uom: z.string().min(1).max(16).optional().nullable(),
   reference: z.string().optional().nullable(),
+  supply_source: SupplySource.nullable().optional(),
   position: z.number().int().optional(),
 });
 export type ManufacturingRunConsumedLineItemCreate = z.infer<typeof ManufacturingRunConsumedLineItemCreateSchema>;

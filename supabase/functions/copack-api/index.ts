@@ -939,6 +939,7 @@ const TABLE: Route[] = [
             unit_cost_cents: body.unit_cost_cents ?? null,
             uom: body.uom ?? null,
             reference: body.reference ?? null,
+            supply_source: body.supply_source ?? null,
             position,
             created_by: caller.userId,
             updated_by: caller.userId,
@@ -971,6 +972,7 @@ const TABLE: Route[] = [
           if (body.unit_cost_cents !== undefined) patch.unit_cost_cents = body.unit_cost_cents;
           if (body.uom !== undefined) patch.uom = body.uom;
           if (body.reference !== undefined) patch.reference = body.reference;
+          if (body.supply_source !== undefined) patch.supply_source = body.supply_source;
           if (body.position !== undefined) patch.position = body.position;
           const { data, error } = await admin()
             .from('kitting_job_consumed_line_items')

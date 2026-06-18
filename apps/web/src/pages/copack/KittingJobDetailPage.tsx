@@ -10,6 +10,8 @@ import { DetailLayout } from '@/components/ui/DetailLayout';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import { ItemPicker } from '@/components/ui/pickers';
+import { SupplySourceSelect } from '@/components/forms/SupplySourceSelect';
+import type { ItemSupplySource } from '@/lib/types/sales';
 import {
   useKittingJob,
   useStartKittingJob,
@@ -68,6 +70,8 @@ export function KittingJobDetailPage() {
   const [conQty, setConQty] = useState('1');
   const [conCost, setConCost] = useState('');
   const [conUom, setConUom] = useState('');
+  const [conSupplySource, setConSupplySource] =
+    useState<ItemSupplySource | null>(null);
 
   // Produced add form state.
   const [prodItemId, setProdItemId] = useState<string | null>(null);
@@ -94,6 +98,7 @@ export function KittingJobDetailPage() {
         quantity: conQty,
         unit_cost_cents: conCost === '' ? null : Number(conCost),
         uom: conUom === '' ? null : conUom,
+        supply_source: conSupplySource,
       },
       {
         onSuccess: () => {
@@ -101,6 +106,7 @@ export function KittingJobDetailPage() {
           setConQty('1');
           setConCost('');
           setConUom('');
+          setConSupplySource(null);
         },
       },
     );
@@ -355,6 +361,10 @@ export function KittingJobDetailPage() {
                   label="UOM"
                   value={conUom}
                   onChange={(e) => setConUom(e.target.value)}
+                />
+                <SupplySourceSelect
+                  value={conSupplySource}
+                  onChange={setConSupplySource}
                 />
                 <Button type="submit" disabled={!conItemId || addConsumed.isPending}>
                   {addConsumed.isPending ? 'Adding.' : 'Add component'}
