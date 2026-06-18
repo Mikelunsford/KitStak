@@ -1,5 +1,15 @@
 # Kitstak Status
 
+## 2026-06-17 Inline quick-create EntityPicker and items.supply_source shipped to prod
+
+The 2026-06-17 smoke ticket built and merged as one PR (#327, squash `0e4d0b2`) and LIVE on prod. CHANGELOG `0.24.0`; journal `03-workspace/journal/2026-06-17-entitypicker-inline-quickcreate.md`; plan `03-workspace/specs/2026-06-17-entitypicker-inline-quickcreate-and-item-supply-source-plan.md`. Prod advanced to migration `0122`. The operator approved the full plan, then "Merge on green"; CI went green and the merge plus the migrate, deploy-functions, and deploy-prod workflows all landed clean.
+
+Three phases, one feature. Phases 0 to 2 (SPA): a hand-rolled typeahead `EntityPicker` combobox (listbox ARIA, full keyboard nav, pure `entityPickerModel` unit-tested) and a reusable `Modal` primitive (focus trap, scroll lock, focus restore) replace the native-select reference pickers; a capability-gated "+ New" row opens a bespoke quick-create modal for customer, item, vendor, project, and channel; the modal mounts inside the parent form so the draft survives and the new record auto-selects; a new `ChannelPicker` replaced the last raw select on the sales-order form. Phase 3 (money): migration `0120` adds `items.supply_source` (in_house, customer_supplied, vendor_consigned, third_party_consigned; NOT NULL default in_house), `0121` adds a nullable per-line override on the five consumption-line tables, `0122` rewrites `view_job_profitability` to zero not-org-owned material by effective source COALESCE(line, item); both KitCost dashboard folds zero it keyed off the item default; full item supply_source UI plus picker filter and label.
+
+Decisions: operator took the full-vision fork on all four design choices (combobox, modal, item-default-plus-per-line-override grain, bespoke modals) and the four money-logic locks (vendor_consigned normal cost; a fourth third_party_consigned added; third_party_consigned zeros like customer_supplied; the stock_movements fold keys off the item default). Verified on staging via `execute_sql` before merge (no phantom-version stamps) and re-verified on prod after: supply_source NOT NULL default in_house, all 17 prod items backfilled to in_house, override column on 5/5 line tables, the view carries the zeroing predicate, no new advisors.
+
+Follow-up held: **`F-UIUX-ENTITYPICKER-LINE-OVERRIDE-01`** (Option A) — the per-line override is live at the DB and the job-profitability view; its operator-facing surfaces are the next PR: override controls on the five consumption-line editors, edge write acceptance on those line handlers, receiving cost-input disabling when the effective source is not org owned, and the manufacturing, kitting, and shipment consumed-cost edge zeroing. The item-level path meets all acceptance criteria without these.
+
 ## 2026-06-17 Run closeout: nothing outstanding
 
 The two shelf items from the rail-and-backend run are cleared, so nothing from this run is left for follow-up. CHANGELOG `0.23.1` (the recompute fix) plus the SSO reconcile to `0.19.2`.
