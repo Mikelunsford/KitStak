@@ -10,7 +10,7 @@ import type { Project } from '@/lib/types/sales';
 
 /**
  * ProjectPicker. Typeahead combobox over the org's projects (projects-api),
- * with an inline "+ New project" row gated on the projects.project.write
+ * with a "+ New project" button beside the search field, gated on projects.project.write
  * capability (F-UIUX-ENTITYPICKER-01). The customer_id narrowing is performed
  * client-side because the list route does not yet expose a customer filter; a
  * project created inline inherits that customer link. Public props are unchanged
@@ -32,7 +32,7 @@ export function ProjectPicker({
   label = 'Project',
   required = false,
   disabled = false,
-  placeholder = 'Select a project.',
+  placeholder = 'Search projects.',
   filter,
 }: ProjectPickerProps) {
   const { can } = useCapabilities();

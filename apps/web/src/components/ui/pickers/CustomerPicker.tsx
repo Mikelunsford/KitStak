@@ -10,7 +10,7 @@ import type { Customer } from '@/lib/types/crm';
 
 /**
  * CustomerPicker. Typeahead combobox over the org's customers (crm-api list
- * endpoint, RLS-scoped), with an inline "+ New customer" row gated on the
+ * endpoint, RLS-scoped), with a "+ New customer" button beside the search field, gated on the
  * crm.customers.write capability (F-UIUX-ENTITYPICKER-01). On inline create the
  * new customer is auto-selected and merged into the list so the operator never
  * leaves the form. Public props are unchanged from the prior native-select
@@ -34,7 +34,7 @@ export function CustomerPicker({
   label = 'Customer',
   required = false,
   disabled = false,
-  placeholder = 'Select a customer.',
+  placeholder = 'Search customers.',
   filter,
 }: CustomerPickerProps) {
   const { can } = useCapabilities();

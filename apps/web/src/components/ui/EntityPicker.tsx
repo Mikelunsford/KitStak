@@ -5,8 +5,11 @@
 //
 // It is presentational and generic: the caller fetches the rows and passes
 // `options`, an id accessor, and a label accessor. The picker owns the open
-// state, the type-to-filter query, keyboard navigation, and an optional
-// "+ {createLabel}" row that opens an inline quick-create flow.
+// state, the type-to-filter query, and keyboard navigation. When the caller
+// allows create (gated on the write capability), a "+ {createLabel}" button
+// sits beside the search field and opens the inline quick-create flow. The
+// button is a sibling of the combobox rather than a row inside the listbox so
+// the create affordance reads as a distinct action, not a selectable option.
 //
 // Accessibility: role=combobox input with aria-expanded / aria-controls /
 // aria-autocomplete / aria-activedescendant, a role=listbox of role=option
@@ -21,7 +24,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ChevronDown, Plus, X } from 'lucide-react';
+import { ChevronDown, Plus, Search, X } from 'lucide-react';
 
 import {
   buildEntityRows,
@@ -44,8 +47,8 @@ export interface EntityPickerProps<T> {
   placeholder?: string;
   emptyText?: string;
   /**
-   * When true and `onCreate` is provided, a trailing "+ {createLabel}" row
-   * opens the quick-create flow. Callers gate this on the create capability.
+   * When true and `onCreate` is provided, a "+ {createLabel}" button is shown
+   * beside the search field. Callers gate this on the create capability.
    */
   allowCreate?: boolean;
   createLabel?: string;
@@ -62,7 +65,7 @@ export function EntityPicker<T>({
   required = false,
   disabled = false,
   loading = false,
-  placeholder = 'Select.',
+  placeholder = 'Search.',
   emptyText = 'No matches.',
   allowCreate = false,
   createLabel = 'New',
@@ -85,10 +88,9 @@ export function EntityPicker<T>({
     () => filterOptions(options, query, getOptionLabel),
     [options, query, getOptionLabel],
   );
-  const rows = useMemo(
-    () => buildEntityRows(filtered, canCreate),
-    [filtered, canCreate],
-  );
+  // Create is now a button beside the combobox, not a listbox row, so the
+  // navigable rows are options only.
+  const rows = useMemo(() => buildEntityRows(filtered, false), [filtered]);
   const currentLabel = useMemo(
     () => selectedLabel(options, value, getOptionId, getOptionLabel),
     [options, value, getOptionId, getOptionLabel],
@@ -124,17 +126,12 @@ export function EntityPicker<T>({
 
   const choose = useCallback(
     (row: EntityPickerRow<T>) => {
-      if (row.kind === 'create') {
-        setOpen(false);
-        setQuery('');
-        onCreate?.();
-        return;
-      }
+      if (row.kind !== 'option') return;
       onChange(getOptionId(row.option), row.option);
       setOpen(false);
       setQuery('');
     },
-    [onChange, getOptionId, onCreate],
+    [onChange, getOptionId],
   );
 
   const onKeyDown = useCallback(
@@ -207,99 +204,99 @@ export function EntityPicker<T>({
           {required && <span className="text-accent ml-1">*</span>}
         </label>
       )}
-      <div ref={containerRef} className="relative">
-        <input
-          id={inputId}
-          ref={inputRef}
-          type="text"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls={listboxId}
-          aria-autocomplete="list"
-          aria-activedescendant={
-            open && rows[activeIndex] ? optionId(activeIndex) : undefined
-          }
-          autoComplete="off"
-          required={required && value == null}
-          disabled={disabled || loading}
-          value={inputValue}
-          placeholder={loading ? 'Loading.' : placeholder}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-            setActiveIndex(0);
-          }}
-          onFocus={openList}
-          onKeyDown={onKeyDown}
-          className="w-full bg-bg-2 border border-line text-ink px-4 py-3 pr-16 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
-        />
-        <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
-          {showClear && (
-            <button
-              type="button"
-              aria-label="Clear selection"
-              onClick={clear}
-              className="p-1 text-ink-dim hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
-          <ChevronDown className="h-4 w-4 text-ink-dim" aria-hidden="true" />
-        </div>
+      <div className="flex items-stretch gap-2">
+        <div ref={containerRef} className="relative min-w-0 flex-1">
+          <Search
+            className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-3 h-4 w-4 text-ink-dim"
+            aria-hidden="true"
+          />
+          <input
+            id={inputId}
+            ref={inputRef}
+            type="text"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              open && rows[activeIndex] ? optionId(activeIndex) : undefined
+            }
+            autoComplete="off"
+            required={required && value == null}
+            disabled={disabled || loading}
+            value={inputValue}
+            placeholder={loading ? 'Loading.' : placeholder}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+              setActiveIndex(0);
+            }}
+            onFocus={openList}
+            onKeyDown={onKeyDown}
+            className="w-full bg-bg-2 border border-line text-ink pl-10 pr-16 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
+            {showClear && (
+              <button
+                type="button"
+                aria-label="Clear selection"
+                onClick={clear}
+                className="p-1 text-ink-dim hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+            <ChevronDown className="h-4 w-4 text-ink-dim" aria-hidden="true" />
+          </div>
 
-        {open && (
-          <ul
-            id={listboxId}
-            role="listbox"
-            className="absolute z-20 mt-1 max-h-64 w-full overflow-auto border border-line bg-bg-2 shadow-xl"
-          >
-            {rows.length === 0 ? (
-              <li className="px-4 py-3 font-sans text-sm text-ink-dim">
-                {emptyText}
-              </li>
-            ) : (
-              rows.map((row, i) => {
-                const active = i === activeIndex;
-                if (row.kind === 'create') {
+          {open && (
+            <ul
+              id={listboxId}
+              role="listbox"
+              className="absolute z-20 mt-1 max-h-64 w-full overflow-auto border border-line bg-bg-2 shadow-xl"
+            >
+              {rows.length === 0 ? (
+                <li className="px-4 py-3 font-sans text-sm text-ink-dim">
+                  {emptyText}
+                </li>
+              ) : (
+                rows.map((row, i) => {
+                  if (row.kind !== 'option') return null;
+                  const active = i === activeIndex;
+                  const id = getOptionId(row.option);
+                  const selected = id === value;
                   return (
                     <li
-                      key="__create"
+                      key={id}
                       id={optionId(i)}
                       role="option"
-                      aria-selected={active}
+                      aria-selected={selected}
                       onMouseDown={(e) => e.preventDefault()}
                       onMouseEnter={() => setActiveIndex(i)}
                       onClick={() => choose(row)}
-                      className={`flex cursor-pointer items-center gap-2 border-t border-line px-4 py-3 font-sans text-sm text-accent ${
+                      className={`cursor-pointer px-4 py-3 font-sans text-sm ${
                         active ? 'bg-bg' : ''
-                      }`}
+                      } ${selected ? 'text-accent' : 'text-ink'}`}
                     >
-                      <Plus className="h-4 w-4" aria-hidden="true" />
-                      {createLabel}
+                      {getOptionLabel(row.option)}
                     </li>
                   );
-                }
-                const id = getOptionId(row.option);
-                const selected = id === value;
-                return (
-                  <li
-                    key={id}
-                    id={optionId(i)}
-                    role="option"
-                    aria-selected={selected}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onClick={() => choose(row)}
-                    className={`cursor-pointer px-4 py-3 font-sans text-sm ${
-                      active ? 'bg-bg' : ''
-                    } ${selected ? 'text-accent' : 'text-ink'}`}
-                  >
-                    {getOptionLabel(row.option)}
-                  </li>
-                );
-              })
-            )}
-          </ul>
+                })
+              )}
+            </ul>
+          )}
+        </div>
+
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => onCreate?.()}
+            disabled={disabled || loading}
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap border border-line bg-bg-2 px-4 font-sans text-sm text-ink hover:border-line-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {createLabel}
+          </button>
         )}
       </div>
     </div>

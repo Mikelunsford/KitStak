@@ -11,7 +11,7 @@ import type { Item, ItemKind, ItemSupplySource } from '@/lib/types/sales';
 
 /**
  * ItemPicker. Typeahead combobox over the items catalog (sales-config-api),
- * with an inline "+ New item" row gated on the items.item.write capability
+ * with a "+ New item" button beside the search field, gated on items.item.write
  * (F-UIUX-ENTITYPICKER-01). Caller may narrow by kind ('good' = product or kit;
  * 'service' = service) or by active.
  *
@@ -42,7 +42,7 @@ export function ItemPicker({
   label = 'Item',
   required = false,
   disabled = false,
-  placeholder = 'Select an item.',
+  placeholder = 'Search items.',
   filter,
 }: ItemPickerProps) {
   const { can } = useCapabilities();

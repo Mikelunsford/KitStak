@@ -16,6 +16,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 // Tabbable controls inside the dialog. Used for the focus trap and to focus the
 // first control on open.
@@ -115,8 +116,13 @@ export function Modal({
   );
 
   if (!open) return null;
+  // Portal to document.body so the dialog (and any <form> a quick-create modal
+  // renders inside it) is never nested inside a parent page <form>. Nested forms
+  // are invalid HTML and silently break the inner form's submit, which is what
+  // killed the inline quick-create flow when a picker was hosted in a create form.
+  if (typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
       onMouseDown={() => onClose()}
@@ -141,6 +147,7 @@ export function Modal({
           <div className="mt-6 flex justify-end gap-3">{footer}</div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

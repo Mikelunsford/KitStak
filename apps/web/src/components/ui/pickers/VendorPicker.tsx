@@ -9,8 +9,8 @@ import { listVendors } from '@/lib/services/vendorsService';
 import type { Vendor } from '@/lib/types/vendors_inventory_ops';
 
 /**
- * VendorPicker. Typeahead combobox over the org's vendors (vendors-api), with an
- * inline "+ New vendor" row gated on the vendors.vendor.create capability
+ * VendorPicker. Typeahead combobox over the org's vendors (vendors-api), with a
+ * "+ New vendor" button beside the search field, gated on vendors.vendor.create
  * (F-UIUX-ENTITYPICKER-01). The status filter narrows by is_active client-side.
  * Public props are unchanged from the prior native-select version.
  */
@@ -30,7 +30,7 @@ export function VendorPicker({
   label = 'Vendor',
   required = false,
   disabled = false,
-  placeholder = 'Select a vendor.',
+  placeholder = 'Search vendors.',
   filter,
 }: VendorPickerProps) {
   const { can } = useCapabilities();
