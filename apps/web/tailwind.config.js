@@ -4,27 +4,32 @@ export default {
   theme: {
     extend: {
       colors: {
-        // The three customer-overridable surfaces resolve through CSS
-        // variables so BrandingProvider's runtime injection can repaint
-        // the theme without a rebuild. Defaults live in styles.css :root.
+        // Surfaces resolve through CSS variables so BrandingProvider's runtime
+        // injection and the light/dark theme switch can repaint without a
+        // rebuild. Defaults (and the light-theme overrides) live in
+        // styles.css :root and :root[data-theme='light'].
         bg: {
           DEFAULT: 'rgb(var(--bg) / <alpha-value>)',
-          2: '#0f1d33',
-          3: '#152540',
+          2: 'rgb(var(--bg-2) / <alpha-value>)',
+          3: 'rgb(var(--bg-3) / <alpha-value>)',
         },
         ink: {
           DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
-          dim: '#8a9bb0',
-          faint: '#2d3f55',
+          dim: 'rgb(var(--ink-dim) / <alpha-value>)',
+          faint: 'rgb(var(--ink-faint) / <alpha-value>)',
         },
         accent: {
           DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
-          bright: '#e62e4d',
+          bright: 'rgb(var(--accent-bright) / <alpha-value>)',
           soft: 'rgba(200, 16, 46, 0.1)',
         },
+        // Text colour for accent / brand fills. Cream in both themes.
+        on: {
+          primary: 'rgb(var(--on-primary) / <alpha-value>)',
+        },
         line: {
-          DEFAULT: '#1a2c47',
-          strong: '#2d3f55',
+          DEFAULT: 'rgb(var(--line) / <alpha-value>)',
+          strong: 'rgb(var(--line-strong) / <alpha-value>)',
         },
         success: '#2ecc71',
         warning: '#f39c12',

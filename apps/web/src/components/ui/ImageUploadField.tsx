@@ -1,13 +1,18 @@
 // ImageUploadField. A labelled branding-asset control: drag-and-drop or click
 // to upload an image (logo / favicon / email logo), with a live thumbnail
-// preview and an "or paste a URL" text fallback so the prior URL flow still
-// works. Controlled: the parent owns the resolved URL string. Uploads go
+// preview. Controlled: the parent owns the resolved URL string. Uploads go
 // through uploadBrandingAsset (signed-URL mint + direct storage upload); the
-// parent persists the URL via PUT /branding on save. Tailwind brand tokens
-// only; lucide-react for the affordance icon.
+// parent persists the URL via PUT /branding on save.
+//
+// The resolved URL is a public storage URL (it contains the storage host).
+// We deliberately do NOT surface that raw string in a visible textbox: showing
+// it leaks an infrastructure reference into the operator-facing UI. Instead an
+// uploaded asset reads as "Image set" with Replace / Remove actions, and the
+// manual "paste a URL" path stays available behind an explicit toggle for the
+// hosted-asset case. Tailwind brand tokens only; lucide-react for affordances.
 
 import { useRef, useState, type ReactElement } from 'react';
-import { ImageIcon, Upload } from 'lucide-react';
+import { ImageIcon, Link2, Upload, X } from 'lucide-react';
 
 import { uploadBrandingAsset } from '@/lib/services/brandingUpload';
 import type { BrandingAssetKind } from '@/lib/types/identity';
@@ -37,6 +42,7 @@ export function ImageUploadField({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [urlEntryOpen, setUrlEntryOpen] = useState(false);
 
   async function handleFile(file: File | undefined): Promise<void> {
     if (!file) return;
@@ -45,6 +51,7 @@ export function ImageUploadField({
     try {
       const { url } = await uploadBrandingAsset(kind, file);
       onChange(url);
+      setUrlEntryOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed.');
     } finally {
@@ -88,15 +95,34 @@ export function ImageUploadField({
         )}
 
         <div className="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="inline-flex w-fit items-center gap-2 bg-bg-3 px-3 py-2 font-sans text-sm text-ink transition-colors hover:bg-line disabled:opacity-50"
-          >
-            <Upload size={16} aria-hidden="true" />
-            {uploading ? 'Uploading.' : value ? 'Replace image' : 'Upload image'}
-          </button>
+          {value ? (
+            <span className="font-sans text-sm text-ink">Image set.</span>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex w-fit items-center gap-2 bg-bg-3 px-3 py-2 font-sans text-sm text-ink transition-colors hover:bg-line disabled:opacity-50"
+            >
+              <Upload size={16} aria-hidden="true" />
+              {uploading ? 'Uploading.' : value ? 'Replace image' : 'Upload image'}
+            </button>
+            {value ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('');
+                  setUrlEntryOpen(false);
+                }}
+                disabled={uploading}
+                className="inline-flex w-fit items-center gap-2 border border-line px-3 py-2 font-sans text-sm text-ink-dim transition-colors hover:bg-bg-3 hover:text-ink disabled:opacity-50"
+              >
+                <X size={16} aria-hidden="true" />
+                Remove
+              </button>
+            ) : null}
+          </div>
           <span className="font-sans text-xs text-ink-dim">
             Drag and drop, or click to choose. PNG, JPEG, SVG, WebP, ICO.
           </span>
@@ -111,14 +137,29 @@ export function ImageUploadField({
         />
       </div>
 
-      <input
-        type="text"
-        name={name}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="or paste an image URL"
-        className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans text-sm focus:outline-none focus:border-accent"
-      />
+      {/* Manual URL entry stays available for an externally hosted asset, but
+          it is opt-in so an uploaded asset's storage URL never sits exposed in
+          a visible field. */}
+      {urlEntryOpen ? (
+        <input
+          type="text"
+          name={name}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://example.com/logo.png"
+          autoFocus
+          className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans text-sm focus:outline-none focus:border-accent"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setUrlEntryOpen(true)}
+          className="inline-flex w-fit items-center gap-2 font-sans text-xs text-ink-dim hover:text-ink"
+        >
+          <Link2 size={14} aria-hidden="true" />
+          Use a hosted image URL instead
+        </button>
+      )}
 
       {hint && <span className="font-sans text-xs text-ink-dim">{hint}</span>}
       {error && <span className="font-sans text-sm text-danger">{error}</span>}

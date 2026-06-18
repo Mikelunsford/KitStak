@@ -8,6 +8,7 @@ import { PortalRoute } from './auth/PortalRoute';
 import { IndexRoute } from './auth/IndexRoute';
 import { RequirePlugin } from './auth/RequirePlugin';
 import { BrandingProvider } from './whitelabel/BrandingProvider';
+import { ThemeProvider } from './whitelabel/ThemeProvider';
 import { SubscriptionGate } from './lib/hooks/useSubscriptionGate';
 import { ConfirmDialogHost } from './components/ui/ConfirmDialogHost';
 
@@ -64,27 +65,29 @@ function wrapWithGuard(spec: RouteSpec): ReactElement {
 
 export function App() {
   return (
-    <BrandingProvider>
-      <ConfirmDialogHost />
-      <Suspense
-        fallback={
-          <div className="flex h-screen items-center justify-center bg-bg text-ink-dim">
-            Loading.
-          </div>
-        }
-      >
-        <Routes>
-          {ROUTES.map((spec) => (
-            <Route
-              key={spec.path}
-              path={spec.path}
-              element={wrapWithGuard(spec)}
-            />
-          ))}
-          <Route path="/" element={<IndexRoute />} />
-          <Route path="*" element={<Navigate to="/404" replace />} />
-        </Routes>
-      </Suspense>
-    </BrandingProvider>
+    <ThemeProvider>
+      <BrandingProvider>
+        <ConfirmDialogHost />
+        <Suspense
+          fallback={
+            <div className="flex h-screen items-center justify-center bg-bg text-ink-dim">
+              Loading.
+            </div>
+          }
+        >
+          <Routes>
+            {ROUTES.map((spec) => (
+              <Route
+                key={spec.path}
+                path={spec.path}
+                element={wrapWithGuard(spec)}
+              />
+            ))}
+            <Route path="/" element={<IndexRoute />} />
+            <Route path="*" element={<Navigate to="/404" replace />} />
+          </Routes>
+        </Suspense>
+      </BrandingProvider>
+    </ThemeProvider>
   );
 }

@@ -9,6 +9,7 @@ import {
 
 import { useAuth } from '@/auth/AuthContext';
 import { useBranding as useBrandingQuery } from '@/lib/hooks/useBranding';
+import { useTheme, type Theme } from '@/whitelabel/ThemeProvider';
 import type { Branding } from '@/lib/services/brandingService';
 
 /**
@@ -50,27 +51,41 @@ function hexToRgbTriplet(hex: string): string | null {
   return `${r} ${g} ${b}`;
 }
 
-function applyBranding(branding: Branding | null): void {
+function applyBranding(branding: Branding | null, theme: Theme): void {
   const root = document.documentElement;
   if (!branding) {
-    // Wipe overrides so platform defaults from styles.css :root take effect.
+    // Wipe overrides so platform defaults from styles.css :root (and the
+    // light-theme block) take effect.
+    root.style.removeProperty('--bg');
     root.style.removeProperty('--brand');
     root.style.removeProperty('--accent');
     root.style.removeProperty('--ink');
+    root.style.removeProperty('--on-primary');
     root.style.removeProperty('--font-sans');
     document.title = 'Kitstak';
     return;
   }
   const primary = hexToRgbTriplet(branding.primary_color);
   const accent = hexToRgbTriplet(branding.accent_color);
-  const ink = hexToRgbTriplet(branding.on_primary);
-  if (primary) {
-    root.style.setProperty('--bg', primary);
-    root.style.setProperty('--brand', primary);
-  }
+  const onPrimary = hexToRgbTriplet(branding.on_primary);
+
+  // Brand chrome and CTA colours apply in both themes.
+  if (primary) root.style.setProperty('--brand', primary);
   if (accent) root.style.setProperty('--accent', accent);
-  if (ink) root.style.setProperty('--ink', ink);
+  if (onPrimary) root.style.setProperty('--on-primary', onPrimary);
   root.style.setProperty('--font-sans', branding.font_family);
+
+  // Page surfaces: in dark mode the org primary repaints the background and
+  // its on_primary becomes the page ink (the established behaviour). In light
+  // mode we step back and let the light palette in styles.css own the
+  // surfaces, otherwise an org's navy primary would defeat light mode.
+  if (theme === 'dark') {
+    if (primary) root.style.setProperty('--bg', primary);
+    if (onPrimary) root.style.setProperty('--ink', onPrimary);
+  } else {
+    root.style.removeProperty('--bg');
+    root.style.removeProperty('--ink');
+  }
 
   document.title = branding.app_name_override ?? 'Kitstak';
 
@@ -88,13 +103,17 @@ function applyBranding(branding: Branding | null): void {
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
   const { state } = useAuth();
+  const { theme } = useTheme();
   const isAuthed = state.status === 'authenticated';
   const query = useBrandingQuery({ enabled: isAuthed });
   const [internal, setInternal] = useState<BrandingState>(DEFAULT_STATE);
 
+  // `theme` is a dependency so flipping appearance re-applies the palette: in
+  // light mode we must release the org's --bg / --ink overrides; in dark mode
+  // we must re-assert them.
   useEffect(() => {
     if (!isAuthed) {
-      applyBranding(null);
+      applyBranding(null, theme);
       setInternal(DEFAULT_STATE);
       return;
     }
@@ -103,15 +122,15 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (query.data) {
-      applyBranding(query.data);
+      applyBranding(query.data, theme);
       setInternal({ branding: query.data, status: 'loaded' });
       return;
     }
     // No data and not loading. fail-open to defaults so the surface is
     // usable even when the branding endpoint is offline (Wave 1).
-    applyBranding(null);
+    applyBranding(null, theme);
     setInternal({ branding: null, status: 'loaded' });
-  }, [isAuthed, query.isLoading, query.data]);
+  }, [isAuthed, query.isLoading, query.data, theme]);
 
   const value = useMemo<BrandingState>(() => internal, [internal]);
 

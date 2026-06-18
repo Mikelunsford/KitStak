@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { brandingKeys } from '@/lib/queryKeys/branding';
 import { settingsKeys } from '@/lib/queryKeys/settings';
 import {
   deleteSetting,
@@ -84,7 +85,12 @@ export function usePatchBranding() {
   return useMutation({
     mutationFn: (patch: BrandingPatch) => patchBranding(patch),
     onSuccess: () => {
+      // Refresh the admin form's own read.
       void qc.invalidateQueries({ queryKey: settingsKeys.branding });
+      // And the live-shell read (BrandingProvider / Topbar) which is keyed
+      // separately under ['tenants','branding']; without this the chrome keeps
+      // the stale logo and colours until a full reload.
+      void qc.invalidateQueries({ queryKey: brandingKeys.all });
     },
   });
 }

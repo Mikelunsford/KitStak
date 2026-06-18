@@ -5,12 +5,15 @@ import {
   KeyRound,
   LogOut,
   Menu,
+  Moon,
   Search,
+  Sun,
   UserCircle2,
 } from 'lucide-react';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
+import { useTheme } from '@/whitelabel/ThemeProvider';
 import { useMe } from '@/lib/hooks/useMe';
 import { useSwitchOrg } from '@/lib/hooks/useSwitchOrg';
 import { Logo } from '@/components/ui/Logo';
@@ -52,6 +55,7 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
   const isAuthed = state.status === 'authenticated';
   const me = useMe({ enabled: isAuthed });
   const branding = useBrandingContext();
+  const { theme, toggle: toggleTheme } = useTheme();
   const switchOrg = useSwitchOrg();
 
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
@@ -111,6 +115,7 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
     branding.branding?.app_name_override ??
     activeOrg?.display_name ??
     'Kitstak';
+  const logoUrl = branding.branding?.logo_url ?? null;
 
   return (
     <header className="flex h-14 items-center justify-between gap-2 border-b border-line bg-bg px-4">
@@ -125,7 +130,15 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
             <Menu className="h-5 w-5" />
           </button>
         ) : null}
-        <Logo size="compact" />
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={appName}
+            className="h-8 w-auto max-w-[160px] object-contain"
+          />
+        ) : (
+          <Logo size="compact" />
+        )}
         <span className="hidden font-sans text-sm text-ink-dim tracking-wide md:inline">
           {appName}
         </span>
@@ -231,6 +244,21 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
                   {state.status === 'authenticated' ? state.user.email : '.'}
                 </p>
               </div>
+              {/* Per-user appearance toggle. Saved to this browser only. */}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={toggleTheme}
+                className="mt-1 flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-bg-2"
+                data-testid="profile-menu-theme-toggle"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+                {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              </button>
               {/* F-Wave9-INVITE-PASSWORD-SETUP-01: account-security entry. */}
               <Link
                 to="/account/security"
