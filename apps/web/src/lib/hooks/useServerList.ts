@@ -67,6 +67,10 @@ export interface UseServerListResult<TRow> {
   canNext: boolean;
   onPrev: () => void;
   onNext: () => void;
+  /** The current toolbar state as a saved-view config (search, sort, facets). */
+  viewConfig: Record<string, unknown>;
+  /** Apply a saved-view config: set search and write sort + facets to the URL. */
+  applyView: (config: Record<string, unknown>) => void;
 }
 
 export function useServerList<TRow>(
@@ -139,6 +143,30 @@ export function useServerList<TRow>(
     mutateParams((p) => {
       p.delete('search');
       for (const f of facets) p.delete(f.key);
+    });
+  }
+
+  // Apply a saved view: seed the search box and rewrite sort + facets from the
+  // stored config. Unknown or malformed config fields are ignored so a stale or
+  // hand-edited view never injects an off-allowlist value.
+  function applyView(config: Record<string, unknown>) {
+    setSearchInput(typeof config.search === 'string' ? config.search : '');
+    mutateParams((p) => {
+      p.delete('sort_by');
+      p.delete('sort_dir');
+      for (const f of facets) p.delete(f.key);
+      if (typeof config.sort_by === 'string') p.set('sort_by', config.sort_by);
+      if (config.sort_dir === 'asc' || config.sort_dir === 'desc') {
+        p.set('sort_dir', config.sort_dir);
+      }
+      const cfgFacets =
+        config.facets && typeof config.facets === 'object'
+          ? (config.facets as Record<string, unknown>)
+          : {};
+      for (const f of facets) {
+        const v = cfgFacets[f.key];
+        if (typeof v === 'string' && v) p.set(f.key, v);
+      }
     });
   }
 
@@ -217,5 +245,7 @@ export function useServerList<TRow>(
     onNext: () => {
       if (nextCursor && !query.isFetching) setCursorStack((s) => [...s, nextCursor]);
     },
+    viewConfig: { search, sort_by: sortBy, sort_dir: sortDir, facets: facetValues },
+    applyView,
   };
 }

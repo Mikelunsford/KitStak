@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
 import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
@@ -131,6 +132,12 @@ function CustomersListToolbar() {
           </Select>
         </label>
       </ListToolbar>
+
+      <SavedViewsBar
+        entityType="customer"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
 
       {server.isError ? (
         <p className="font-sans text-accent">Failed to load customers.</p>

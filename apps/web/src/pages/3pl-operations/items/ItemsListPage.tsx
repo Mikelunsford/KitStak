@@ -11,6 +11,7 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
@@ -135,6 +136,12 @@ function ItemsListToolbar() {
           Active only
         </label>
       </ListToolbar>
+
+      <SavedViewsBar
+        entityType="item"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
 
       {server.isError ? (
         <p className="font-sans text-accent">Failed to load items.</p>
