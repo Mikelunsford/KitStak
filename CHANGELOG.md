@@ -8,6 +8,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.24.0] · 2026-06-17 Inline quick-create EntityPicker and items.supply_source (PR #327)
+
+The 2026-06-17 smoke ticket: reference pickers were native selects with no way to create the
+referenced record without leaving the form and losing the draft, and items carried no supply
+source so cost roll-ups could not tell org-owned material from material the org neither owns
+nor pays for. Shipped in three phases as one PR, live on prod (migrate, deploy-functions, and
+deploy-prod all green; prod at migration `0122`). Journal:
+`03-workspace/journal/2026-06-17-entitypicker-inline-quickcreate.md`.
+
+### Added
+
+- **EntityPicker inline quick-create (F-UIUX-ENTITYPICKER-01)**: a hand-rolled typeahead
+  combobox (`EntityPicker`, listbox ARIA, full keyboard nav, pure logic in `entityPickerModel`
+  with a unit test) and a reusable `Modal` primitive (focus trap, scroll lock, focus restore)
+  replace the native-select reference pickers. A capability-gated "+ New" row opens a bespoke
+  quick-create modal for customer, item, vendor, project, and channel; each posts through the
+  existing service (Idempotency-Key minted by apiClient, org from the JWT, one audit row) and
+  hands the new record back so the parent picker auto-selects it. The modal mounts inside the
+  parent form, so the in-progress draft survives and the new record is merged ahead of the
+  list refetch to avoid a label flash. A new `ChannelPicker` replaces the last raw select on
+  the sales-order create form. The "+ New" row hides for roles without the create capability;
+  the server `requireCap` stays the authority (a viewer holds none of the five create caps).
+- **items.supply_source (F-UIUX-ENTITYPICKER-SUPPLY-SOURCE-01)**: migration `0120` adds
+  `items.supply_source` (in_house, customer_supplied, vendor_consigned, third_party_consigned;
+  NOT NULL default in_house, TEXT plus CHECK). A supply_source control lands on the item
+  create, edit, and quick-create surfaces; ItemPicker shows the source in the option label and
+  filters by it; the item detail page shows the source and flags zero org material cost.
+- **Per-line supply_source override (migration 0121)**: a nullable override on the five
+  consumption-line tables (receiving, shipment, manufacturing-consumed, kitting-consumed,
+  job-run-consumed). NULL inherits the item default. Honored at the DB and the
+  job-profitability view today; the operator-facing controls are the tracked follow-up
+  `F-UIUX-ENTITYPICKER-LINE-OVERRIDE-01`.
+
+### Changed
+
+- **Supply-source cost roll-up zeroing**: material the org neither owns nor pays for
+  (customer_supplied and third_party_consigned) rolls up as zero org material cost; in_house
+  and vendor_consigned keep captured cost. Migration `0122` rewrites `view_job_profitability`
+  so actual material zeroes any consumed line whose effective source COALESCE(line, item) is
+  in that set (security_invoker carried over; a LEFT JOIN to items so an RLS-hidden item never
+  drops a row or silently zeros cost). Both KitCost dashboard folds (inventory value and
+  project margins) zero not-org-owned material keyed off the item default. Money stays BIGINT
+  cents with banker's rounding; the zeroing substitutes 0 before the round and sum. Canon kept
+  byte-identical (`pnpm test:contract` green).
+
 ## [0.23.1] · 2026-06-17 Recompute-error parity on the line handlers (run closeout)
 
 ### Fixed
