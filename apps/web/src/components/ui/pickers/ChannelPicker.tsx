@@ -8,7 +8,7 @@ import type { SalesChannel } from '@/lib/types/copack';
 
 /**
  * ChannelPicker. Typeahead combobox over the org's sales channels (copack-api),
- * with an inline "+ New channel" row gated on the copack.channel.write
+ * with a "+ New channel" button beside the search field, gated on copack.channel.write
  * capability (F-UIUX-ENTITYPICKER-01). New in this wave: the sales-order create
  * form previously bound a raw Select. Channels are optional on a sales order, so
  * the picker is clearable by default.
