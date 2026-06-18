@@ -127,6 +127,13 @@ export function Modal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
       onMouseDown={() => onClose()}
     >
+      {/* A quick-create modal renders its own <form> in `children`. The modal is
+          portaled but stays a React child of the host page (often a create
+          <form>), and React event bubbling follows the component tree, not the
+          DOM. Without this, the modal's submit bubbles up to the host form and
+          fires it too, e.g. creating an empty quote when you only meant to add a
+          customer. Stop submit at the dialog boundary; the modal's own onSubmit
+          has already run by the time the event reaches here. */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -135,6 +142,7 @@ export function Modal({
         className={`relative w-full ${SIZE_CLASS[size]} border border-line bg-bg-2 p-6 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
+        onSubmit={(e) => e.stopPropagation()}
       >
         <h2
           id={titleId}
