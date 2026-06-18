@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   QuoteSchema, QuoteLineItemSchema,
   type Quote, type QuoteLineItem,
@@ -34,6 +35,16 @@ function quotesQs(filters: ListQuotesFilters): string {
 export async function listQuotes(filters: ListQuotesFilters = {}): Promise<Quote[]> {
   const raw = await apiRequest<unknown>(`/quotes-api/quotes${quotesQs(filters)}`, { method: 'GET' });
   return ListEnvelope.parse(raw).items;
+}
+
+// Workstream C: the server-driven list toolbar page (search, sort, keyset).
+// next_cursor rides in the data envelope for quotes, so apiRequest suffices.
+export async function listQuotesPage(
+  params: ServerListParams,
+): Promise<{ items: Quote[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`/quotes-api/quotes${serverListQs(params)}`, { method: 'GET' });
+  const parsed = ListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getQuote(id: string): Promise<{ quote: Quote; lineItems: QuoteLineItem[] }> {

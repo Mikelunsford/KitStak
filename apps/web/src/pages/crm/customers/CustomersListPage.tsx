@@ -1,8 +1,8 @@
-// CustomersListPage. Migrated to the shared UI kit (F-Wave10-UI-KIT-01):
-// PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination
-// replace the hand-rolled header, search/select, table, and pagination.
-// Behavior preserved: search by display_name and filter by status, both
-// client-state driven, with client-side paging over the returned rows.
+// CustomersListPage. Workstream C of the 2026-06-17 UI scan adds the server
+// list toolbar (search on name + email, sortable headers, status + kind facets,
+// keyset pager) behind feature.list_toolbar. The flag-off path is the original
+// client-state view, extracted verbatim into CustomersListLegacy; the flag-on
+// path is CustomersListToolbar. The parent renders one or the other.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -11,26 +11,32 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useCustomers } from '@/lib/hooks/useCustomers';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listCustomersPage } from '@/lib/services/customersService';
+import { customersKeys } from '@/lib/queryKeys/customers';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { Customer } from '@/lib/types/crm';
 
 const PAGE_SIZE = 50;
 
 const CUSTOMER_STATUSES = ['new', 'active', 'inactive'] as const;
+const CUSTOMER_KINDS = ['company', 'individual'] as const;
 
 const COLUMNS: ReadonlyArray<DataColumn<Customer>> = [
   {
     key: 'name',
     header: 'Name',
+    sortKey: 'display_name',
     render: (c) => (
-      <Link
-        to={`/crm/customers/${c.id}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/crm/customers/${c.id}`} className="text-ink hover:text-accent">
         {c.display_name}
       </Link>
     ),
@@ -39,6 +45,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Customer>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (c) => <StatusBadge status={c.status} />,
   },
   {
@@ -50,6 +57,109 @@ const COLUMNS: ReadonlyArray<DataColumn<Customer>> = [
 ];
 
 export function CustomersListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <CustomersListToolbar />
+  ) : (
+    <CustomersListLegacy />
+  );
+}
+
+function CustomersListToolbar() {
+  const server = useServerList<Customer>({
+    enabled: true,
+    queryKeyBase: customersKeys.all,
+    fetchPage: listCustomersPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [
+      { key: 'status', label: 'Status', format: humaniseStatus },
+      { key: 'kind', label: 'Kind' },
+    ],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-10">
+      <PageHeader
+        eyebrow="CRM / Customers"
+        title="Customers"
+        actions={
+          <Link to="/crm/customers/new">
+            <Button variant="primary">New customer</Button>
+          </Link>
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search name or email"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            {CUSTOMER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Kind
+          </span>
+          <Select
+            value={server.facetValues.kind ?? ''}
+            onChange={(e) => server.setFacet('kind', e.target.value)}
+            aria-label="Filter by kind"
+          >
+            <option value="">All kinds</option>
+            {CUSTOMER_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {humaniseStatus(k)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load customers.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(c) => c.id}
+            loading={server.isLoading}
+            empty="No customers match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function CustomersListLegacy() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(0);

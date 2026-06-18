@@ -144,12 +144,20 @@ export type FetchImpl = (
   init: RequestInit,
 ) => Promise<Response>;
 
+/** The full success envelope: the data payload plus optional meta (pagination). */
+export interface ResponseEnvelope<T> {
+  data: T;
+  meta?: Record<string, unknown>;
+}
+
 /**
- * Parse a single fetch Response into the unwrapped envelope payload, or throw
- * an ApiError. Shared by both the first attempt and any retry so the parsing
- * contract cannot drift between them.
+ * Parse a single fetch Response into the FULL success envelope ({ data, meta }),
+ * or throw an ApiError. The keyset list endpoints carry next_cursor in meta, so
+ * a caller that paginates needs the envelope, not just the unwrapped data.
  */
-export async function parseResponse<T>(response: Response): Promise<T> {
+export async function parseResponseEnvelope<T>(
+  response: Response,
+): Promise<ResponseEnvelope<T>> {
   const requestId = response.headers.get(HTTP_HEADERS.X_REQUEST_ID) ?? undefined;
   const json = (await response.json()) as unknown;
 
@@ -180,7 +188,18 @@ export async function parseResponse<T>(response: Response): Promise<T> {
   if (!parsed.success) {
     throw new ApiError('INVALID_ENVELOPE', 500, 'Invalid response envelope');
   }
-  return parsed.data.data as T;
+  return parsed.data.meta !== undefined
+    ? { data: parsed.data.data as T, meta: parsed.data.meta }
+    : { data: parsed.data.data as T };
+}
+
+/**
+ * Parse a single fetch Response into the unwrapped data payload, or throw an
+ * ApiError. The common case; delegates to parseResponseEnvelope so the
+ * error-handling and envelope contract cannot drift between the two.
+ */
+export async function parseResponse<T>(response: Response): Promise<T> {
+  return (await parseResponseEnvelope<T>(response)).data;
 }
 
 /**
@@ -198,6 +217,7 @@ export async function executeRequest<T>(
   fetchImpl: FetchImpl,
   maxRetries: number = MAX_RETRIES,
   sleep: SleepImpl = defaultSleep,
+  parse: (response: Response) => Promise<T> = parseResponse,
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -242,7 +262,7 @@ export async function executeRequest<T>(
       continue;
     }
 
-    return parseResponse<T>(response);
+    return parse(response);
   }
 
   // Unreachable in practice: the loop either returns or throws on the final
