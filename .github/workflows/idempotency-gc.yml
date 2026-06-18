@@ -10,6 +10,13 @@ jobs:
   sweep:
     runs-on: ubuntu-latest
     steps:
+      # R-W14-CAT4-GC-SECRET-01: a scheduled run with missing secrets must go
+      # RED, not silently green. A silent skip would let the nightly GC sweep
+      # quietly stop running and leave the idempotency_keys table unbounded
+      # without anyone noticing. On the nightly `schedule` event a missing
+      # secret is an `::error::` plus `exit 1`. A manual `workflow_dispatch`
+      # re-run is still allowed to no-op gracefully so an operator can fire it
+      # without a wired environment and not get a false failure.
       - name: Verify secrets are configured
         id: secrets
         env:
@@ -17,7 +24,11 @@ jobs:
           GC_TRIGGER_SECRET: ${{ secrets.GC_TRIGGER_SECRET }}
         run: |
           if [ -z "${SUPABASE_FUNCTION_URL:-}" ] || [ -z "${GC_TRIGGER_SECRET:-}" ]; then
-            echo "::notice::SUPABASE_FUNCTION_URL or GC_TRIGGER_SECRET not configured. Skipping idempotency GC sweep. Set both secrets in the repo Actions settings to enable nightly GC."
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "::error::SUPABASE_FUNCTION_URL or GC_TRIGGER_SECRET not configured. The scheduled idempotency GC sweep cannot run and must NOT pass silently green. Failing. Set both secrets in the repo Actions settings."
+              exit 1
+            fi
+            echo "::notice::SUPABASE_FUNCTION_URL or GC_TRIGGER_SECRET not configured. Manual run, skipping cleanly. Set both secrets in the repo Actions settings to enable nightly GC."
             echo "configured=false" >> "$GITHUB_OUTPUT"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
