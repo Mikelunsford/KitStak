@@ -1,15 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { EntityPicker } from '@/components/ui/EntityPicker';
+import { QuickCreateProjectModal } from '@/components/quick-create/QuickCreateProjectModal';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { projectsKeys } from '@/lib/queryKeys/projects';
 import { listProjects } from '@/lib/services/projectsService';
+import type { Project } from '@/lib/types/sales';
 
 /**
- * ProjectPicker. Fetches projects list and optionally narrows to a customer.
- * The server list endpoint accepts a state filter; the customer_id narrowing
- * is performed client-side because the list route does not yet expose a
- * customer filter (tracked as follow-up; today's filter is cheap given small
- * list sizes for first operator).
+ * ProjectPicker. Typeahead combobox over the org's projects (projects-api),
+ * with an inline "+ New project" row gated on the projects.project.write
+ * capability (F-UIUX-ENTITYPICKER-01). The customer_id narrowing is performed
+ * client-side because the list route does not yet expose a customer filter; a
+ * project created inline inherits that customer link. Public props are unchanged
+ * from the prior native-select version.
  */
 export interface ProjectPickerProps {
   value: string | null;
@@ -30,6 +35,10 @@ export function ProjectPicker({
   placeholder = 'Select a project.',
   filter,
 }: ProjectPickerProps) {
+  const { can } = useCapabilities();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [justCreated, setJustCreated] = useState<Project | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: projectsKeys.list({}),
     queryFn: () => listProjects(),
@@ -38,36 +47,45 @@ export function ProjectPicker({
     retry: 1,
   });
 
-  const items = useMemo(() => {
+  const options = useMemo(() => {
     const all = data ?? [];
+    const merged =
+      justCreated && !all.some((p) => p.id === justCreated.id)
+        ? [justCreated, ...all]
+        : all;
     if (filter?.customer_id) {
-      return all.filter((p) => p.customer_id === filter.customer_id);
+      return merged.filter((p) => p.customer_id === filter.customer_id);
     }
-    return all;
-  }, [data, filter?.customer_id]);
+    return merged;
+  }, [data, justCreated, filter?.customer_id]);
 
   return (
-    <label className="flex flex-col gap-2">
-      {label && (
-        <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-          {label}
-          {required && <span className="text-accent ml-1">*</span>}
-        </span>
-      )}
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+    <>
+      <EntityPicker<Project>
+        value={value}
+        onChange={(id) => onChange(id)}
+        options={options}
+        getOptionId={(p) => p.id}
+        getOptionLabel={(p) => (p.name ? `${p.number} · ${p.name}` : p.number)}
+        label={label}
         required={required}
-        disabled={disabled || isLoading}
-        className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
-      >
-        <option value="">{isLoading ? 'Loading.' : placeholder}</option>
-        {items.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.number} {p.name ? `· ${p.name}` : ''}
-          </option>
-        ))}
-      </select>
-    </label>
+        disabled={disabled}
+        loading={isLoading}
+        placeholder={placeholder}
+        allowCreate={can('projects.project.write')}
+        createLabel="New project"
+        onCreate={() => setCreateOpen(true)}
+      />
+      <QuickCreateProjectModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        customerId={filter?.customer_id ?? null}
+        onCreated={(project) => {
+          setJustCreated(project);
+          onChange(project.id);
+          setCreateOpen(false);
+        }}
+      />
+    </>
   );
 }

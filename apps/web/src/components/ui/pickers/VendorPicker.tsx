@@ -1,13 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { EntityPicker } from '@/components/ui/EntityPicker';
+import { QuickCreateVendorModal } from '@/components/quick-create/QuickCreateVendorModal';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { vendorsKeys } from '@/lib/queryKeys/vendors';
 import { listVendors } from '@/lib/services/vendorsService';
+import type { Vendor } from '@/lib/types/vendors_inventory_ops';
 
 /**
- * VendorPicker. Fetches vendors via vendors-api. The status filter narrows
- * by is_active client-side; the list endpoint does not currently expose a
- * server-side status query parameter.
+ * VendorPicker. Typeahead combobox over the org's vendors (vendors-api), with an
+ * inline "+ New vendor" row gated on the vendors.vendor.create capability
+ * (F-UIUX-ENTITYPICKER-01). The status filter narrows by is_active client-side.
+ * Public props are unchanged from the prior native-select version.
  */
 export interface VendorPickerProps {
   value: string | null;
@@ -28,6 +33,10 @@ export function VendorPicker({
   placeholder = 'Select a vendor.',
   filter,
 }: VendorPickerProps) {
+  const { can } = useCapabilities();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [justCreated, setJustCreated] = useState<Vendor | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: vendorsKeys.list(),
     queryFn: () => listVendors(),
@@ -36,35 +45,43 @@ export function VendorPicker({
     retry: 1,
   });
 
-  const items = useMemo(() => {
+  const options = useMemo(() => {
     const all = data?.items ?? [];
-    if (!filter?.status) return all;
+    const merged =
+      justCreated && !all.some((v) => v.id === justCreated.id)
+        ? [justCreated, ...all]
+        : all;
+    if (!filter?.status) return merged;
     const wantActive = filter.status === 'active';
-    return all.filter((v) => v.is_active === wantActive);
-  }, [data, filter?.status]);
+    return merged.filter((v) => v.is_active === wantActive);
+  }, [data, justCreated, filter?.status]);
 
   return (
-    <label className="flex flex-col gap-2">
-      {label && (
-        <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-          {label}
-          {required && <span className="text-accent ml-1">*</span>}
-        </span>
-      )}
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+    <>
+      <EntityPicker<Vendor>
+        value={value}
+        onChange={(id) => onChange(id)}
+        options={options}
+        getOptionId={(v) => v.id}
+        getOptionLabel={(v) => v.display_name}
+        label={label}
         required={required}
-        disabled={disabled || isLoading}
-        className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
-      >
-        <option value="">{isLoading ? 'Loading.' : placeholder}</option>
-        {items.map((v) => (
-          <option key={v.id} value={v.id}>
-            {v.display_name}
-          </option>
-        ))}
-      </select>
-    </label>
+        disabled={disabled}
+        loading={isLoading}
+        placeholder={placeholder}
+        allowCreate={can('vendors.vendor.create')}
+        createLabel="New vendor"
+        onCreate={() => setCreateOpen(true)}
+      />
+      <QuickCreateVendorModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(vendor) => {
+          setJustCreated(vendor);
+          onChange(vendor.id);
+          setCreateOpen(false);
+        }}
+      />
+    </>
   );
 }

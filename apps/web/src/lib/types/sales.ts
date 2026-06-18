@@ -174,6 +174,15 @@ export const ItemKindSchema = z.enum([
 ]);
 export type ItemKind = z.infer<typeof ItemKindSchema>;
 
+// Material supply source (migration 0120). in_house and vendor_consigned carry
+// normal captured cost; customer_supplied and third_party_consigned roll up as
+// zero org material cost. Per-line overrides on consumption lines win over this
+// item default (COALESCE(line, item)).
+export const ItemSupplySourceSchema = z.enum([
+  'in_house', 'customer_supplied', 'vendor_consigned', 'third_party_consigned',
+]);
+export type ItemSupplySource = z.infer<typeof ItemSupplySourceSchema>;
+
 export const ItemSchema = z.object({
   id: UuidSchema,
   org_id: UuidSchema,
@@ -191,6 +200,7 @@ export const ItemSchema = z.object({
   unit_of_measure: z.string().nullable(),
   reorder_point: z.number().nonnegative().nullable(),
   barcode: z.string().nullable(),
+  supply_source: ItemSupplySourceSchema,
   is_active: z.boolean(),
   is_taxable: z.boolean(),
   is_sellable: z.boolean(),
@@ -211,6 +221,7 @@ export const ItemCreateSchema = z.object({
   unit_of_measure: z.string().optional().nullable(),
   reorder_point: z.number().nonnegative().optional().nullable(),
   barcode: z.string().optional().nullable(),
+  supply_source: ItemSupplySourceSchema.optional(),
   is_active: z.boolean().optional(),
   is_taxable: z.boolean().optional(),
   is_sellable: z.boolean().optional(),

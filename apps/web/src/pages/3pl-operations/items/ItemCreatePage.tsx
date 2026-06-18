@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { nextStepToast } from '@/lib/nextStepToast';
+import { SUPPLY_SOURCE_OPTIONS } from '@/lib/supplySource';
 import { useCreateItem } from '@/lib/hooks/useItems';
+import type { ItemSupplySource } from '@/lib/types/sales';
 
 export function ItemCreatePage() {
   const navigate = useNavigate();
@@ -24,6 +27,10 @@ export function ItemCreatePage() {
   const [costCents, setCostCents] = useState<number | null>(null);
   const [reorderPoint, setReorderPoint] = useState('');
   const [barcode, setBarcode] = useState('');
+  // F-UIUX-ENTITYPICKER-SUPPLY-SOURCE-01: classify the material source. Default
+  // in_house matches the column default; customer_supplied and
+  // third_party_consigned roll up as zero org material cost.
+  const [supplySource, setSupplySource] = useState<ItemSupplySource>('in_house');
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -39,6 +46,7 @@ export function ItemCreatePage() {
         cost_cents: costCents !== null ? String(costCents) : null,
         reorder_point: reorderTrimmed === '' ? null : Number(reorderTrimmed),
         barcode: barcode.trim() || null,
+        supply_source: supplySource,
       },
       {
         onSuccess: (result) => {
@@ -97,6 +105,21 @@ export function ItemCreatePage() {
           value={barcode}
           onChange={(e) => setBarcode(e.target.value)}
         />
+        <label className="flex flex-col gap-2">
+          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+            Supply source
+          </span>
+          <Select
+            value={supplySource}
+            onChange={(e) => setSupplySource(e.target.value as ItemSupplySource)}
+          >
+            {SUPPLY_SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </label>
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}
         </Button>

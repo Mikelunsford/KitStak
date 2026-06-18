@@ -4,3 +4,4 @@ export { InvoicePicker, type InvoicePickerProps } from './InvoicePicker';
 export { QuotePicker, type QuotePickerProps } from './QuotePicker';
 export { ItemPicker, type ItemPickerProps } from './ItemPicker';
 export { VendorPicker, type VendorPickerProps } from './VendorPicker';
+export { ChannelPicker, type ChannelPickerProps } from './ChannelPicker';

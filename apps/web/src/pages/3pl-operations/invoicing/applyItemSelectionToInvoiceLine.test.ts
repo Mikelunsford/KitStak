@@ -25,6 +25,7 @@ const SAMPLE_ITEM: Item = {
   unit_of_measure: null,
   reorder_point: null,
   barcode: null,
+  supply_source: 'in_house',
   is_active: true,
   is_taxable: true,
   is_sellable: true,

@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useItem } from '@/lib/hooks/useItems';
 import { formatCents } from '@/lib/money';
+import { SUPPLY_SOURCE_LABEL, isZeroCostSupplySource } from '@/lib/supplySource';
 
 export function ItemDetailPage() {
   const { id } = useParams();
@@ -41,7 +42,14 @@ export function ItemDetailPage() {
           {data.cost_cents !== null
             ? formatCents(data.cost_cents, data.currency_code)
             : '·'}
+          {isZeroCostSupplySource(data.supply_source) && (
+            <span className="ml-2 font-sans text-xs text-ink-dim">
+              zero org material cost
+            </span>
+          )}
         </dd>
+        <dt className="text-ink-dim">Supply source</dt>
+        <dd>{SUPPLY_SOURCE_LABEL[data.supply_source]}</dd>
         <dt className="text-ink-dim">Unit of measure</dt>
         <dd>{data.unit_of_measure ?? '·'}</dd>
         <dt className="text-ink-dim">Reorder point</dt>

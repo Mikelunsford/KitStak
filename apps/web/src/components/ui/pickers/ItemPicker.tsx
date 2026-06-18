@@ -1,28 +1,25 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { EntityPicker } from '@/components/ui/EntityPicker';
+import { QuickCreateItemModal } from '@/components/quick-create/QuickCreateItemModal';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { itemsKeys } from '@/lib/queryKeys/items';
 import { listItems } from '@/lib/services/itemsService';
-import type { Item, ItemKind } from '@/lib/types/sales';
-import { pickItemFromList } from './pickItemFromList';
+import { SUPPLY_SOURCE_LABEL } from '@/lib/supplySource';
+import type { Item, ItemKind, ItemSupplySource } from '@/lib/types/sales';
 
 /**
- * ItemPicker. Fetches the items catalog (sales-config-api). Caller may
- * narrow by kind ('good' = product or kit; 'service' = service) or by active.
- * The schema's ItemKind is the canonical enum; 'good'/'service' here is a
- * SPA-side coarse grouping for callers that only need to distinguish things
- * you ship vs. things you charge for time on.
+ * ItemPicker. Typeahead combobox over the items catalog (sales-config-api),
+ * with an inline "+ New item" row gated on the items.item.write capability
+ * (F-UIUX-ENTITYPICKER-01). Caller may narrow by kind ('good' = product or kit;
+ * 'service' = service) or by active.
  *
- * PR-F: `onChange` now emits the matched Item (or undefined on clear) as a
- * second argument so callers can synchronously pre-fill dependent form
- * fields without spinning up a separate `useItem(id)` query + useEffect.
- * The earlier id-only flow (quotes PR #115, invoices PR #119) introduced
- * a visible flash because the Item resolved one render after the id was
- * set. The picker already has the loaded list in scope at selection time,
- * so resolving the record sync is free and removes the race entirely.
- *
- * Backward-compatible: existing callers that ignore the second arg
- * continue to work unchanged.
+ * `onChange` emits the matched Item (or undefined on clear) as a second argument
+ * so callers can synchronously pre-fill dependent form fields without a separate
+ * useItem(id) query. On inline create the new item is auto-selected and merged
+ * into the list ahead of the refetch. Public props are unchanged from the prior
+ * native-select version, so call sites need no edits.
  */
 export interface ItemPickerProps {
   value: string | null;
@@ -31,7 +28,9 @@ export interface ItemPickerProps {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  filter?: { kind?: 'good' | 'service'; active?: boolean } | undefined;
+  filter?:
+    | { kind?: 'good' | 'service'; active?: boolean; supply_source?: ItemSupplySource }
+    | undefined;
 }
 
 const GOOD_KINDS: ItemKind[] = ['product', 'kit', 'bundle'];
@@ -46,6 +45,10 @@ export function ItemPicker({
   placeholder = 'Select an item.',
   filter,
 }: ItemPickerProps) {
+  const { can } = useCapabilities();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [justCreated, setJustCreated] = useState<Item | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: itemsKeys.list(),
     queryFn: () => listItems(),
@@ -54,9 +57,13 @@ export function ItemPicker({
     retry: 1,
   });
 
-  const items = useMemo(() => {
+  const options = useMemo(() => {
     const all = data ?? [];
-    return all.filter((i) => {
+    const merged =
+      justCreated && !all.some((i) => i.id === justCreated.id)
+        ? [justCreated, ...all]
+        : all;
+    return merged.filter((i) => {
       if (filter?.active !== undefined && i.is_active !== filter.active) {
         return false;
       }
@@ -64,35 +71,43 @@ export function ItemPicker({
       if (filter?.kind === 'service' && !SERVICE_KINDS.includes(i.kind)) {
         return false;
       }
+      if (filter?.supply_source && i.supply_source !== filter.supply_source) {
+        return false;
+      }
       return true;
     });
-  }, [data, filter?.active, filter?.kind]);
+  }, [data, justCreated, filter?.active, filter?.kind, filter?.supply_source]);
 
   return (
-    <label className="flex flex-col gap-2">
-      {label && (
-        <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-          {label}
-          {required && <span className="text-accent ml-1">*</span>}
-        </span>
-      )}
-      <select
-        value={value ?? ''}
-        onChange={(e) => {
-          const { id, item } = pickItemFromList(items, e.target.value);
-          onChange(id, item);
-        }}
+    <>
+      <EntityPicker<Item>
+        value={value}
+        onChange={(id, item) => onChange(id, item)}
+        options={options}
+        getOptionId={(i) => i.id}
+        getOptionLabel={(i) =>
+          i.supply_source === 'in_house'
+            ? `${i.sku} · ${i.name}`
+            : `${i.sku} · ${i.name} · ${SUPPLY_SOURCE_LABEL[i.supply_source]}`
+        }
+        label={label}
         required={required}
-        disabled={disabled || isLoading}
-        className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
-      >
-        <option value="">{isLoading ? 'Loading.' : placeholder}</option>
-        {items.map((i) => (
-          <option key={i.id} value={i.id}>
-            {i.sku} · {i.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        disabled={disabled}
+        loading={isLoading}
+        placeholder={placeholder}
+        allowCreate={can('items.item.write')}
+        createLabel="New item"
+        onCreate={() => setCreateOpen(true)}
+      />
+      <QuickCreateItemModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(item) => {
+          setJustCreated(item);
+          onChange(item.id, item);
+          setCreateOpen(false);
+        }}
+      />
+    </>
   );
 }

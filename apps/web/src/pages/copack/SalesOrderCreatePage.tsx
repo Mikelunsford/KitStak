@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
-import { CustomerPicker, ProjectPicker } from '@/components/ui/pickers';
-import { useCreateSalesOrder, useSalesChannelsList } from '@/lib/hooks/useCoPack';
+import { CustomerPicker, ProjectPicker, ChannelPicker } from '@/components/ui/pickers';
+import { useCreateSalesOrder } from '@/lib/hooks/useCoPack';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import type { SalesOrderCreate } from '@/lib/types/copack';
 
@@ -30,7 +29,6 @@ function localToIso(value: string): string | null {
 export function SalesOrderCreatePage() {
   const navigate = useNavigate();
   const create = useCreateSalesOrder();
-  const channels = useSalesChannelsList();
   const caps = useVioCapabilities();
 
   const [orderNumber, setOrderNumber] = useState('');
@@ -78,25 +76,11 @@ export function SalesOrderCreatePage() {
           value={orderNumber}
           onChange={(e) => setOrderNumber(e.target.value)}
         />
-        <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-            Channel (optional)
-          </span>
-          <Select
-            value={channelId}
-            onChange={(e) => setChannelId(e.target.value)}
-            disabled={channels.isLoading}
-          >
-            <option value="">
-              {channels.isLoading ? 'Loading.' : 'No channel'}
-            </option>
-            {(channels.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <ChannelPicker
+          value={channelId || null}
+          onChange={(id) => setChannelId(id ?? '')}
+          label="Channel (optional)"
+        />
         <CustomerPicker
           value={customerId}
           onChange={setCustomerId}
