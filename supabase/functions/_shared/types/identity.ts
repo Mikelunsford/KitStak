@@ -138,6 +138,48 @@ export type OrgBranding = z.infer<typeof OrgBrandingSchema>;
 export const BrandingResponseSchema = OrgBrandingSchema;
 export type BrandingResponse = z.infer<typeof BrandingResponseSchema>;
 
+// ----- branding asset upload (F-BRANDING-LOGO-UPLOAD-01) -----
+// Request to mint a signed upload URL for a branding asset. The bytes are
+// uploaded directly to the signed target by the SPA (supabase-js
+// uploadToSignedUrl); this endpoint only authorises the write (capability plus
+// a content-type and size guard) and reserves the object path under the
+// caller's org prefix. `kind` selects which branding column the asset is
+// destined for; the SPA persists the resulting public_url through the existing
+// PUT /branding on save. size_bytes is the declared file size, capped
+// server-side per kind.
+
+export const BrandingAssetKindSchema = z.enum(['logo', 'icon', 'email_logo']);
+export type BrandingAssetKind = z.infer<typeof BrandingAssetKindSchema>;
+
+export const BrandingAssetContentTypeSchema = z.enum([
+  'image/png',
+  'image/jpeg',
+  'image/svg+xml',
+  'image/webp',
+  'image/x-icon',
+]);
+export type BrandingAssetContentType = z.infer<
+  typeof BrandingAssetContentTypeSchema
+>;
+
+export const BrandingAssetUploadRequestSchema = z.object({
+  kind: BrandingAssetKindSchema,
+  content_type: BrandingAssetContentTypeSchema,
+  size_bytes: z.number().int().positive(),
+});
+export type BrandingAssetUploadRequest = z.infer<
+  typeof BrandingAssetUploadRequestSchema
+>;
+
+export const BrandingAssetUploadResponseSchema = z.object({
+  token: NonEmptyStringSchema,
+  path: NonEmptyStringSchema,
+  public_url: z.string().url(),
+});
+export type BrandingAssetUploadResponse = z.infer<
+  typeof BrandingAssetUploadResponseSchema
+>;
+
 // ----- domains -----
 
 export const OrgDomainSchema = z.object({
