@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.29.0] · 2026-06-18 System-wide default quote expiration (PR #341)
+
+The same methodology as the default currency, applied to the quote expiration date: a system-wide default set in Settings, with the field moved off the main quote create flow into Advanced. SPA only, no migration.
+
+### Added
+
+- **Default quote expiration setting (Settings page)**: a dropdown of duration presets (1, 5, 7, 14, 30, 60, 90 days, 6 months, 1 year) plus a Custom day count and a "No default" option. Saved as `{ unit, amount }` under the `quotes/default_expiration` settings key (readable by every staff role, writable from Settings). 6 Months and 1 Year use calendar math, not 180/365 days.
+- **Pure `quoteExpiration` module plus `useDefaultExpiration` hook**: the resolver, the preset table, and the date arithmetic (`addExpiration`) live in `lib/quoteExpiration.ts` so they unit-test without the supabase client (the resolver, the day/month/year math, and the preset round-trip are covered).
+
+### Changed
+
+- **Quote expiration moved into Advanced**: the New Quote expiration date field left the main flow for the "Advanced (optional)" section, where it now defaults to today plus the org duration (blank when no default is set) and stays editable per quote. The wire contract is unchanged (the form still sends `expiration_date`).
+
 ## [0.28.0] · 2026-06-18 System-wide default currency; currency moved off the main create flow (PR #340)
 
 Currency was a field on every create/money form, almost always left at USD. It now defaults from a system-wide setting and moves into the Advanced section of each form, so the common path is one fewer decision. SPA only, no migration.

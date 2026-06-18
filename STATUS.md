@@ -1,5 +1,11 @@
 # Kitstak Status
 
+## 2026-06-18 System-wide default quote expiration
+
+The default-currency methodology applied to the quote expiration date: a system-wide default set in Settings, with the field moved off the main quote create flow into Advanced. CHANGELOG `0.29.0`; journal `03-workspace/journal/2026-06-18-default-quote-expiration.md`. PR #341. SPA only, no migration.
+
+A new "Default quote expiration" control on the Settings page saves a `quotes/default_expiration` setting (a duration preset of 1/5/7/14/30/60/90 days, 6 months, or 1 year, plus Custom days and No default) in the existing settings store, readable by every staff role. A pure `quoteExpiration` module (resolver plus `addExpiration` date math, with 6 months and 1 year using calendar arithmetic) and a `useDefaultExpiration` hook seed the New Quote expiration date to today plus the duration, once on load. The expiration field moved from the main quote form into the "Advanced (optional)" section, still editable per quote. The wire contract is unchanged.
+
 ## 2026-06-18 System-wide default currency; currency off the main create flow
 
 Currency was on every create/money form and almost always left at USD. It now defaults from a system-wide setting and moves into the Advanced section of each form, so the common create path is one fewer decision. CHANGELOG `0.28.0`; journal `03-workspace/journal/2026-06-18-default-currency-setting.md`. PR #340. SPA only, no migration.

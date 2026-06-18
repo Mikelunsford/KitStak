@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -8,6 +8,9 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { CustomerPicker } from '@/components/ui/pickers';
 import { useCreateQuote } from '@/lib/hooks/useQuotes';
 import { CurrencyField } from '@/components/ui/CurrencyField';
+import { useDefaultExpiration } from '@/lib/hooks/useDefaultExpiration';
+import { addExpiration } from '@/lib/quoteExpiration';
+import { todayIsoDate } from '@/lib/dates';
 import { useTaxesList } from '@/lib/hooks/useTaxes';
 import { paymentMethodsKeys } from '@/lib/queryKeys/paymentMethods';
 import { listPaymentMethods } from '@/lib/services/paymentMethodsService';
@@ -42,6 +45,7 @@ export function QuoteCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const create = useCreateQuote();
+  const defaultExpiration = useDefaultExpiration();
   const { data: taxes } = useTaxesList();
   const { data: paymentMethods } = useQuery({
     queryKey: paymentMethodsKeys.list(),
@@ -85,6 +89,23 @@ export function QuoteCreatePage() {
       setPaymentMethodId((current) => (current === '' ? defaultMethod.id : current));
     }
   }, [paymentMethods]);
+
+  // Seed the expiration date from the org default (today plus the configured
+  // duration) exactly once, when the setting resolves. A null default leaves the
+  // field blank (no expiration). The ref guard plus the empty-string check both
+  // ensure an operator's own date is never clobbered.
+  const expSeeded = useRef(false);
+  useEffect(() => {
+    if (expSeeded.current) return;
+    if (defaultExpiration === undefined) return;
+    expSeeded.current = true;
+    if (defaultExpiration) {
+      const computed = addExpiration(todayIsoDate(), defaultExpiration);
+      if (computed) {
+        setExpirationDate((current) => (current === '' ? computed : current));
+      }
+    }
+  }, [defaultExpiration]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -155,12 +176,6 @@ export function QuoteCreatePage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <TextInput
-          label="Expiration date"
-          type="date"
-          value={expirationDate}
-          onChange={(e) => setExpirationDate(e.target.value)}
-        />
         {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 1): hide the three optional
             raw-UUID inputs from the default view. The audit called out
             that asking the operator to paste a raw UUID for an optional
@@ -180,6 +195,12 @@ export function QuoteCreatePage() {
           </summary>
           <div className="flex flex-col gap-4 p-4 border-t border-line">
             <CurrencyField value={currencyCode} onChange={setCurrencyCode} />
+            <TextInput
+              label="Expiration date"
+              type="date"
+              value={expirationDate}
+              onChange={(e) => setExpirationDate(e.target.value)}
+            />
             <TextInput
               label="Default tax id"
               value={defaultTaxId}
