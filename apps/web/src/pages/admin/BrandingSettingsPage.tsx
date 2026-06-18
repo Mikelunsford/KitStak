@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { ColorField } from '@/components/ui/ColorField';
@@ -10,6 +11,22 @@ import {
   usePatchBranding,
 } from '@/lib/hooks/useSettings';
 import { HexColorSchema } from '@/lib/types/identity';
+import { destructiveConfirm } from '@/lib/destructiveConfirm';
+import { useTheme } from '@/whitelabel/ThemeProvider';
+
+/**
+ * Kitstak default brand tokens (the constitution palette). Reset restores
+ * these and clears every per-org override the form manages.
+ */
+const KITSTAK_DEFAULTS = {
+  appName: '',
+  primary: '#0a1628',
+  accent: '#c8102e',
+  onPrimary: '#f5f1e8',
+  logoUrl: '',
+  iconUrl: '',
+  footer: '',
+} as const;
 
 /**
  * Branding admin page.
@@ -29,6 +46,7 @@ export function BrandingSettingsPage() {
   const enabled = state.status === 'authenticated';
   const query = useBrandingAdmin({ enabled });
   const patch = usePatchBranding();
+  const { theme, setTheme } = useTheme();
 
   const [appName, setAppName] = useState('');
   const [primary, setPrimary] = useState('#0a1628');
@@ -50,24 +68,36 @@ export function BrandingSettingsPage() {
     setFooter(query.data.invoice_pdf_footer ?? '');
   }, [query.data]);
 
-  function handleSave() {
+  interface BrandingFormValues {
+    appName: string;
+    primary: string;
+    accent: string;
+    onPrimary: string;
+    logoUrl: string;
+    iconUrl: string;
+    footer: string;
+  }
+
+  function persist(values: BrandingFormValues) {
     setError(null);
-    const primaryParse = HexColorSchema.safeParse(primary);
-    const accentParse = HexColorSchema.safeParse(accent);
-    const onPrimaryParse = HexColorSchema.safeParse(onPrimary);
+    const primaryParse = HexColorSchema.safeParse(values.primary);
+    const accentParse = HexColorSchema.safeParse(values.accent);
+    const onPrimaryParse = HexColorSchema.safeParse(values.onPrimary);
     if (!primaryParse.success || !accentParse.success || !onPrimaryParse.success) {
       setError('Colors must be six-digit hex values (with or without #).');
       return;
     }
     patch.mutate(
       {
-        app_name_override: appName.trim() === '' ? null : appName.trim(),
-        primary_color: primary,
-        accent_color: accent,
-        on_primary: onPrimary,
-        logo_url: logoUrl.trim() === '' ? null : logoUrl.trim(),
-        icon_url: iconUrl.trim() === '' ? null : iconUrl.trim(),
-        invoice_pdf_footer: footer.trim() === '' ? null : footer.trim(),
+        app_name_override:
+          values.appName.trim() === '' ? null : values.appName.trim(),
+        primary_color: values.primary,
+        accent_color: values.accent,
+        on_primary: values.onPrimary,
+        logo_url: values.logoUrl.trim() === '' ? null : values.logoUrl.trim(),
+        icon_url: values.iconUrl.trim() === '' ? null : values.iconUrl.trim(),
+        invoice_pdf_footer:
+          values.footer.trim() === '' ? null : values.footer.trim(),
       },
       {
         onError: (err: unknown) => {
@@ -76,6 +106,35 @@ export function BrandingSettingsPage() {
         },
       },
     );
+  }
+
+  function handleSave() {
+    persist({ appName, primary, accent, onPrimary, logoUrl, iconUrl, footer });
+  }
+
+  async function handleReset() {
+    const confirmed = await destructiveConfirm({
+      action: 'Reset branding to Kitstak defaults',
+      consequence:
+        'This replaces your colors, logo, favicon, workspace name, and PDF footer with the Kitstak defaults and saves immediately.',
+    });
+    if (!confirmed) return;
+    setAppName(KITSTAK_DEFAULTS.appName);
+    setPrimary(KITSTAK_DEFAULTS.primary);
+    setAccent(KITSTAK_DEFAULTS.accent);
+    setOnPrimary(KITSTAK_DEFAULTS.onPrimary);
+    setLogoUrl(KITSTAK_DEFAULTS.logoUrl);
+    setIconUrl(KITSTAK_DEFAULTS.iconUrl);
+    setFooter(KITSTAK_DEFAULTS.footer);
+    persist({
+      appName: KITSTAK_DEFAULTS.appName,
+      primary: KITSTAK_DEFAULTS.primary,
+      accent: KITSTAK_DEFAULTS.accent,
+      onPrimary: KITSTAK_DEFAULTS.onPrimary,
+      logoUrl: KITSTAK_DEFAULTS.logoUrl,
+      iconUrl: KITSTAK_DEFAULTS.iconUrl,
+      footer: KITSTAK_DEFAULTS.footer,
+    });
   }
 
   return (
@@ -173,11 +232,65 @@ export function BrandingSettingsPage() {
 
       {error ? <p className="text-danger">{error}</p> : null}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button onClick={handleSave} disabled={patch.isPending}>
           {patch.isPending ? 'Saving.' : 'Save branding'}
         </Button>
+        <button
+          type="button"
+          onClick={() => void handleReset()}
+          disabled={patch.isPending}
+          className="border border-line px-4 py-2 font-sans text-xs uppercase tracking-wide text-ink-dim transition-colors hover:bg-bg-2 hover:text-ink disabled:opacity-50"
+          data-testid="branding-reset"
+        >
+          Reset to Kitstak defaults
+        </button>
       </div>
+
+      <section className="space-y-3 border-t border-line pt-6">
+        <div>
+          <h2 className="font-display text-2xl text-ink">Appearance</h2>
+          <p className="font-sans text-sm text-ink-dim">
+            Light or dark interface. This is a personal preference saved to this
+            browser only. It does not change your workspace branding for other
+            users.
+          </p>
+        </div>
+        <div
+          className="inline-flex border border-line"
+          role="group"
+          aria-label="Interface appearance"
+        >
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            aria-pressed={theme === 'dark'}
+            className={`inline-flex items-center gap-2 px-4 py-2 font-sans text-sm transition-colors ${
+              theme === 'dark'
+                ? 'bg-accent text-on-primary'
+                : 'text-ink-dim hover:bg-bg-2 hover:text-ink'
+            }`}
+            data-testid="appearance-dark"
+          >
+            <Moon size={16} aria-hidden="true" />
+            Dark
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            aria-pressed={theme === 'light'}
+            className={`inline-flex items-center gap-2 px-4 py-2 font-sans text-sm transition-colors ${
+              theme === 'light'
+                ? 'bg-accent text-on-primary'
+                : 'text-ink-dim hover:bg-bg-2 hover:text-ink'
+            }`}
+            data-testid="appearance-light"
+          >
+            <Sun size={16} aria-hidden="true" />
+            Light
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

@@ -38,6 +38,11 @@
     --accent: 200 16 46;      /* #c8102e */
     --accent-bright: 230 46 77; /* #e62e4d */
 
+    /* Text colour for accent / brand surfaces (CTAs, badges). Stays cream in
+     * both themes: a red or navy fill wants light text regardless of the page
+     * appearance. BrandingProvider overrides this from on_primary per org. */
+    --on-primary: 245 241 232; /* #f5f1e8 */
+
     --line: 26 44 71;         /* #1a2c47 */
     --line-strong: 45 63 85;  /* #2d3f55 */
 
@@ -47,6 +52,32 @@
     --info: 52 152 219;       /* #3498db */
 
     --font-sans: 'Inter Tight';
+
+    color-scheme: dark;
+  }
+
+  /*
+   * Light appearance. Per-user, browser-saved; ThemeProvider writes
+   * data-theme="light" to <html>. Only the page surfaces (background, ink,
+   * lines) flip. Accent stays red and --on-primary stays cream so CTAs read
+   * correctly in both themes. BrandingProvider stops repainting --bg / --ink
+   * from the org primary while light is active, so this palette wins.
+   */
+  :root[data-theme='light'] {
+    --bg: 250 249 246;        /* #faf9f6 warm white */
+    --bg-2: 243 241 235;      /* #f3f1eb */
+    --bg-3: 234 231 223;      /* #eae7df */
+
+    --ink: 12 24 42;          /* #0c182a near-navy */
+    --ink-dim: 88 102 122;    /* #58667a */
+    --ink-faint: 176 184 196; /* #b0b8c4 */
+
+    --brand: 10 22 40;        /* navy chrome on light surfaces */
+
+    --line: 219 214 203;      /* #dbd6cb */
+    --line-strong: 196 190 177; /* #c4beb1 */
+
+    color-scheme: light;
   }
 
   body {
