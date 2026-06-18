@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { VendorPicker, ProjectPicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import {
   useCreateExpense,
   useExpenseCategoriesList,
@@ -143,13 +144,6 @@ export function ExpenseCreatePage() {
           value={amount}
           onChange={setAmount}
         />
-        <TextInput
-          label="Currency"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          maxLength={3}
-          required
-        />
         <label className="flex gap-2 items-center">
           <input
             type="checkbox"
@@ -158,6 +152,15 @@ export function ExpenseCreatePage() {
           />
           <span className="text-ink">Reimbursable</span>
         </label>
+
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currency} onChange={setCurrency} />
+          </div>
+        </details>
 
         {create.error && (
           <p className="text-accent font-sans text-sm">

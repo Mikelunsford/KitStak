@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FormGrid } from '@/components/ui/FormGrid';
 import { CustomerPicker, ProjectPicker, QuotePicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useCreateInvoice } from '@/lib/hooks/useInvoices';
 import { useItemsList } from '@/lib/hooks/useItems';
 import { useProjectLineItems, useProjectsList } from '@/lib/hooks/useProjects';
@@ -245,16 +246,6 @@ export function InvoiceCreatePage() {
             label="Source quote (optional)"
             filter={customerId ? { customer_id: customerId } : undefined}
           />
-          <Field label="Currency">
-            <input
-              type="text"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              required
-              maxLength={3}
-              className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
-            />
-          </Field>
           <Field label="Issue date">
             <input
               type="date"
@@ -280,6 +271,17 @@ export function InvoiceCreatePage() {
                 className="w-full bg-bg-2 border border-line px-3 py-2 text-ink font-sans"
               />
             </Field>
+          </FormGrid.Full>
+
+          <FormGrid.Full>
+            <details className="border border-line bg-bg-2/40">
+              <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+                Advanced (optional)
+              </summary>
+              <div className="flex flex-col gap-4 p-4 border-t border-line">
+                <CurrencyField value={currency} onChange={setCurrency} />
+              </div>
+            </details>
           </FormGrid.Full>
 
           {derivedLineCount > 0 && (

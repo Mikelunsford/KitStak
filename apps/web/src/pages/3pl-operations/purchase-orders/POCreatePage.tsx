@@ -7,6 +7,7 @@ import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { PercentInput } from '@/components/forms/PercentInput';
 import { VendorPicker, ItemPicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { nextStepToast } from '@/lib/nextStepToast';
 import { useCreatePurchaseOrder } from '@/lib/hooks/usePurchaseOrders';
 import { createPoLineItem } from '@/lib/services/poLineItemsService';
@@ -148,13 +149,6 @@ export function POCreatePage() {
           onChange={(e) => setPoNumber(e.target.value)}
         />
         <TextInput
-          label="Currency"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          maxLength={3}
-          required
-        />
-        <TextInput
           label="Order date"
           type="date"
           value={orderDate}
@@ -166,6 +160,15 @@ export function POCreatePage() {
           value={expectedDate}
           onChange={(e) => setExpectedDate(e.target.value)}
         />
+
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currency} onChange={setCurrency} />
+          </div>
+        </details>
 
         <section className="flex flex-col gap-3 border-t border-line pt-4">
           <header className="flex items-center justify-between">

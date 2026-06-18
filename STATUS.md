@@ -1,5 +1,11 @@
 # Kitstak Status
 
+## 2026-06-18 System-wide default currency; currency off the main create flow
+
+Currency was on every create/money form and almost always left at USD. It now defaults from a system-wide setting and moves into the Advanced section of each form, so the common create path is one fewer decision. CHANGELOG `0.28.0`; journal `03-workspace/journal/2026-06-18-default-currency-setting.md`. PR #340. SPA only, no migration.
+
+A new "Default Currency" dropdown on the Settings page saves a `general/default_currency` setting in the existing settings store, readable by every staff role (`settings.read`) so the create forms can seed from it and writable from Settings (`settings.write`). A shared `CurrencyField` (a pure `resolveDefaultCurrency` resolver plus a `useDefaultCurrency` hook) seeds itself from that default once on load, then honors the operator's override. The nine create/money forms (quote, invoice, purchase order, sales order, payment, credit note, vendor bill, expense, project) drop their inline currency field and expose the override under "Advanced (optional)". The wire contract is unchanged. The per-record `organizations.default_currency_code` column is left as is.
+
 ## 2026-06-18 Inline quick-create repaired end to end; a quote now requires a customer
 
 The inline "+ New" quick-create on the reference pickers (customer, item, vendor, project, channel) was dead: clicking Save created nothing. Two structural bugs, both now fixed and live on prod, plus a guard against the gap that produced empty quotes. CHANGELOG `0.27.0`; journal `03-workspace/journal/2026-06-18-quickcreate-fix-and-quote-customer-required.md`. PRs #337, #338, #339.

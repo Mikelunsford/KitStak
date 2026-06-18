@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker, InvoicePicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useCreateCreditNote } from '@/lib/hooks/useCreditNotes';
 
 /**
@@ -86,12 +87,6 @@ export function CreditNoteCreatePage() {
           inputMode="numeric"
           required
         />
-        <TextInput
-          label="Currency"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          maxLength={3}
-        />
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
             Reason
@@ -103,6 +98,15 @@ export function CreditNoteCreatePage() {
             className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
+
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currency} onChange={setCurrency} />
+          </div>
+        </details>
 
         {create.error && (
           <p className="text-accent font-sans text-sm">

@@ -7,6 +7,7 @@ import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { DollarInput } from '@/components/forms/DollarInput';
 import { CustomerPicker, InvoicePicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useCreatePayment, useApplyPayment } from '@/lib/hooks/usePayments';
 import { useInvoice } from '@/lib/hooks/useInvoices';
 
@@ -144,12 +145,6 @@ export function PaymentCreatePage() {
           onChange={setAmountCents}
           required
         />
-        <TextInput
-          label="Currency"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          maxLength={3}
-        />
         {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 2): payment method is a closed
             set of business values, not freeform. Storage shape unchanged
             (lowercase string), so historical rows continue to render and
@@ -195,6 +190,15 @@ export function PaymentCreatePage() {
             className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent"
           />
         </label>
+
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currency} onChange={setCurrency} />
+          </div>
+        </details>
 
         {(create.error || apply.error) && (
           <p className="text-accent font-sans text-sm">

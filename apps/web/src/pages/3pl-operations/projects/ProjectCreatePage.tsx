@@ -3,11 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { CustomerPicker } from '@/components/ui/pickers';
+import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useCreateProject } from '@/lib/hooks/useProjects';
-import { useCurrenciesList } from '@/lib/hooks/useCurrencies';
 import type { CreateProjectRequest } from '@/lib/types/sales';
 
 /**
@@ -20,7 +19,6 @@ export function ProjectCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const create = useCreateProject();
-  const { data: currencies } = useCurrenciesList();
 
   // quote_id is recognised here so callers can deep-link from a quote, but
   // CreateProjectRequestSchema does not accept a source_quote_id field today.
@@ -99,21 +97,6 @@ export function ProjectCreatePage() {
           onChange={(e) => setJobTypeId(e.target.value)}
           placeholder="optional uuid"
         />
-        <label className="flex flex-col gap-2">
-          <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
-            Currency
-          </span>
-          <Select
-            value={currencyCode}
-            onChange={(e) => setCurrencyCode(e.target.value)}
-          >
-            {(currencies ?? [{ code: 'USD' }]).map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.code}
-              </option>
-            ))}
-          </Select>
-        </label>
         <TextInput
           label="Budget (cents)"
           value={budgetCents}
@@ -132,6 +115,15 @@ export function ProjectCreatePage() {
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
         />
+        <details className="border border-line bg-bg-2/40">
+          <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
+            Advanced (optional)
+          </summary>
+          <div className="flex flex-col gap-4 p-4 border-t border-line">
+            <CurrencyField value={currencyCode} onChange={setCurrencyCode} />
+          </div>
+        </details>
+
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? 'Saving.' : 'Create'}
         </Button>
