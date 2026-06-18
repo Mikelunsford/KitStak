@@ -8,9 +8,13 @@ import { RelatedSection } from '@/components/shell/RelatedSection';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailHeader } from '@/components/ui/DetailHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Tabs, type TabSpec } from '@/components/ui/Tabs';
 import { formatCents } from '@/lib/money';
+import { displayTitle } from '@/lib/displayTitle';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useInviteCustomerToPortal } from '@/lib/hooks/useCustomers';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
@@ -38,6 +42,7 @@ import { listActivities } from '@/lib/services/activitiesService';
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useCustomer(id);
+  const orgFlags = useOrgFlags();
 
   const quotesQuery = useQuotesList(id ? { customer_id: id } : {});
   const projectsQuery = useProjectsList(id ? { customer_id: id } : {});
@@ -74,6 +79,12 @@ export function CustomerDetailPage() {
     );
   }
   const c = query.data;
+
+  // Workstream B: name-first detail header behind feature.detail_header. The
+  // customer is already name-first; the hub header adds the status pill (there
+  // is no StateStepper on the customer page).
+  const detailHeaderV2 = orgFlags.data[FEATURE_FLAGS.UI_DETAIL_HEADER];
+  const customerTitle = displayTitle('customer', c);
 
   // F-Wave7-LISTFILTER-01: server-side customer_id filter; no client-side
   // .filter(...) over the full org list.
@@ -290,15 +301,28 @@ export function CustomerDetailPage() {
           { label: c.display_name },
         ]}
       />
-      <PageHeader
-        eyebrow="CRM / Customers"
-        title={c.display_name}
-        actions={
-          <Link to={`/crm/customers/${c.id}/edit`}>
-            <Button variant="secondary">Edit</Button>
-          </Link>
-        }
-      />
+      {detailHeaderV2 ? (
+        <DetailHeader
+          eyebrow="CRM / Customers"
+          title={customerTitle.title}
+          status={c.status}
+          actions={
+            <Link to={`/crm/customers/${c.id}/edit`}>
+              <Button variant="secondary">Edit</Button>
+            </Link>
+          }
+        />
+      ) : (
+        <PageHeader
+          eyebrow="CRM / Customers"
+          title={c.display_name}
+          actions={
+            <Link to={`/crm/customers/${c.id}/edit`}>
+              <Button variant="secondary">Edit</Button>
+            </Link>
+          }
+        />
+      )}
       <Tabs aria-label="Customer detail" tabs={tabs} />
     </section>
   );

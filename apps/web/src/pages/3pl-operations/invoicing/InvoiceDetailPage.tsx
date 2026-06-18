@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DetailHeader } from '@/components/ui/DetailHeader';
 import { DetailLayout } from '@/components/ui/DetailLayout';
 import { BillableLineItemsEditor } from '@/components/ui/BillableLineItemsEditor';
 import {
@@ -33,6 +34,9 @@ import { useEntityAuditStates } from '@/lib/hooks/useEntityAuditStates';
 import { hasCap } from '@/lib/capabilities';
 import { renderPdf } from '@/lib/services/pdfService';
 import { formatCents, roundHalfEven } from '@/lib/money';
+import { displayTitle } from '@/lib/displayTitle';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { shouldShowInvoiceNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import {
@@ -92,6 +96,7 @@ export function InvoiceDetailPage() {
   // stepper coloured PENDING as completed even though audit_log only
   // recorded the direct edge.
   const auditStates = useEntityAuditStates('invoice', invoiceId || null);
+  const orgFlags = useOrgFlags();
 
   // Add-line field state lives at the page level so the mutation
   // onSuccess can clear it. The BillableLineItemsEditor owns the
@@ -140,6 +145,16 @@ export function InvoiceDetailPage() {
     return <p className="px-8 py-8 text-accent">Invoice not found.</p>;
 
   const inv = invoice.data;
+
+  // Workstream B: name-first detail header behind feature.detail_header. The
+  // invoice has no name field, so the title derives from the customer (then the
+  // project). No status pill; the StateStepper above owns the current state.
+  const detailHeaderV2 = orgFlags.data[FEATURE_FLAGS.UI_DETAIL_HEADER];
+  const invoiceTitle = displayTitle('invoice', inv, {
+    customerName: customer.data?.display_name ?? null,
+    projectName: project.data?.project.name ?? null,
+  });
+
   const canSend = inv.status === 'draft' || inv.status === 'pending';
   const canCancel = ['draft', 'pending', 'sent', 'on_hold'].includes(inv.status);
   const canEditLines = inv.status === 'draft';
@@ -314,48 +329,77 @@ export function InvoiceDetailPage() {
         }
         visitedStates={auditStates.data?.visited}
       />
-      <PageHeader
-        title={inv.invoice_number}
-        meta={
-          customerId || projectId || sourceQuoteId ? (
-            <span className="flex flex-col gap-1">
-              {customerId && (
-                <span>
-                  Customer:{' '}
-                  <Link
-                    to={`/crm/customers/${customerId}`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {fallbackLabel(customer.data?.display_name, customerId)}
-                  </Link>
-                </span>
-              )}
-              {projectId && (
-                <span>
-                  Project:{' '}
-                  <Link
-                    to={`/projects/${projectId}`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {fallbackLabel(project.data?.project.number, projectId)}
-                  </Link>
-                </span>
-              )}
-              {sourceQuoteId && (
-                <span>
-                  Source quote:{' '}
-                  <Link
-                    to={`/quotes/${sourceQuoteId}`}
-                    className="text-ink hover:text-accent"
-                  >
-                    {fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}
-                  </Link>
-                </span>
-              )}
-            </span>
-          ) : undefined
-        }
-      />
+      {detailHeaderV2 ? (
+        <DetailHeader
+          title={invoiceTitle.title}
+          number={invoiceTitle.number}
+          money={{
+            label: 'Balance',
+            value: formatCents(inv.balance_cents, inv.currency_code),
+          }}
+          links={[
+            ...(projectId
+              ? [
+                  {
+                    label: `Project ${fallbackLabel(project.data?.project.number, projectId)}`,
+                    to: `/projects/${projectId}`,
+                  },
+                ]
+              : []),
+            ...(sourceQuoteId
+              ? [
+                  {
+                    label: `Source quote ${fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}`,
+                    to: `/quotes/${sourceQuoteId}`,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : (
+        <PageHeader
+          title={inv.invoice_number}
+          meta={
+            customerId || projectId || sourceQuoteId ? (
+              <span className="flex flex-col gap-1">
+                {customerId && (
+                  <span>
+                    Customer:{' '}
+                    <Link
+                      to={`/crm/customers/${customerId}`}
+                      className="text-ink hover:text-accent"
+                    >
+                      {fallbackLabel(customer.data?.display_name, customerId)}
+                    </Link>
+                  </span>
+                )}
+                {projectId && (
+                  <span>
+                    Project:{' '}
+                    <Link
+                      to={`/projects/${projectId}`}
+                      className="text-ink hover:text-accent"
+                    >
+                      {fallbackLabel(project.data?.project.number, projectId)}
+                    </Link>
+                  </span>
+                )}
+                {sourceQuoteId && (
+                  <span>
+                    Source quote:{' '}
+                    <Link
+                      to={`/quotes/${sourceQuoteId}`}
+                      className="text-ink hover:text-accent"
+                    >
+                      {fallbackLabel(sourceQuote.data?.quote.number, sourceQuoteId)}
+                    </Link>
+                  </span>
+                )}
+              </span>
+            ) : undefined
+          }
+        />
+      )}
 
       <DetailLayout
         rail={
