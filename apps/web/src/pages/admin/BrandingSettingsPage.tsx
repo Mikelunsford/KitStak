@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
+import { ColorField } from '@/components/ui/ColorField';
+import { ImageUploadField } from '@/components/ui/ImageUploadField';
 import { TextInput } from '@/components/ui/TextInput';
 import { useAuth } from '@/auth/AuthContext';
 import {
@@ -12,9 +14,11 @@ import { HexColorSchema } from '@/lib/types/identity';
 /**
  * Branding admin page.
  *
- * Lets owners and admins edit org_branding. Logo and icon upload to the
- * Supabase Storage `attachments` bucket is a follow-up; today the form
- * accepts URLs directly so an operator can paste a hosted asset.
+ * Lets owners and admins edit org_branding. Colors use a native swatch + hex
+ * picker (ColorField). Logo and icon upload directly to the public Supabase
+ * Storage `branding` bucket via ImageUploadField (signed-URL mint behind the
+ * branding.logo.upload capability), with an "or paste a URL" fallback for a
+ * hosted asset. The resolved URLs persist through PUT /branding on save.
  *
  * Live preview is wired by writing the color values to the document root
  * as CSS variables. Saved state takes effect immediately because
@@ -29,6 +33,7 @@ export function BrandingSettingsPage() {
   const [appName, setAppName] = useState('');
   const [primary, setPrimary] = useState('#0a1628');
   const [accent, setAccent] = useState('#c8102e');
+  const [onPrimary, setOnPrimary] = useState('#f5f1e8');
   const [logoUrl, setLogoUrl] = useState('');
   const [iconUrl, setIconUrl] = useState('');
   const [footer, setFooter] = useState('');
@@ -39,6 +44,7 @@ export function BrandingSettingsPage() {
     setAppName(query.data.app_name_override ?? '');
     setPrimary(query.data.primary_color);
     setAccent(query.data.accent_color);
+    setOnPrimary(query.data.on_primary);
     setLogoUrl(query.data.logo_url ?? '');
     setIconUrl(query.data.icon_url ?? '');
     setFooter(query.data.invoice_pdf_footer ?? '');
@@ -48,7 +54,8 @@ export function BrandingSettingsPage() {
     setError(null);
     const primaryParse = HexColorSchema.safeParse(primary);
     const accentParse = HexColorSchema.safeParse(accent);
-    if (!primaryParse.success || !accentParse.success) {
+    const onPrimaryParse = HexColorSchema.safeParse(onPrimary);
+    if (!primaryParse.success || !accentParse.success || !onPrimaryParse.success) {
       setError('Colors must be six-digit hex values (with or without #).');
       return;
     }
@@ -57,6 +64,7 @@ export function BrandingSettingsPage() {
         app_name_override: appName.trim() === '' ? null : appName.trim(),
         primary_color: primary,
         accent_color: accent,
+        on_primary: onPrimary,
         logo_url: logoUrl.trim() === '' ? null : logoUrl.trim(),
         icon_url: iconUrl.trim() === '' ? null : iconUrl.trim(),
         invoice_pdf_footer: footer.trim() === '' ? null : footer.trim(),
@@ -92,31 +100,39 @@ export function BrandingSettingsPage() {
               onChange={(e) => setAppName(e.target.value)}
               placeholder="Kitstak"
             />
-            <TextInput
+            <ColorField
               label="Primary color"
               name="primary_color"
               value={primary}
-              onChange={(e) => setPrimary(e.target.value)}
-              placeholder="#0a1628"
+              onChange={setPrimary}
             />
-            <TextInput
+            <ColorField
               label="Accent color"
               name="accent_color"
               value={accent}
-              onChange={(e) => setAccent(e.target.value)}
-              placeholder="#c8102e"
+              onChange={setAccent}
             />
-            <TextInput
-              label="Logo URL"
+            <ColorField
+              label="Text on brand color"
+              name="on_primary"
+              value={onPrimary}
+              onChange={setOnPrimary}
+            />
+            <ImageUploadField
+              label="Logo"
               name="logo_url"
+              kind="logo"
               value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
+              onChange={setLogoUrl}
+              hint="Shown in the app shell, on invoices, and on quotes."
             />
-            <TextInput
-              label="Favicon / icon URL"
+            <ImageUploadField
+              label="Favicon / icon"
               name="icon_url"
+              kind="icon"
               value={iconUrl}
-              onChange={(e) => setIconUrl(e.target.value)}
+              onChange={setIconUrl}
+              hint="Small square mark used as the browser tab icon."
             />
             <TextInput
               label="Invoice PDF footer"
@@ -132,7 +148,7 @@ export function BrandingSettingsPage() {
             </p>
             <div
               className="mt-3 flex items-center gap-3 p-4"
-              style={{ backgroundColor: primary, color: '#f5f1e8' }}
+              style={{ backgroundColor: primary, color: onPrimary }}
             >
               {logoUrl ? (
                 <img
@@ -147,7 +163,7 @@ export function BrandingSettingsPage() {
             </div>
             <div
               className="mt-3 inline-block px-4 py-2"
-              style={{ backgroundColor: accent, color: '#f5f1e8' }}
+              style={{ backgroundColor: accent, color: onPrimary }}
             >
               Sample CTA
             </div>

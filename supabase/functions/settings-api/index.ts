@@ -12,6 +12,7 @@
 //
 //   GET    /branding                          read branding row
 //   PUT    /branding                          patch branding row
+//   POST   /branding/logo/upload-url          mint a signed branding-asset upload URL
 //
 //   GET    /numbering                         list numbering seed rows
 //   GET    /numbering/:doc_type               one row
@@ -35,6 +36,8 @@ import { FEATURE_FLAGS, PAID_PLUGIN_FLAGS } from '../_shared/constants.ts';
 import { getFlag } from '../_shared/feature-flags.ts';
 import { OidcConfigSchema, SamlConfigSchema } from '../_shared/types.ts';
 import {
+  BrandingAssetUploadRequestSchema,
+  BrandingAssetUploadResponseSchema,
   BrandingResponseSchema,
   HexColorSchema,
   NumberingResetRequestSchema,
@@ -376,6 +379,90 @@ async function patchBranding(ctx: RouteCtx): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Branding asset upload (F-BRANDING-LOGO-UPLOAD-01)
+// ---------------------------------------------------------------------------
+//
+// Mints a single-use signed upload URL for a logo / favicon / email-logo so the
+// SPA can PUT the bytes straight to the public `branding` bucket without the
+// JSON-only apiClient carrying the binary. The capability gate is the authority
+// (storage RLS is role-based and cannot see branding.logo.upload); the object
+// path is org-scoped from caller.orgId so an asset can only land under the
+// caller's own prefix. The SPA persists the returned public_url through the
+// existing PUT /branding on save.
+
+const BRANDING_BUCKET = 'branding';
+
+// Per-kind declared-size ceilings. A logo / email logo may be richer; a
+// favicon should stay tiny. The signed upload is single-use and path-scoped,
+// so a body that lies about its size still cannot be retargeted elsewhere.
+const BRANDING_ASSET_MAX_BYTES: Record<string, number> = {
+  logo: 1_048_576, // 1 MiB
+  email_logo: 1_048_576, // 1 MiB
+  icon: 262_144, // 256 KiB
+};
+
+const BRANDING_ASSET_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/svg+xml': 'svg',
+  'image/webp': 'webp',
+  'image/x-icon': 'ico',
+};
+
+async function mintBrandingAssetUploadUrl(ctx: RouteCtx): Promise<Response> {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'branding.logo.upload');
+  const body = await parseBody(ctx.req, BrandingAssetUploadRequestSchema);
+
+  const cap = BRANDING_ASSET_MAX_BYTES[body.kind];
+  if (body.size_bytes > cap) {
+    throw new ApiError(
+      'VALIDATION_ERROR',
+      422,
+      `asset exceeds the ${Math.round(cap / 1024)} KiB limit for ${body.kind}`,
+      { kind: body.kind, max_bytes: cap, size_bytes: body.size_bytes },
+    );
+  }
+
+  const ext = BRANDING_ASSET_EXT[body.content_type];
+  // org_id comes from the JWT (caller.orgId), never client input, so the asset
+  // can only ever land under the caller's own prefix. A fresh UUID per upload
+  // gives each asset a distinct public URL so the favicon / img cache busts.
+  const path = `${caller.orgId}/${body.kind}-${crypto.randomUUID()}.${ext}`;
+
+  return respondWithIdempotency(
+    ctx.req,
+    caller,
+    BUNDLE,
+    '/branding/logo/upload-url',
+    body,
+    async () => {
+      const sb = admin();
+      const { data, error } = await sb.storage
+        .from(BRANDING_BUCKET)
+        .createSignedUploadUrl(path);
+      if (error || !data) {
+        throw new ApiError(
+          'INTERNAL_ERROR',
+          500,
+          `signed upload url mint failed: ${error?.message ?? 'unknown'}`,
+        );
+      }
+      const { data: pub } = sb.storage
+        .from(BRANDING_BUCKET)
+        .getPublicUrl(data.path);
+      return ok(
+        BrandingAssetUploadResponseSchema.parse({
+          token: data.token,
+          path: data.path,
+          public_url: pub.publicUrl,
+        }),
+      );
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Numbering
 // ---------------------------------------------------------------------------
 
@@ -666,6 +753,7 @@ Deno.serve((req: Request) =>
       // branding writes
       { method: 'GET',    path: '/branding',              handler: getBrandingRow },
       { method: 'PUT',    path: '/branding',              handler: patchBranding },
+      { method: 'POST',   path: '/branding/logo/upload-url', handler: mintBrandingAssetUploadUrl },
       // numbering
       { method: 'GET',    path: '/numbering',             handler: listNumbering },
       { method: 'GET',    path: '/numbering/:doc_type',   handler: getNumbering },
