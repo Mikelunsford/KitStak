@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.27.0] · 2026-06-18 Inline quick-create repaired + a quote now requires a customer (PRs #337, #338, #339)
+
+The inline "+ New" quick-create on the reference pickers never persisted: clicking Save created nothing, and a later state of the same bug created an empty quote instead. Two structural bugs fixed in sequence, plus a guard so a quote can no longer be created without a customer. Live on prod.
+
+### Fixed
+
+- **Inline quick-create now saves (PR #337)**: `Modal` rendered inline, so a quick-create modal's `<form>` nested inside the host page's own `<form>` (the New Quote form, and the other create forms that host a picker). Nested forms are invalid HTML and the browser drops the inner form's submit, so the create POST never fired. `Modal` now renders through `createPortal` to `document.body`, so the dialog form is never nested. This repairs quick-create for all five pickers (customer, item, vendor, project, channel) and every host create form (quote, invoice, project, payment, credit-note).
+- **Quick-create no longer fires the host form (PR #338)**: portaling fixed the DOM nesting, but React event propagation follows the component tree, not the DOM, and the modal is still a React child of the host page's `<form>`. A "Save customer" submit bubbled up the React tree and fired the host form too, minting an empty, customer-less quote alongside the new customer. `Modal` now stops submit propagation at the dialog boundary; the modal's own submit has already run, so the record is still created and selected while the host form no longer fires.
+
+### Changed
+
+- **A quote now requires a customer (PR #339)**: the New Quote customer picker is required (the form will not submit without one), and `quotes-api` rejects a create with a missing or empty `customer_id` with a 422. Previously both the form and the API accepted a null customer, which is how the empty draft quotes were created. The request schema stays nullable for the shared PATCH path, so the create handler is the single enforcement point. SPA plus edge; no schema, RLS, money, idempotency, or audit_log change.
+
+### UX
+
+- **Reference pickers: a search field plus a side "+ New" button (PR #337)**: the create action moved from a row inside the dropdown to a "+ New X" button beside the search field, with a leading search icon and "Search X." placeholders, across the five EntityPicker-based pickers. The native-select Quote and Invoice pickers are unchanged.
+
 ## [0.26.0] · 2026-06-18 UI scan: name-first titles, one detail header, server list toolbar (PRs #331 to #335)
 
 The 2026-06-17 UI scan (`kitstak-ui-indexing-scan.md`) found three consistency gaps: lists led with the system number instead of the human name, every detail page repeated its identity two or three times, and lists offered at most a single status dropdown with no search, sort, facets, or saved views. Shipped as five PRs, all live on prod (migrations `0123` and `0124`; prod at max `0124`). The two operator-facing surfaces are behind per-org flags, default off, so prod is unchanged until an org flips them on `/admin/flags`. Plan: `03-workspace/specs/2026-06-17-ui-scan-titles-headers-list-indexing-plan.md`. Journal: `03-workspace/journal/2026-06-18-ui-scan-titles-headers-list-indexing.md`.

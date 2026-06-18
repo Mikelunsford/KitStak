@@ -113,7 +113,18 @@ const createQuote = async (ctx: RouteCtx) => {
       // next Q-YYYY-NNNNN string via next_doc_number. Mirrors the
       // manufacturing-api pattern from 0054. Empty string is treated as
       // absent so the SPA can drop the field entirely.
-      if (body.customer_id) { await assertRefInOrg('customers', caller, body.customer_id); }
+      // A quote must belong to a customer. CreateQuoteRequestSchema keeps
+      // customer_id nullable for the shared partial (PATCH) path, so the create
+      // handler is the enforcement point: a customer-less quote is rejected with
+      // 422 rather than minted (this is the gap that produced empty draft quotes).
+      if (!body.customer_id) {
+        throw new ApiError(
+          'VALIDATION_ERROR',
+          422,
+          'A quote needs a customer. Choose one before creating the quote.',
+        );
+      }
+      await assertRefInOrg('customers', caller, body.customer_id);
       if (body.default_tax_id) { await assertRefInOrg('taxes', caller, body.default_tax_id); }
       if (body.payment_method_id) { await assertRefInOrg('payment_methods', caller, body.payment_method_id); }
       if (body.pricing_tier_id) { await assertRefInOrg('pricing_tiers', caller, body.pricing_tier_id); }

@@ -149,6 +149,7 @@ export function QuoteCreatePage() {
           value={customerId}
           onChange={setCustomerId}
           label="Customer"
+          required
         />
         <TextInput
           label="Title"
