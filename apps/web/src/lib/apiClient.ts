@@ -1,6 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import { HTTP_HEADERS } from '@/lib/constants';
-import { ApiError, executeRequest } from '@/lib/apiClient.core';
+import {
+  ApiError,
+  executeRequest,
+  parseResponseEnvelope,
+  MAX_RETRIES,
+  type ResponseEnvelope,
+} from '@/lib/apiClient.core';
 
 // Re-export ApiError so existing callers keep importing it from
 // `@/lib/apiClient` unchanged. executeRequest and FetchImpl are intentionally
@@ -25,10 +31,10 @@ type ApiRequestOptions = {
   headers?: Record<string, string>;
 };
 
-export async function apiRequest<T>(
+async function prepareRequest(
   path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
+  options: ApiRequestOptions,
+): Promise<{ url: string; init: RequestInit }> {
   const method = options.method ?? 'GET';
 
   const { data: { session } } = await supabase.auth.getSession();
@@ -54,8 +60,37 @@ export async function apiRequest<T>(
   const init: RequestInit = { method, headers };
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
 
+  return { url, init };
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const { url, init } = await prepareRequest(path, options);
   // Bounded transient-failure auto-retry (R-W13-UX-03a) plus Retry-After-aware
   // 429 backoff (F-Wave13-RETRY-AFTER-429-01). The same `init` (and thus the
   // same Idempotency-Key) is replayed, so a retry is safe.
   return executeRequest<T>(url, init, fetch);
+}
+
+/**
+ * Like apiRequest but returns the full { data, meta } envelope. The keyset list
+ * endpoints that carry next_cursor in meta (invoices, customers) use this; the
+ * ones that carry it in data (quotes, items) use apiRequest. Same auth headers,
+ * retry, and idempotency contract as apiRequest.
+ */
+export async function apiRequestWithMeta<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<ResponseEnvelope<T>> {
+  const { url, init } = await prepareRequest(path, options);
+  return executeRequest<ResponseEnvelope<T>>(
+    url,
+    init,
+    fetch,
+    MAX_RETRIES,
+    undefined,
+    parseResponseEnvelope,
+  );
 }

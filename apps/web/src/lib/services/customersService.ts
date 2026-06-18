@@ -4,7 +4,8 @@
  * supabase/functions/_shared/types/crm.ts.
  */
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   CustomerSchema,
   type Customer,
@@ -41,6 +42,19 @@ export async function listCustomers(
     method: 'GET',
   });
   return CustomerListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+// The customer list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta.
+export async function listCustomersPage(
+  params: ServerListParams,
+): Promise<{ items: Customer[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/crm-api/customers${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: CustomerListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getCustomer(id: string): Promise<Customer> {

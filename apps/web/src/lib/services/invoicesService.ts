@@ -6,7 +6,8 @@
 
 import { z } from 'zod';
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   InvoiceSchema,
   InvoiceStatusSchema,
@@ -58,6 +59,19 @@ export async function listInvoices(
     method: 'GET',
   });
   return InvoiceListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+// The invoice list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta.
+export async function listInvoicesPage(
+  params: ServerListParams,
+): Promise<{ items: Invoice[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/invoicing-api/invoices${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: InvoiceListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getInvoice(id: string): Promise<Invoice> {

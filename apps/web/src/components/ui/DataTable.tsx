@@ -7,13 +7,16 @@
 //
 // Presentational and generic over the row type. Cells render through the
 // column's render(row), so a cell can return a Link, a StatusBadge, or
-// formatCents output. Sorting and server pagination are deliberately external
-// (see Pagination) so this component stays a pure renderer; column-level sort
-// is a planned follow-up (F-Wave10-UI-KIT-DATATABLE-SORT-01).
+// formatCents output. Server pagination stays external (see Pagination /
+// CursorPager). Column-level sort (F-Wave10-UI-KIT-DATATABLE-SORT-01) is now
+// supported, opt-in: a column with a `sortKey` renders a clickable header that
+// calls onSort and shows the active-sort arrow. Columns without a sortKey, or a
+// table without onSort, render plain headers exactly as before.
 
 import type { ReactNode } from 'react';
 
 export type ColumnAlign = 'left' | 'right' | 'center';
+export type SortDir = 'asc' | 'desc';
 
 export interface DataColumn<T> {
   /** Stable key for the column (used as the React key). */
@@ -26,6 +29,11 @@ export interface DataColumn<T> {
   align?: ColumnAlign;
   /** Extra classes applied to every cell in the column. */
   cellClassName?: string;
+  /**
+   * When set (and the table has onSort), the header is a button that calls
+   * onSort(sortKey). This is the server sort_by value, not the column key.
+   */
+  sortKey?: string;
 }
 
 export interface DataTableProps<T> {
@@ -38,6 +46,12 @@ export interface DataTableProps<T> {
   loadingRows?: number;
   /** Node rendered (spanning all columns) when there are no rows. */
   empty?: ReactNode;
+  /** Active sort column (matches a column's sortKey). */
+  sortBy?: string;
+  /** Active sort direction. */
+  sortDir?: SortDir;
+  /** Called with a column's sortKey when its header is clicked. */
+  onSort?: (sortKey: string) => void;
 }
 
 /**
@@ -67,6 +81,9 @@ export function DataTable<T>({
   loading = false,
   loadingRows = 5,
   empty,
+  sortBy,
+  sortDir,
+  onSort,
 }: DataTableProps<T>) {
   const view = resolveTableView(loading, rows.length);
 
@@ -75,17 +92,39 @@ export function DataTable<T>({
       <table className="w-full border-collapse text-left font-sans text-sm">
         <thead>
           <tr className="border-b border-line bg-bg-2">
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                scope="col"
-                className={`px-4 py-2.5 font-mono text-xs uppercase tracking-wide text-ink-dim ${alignClass(
-                  col.align,
-                )}`}
-              >
-                {col.header}
-              </th>
-            ))}
+            {columns.map((col) => {
+              const sortable = Boolean(col.sortKey && onSort);
+              const active = sortable && sortBy === col.sortKey;
+              return (
+                <th
+                  key={col.key}
+                  scope="col"
+                  aria-sort={
+                    active ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined
+                  }
+                  className={`px-4 py-2.5 font-mono text-xs uppercase tracking-wide text-ink-dim ${alignClass(
+                    col.align,
+                  )}`}
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort!(col.sortKey!)}
+                      className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-ink ${
+                        active ? 'text-ink' : ''
+                      }`}
+                    >
+                      {col.header}
+                      <span aria-hidden="true" className="text-[0.6rem]">
+                        {active ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </span>
+                    </button>
+                  ) : (
+                    col.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
