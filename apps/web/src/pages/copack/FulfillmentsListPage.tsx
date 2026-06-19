@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -70,9 +71,9 @@ export function FulfillmentsListPage() {
       {
         key: 'fulfillment',
         header: 'Fulfillment',
-        cellClassName: 'font-mono',
+        cellClassName: 'tabular-nums',
         render: (f) => (
-          <Link to={`/copack/fulfillments/${f.id}`} className="text-ink hover:text-accent">
+          <Link to={`/copack/fulfillments/${f.id}`} className={LINK_CLASS}>
             {f.fulfillment_number ?? f.id.slice(0, 8)}
           </Link>
         ),

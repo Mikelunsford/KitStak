@@ -312,7 +312,7 @@ export function SalesOrderDetailPage() {
                                 value={editQty}
                                 onChange={(e) => setEditQty(e.target.value)}
                                 inputMode="decimal"
-                                className="w-20 bg-bg border border-line text-ink px-2 py-1 font-mono text-sm focus:outline-none focus:border-accent"
+                                className="w-20 bg-bg border border-line text-ink px-2 py-1 tabular-nums text-sm focus:outline-none focus:border-accent"
                               />
                             </td>
                             <td className="px-4 py-2">
@@ -321,7 +321,7 @@ export function SalesOrderDetailPage() {
                                 onChange={(e) => setEditPrice(e.target.value)}
                                 inputMode="numeric"
                                 placeholder="cents"
-                                className="w-24 bg-bg border border-line text-ink px-2 py-1 font-mono text-sm focus:outline-none focus:border-accent"
+                                className="w-24 bg-bg border border-line text-ink px-2 py-1 tabular-nums text-sm focus:outline-none focus:border-accent"
                               />
                             </td>
                             <td className="px-4 py-2">
@@ -338,7 +338,7 @@ export function SalesOrderDetailPage() {
                                 className="w-28 bg-bg border border-line text-ink px-2 py-1 text-sm focus:outline-none focus:border-accent"
                               />
                             </td>
-                            <td className="px-4 py-2 font-mono text-sm text-ink-dim">·</td>
+                            <td className="px-4 py-2 tabular-nums text-sm text-ink-dim">·</td>
                             <td className="px-4 py-2">
                               <div className="flex gap-1">
                                 <Button variant="ghost" onClick={onSaveLine} disabled={updateLine.isPending}>
@@ -352,13 +352,13 @@ export function SalesOrderDetailPage() {
                           </>
                         ) : (
                           <>
-                            <td className="px-4 py-2 font-mono text-sm">{Number(l.quantity).toFixed(2)}</td>
-                            <td className="px-4 py-2 font-mono text-sm">
+                            <td className="px-4 py-2 tabular-nums text-sm">{Number(l.quantity).toFixed(2)}</td>
+                            <td className="px-4 py-2 tabular-nums text-sm">
                               {l.unit_price_cents == null ? '·' : formatCents(l.unit_price_cents, orderCurrency)}
                             </td>
                             <td className="px-4 py-2 font-mono text-sm">{l.uom ?? '·'}</td>
                             <td className="px-4 py-2 text-sm text-ink-dim">{l.reference ?? '·'}</td>
-                            <td className="px-4 py-2 font-mono text-sm">
+                            <td className="px-4 py-2 tabular-nums text-sm">
                               {l.unit_price_cents == null
                                 ? '·'
                                 : formatCents(roundHalfEven(Number(l.quantity) * Number(l.unit_price_cents)), orderCurrency)}
@@ -400,7 +400,7 @@ export function SalesOrderDetailPage() {
                     <td colSpan={5} className="px-4 py-2 text-right font-display tracking-wider text-ink">
                       Order total
                     </td>
-                    <td className="px-4 py-2 font-mono text-sm text-ink">
+                    <td className="px-4 py-2 tabular-nums text-sm text-ink">
                       {formatCents(orderTotalCents, orderCurrency)}
                     </td>
                     <td className="px-4 py-2"></td>

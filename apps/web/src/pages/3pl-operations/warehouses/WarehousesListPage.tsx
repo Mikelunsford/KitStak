@@ -7,6 +7,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -21,23 +23,13 @@ const PAGE_SIZE = 50;
 
 const COLUMNS: ReadonlyArray<DataColumn<Warehouse>> = [
   {
-    key: 'code',
-    header: 'Code',
-    cellClassName: 'font-mono',
-    render: (w) => (
-      <Link
-        to={`/inventory/warehouses/${w.id}`}
-        className="text-ink hover:text-accent"
-      >
-        {w.code}
-      </Link>
-    ),
-  },
-  {
     key: 'name',
     header: 'Name',
-    cellClassName: 'text-ink-dim',
-    render: (w) => w.display_name,
+    render: (w) => (
+      <Link to={`/inventory/warehouses/${w.id}`} className={LINK_CLASS}>
+        {w.display_name ?? w.code}
+      </Link>
+    ),
   },
   {
     key: 'default',
@@ -50,6 +42,10 @@ const COLUMNS: ReadonlyArray<DataColumn<Warehouse>> = [
     render: (w) => <StatusBadge status={w.is_active ? 'active' : 'inactive'} />,
   },
 ];
+
+function renderWarehouseDetails(w: Warehouse) {
+  return <ReferenceField label="Code" value={w.code} />;
+}
 
 export function WarehousesListPage() {
   const { data, isLoading } = useWarehousesList();
@@ -96,6 +92,7 @@ export function WarehousesListPage() {
             getRowKey={(w) => w.id}
             loading={isLoading}
             empty="No warehouses yet."
+            renderRowDetails={renderWarehouseDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

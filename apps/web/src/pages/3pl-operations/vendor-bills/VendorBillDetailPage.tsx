@@ -190,15 +190,15 @@ export function VendorBillDetailPage() {
           <dt className="text-ink-dim">Due</dt>
           <dd className="text-ink">{d.due_date ?? ''}</dd>
           <dt className="text-ink-dim">Total</dt>
-          <dd className="font-mono text-ink">
+          <dd className="tabular-nums text-ink">
             {formatCents(d.total_cents as number | string, d.currency_code)}
           </dd>
           <dt className="text-ink-dim">Paid</dt>
-          <dd className="font-mono text-ink">
+          <dd className="tabular-nums text-ink">
             {formatCents(d.paid_cents as number | string, d.currency_code)}
           </dd>
           <dt className="text-ink-dim">Balance</dt>
-          <dd className="font-mono text-ink">
+          <dd className="tabular-nums text-ink">
             {formatCents(d.balance_cents as number | string, d.currency_code)}
           </dd>
         </dl>
@@ -227,7 +227,7 @@ export function VendorBillDetailPage() {
                 (payments.data ?? []).map((p) => (
                   <tr key={p.id} className="border-t border-line">
                     <td className="px-4 py-2 text-ink">{p.payment_date}</td>
-                    <td className="px-4 py-2 text-right font-mono text-ink-dim">
+                    <td className="px-4 py-2 text-right tabular-nums text-ink-dim">
                       {formatCents(
                         p.amount_cents as number | string,
                         p.currency_code,

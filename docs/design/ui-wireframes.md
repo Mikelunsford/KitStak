@@ -876,3 +876,77 @@ drag-drop stays deferred (the boards keep their hand-rolled columns). Step 5
 (server pagination) is the carried follow-up F-WS7-SERVER-PAGINATION, and column
 sort is F-Wave10-UI-KIT-DATATABLE-SORT-01. Step 7 (token and chrome pass) is now
 unblocked.
+
+---
+
+## List readability and reference-number disclosure (2026-06-19)
+
+A presentational pass on the operator surfaces (`R-W14-READ-01`..`05`), driven by
+the Quotes-screen review. The lists read calmer, the numerals read clearly, and
+reference numbers move out of the way without losing reach. Applied through the
+shared components, so every pillar inherits it.
+
+### What changed
+
+1. **Numerals in tabular Inter Tight.** Data numbers (totals, balances,
+   quantities, counts, dates-as-digits, reference numbers) render with
+   `tabular-nums` instead of `font-mono`. Tabular figures keep columns aligned
+   the way mono did, without the dotted zero. JetBrains Mono stays for code,
+   env values, and hashes only.
+2. **Bold names, no underlines.** Clickable entity names and list titles render
+   bold with a hover and focus-visible color cue rather than an underline. Bold
+   weight is the non-color affordance (WCAG 1.4.1). The title leads as the
+   primary clickable; a null title falls back to the reference number.
+3. **Additional details disclosure.** The reference number leaves the main view:
+
+```
+List row (collapsed)
++---+--------------------------+----------------+----------+-----------+
+| > | { Title (bold link) }    | { Customer }   | { Status}| { Total } |
++---+--------------------------+----------------+----------+-----------+
+
+List row (expanded, chevron rotated)
++---+--------------------------+----------------+----------+-----------+
+| v | { Title (bold link) }    | { Customer }   | { Status}| { Total } |
++---+--------------------------------------------------------------+---+
+|   ADDITIONAL DETAILS                                              |   |
+|   NUMBER  { Q-2026-00008 }                                        |   |
++------------------------------------------------------------------+---+
+
+Detail header
+  { Human name (display H1) }
+  [ status ]  { Customer link }  Total { money }
+  > Additional details
+      NUMBER  { Q-2026-00008 }
+```
+
+### Shared pieces
+
+- `components/ui/Disclosure.tsx`. Hand-rolled collapsible (lucide chevron, real
+  button with `aria-expanded` / `aria-controls`, region hidden when closed). No
+  Radix, no headless library. Pure `DisclosureView` plus a stateful wrapper.
+- `components/data/ReferenceField.tsx`. One labeled `LABEL { value }` row for the
+  disclosure; value renders in `tabular-nums`; renders nothing when empty.
+- `components/data/entityLabelStyles.ts`. `LINK_CLASS` / `PLAIN_CLASS`, the bold
+  no-underline clickable treatment, shared by `EntityLabel` and list titles.
+- `displayTitle.formatName`. Name-only label (drops the code prefix) for the main
+  view; `formatCodeName` stays for the disclosure surface.
+- `DataTable` `renderRowDetails`. Opt-in per-row Additional details expander.
+- `DetailHeader` carries the reference number into an Additional details
+  `Disclosure` instead of the identity chip row, so every detail page inherits
+  it with no per-page edit.
+
+### Accessibility
+
+Bold weight plus a hover and focus-visible ring replaces the underline as the
+link affordance. The disclosure toggle is a real button labeled "Additional
+details" with `aria-expanded` and `aria-controls`; the revealed region is
+keyboard reachable. Tabular figures preserve column scanning. The `@axe-core`
+sweep stays clean on the swept surfaces.
+
+### Follow-ups
+
+- `F-Wave14-READ-SORT-01`. Restore sort-by-number via the toolbar sort menu now
+  that the number column is gone.
+- `F-Wave14-READ-SEARCH-01`. Confirm number discoverability in search; the index
+  still carries the number.

@@ -19,6 +19,7 @@ import { Pagination, paginate } from '@/components/ui/Pagination';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import {
   useShiftsList,
   useMembersList,
@@ -130,12 +131,9 @@ export function ShiftsListPage() {
     {
       key: 'shift',
       header: 'Shift',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (s) => (
-        <Link
-          to={`/kitforce/shifts/${s.id}`}
-          className="text-ink hover:text-accent"
-        >
+        <Link to={`/kitforce/shifts/${s.id}`} className={LINK_CLASS}>
           {s.shift_number ?? '·'}
         </Link>
       ),

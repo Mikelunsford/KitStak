@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -31,9 +32,9 @@ const COLUMNS: ReadonlyArray<DataColumn<WarehouseLocation>> = [
   {
     key: 'code',
     header: 'Code',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (l) => (
-      <Link to={`/wms/locations/${l.id}`} className="text-ink hover:text-accent">
+      <Link to={`/wms/locations/${l.id}`} className={LINK_CLASS}>
         {l.code}
       </Link>
     ),

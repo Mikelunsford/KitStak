@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { opportunitiesKeys } from '@/lib/queryKeys/opportunities';
 import { listOpportunities } from '@/lib/services/opportunitiesService';
 import { formatCents } from '@/lib/money';
@@ -54,7 +55,7 @@ export function OpportunitiesPipelinePage() {
                 <h2 className="px-3 py-2 font-display tracking-wider text-sm border-b border-line">
                   {col.toUpperCase().replace('_', ' ')} ({inCol.length})
                 </h2>
-                <div className="px-3 py-1 text-xs font-mono text-ink-dim border-b border-line">
+                <div className="px-3 py-1 text-xs tabular-nums text-ink-dim border-b border-line">
                   Total {formatCents(total, 'USD')}
                 </div>
                 <ul className="flex flex-col gap-2 p-2 min-h-32">
@@ -63,10 +64,10 @@ export function OpportunitiesPipelinePage() {
                       key={o.id}
                       className="border border-line bg-bg-1 p-2 text-sm font-sans"
                     >
-                      <Link to={`/crm/opportunities/${o.id}`} className="underline">
+                      <Link to={`/crm/opportunities/${o.id}`} className={`${LINK_CLASS} text-sm`}>
                         {o.display_name}
                       </Link>
-                      <div className="text-ink-dim text-xs font-mono">
+                      <div className="text-ink-dim text-xs tabular-nums">
                         {formatCents(o.amount_cents, o.currency_code ?? 'USD')}
                       </div>
                     </li>

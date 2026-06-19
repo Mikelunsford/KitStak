@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -24,11 +25,11 @@ const COLUMNS: ReadonlyArray<DataColumn<ProductionRun>> = [
   {
     key: 'run',
     header: '#',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (r) => (
       <Link
         to={`/3pl-operations/production/${r.id}`}
-        className="text-ink hover:text-accent"
+        className={LINK_CLASS}
       >
         {r.run_number ?? r.id.slice(0, 8)}
       </Link>
@@ -49,14 +50,14 @@ const COLUMNS: ReadonlyArray<DataColumn<ProductionRun>> = [
     key: 'planned',
     header: 'Planned',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => String(r.quantity_planned),
   },
   {
     key: 'produced',
     header: 'Produced',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => String(r.quantity_produced),
   },
 ];

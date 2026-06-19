@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -25,12 +26,9 @@ const COLUMNS: ReadonlyArray<DataColumn<CreditNote>> = [
   {
     key: 'number',
     header: 'Number',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (cn) => (
-      <Link
-        to={`/invoicing/credit-notes/${cn.id}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/invoicing/credit-notes/${cn.id}`} className={LINK_CLASS}>
         {cn.credit_note_number}
       </Link>
     ),
@@ -44,7 +42,7 @@ const COLUMNS: ReadonlyArray<DataColumn<CreditNote>> = [
     key: 'amount',
     header: 'Amount',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (cn) =>
       formatCents(cn.amount_cents as number | string, cn.currency_code),
   },
@@ -52,7 +50,7 @@ const COLUMNS: ReadonlyArray<DataColumn<CreditNote>> = [
     key: 'applied',
     header: 'Applied',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (cn) =>
       formatCents(cn.applied_cents as number | string, cn.currency_code),
   },

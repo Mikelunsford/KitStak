@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { contactsKeys } from '@/lib/queryKeys/contacts';
 import { listContacts } from '@/lib/services/contactsService';
 import type { Contact } from '@/lib/types/crm';
@@ -27,7 +28,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Contact>> = [
     key: 'name',
     header: 'Name',
     render: (c) => (
-      <Link to={`/crm/contacts/${c.id}`} className="text-ink hover:text-accent">
+      <Link to={`/crm/contacts/${c.id}`} className={LINK_CLASS}>
         {[c.first_name, c.last_name].filter(Boolean).join(' ')}
       </Link>
     ),

@@ -104,7 +104,7 @@ export function CreditNoteApplyPage() {
               onChange={(e) => setAlloc(i, 'amount_cents', e.target.value)}
               placeholder="Amount cents"
               aria-label={`Amount in cents for allocation ${i + 1}`}
-              className="w-40 bg-bg-2 border border-line px-3 py-2 text-ink font-mono"
+              className="w-40 bg-bg-2 border border-line px-3 py-2 text-ink tabular-nums"
             />
           </div>
         ))}

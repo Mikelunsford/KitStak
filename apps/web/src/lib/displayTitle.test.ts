@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { displayTitle, formatCodeName } from './displayTitle';
+import { displayTitle, formatCodeName, formatName } from './displayTitle';
 
 const ID = 'abc12345-dead-beef-cafe-000000000000';
 
@@ -180,5 +180,12 @@ describe('formatCodeName', () => {
     expect(formatCodeName(null, 'Widget')).toBe('Widget');
     expect(formatCodeName('   ', 'Widget')).toBe('Widget');
     expect(formatCodeName(undefined, 'Widget')).toBe('Widget');
+  });
+});
+
+describe('formatName', () => {
+  it('returns the human name with no code prefix', () => {
+    expect(formatName('Widget')).toBe('Widget');
+    expect(formatName('Northwind Welcome Kit Run')).toBe('Northwind Welcome Kit Run');
   });
 });

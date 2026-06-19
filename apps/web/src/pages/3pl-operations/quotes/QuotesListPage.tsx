@@ -9,6 +9,8 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { ReferenceField } from '@/components/data/ReferenceField';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -49,24 +51,20 @@ function parseStateParam(raw: string | null): string | undefined {
   return ALLOWED_QUOTE_STATES.has(raw) ? raw : undefined;
 }
 
-// Shared columns. sortKey marks the server-sortable columns (the toolbar view
-// passes onSort; the legacy view does not, so sortKey is simply ignored there).
+// Shared columns. The title leads as the primary clickable, bold and
+// underline-free (R-W14-READ-02); the reference number moves into the row's
+// Additional details disclosure (renderRowDetails, R-W14-READ-03). sortKey
+// marks the server-sortable columns (the toolbar view passes onSort; the legacy
+// view ignores it). Sort-by-number now lives in the toolbar (F-Wave14-READ-SORT-01).
 const COLUMNS: ReadonlyArray<DataColumn<Quote>> = [
-  {
-    key: 'number',
-    header: 'Number',
-    sortKey: 'number',
-    cellClassName: 'font-mono',
-    render: (q) => (
-      <Link to={`/quotes/${q.id}`} className="text-ink hover:text-accent">
-        {q.number}
-      </Link>
-    ),
-  },
   {
     key: 'title',
     header: 'Title',
-    render: (q) => q.title ?? '.',
+    render: (q) => (
+      <Link to={`/quotes/${q.id}`} className={LINK_CLASS}>
+        {q.title ?? q.number}
+      </Link>
+    ),
   },
   {
     key: 'customer',
@@ -97,10 +95,15 @@ const COLUMNS: ReadonlyArray<DataColumn<Quote>> = [
     header: 'Total',
     align: 'right',
     sortKey: 'total_cents',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (q) => formatCents(q.total_cents, q.currency_code),
   },
 ];
+
+// The reference number, off the main view and under Additional details.
+function renderQuoteDetails(q: Quote) {
+  return <ReferenceField label="Number" value={q.number} />;
+}
 
 export function QuotesListPage() {
   const flags = useOrgFlags();
@@ -177,6 +180,7 @@ function QuotesListToolbar() {
             sortBy={server.sortBy}
             sortDir={server.sortDir}
             onSort={server.onSort}
+            renderRowDetails={renderQuoteDetails}
           />
           <CursorPager
             canPrev={server.canPrev}
@@ -281,6 +285,7 @@ function QuotesListLegacy() {
             getRowKey={(q) => q.id}
             loading={isLoading}
             empty="No quotes match this filter."
+            renderRowDetails={renderQuoteDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

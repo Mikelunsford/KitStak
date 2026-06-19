@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -24,12 +25,9 @@ const COLUMNS: ReadonlyArray<DataColumn<Expense>> = [
   {
     key: 'number',
     header: '#',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (e) => (
-      <Link
-        to={`/purchasing/expenses/${e.id}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/purchasing/expenses/${e.id}`} className={LINK_CLASS}>
         {e.expense_number ?? e.id.slice(0, 8)}
       </Link>
     ),
@@ -49,7 +47,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Expense>> = [
     key: 'total',
     header: 'Total',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (e) =>
       formatCents(e.total_cents as number | string, e.currency_code),
   },

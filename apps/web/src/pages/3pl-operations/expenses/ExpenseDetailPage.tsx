@@ -147,15 +147,15 @@ export function ExpenseDetailPage() {
           <dt className="text-ink-dim">Date</dt>
           <dd className="text-ink">{d.expense_date}</dd>
           <dt className="text-ink-dim">Amount</dt>
-          <dd className="font-mono text-ink">
+          <dd className="tabular-nums text-ink">
             {formatCents(d.amount_cents as number | string, d.currency_code)}
           </dd>
           <dt className="text-ink-dim">Tax</dt>
-          <dd className="font-mono text-ink">
+          <dd className="tabular-nums text-ink">
             {formatCents(d.tax_cents as number | string, d.currency_code)}
           </dd>
           <dt className="text-ink-dim">Total</dt>
-          <dd className="font-mono text-ink">
+          <dd className="tabular-nums text-ink">
             {formatCents(d.total_cents as number | string, d.currency_code)}
           </dd>
           <dt className="text-ink-dim">Reimbursable</dt>

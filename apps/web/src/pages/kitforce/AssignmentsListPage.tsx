@@ -18,6 +18,8 @@ import { Pagination, paginate } from '@/components/ui/Pagination';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import {
   useAssignmentsList,
   useMembersList,
@@ -33,6 +35,10 @@ import type {
 const PAGE_SIZE = 50;
 
 type StatusFilter = WorkAssignmentStatus | 'all';
+
+function renderAssignmentDetails(a: WorkAssignment) {
+  return <ReferenceField label="Number" value={a.assignment_number} />;
+}
 
 const ALLOWED_ASSIGNMENT_STATUSES = new Set<string>([
   'open',
@@ -120,11 +126,8 @@ export function AssignmentsListPage() {
       key: 'title',
       header: 'Title',
       render: (a) => (
-        <Link
-          to={`/kitforce/assignments/${a.id}`}
-          className="text-ink hover:text-accent"
-        >
-          {a.title}
+        <Link to={`/kitforce/assignments/${a.id}`} className={LINK_CLASS}>
+          {a.title ?? a.assignment_number}
         </Link>
       ),
     },
@@ -146,7 +149,7 @@ export function AssignmentsListPage() {
       key: 'planned',
       header: 'Planned min',
       align: 'right',
-      cellClassName: 'font-mono text-ink-dim',
+      cellClassName: 'tabular-nums text-ink-dim',
       render: (a) => a.planned_minutes ?? '',
     },
   ];
@@ -297,6 +300,7 @@ export function AssignmentsListPage() {
             getRowKey={(a) => a.id}
             loading={assignments.isLoading}
             empty="No assignments match the current filters."
+            renderRowDetails={renderAssignmentDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

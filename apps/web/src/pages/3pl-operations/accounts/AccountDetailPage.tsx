@@ -103,7 +103,7 @@ export function AccountDetailPage() {
       >
         <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
           <dt className="text-ink-dim">Account number</dt>
-          <dd className="text-ink font-mono">{d.account_number ?? ''}</dd>
+          <dd className="text-ink tabular-nums">{d.account_number ?? ''}</dd>
           <dt className="text-ink-dim">Customer</dt>
           <dd className="text-ink">
             <EntityLabel kind="customer" id={d.customer_id} />

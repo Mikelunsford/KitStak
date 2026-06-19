@@ -42,28 +42,28 @@ const COLUMNS: ReadonlyArray<DataColumn<JobProfitabilityRow>> = [
     key: 'estimate',
     header: 'Estimate',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => money(r.estimate_total_cents),
   },
   {
     key: 'labor',
     header: 'Actual labor',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => money(r.actual_labor_cents),
   },
   {
     key: 'material',
     header: 'Actual material',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => money(r.actual_material_cents),
   },
   {
     key: 'revenue',
     header: 'Billed revenue',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => money(r.billed_revenue_cents),
   },
   {
@@ -73,7 +73,7 @@ const COLUMNS: ReadonlyArray<DataColumn<JobProfitabilityRow>> = [
     render: (r) => {
       const negative = Number(r.margin_cents) < 0;
       return (
-        <span className={`font-mono ${negative ? 'text-accent' : 'text-green-500'}`}>
+        <span className={`tabular-nums ${negative ? 'text-accent' : 'text-green-500'}`}>
           {money(r.margin_cents)}
         </span>
       );

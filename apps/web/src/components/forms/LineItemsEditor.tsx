@@ -144,11 +144,11 @@ export function LineItemsEditor({
                 <td className="px-4 py-2">
                   <EntityLabel kind="item" id={l.item_id} />
                 </td>
-                <td className="px-4 py-2 font-mono text-sm">
+                <td className="px-4 py-2 tabular-nums text-sm">
                   {Number(l.quantity || 0).toFixed(2)}
                 </td>
                 {mode === 'receiving' && (
-                  <td className="px-4 py-2 font-mono text-sm">
+                  <td className="px-4 py-2 tabular-nums text-sm">
                     {l.unit_cost_cents === ''
                       ? ''
                       : formatCents(Number(l.unit_cost_cents), 'USD')}

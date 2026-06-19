@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -39,11 +40,11 @@ const COLUMNS: ReadonlyArray<DataColumn<BillingReview>> = [
   {
     key: 'number',
     header: 'Review #',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (r) => (
       <Link
         to={`/3pl-operations/billing-reviews/${r.id}`}
-        className="text-ink hover:text-accent"
+        className={LINK_CLASS}
       >
         {r.review_number ?? r.id.slice(0, 8)}
       </Link>
@@ -58,20 +59,20 @@ const COLUMNS: ReadonlyArray<DataColumn<BillingReview>> = [
     key: 'estimate',
     header: 'Estimate',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => reviewMoney(r.estimate_total_cents, r.currency_code),
   },
   {
     key: 'actual',
     header: 'Actual',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => reviewMoney(r.actual_total_cents, r.currency_code),
   },
   {
     key: 'created',
     header: 'Created',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => r.created_at.slice(0, 10),
   },
 ];

@@ -55,7 +55,7 @@ export function TaxesPage() {
         key: 'rate',
         header: 'Rate',
         align: 'right',
-        cellClassName: 'font-mono',
+        cellClassName: 'tabular-nums',
         render: (tax) => `${(tax.rate_bps / 100).toFixed(2)}%`,
       },
       {

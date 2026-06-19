@@ -98,7 +98,7 @@ export function BomCreateLinesEditor({
             lines.map((l) => (
               <tr key={l.draftId} className="border-t border-line">
                 <td className="px-4 py-2">{labelFor(l.component_item_id)}</td>
-                <td className="px-4 py-2 font-mono text-sm">{l.quantity_per}</td>
+                <td className="px-4 py-2 tabular-nums text-sm">{l.quantity_per}</td>
                 <td className="px-4 py-2 text-ink-dim text-sm">
                   {l.unit_of_measure}
                 </td>

@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { useLeads } from '@/lib/hooks/useLeads';
 import { leadStateMachine, type LeadState } from '@/lib/workflow/crm';
 
@@ -48,7 +49,7 @@ export function LeadsKanbanPage() {
                       key={l.id}
                       className="border border-line bg-bg-1 p-2 text-sm font-sans"
                     >
-                      <Link to={`/crm/leads/${l.id}`} className="underline">
+                      <Link to={`/crm/leads/${l.id}`} className={`${LINK_CLASS} text-sm`}>
                         {l.display_name}
                       </Link>
                       <div className="text-ink-dim text-xs">

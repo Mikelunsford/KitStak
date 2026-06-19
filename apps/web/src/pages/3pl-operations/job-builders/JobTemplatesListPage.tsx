@@ -8,6 +8,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -40,19 +42,10 @@ const COLUMNS: ReadonlyArray<DataColumn<JobTemplate>> = [
     key: 'name',
     header: 'Name',
     render: (t) => (
-      <Link
-        to={`/3pl-operations/job-builders/${t.id}`}
-        className="text-ink hover:text-accent"
-      >
-        {t.name}
+      <Link to={`/3pl-operations/job-builders/${t.id}`} className={LINK_CLASS}>
+        {t.name ?? t.template_number}
       </Link>
     ),
-  },
-  {
-    key: 'number',
-    header: 'Template #',
-    cellClassName: 'font-mono',
-    render: (t) => t.template_number ?? t.id.slice(0, 8),
   },
   {
     key: 'variant',
@@ -66,6 +59,10 @@ const COLUMNS: ReadonlyArray<DataColumn<JobTemplate>> = [
     render: (t) => <StatusBadge status={t.status} />,
   },
 ];
+
+function renderJobTemplateDetails(t: JobTemplate) {
+  return <ReferenceField label="Number" value={t.template_number} />;
+}
 
 export function JobTemplatesListPage() {
   const [status, setStatus] = useState<JobTemplateStatus | ''>('');
@@ -157,6 +154,7 @@ export function JobTemplatesListPage() {
             getRowKey={(t) => t.id}
             loading={isLoading}
             empty="No job builders match this filter."
+            renderRowDetails={renderJobTemplateDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

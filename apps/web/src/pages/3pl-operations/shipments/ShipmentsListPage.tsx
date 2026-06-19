@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -39,11 +40,11 @@ const COLUMNS: ReadonlyArray<DataColumn<Shipment>> = [
   {
     key: 'number',
     header: '#',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (s) => (
       <Link
         to={`/3pl-operations/shipments/${s.id}`}
-        className="text-ink hover:text-accent"
+        className={LINK_CLASS}
       >
         {s.shipment_number ?? s.id.slice(0, 8)}
       </Link>

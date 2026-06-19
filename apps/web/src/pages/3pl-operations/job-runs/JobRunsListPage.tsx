@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -26,12 +27,9 @@ const COLUMNS: ReadonlyArray<DataColumn<JobRun>> = [
   {
     key: 'number',
     header: 'Run #',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (r) => (
-      <Link
-        to={`/3pl-operations/job-runs/${r.id}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/3pl-operations/job-runs/${r.id}`} className={LINK_CLASS}>
         {r.run_number ?? r.id.slice(0, 8)}
       </Link>
     ),
@@ -44,7 +42,7 @@ const COLUMNS: ReadonlyArray<DataColumn<JobRun>> = [
   {
     key: 'created',
     header: 'Created',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => r.created_at.slice(0, 10),
   },
 ];

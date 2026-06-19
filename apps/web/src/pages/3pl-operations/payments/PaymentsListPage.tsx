@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -33,12 +34,9 @@ const COLUMNS: ReadonlyArray<DataColumn<PaymentRow>> = [
   {
     key: 'number',
     header: 'Number',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (p) => (
-      <Link
-        to={`/invoicing/payments/${p.id}/apply`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/invoicing/payments/${p.id}/apply`} className={LINK_CLASS}>
         {p.payment_number}
       </Link>
     ),
@@ -53,14 +51,14 @@ const COLUMNS: ReadonlyArray<DataColumn<PaymentRow>> = [
     key: 'amount',
     header: 'Amount',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (p) => formatCents(p.amount_cents, p.currency_code),
   },
   {
     key: 'unapplied',
     header: 'Unapplied',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (p) => formatCents(p.unapplied_cents, p.currency_code),
   },
 ];

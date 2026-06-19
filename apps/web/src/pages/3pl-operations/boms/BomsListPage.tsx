@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -29,10 +30,7 @@ const COLUMNS: ReadonlyArray<DataColumn<BomRow>> = [
     key: 'item',
     header: 'Finished item',
     render: (row) => (
-      <Link
-        to={`/catalog/boms/${row.parentItemId}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/catalog/boms/${row.parentItemId}`} className={LINK_CLASS}>
         {row.label}
       </Link>
     ),
@@ -41,7 +39,7 @@ const COLUMNS: ReadonlyArray<DataColumn<BomRow>> = [
     key: 'components',
     header: 'Components',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (row) => row.componentCount,
   },
 ];

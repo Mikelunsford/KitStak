@@ -6,7 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Nothing currently held. All shipped work is versioned below.
+### Changed
+
+- **List readability and reference-number disclosure** (`R-W14-READ-01`..`05`).
+  A system-wide, presentational-only pass driven by the Quotes-screen review.
+  Three changes, applied through the shared components so every pillar inherits
+  them:
+  - **Number legibility.** Data numerals (totals, balances, quantities, counts,
+    dates-as-digits, reference numbers) render in Inter Tight tabular figures
+    (`tabular-nums`) instead of JetBrains Mono, whose dotted zero was the
+    legibility complaint. Money totals included. JetBrains Mono stays in the type
+    system for code, env values, and hashes.
+  - **Calmer clickable text.** The underlined-link treatment on entity names
+    (customer, project, item, vendor, and the rest) is replaced by a bold,
+    no-underline name with a hover and focus-visible color cue. Bold weight is a
+    non-color affordance (WCAG 1.4.1). The list title leads as the primary
+    clickable; a null title falls back to the reference number so no row is ever
+    unclickable.
+  - **Reference numbers off the main view.** Reference numbers (`Q-...`,
+    `PRJ-...`) move into an "Additional details" disclosure: a per-row expander
+    on lists and a collapsible section near the top of every detail header. The
+    numbers stay reachable and searchable, never in the way.
+
+  New shared pieces: a hand-rolled `Disclosure` primitive (lucide chevron, no
+  Radix or headless library), a `ReferenceField` row for the disclosure,
+  `displayTitle.formatName`, and a `DataTable` `renderRowDetails` opt-in.
+  No data, schema, capability, money-helper, RLS, idempotency, or `audit_log`
+  change. No migration. Follow-ups: `F-Wave14-READ-SORT-01` (sort-by-number to
+  the toolbar menu), `F-Wave14-READ-SEARCH-01` (search hint).
 
 ## [0.31.0] · 2026-06-18 Production readiness pass: safe non-schema remediation (`/ship-ready all`)
 

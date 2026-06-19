@@ -110,7 +110,7 @@ export function BomDetailPage() {
       key: 'qty',
       header: 'Quantity per',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (line) => String(line.quantity_per),
     },
     {

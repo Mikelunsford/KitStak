@@ -97,10 +97,10 @@ export function InvoiceCreateLinesEditor({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm">
+                <td className="px-4 py-2 tabular-nums text-sm">
                   {Number(l.quantity || 0).toFixed(2)}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm">
+                <td className="px-4 py-2 tabular-nums text-sm">
                   {formatCents(Number(l.unit_price_cents || 0), currencyCode)}
                 </td>
                 <td className="px-4 py-2">

@@ -110,10 +110,10 @@ export function JournalEntryDetailPage() {
                   <td className="py-2 font-mono text-xs">
                     <EntityLabel kind="account" id={l.account_id} />
                   </td>
-                  <td className="py-2 text-right font-mono">
+                  <td className="py-2 text-right tabular-nums">
                     {formatCents(l.debit_cents as number | string, 'USD')}
                   </td>
-                  <td className="py-2 text-right font-mono">
+                  <td className="py-2 text-right tabular-nums">
                     {formatCents(l.credit_cents as number | string, 'USD')}
                   </td>
                   <td className="py-2 text-ink-dim">{l.memo ?? ''}</td>
@@ -123,10 +123,10 @@ export function JournalEntryDetailPage() {
             <tfoot>
               <tr className="border-t border-line font-display text-ink">
                 <td className="py-2">TOTAL</td>
-                <td className="py-2 text-right font-mono">
+                <td className="py-2 text-right tabular-nums">
                   {formatCents(totalDebit, 'USD')}
                 </td>
-                <td className="py-2 text-right font-mono">
+                <td className="py-2 text-right tabular-nums">
                   {formatCents(totalCredit, 'USD')}
                 </td>
                 <td />

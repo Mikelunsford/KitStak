@@ -686,7 +686,7 @@ export function InvoiceDetailPage() {
                 key={p.id}
                 className="border border-line p-3 flex items-baseline justify-between"
               >
-                <span className="font-mono text-sm text-ink">{p.payment_number}</span>
+                <span className="tabular-nums text-sm text-ink">{p.payment_number}</span>
                 <span className="text-ink-dim text-sm">
                   {formatCents(p.amount_cents, p.currency_code)} ·{' '}
                   unapplied {formatCents(p.unapplied_cents, p.currency_code)}
@@ -705,7 +705,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-bg-2 border border-line p-4">
       <p className="text-xs uppercase text-ink-dim font-sans">{label}</p>
-      <p className="text-2xl font-mono text-ink">{value}</p>
+      <p className="text-2xl tabular-nums text-ink">{value}</p>
     </div>
   );
 }

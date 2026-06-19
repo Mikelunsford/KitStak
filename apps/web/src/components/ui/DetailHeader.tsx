@@ -18,10 +18,18 @@
 // Status guidance: pages with a StateStepper above them already show the
 // current state, so they pass no `status` (the stepper owns it, keeping the
 // fact on screen once). Hub pages without a stepper (customer) pass `status`.
+//
+// Reference-number disclosure (R-W14-READ-04): the system number no longer
+// sits in the identity chip row. It moves into an "Additional details"
+// Disclosure at the top of the detail body. Because every detail page already
+// passes `number` here, the change is inherited with no per-page edit. Pages
+// may pass `additionalDetails` to fold a secondary reference (a converted
+// project, a source document) into the same disclosure.
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { Disclosure } from './Disclosure';
 import { StatusBadge } from './StatusBadge';
 
 export interface DetailHeaderLink {
@@ -43,8 +51,16 @@ export interface DetailHeaderMoney {
 export interface DetailHeaderProps {
   /** The human-facing H1, resolved by displayTitle on the page. */
   title: string;
-  /** System number rendered as a small chip beside the status. */
+  /**
+   * System number. Rendered inside the Additional details disclosure, not in
+   * the identity chip row (R-W14-READ-04).
+   */
   number?: string | null;
+  /**
+   * Optional extra content for the Additional details disclosure (a secondary
+   * reference such as a converted project or a source document).
+   */
+  additionalDetails?: ReactNode;
   /** Status string for the pill. Omit on pages that show a StateStepper. */
   status?: string | null;
   /** Customer link chip. Omit when the title already is the customer name. */
@@ -62,6 +78,7 @@ export interface DetailHeaderProps {
 export function DetailHeader({
   title,
   number,
+  additionalDetails,
   status,
   customer,
   money,
@@ -69,7 +86,8 @@ export function DetailHeader({
   eyebrow,
   actions,
 }: DetailHeaderProps) {
-  const hasIdentityRow = Boolean(number || status || customer || money);
+  const hasIdentityRow = Boolean(status || customer || money);
+  const hasAdditionalDetails = Boolean(number || additionalDetails);
   const relatedLinks = links ?? [];
 
   return (
@@ -92,11 +110,6 @@ export function DetailHeader({
 
       {hasIdentityRow ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-sans text-sm text-ink-dim">
-          {number ? (
-            <span className="rounded border border-line px-1.5 py-0.5 font-mono text-xs uppercase tracking-wide text-ink-dim">
-              {number}
-            </span>
-          ) : null}
           {status ? <StatusBadge status={status} /> : null}
           {customer ? (
             <Link
@@ -109,7 +122,8 @@ export function DetailHeader({
           ) : null}
           {money ? (
             <span>
-              {money.label} <span className="font-mono text-ink">{money.value}</span>
+              {money.label}{' '}
+              <span className="tabular-nums text-ink">{money.value}</span>
             </span>
           ) : null}
         </div>
@@ -128,6 +142,24 @@ export function DetailHeader({
             </Link>
           ))}
         </div>
+      ) : null}
+
+      {hasAdditionalDetails ? (
+        <Disclosure label="Additional details">
+          <dl className="flex flex-col gap-1 font-sans text-sm text-ink-dim">
+            {number ? (
+              <div className="flex gap-2">
+                <dt className="font-mono text-xs uppercase tracking-wide text-ink-dim">
+                  Reference
+                </dt>
+                <dd className="tabular-nums text-ink" data-testid="detail-reference-number">
+                  {number}
+                </dd>
+              </div>
+            ) : null}
+            {additionalDetails}
+          </dl>
+        </Disclosure>
       ) : null}
     </header>
   );

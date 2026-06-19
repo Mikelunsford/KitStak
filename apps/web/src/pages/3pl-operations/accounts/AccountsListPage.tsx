@@ -9,6 +9,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -31,19 +33,10 @@ const COLUMNS: ReadonlyArray<DataColumn<ThreePlAccount>> = [
     key: 'name',
     header: 'Name',
     render: (a) => (
-      <Link
-        to={`/3pl-operations/accounts/${a.id}`}
-        className="text-ink hover:text-accent"
-      >
-        {a.name}
+      <Link to={`/3pl-operations/accounts/${a.id}`} className={LINK_CLASS}>
+        {a.name ?? a.account_number}
       </Link>
     ),
-  },
-  {
-    key: 'number',
-    header: 'Account #',
-    cellClassName: 'font-mono',
-    render: (a) => a.account_number ?? a.id.slice(0, 8),
   },
   {
     key: 'customer',
@@ -57,6 +50,10 @@ const COLUMNS: ReadonlyArray<DataColumn<ThreePlAccount>> = [
     render: (a) => <StatusBadge status={a.status} />,
   },
 ];
+
+function renderAccountDetails(a: ThreePlAccount) {
+  return <ReferenceField label="Number" value={a.account_number} />;
+}
 
 export function AccountsListPage() {
   const [status, setStatus] = useState<ThreePlAccountStatus | ''>('');
@@ -130,6 +127,7 @@ export function AccountsListPage() {
             getRowKey={(a) => a.id}
             loading={isLoading}
             empty="No accounts match this filter."
+            renderRowDetails={renderAccountDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

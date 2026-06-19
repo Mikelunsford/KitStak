@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { useJournalEntries } from '@/lib/hooks/useJournalEntries';
 import type { JournalEntry } from '@/lib/types/finance';
 
@@ -22,11 +23,11 @@ const COLUMNS: ReadonlyArray<DataColumn<JournalEntry>> = [
   {
     key: 'number',
     header: 'Number',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (je) => (
       <Link
         to={`/finance/journal-entries/${je.id}`}
-        className="text-ink hover:text-accent"
+        className={LINK_CLASS}
       >
         {je.entry_number}
       </Link>
@@ -41,7 +42,7 @@ const COLUMNS: ReadonlyArray<DataColumn<JournalEntry>> = [
   {
     key: 'period',
     header: 'Period',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (je) => `${je.period_year}-${String(je.period_month).padStart(2, '0')}`,
   },
   {

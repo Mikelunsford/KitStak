@@ -176,7 +176,7 @@ export function AccountServiceDefinitions({ accountId }: { accountId: string }) 
                   {svc.service_kind}
                 </td>
                 <td className="px-4 py-2 font-sans text-sm text-ink">{svc.name}</td>
-                <td className="px-4 py-2 font-mono text-sm text-right">
+                <td className="px-4 py-2 tabular-nums text-sm text-right">
                   {svc.rate_cents == null
                     ? ''
                     : formatCents(svc.rate_cents, svc.currency_code ?? 'USD')}
