@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Server-driven list toolbar completed across every list surface.** Thirty-one
+  list entities across twelve edge bundles (CRM contacts and activities; vendors,
+  purchase orders, expenses; shipments and receiving orders; credit notes and
+  payments; warehouses; Co-Pack sales orders, fulfillments, kitting jobs,
+  channels; manufacturing runs; 3PL accounts, job templates, supply plans, job
+  runs, billing reviews; journal entries; KitForce members, teams, shifts,
+  assignments, time entries; WMS locations, lots, putaway, bin stock; projects)
+  now support server-side keyset pagination, free-text search, column sort, and
+  saved views behind the `feature.list_toolbar` flag, joining the four
+  already-shipped lists (customers, quotes, items, invoices). Each page keeps its
+  prior client-side view as the flag-off fallback. Per entity: an additive keyset
+  edge handler (shared `list-query` helpers, a NOT NULL sort allowlist with an id
+  tiebreaker), a `listXPage` service method, a dual-path page, and a `list-query`
+  allowlist test. The leads board and the bill-of-materials rollup were
+  intentionally left on their existing views: a kanban and a derived aggregate do
+  not fit keyset paging. Read-path only. No schema, RLS, money-helper,
+  idempotency, `audit_log`, capability, or dependency change; byte-mirror canon
+  parity intact. Merged via PR #347.
+
+### Fixed
+
+- **Stock-ledger source links** (`StockMovementsPage`). A receiving-order source
+  cell linked to `/3pl-operations/receiving-orders/:id`, a route that does not
+  exist (a hard 404); it now resolves to the receiving detail page. A
+  production-run source cell linked into the manufacturing pillar's table; it now
+  resolves to the live production-run detail page. Both rows are emitted by stock
+  triggers, so both dead-ends were operator-reachable.
+- **Production-run detail breadcrumb** (`ProductionRunDetailPage`). The breadcrumb
+  bounced through a redirect to a different pillar's list that never contained the
+  run. Production runs are a legacy-only entity, so the leading crumbs are now
+  display-only.
+
 ### Changed
 
 - **List readability and reference-number disclosure** (`R-W14-READ-01`..`05`).
