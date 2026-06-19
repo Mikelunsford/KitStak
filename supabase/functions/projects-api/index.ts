@@ -10,10 +10,14 @@ import { z } from 'zod';
 
 import { type Route, type RouteCtx } from '../_shared/route.ts';
 import {
-  admin, parseBody, parseLimit, paginate, parseUuidParam, respondWithIdempotency, created,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created,
   requireCap,
 } from '../_shared/handler-helpers.ts';
 import { ok, ApiError, internalError } from '../_shared/responses.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
 import { assertRefInOrg } from '../_shared/crud.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
@@ -32,6 +36,18 @@ const BUNDLE = 'projects-api';
 
 const UpdateProjectRequestSchema = CreateProjectRequestSchema.partial();
 
+// Server list toolbar allowlists (Workstream C, UI scan). The list route gains
+// free-text search and sortable keyset pagination additively. SEARCH_COLS are
+// NOT NULL text columns (name is the display column; number is the identifier,
+// unique(org_id, number) per migration 0016, so it is a search target only).
+// SORT_COLS are NOT NULL columns only (created_at, name, state) so the keyset
+// cursor value is never null. The state facet and the customer_id FK filter stay
+// .eq filters, never sorts. DEFAULT_SORT keeps the legacy created_at desc order
+// when no sort param is sent.
+const PROJECT_SEARCH_COLS = ['name', 'number'] as const;
+const PROJECT_SORT_COLS = ['created_at', 'name', 'state'] as const;
+const PROJECT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 const CreatePhaseRequestSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
@@ -47,6 +63,9 @@ const listProjects = async (ctx: RouteCtx) => {
   const caller = requireCaller(ctx.req);
   requireCap(caller, 'projects.project.read');
   const limit = parseLimit(ctx.url);
+  const sort = parseSort(ctx.url, PROJECT_SORT_COLS, PROJECT_DEFAULT_SORT);
+  const search = parseSearch(ctx.url);
+  const cursor = decodeSortCursor(ctx.url.searchParams.get('cursor'));
   const state = ctx.url.searchParams.get('state');
   // F-Wave7-LISTFILTER-01: customer_id FK filter lifts the CustomerDetailPage
   // client-side .filter(...) into a SQL where-clause. RLS Pattern A wraps the
@@ -55,15 +74,19 @@ const listProjects = async (ctx: RouteCtx) => {
   const client = admin();
   let q = client
     .from('projects').select('*')
-    .eq('org_id', caller.orgId).is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(limit + 1);
+    .eq('org_id', caller.orgId).is('deleted_at', null);
   if (state) q = q.eq('state', state);
   if (customerId) q = q.eq('customer_id', customerId);
+  if (search) q = q.or(buildSearchOr(PROJECT_SEARCH_COLS, search));
+  q = q
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) q = q.or(buildKeysetOr(sort, cursor));
   const { data, error } = await q;
   if (error) throw internalError('projects-api', error);
-  const rows = data ?? [];
-  return ok(paginate(rows as Array<{ id: string; created_at: string }>, limit));
+  const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+  return ok(paginateSorted(rows, limit, sort.column));
 };
 
 const getProject = async (ctx: RouteCtx) => {

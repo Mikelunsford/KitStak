@@ -1,11 +1,12 @@
-// ShiftsListPage. KitForce schedule view. Migration to the shared UI kit
-// (F-Wave10-UI-KIT-01): PageHeader + FilterBar + Select + DataTable +
-// StatusBadge + Pagination replace the hand-rolled header, filter selects,
-// table, and raw status pill. Shifts have no dedicated create page, so the
-// inline create form (with its kit-Select member and team pickers) stays.
-// Behavior preserved: the ?status= deep-link seeds the filter, datetime-local
-// values are coerced to ISO before posting, and the onboarding ListEmptyState
-// shows only when unfiltered.
+// ShiftsListPage. KitForce schedule view. The flag-on path (feature.list_toolbar)
+// is the server list toolbar (search on shift number, sortable NOT NULL columns,
+// status + member facets, keyset pager, saved views) via ShiftsListToolbar. The
+// flag-off path is the original client-state view (the F-Wave10-UI-KIT-01
+// migration: PageHeader + FilterBar + Select + DataTable + StatusBadge +
+// Pagination), extracted verbatim into ShiftsListLegacy. Shifts have no dedicated
+// create page, so the inline create form (with its kit-Select member and team
+// pickers) stays on both paths; datetime-local values are coerced to ISO before
+// posting.
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -14,8 +15,11 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
 import { Select } from '@/components/ui/Select';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
@@ -26,8 +30,13 @@ import {
   useTeamsList,
   useCreateShift,
 } from '@/lib/hooks/useKitForce';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { listShiftsPage } from '@/lib/services/kitforceService';
+import { shiftsKeys } from '@/lib/queryKeys/kitforce';
 import { formatDateTimeMedium } from '@/lib/dates';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { Shift, ShiftCreate, ShiftStatus } from '@/lib/types/kitforce';
 
 const PAGE_SIZE = 50;
@@ -62,22 +71,54 @@ function localToIso(value: string): string | null {
   return d.toISOString();
 }
 
-export function ShiftsListPage() {
-  const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<StatusFilter>(() =>
-    parseShiftStatusParam(searchParams.get('status')),
-  );
-  const [memberFilter, setMemberFilter] = useState<string>('');
-  const [page, setPage] = useState(0);
+// Shared column set, parameterised by the member-id-to-name map. sortKey is set
+// only on NOT NULL sortable columns (shift_number is nullable, so the Shift
+// column is search-only; status / start carry sorts).
+function buildShiftColumns(
+  memberName: Record<string, string>,
+): ReadonlyArray<DataColumn<Shift>> {
+  return [
+    {
+      key: 'shift',
+      header: 'Shift',
+      cellClassName: 'tabular-nums',
+      render: (s) => (
+        <Link to={`/kitforce/shifts/${s.id}`} className={LINK_CLASS}>
+          {s.shift_number ?? '·'}
+        </Link>
+      ),
+    },
+    {
+      key: 'member',
+      header: 'Member',
+      cellClassName: 'text-ink',
+      render: (s) => memberName[s.member_id] ?? s.member_id.slice(0, 8),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortKey: 'status',
+      render: (s) => <StatusBadge status={s.status} />,
+    },
+    {
+      key: 'start',
+      header: 'Start',
+      sortKey: 'scheduled_start_at',
+      cellClassName: 'text-ink-dim',
+      render: (s) => formatDateTimeMedium(s.scheduled_start_at),
+    },
+    {
+      key: 'end',
+      header: 'End',
+      sortKey: 'scheduled_end_at',
+      cellClassName: 'text-ink-dim',
+      render: (s) => formatDateTimeMedium(s.scheduled_end_at),
+    },
+  ];
+}
 
-  const filters = useMemo(() => {
-    const f: { status?: StatusFilter; member_id?: string } = {};
-    if (status !== 'all') f.status = status;
-    if (memberFilter) f.member_id = memberFilter;
-    return f;
-  }, [status, memberFilter]);
-
-  const shifts = useShiftsList(filters);
+// Inline create form shared by both paths. Shifts have no dedicated create page.
+function ShiftCreateForm() {
   const members = useMembersList();
   const teams = useTeamsList();
   const create = useCreateShift();
@@ -88,22 +129,6 @@ export function ShiftsListPage() {
   const [teamId, setTeamId] = useState('');
   const [startAt, setStartAt] = useState('');
   const [endAt, setEndAt] = useState('');
-
-  const memberName = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const m of members.data ?? []) map[m.id] = m.display_name;
-    return map;
-  }, [members.data]);
-
-  function applyStatus(next: StatusFilter) {
-    setStatus(next);
-    setPage(0);
-  }
-
-  function applyMember(next: string) {
-    setMemberFilter(next);
-    setPage(0);
-  }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -127,41 +152,233 @@ export function ShiftsListPage() {
     });
   }
 
-  const columns: ReadonlyArray<DataColumn<Shift>> = [
-    {
-      key: 'shift',
-      header: 'Shift',
-      cellClassName: 'tabular-nums',
-      render: (s) => (
-        <Link to={`/kitforce/shifts/${s.id}`} className={LINK_CLASS}>
-          {s.shift_number ?? '·'}
-        </Link>
-      ),
-    },
-    {
-      key: 'member',
-      header: 'Member',
-      cellClassName: 'text-ink',
-      render: (s) => memberName[s.member_id] ?? s.member_id.slice(0, 8),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (s) => <StatusBadge status={s.status} />,
-    },
-    {
-      key: 'start',
-      header: 'Start',
-      cellClassName: 'text-ink-dim',
-      render: (s) => formatDateTimeMedium(s.scheduled_start_at),
-    },
-    {
-      key: 'end',
-      header: 'End',
-      cellClassName: 'text-ink-dim',
-      render: (s) => formatDateTimeMedium(s.scheduled_end_at),
-    },
-  ];
+  if (!canCreate) {
+    return create.error ? (
+      <p className="text-accent font-sans text-sm">
+        {create.error instanceof Error ? create.error.message : 'Create failed.'}
+      </p>
+    ) : null;
+  }
+
+  return (
+    <>
+      <form
+        onSubmit={onSubmit}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end border border-line bg-bg-2 p-4"
+      >
+        <label className="flex flex-col gap-1">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Member
+          </span>
+          <Select
+            value={memberId}
+            onChange={(e) => setMemberId(e.target.value)}
+            disabled={members.isLoading}
+          >
+            <option value="">Select a member</option>
+            {(members.data ?? [])
+              .filter((m) => m.status === 'active')
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display_name}
+                </option>
+              ))}
+          </Select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Team (optional)
+          </span>
+          <Select
+            value={teamId}
+            onChange={(e) => setTeamId(e.target.value)}
+            disabled={teams.isLoading}
+          >
+            <option value="">No team</option>
+            {(teams.data ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <TextInput
+          label="Start"
+          type="datetime-local"
+          value={startAt}
+          onChange={(e) => setStartAt(e.target.value)}
+        />
+        <TextInput
+          label="End"
+          type="datetime-local"
+          value={endAt}
+          onChange={(e) => setEndAt(e.target.value)}
+        />
+        <Button
+          type="submit"
+          disabled={!memberId || !startAt || !endAt || create.isPending}
+        >
+          {create.isPending ? 'Saving.' : 'Add shift'}
+        </Button>
+      </form>
+      {create.error ? (
+        <p className="text-accent font-sans text-sm">
+          {create.error instanceof Error ? create.error.message : 'Create failed.'}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+export function ShiftsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <ShiftsListToolbar />
+  ) : (
+    <ShiftsListLegacy />
+  );
+}
+
+function ShiftsListToolbar() {
+  const members = useMembersList();
+
+  const server = useServerList<Shift>({
+    enabled: true,
+    queryKeyBase: shiftsKeys.all,
+    fetchPage: listShiftsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [
+      { key: 'status', label: 'Status', format: humaniseStatus },
+      { key: 'member_id', label: 'Member' },
+    ],
+  });
+
+  const memberName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of members.data ?? []) map[m.id] = m.display_name;
+    return map;
+  }, [members.data]);
+
+  const columns = useMemo(() => buildShiftColumns(memberName), [memberName]);
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="KitForce / Schedule" title="Shifts" />
+
+      <ShiftCreateForm />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search shift number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All</option>
+            {SHIFT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Member
+          </span>
+          <Select
+            value={server.facetValues.member_id ?? ''}
+            onChange={(e) => server.setFacet('member_id', e.target.value)}
+            disabled={members.isLoading}
+            aria-label="Filter by member"
+          >
+            <option value="">All members</option>
+            {(members.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.display_name}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="shift"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="text-accent font-sans text-sm">Failed to load shifts.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={server.rows}
+            getRowKey={(s) => s.id}
+            loading={server.isLoading}
+            empty="No shifts match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function ShiftsListLegacy() {
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState<StatusFilter>(() =>
+    parseShiftStatusParam(searchParams.get('status')),
+  );
+  const [memberFilter, setMemberFilter] = useState<string>('');
+  const [page, setPage] = useState(0);
+
+  const filters = useMemo(() => {
+    const f: { status?: StatusFilter; member_id?: string } = {};
+    if (status !== 'all') f.status = status;
+    if (memberFilter) f.member_id = memberFilter;
+    return f;
+  }, [status, memberFilter]);
+
+  const shifts = useShiftsList(filters);
+  const members = useMembersList();
+
+  const memberName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of members.data ?? []) map[m.id] = m.display_name;
+    return map;
+  }, [members.data]);
+
+  function applyStatus(next: StatusFilter) {
+    setStatus(next);
+    setPage(0);
+  }
+
+  function applyMember(next: string) {
+    setMemberFilter(next);
+    setPage(0);
+  }
+
+  const columns = useMemo(() => buildShiftColumns(memberName), [memberName]);
 
   const rows = shifts.data ?? [];
   const totalCount = rows.length;
@@ -200,72 +417,7 @@ export function ShiftsListPage() {
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader eyebrow="KitForce / Schedule" title="Shifts" meta={meta} />
 
-      {canCreate ? (
-        <form
-          onSubmit={onSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end border border-line bg-bg-2 p-4"
-        >
-          <label className="flex flex-col gap-1">
-            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
-              Member
-            </span>
-            <Select
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              disabled={members.isLoading}
-            >
-              <option value="">Select a member</option>
-              {(members.data ?? [])
-                .filter((m) => m.status === 'active')
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.display_name}
-                  </option>
-                ))}
-            </Select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
-              Team (optional)
-            </span>
-            <Select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              disabled={teams.isLoading}
-            >
-              <option value="">No team</option>
-              {(teams.data ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <TextInput
-            label="Start"
-            type="datetime-local"
-            value={startAt}
-            onChange={(e) => setStartAt(e.target.value)}
-          />
-          <TextInput
-            label="End"
-            type="datetime-local"
-            value={endAt}
-            onChange={(e) => setEndAt(e.target.value)}
-          />
-          <Button
-            type="submit"
-            disabled={!memberId || !startAt || !endAt || create.isPending}
-          >
-            {create.isPending ? 'Saving.' : 'Add shift'}
-          </Button>
-        </form>
-      ) : null}
-      {create.error ? (
-        <p className="text-accent font-sans text-sm">
-          {create.error instanceof Error ? create.error.message : 'Create failed.'}
-        </p>
-      ) : null}
+      <ShiftCreateForm />
 
       <FilterBar chips={chips}>
         <label className="flex items-center gap-2">

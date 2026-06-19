@@ -148,7 +148,11 @@ describe('copack-api channels are manual only', () => {
     const res = await handler(req);
     expect(res.status).toBe(200);
     const body = await readJson(res);
-    expect(Array.isArray(body.data)).toBe(true);
-    expect((body.data as Array<{ kind: string }>)[0]?.kind).toBe('shopify');
+    // Workstream C (UI scan): GET /sales-channels now returns the keyset page
+    // envelope { items, next_cursor } in data (Shape A). The legacy read-back
+    // invariant is unchanged: the shopify row is still returned.
+    const page = body.data as { items: Array<{ kind: string }>; next_cursor: string | null };
+    expect(Array.isArray(page.items)).toBe(true);
+    expect(page.items[0]?.kind).toBe('shopify');
   });
 });

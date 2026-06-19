@@ -5,7 +5,8 @@
 // attaches the Idempotency-Key for non-GET requests, so handlers never hand-roll
 // it.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   LotSchema,
   type Lot,
@@ -43,6 +44,21 @@ export async function listWmsLots(
     method: 'GET',
   });
   return (data as Lot[]).map((r) => LotSchema.parse(r));
+}
+
+// UI scan Workstream C: server-driven list toolbar page (search, sort, keyset).
+// The lots list returns its rows in `data` and next_cursor in `meta`, so this
+// reads the full envelope via apiRequestWithMeta (META-cursor shape).
+export async function listWmsLotsPage(
+  params: ServerListParams,
+): Promise<{ items: Lot[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  return {
+    items: (env.data as Lot[]).map((r) => LotSchema.parse(r)),
+    next_cursor: metaCursor(env.meta),
+  };
 }
 
 export async function getWmsLot(id: string): Promise<Lot> {

@@ -1,9 +1,9 @@
 // WmsLotsListPage (Wave 12 Body B Phase B4). The WMS lots surface: the lots /
-// batches of an item, with optional expiration. Shared UI kit (PageHeader +
-// FilterBar + DataTable + Pagination + StatusBadge) matching the Locations /
-// Putaway list surfaces. The status filter narrows the list server-side (wms-api
-// GET /lots?status=). The create CTA is gated on wms.lot.create; the server is
-// authority.
+// batches of an item, with optional expiration. UI scan Workstream C adds the
+// server list toolbar (search on lot code, sortable headers, status facet,
+// keyset pager, saved views) behind feature.list_toolbar. The flag-off path is
+// the original client-state view, extracted verbatim into WmsLotsListLegacy; the
+// flag-on path is WmsLotsListToolbar. The parent renders one or the other.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,15 +14,25 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { CursorPager } from '@/components/ui/CursorPager';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useWmsLotsList } from '@/lib/hooks/useWmsLots';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listWmsLotsPage } from '@/lib/services/wmsLotsService';
+import { wmsLotsKeys } from '@/lib/queryKeys/wms';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { Lot, LotStatus } from '@/lib/services/wmsLotsService';
 
 const PAGE_SIZE = 50;
+
+const LOT_STATUSES = ['active', 'quarantined', 'expired', 'consumed'] as const;
 
 function formatDate(value: string | null): string {
   if (!value) return '';
@@ -35,6 +45,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Lot>> = [
   {
     key: 'lot_code',
     header: 'Lot code',
+    sortKey: 'lot_code',
     cellClassName: 'tabular-nums',
     render: (l) => (
       <Link to={`/wms/lots/${l.id}`} className={LINK_CLASS}>
@@ -57,11 +68,104 @@ const COLUMNS: ReadonlyArray<DataColumn<Lot>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (l) => <StatusBadge status={l.status} />,
   },
 ];
 
 export function WmsLotsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <WmsLotsListToolbar />
+  ) : (
+    <WmsLotsListLegacy />
+  );
+}
+
+function WmsLotsListToolbar() {
+  const caps = useCapabilities();
+  const server = useServerList<Lot>({
+    enabled: true,
+    queryKeyBase: wmsLotsKeys.all,
+    fetchPage: listWmsLotsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="WMS"
+        title="Lots"
+        actions={
+          caps.can('wms.lot.create') ? (
+            <Link to="/wms/lots/new">
+              <Button variant="primary">New lot</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search lot code"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter lots by status"
+          >
+            <option value="">All statuses</option>
+            {LOT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="lot"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load lots.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(l) => l.id}
+            loading={server.isLoading}
+            empty="No lots match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function WmsLotsListLegacy() {
   const [status, setStatus] = useState<LotStatus | ''>('');
   const [page, setPage] = useState(0);
 

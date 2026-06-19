@@ -6,8 +6,12 @@
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, internalError } from '../../_shared/responses.ts';
 import {
-  admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
 import { assertRefInOrg } from '../../_shared/crud.ts';
 import { nextDocNumber } from '../../_shared/numbering.ts';
@@ -23,19 +27,41 @@ import {
   BUNDLE, nowIso, loadAccount, assertAccountParent, nextServicePosition,
 } from './_helpers.ts';
 
+// Workstream C (UI scan) server list toolbar allowlists. SEARCH_COLS are the
+// columns an operator types to find an account: name (NOT NULL) and the nullable
+// account_number. SORT_COLS are NOT NULL only (created_at, name, status), so the
+// keyset cursor never straddles a null; account_number is nullable so it is a
+// search target only, never a sort. DEFAULT_SORT keeps the legacy created_at
+// desc ordering when no sort param is sent.
+const ACCOUNT_SEARCH_COLS = ['name', 'account_number'] as const;
+const ACCOUNT_SORT_COLS = ['created_at', 'name', 'status'] as const;
+const ACCOUNT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listAccounts({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
+  const limit = parseLimit(url);
+  const sort = parseSort(url, ACCOUNT_SORT_COLS, ACCOUNT_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
   const customerId = url.searchParams.get('customer_id');
   let q = admin()
     .from('three_pl_accounts').select('*')
-    .eq('org_id', caller.orgId).is('deleted_at', null)
-    .order('created_at', { ascending: false }).limit(200);
+    .eq('org_id', caller.orgId).is('deleted_at', null);
   if (status) q = q.eq('status', status);
   if (customerId) q = q.eq('customer_id', customerId);
+  if (search) q = q.or(buildSearchOr(ACCOUNT_SEARCH_COLS, search));
+  q = q
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) q = q.or(buildKeysetOr(sort, cursor));
   const { data, error } = await q;
   if (error) throw internalError(BUNDLE, error);
-  return ok((data ?? []).map((r) => ThreePlAccountSchema.parse(r)));
+  const rows = (data ?? []).map((r) => ThreePlAccountSchema.parse(r)) as Array<
+    ReturnType<typeof ThreePlAccountSchema.parse> & { id: string }
+  >;
+  return ok(paginateSorted(rows, limit, sort.column));
 }
 
 export async function createAccount({ req }: RouteCtx): Promise<Response> {

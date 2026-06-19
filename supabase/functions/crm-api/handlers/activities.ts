@@ -6,13 +6,15 @@ import { ApiError, ok } from '../../_shared/responses.ts';
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
 import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
@@ -75,12 +77,23 @@ async function fetchActivityRow(
   return data as unknown as ActivityRow;
 }
 
+// Workstream C (UI scan): the activity list toolbar searches the subject and
+// body (the nullable body is a search target only), sorts an allowlist of NOT
+// NULL columns, and pages by keyset on the active sort column. SORT_COLS are
+// NOT NULL only (created_at, status) so the keyset cursor value is never null.
+// The entity_type / entity_id scope params and the status facet are preserved.
+const ACTIVITY_SEARCH_COLS = ['subject', 'body'] as const;
+const ACTIVITY_SORT_COLS = ['created_at', 'status'] as const;
+const ACTIVITY_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listActivities({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCap(caller, 'crm.activities.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
+  const sort = parseSort(url, ACTIVITY_SORT_COLS, ACTIVITY_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const entityType = url.searchParams.get('entity_type');
   const entityId = url.searchParams.get('entity_id');
   const status = url.searchParams.get('status');
@@ -89,19 +102,18 @@ export async function listActivities({ req, url }: RouteCtx): Promise<Response> 
     .from('activities')
     .select(ACTIVITY_COLS)
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
 
   if (entityType) query = query.eq('entity_type', entityType);
   if (entityId) query = query.eq('entity_id', entityId);
   if (status) query = query.eq('status', status);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
-  }
+  if (search) query = query.or(buildSearchOr(ACTIVITY_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
 
   const { data, error } = await query;
   if (error) {
@@ -109,9 +121,9 @@ export async function listActivities({ req, url }: RouteCtx): Promise<Response> 
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as ActivityRow[];
-  const { items, next_cursor } = paginate(rows, limit);
-  return ok(items.map(rowToActivity), { next_cursor });
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+  return ok(items.map((r) => rowToActivity(r as unknown as ActivityRow)), { next_cursor });
 }
 
 export async function getActivity({ req, params }: RouteCtx): Promise<Response> {

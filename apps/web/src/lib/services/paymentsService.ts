@@ -4,7 +4,8 @@
 
 import { z } from 'zod';
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   PaymentAllocationSchema,
   PaymentSchema,
@@ -67,6 +68,19 @@ export async function listPayments(
     method: 'GET',
   });
   return PaymentListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset). The
+// payment list returns its rows in `data` and next_cursor in `meta`, so this
+// reads the full envelope via apiRequestWithMeta. Mirrors listInvoicesPage.
+export async function listPaymentsPage(
+  params: ServerListParams,
+): Promise<{ items: Payment[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/invoicing-api/payments${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: PaymentListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getPayment(id: string): Promise<Payment> {

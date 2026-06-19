@@ -105,7 +105,11 @@ describe('copack-api — bundle basics', () => {
   // RLS Pattern A: cross-tenant list returns 200 + []
   // -------------------------------------------------------------------------
 
-  it('GET /sales-orders returns 200 + [] when only other-tenant rows exist', async () => {
+  // Workstream C (UI scan): GET /sales-orders now returns the keyset page
+  // envelope { items, next_cursor } in data (Shape A). The RLS Pattern A
+  // invariant is unchanged: a cross-tenant row is filtered out, so items is
+  // empty (200, never 403).
+  it('GET /sales-orders returns 200 + empty page when only other-tenant rows exist', async () => {
     setActiveMockState(makeStateWithFlag({
       sales_orders: [
         {
@@ -136,7 +140,7 @@ describe('copack-api — bundle basics', () => {
     const res = await handler(req);
     expect(res.status).toBe(200);
     const body = await readJson(res);
-    expect(body.data).toEqual([]);
+    expect(body.data).toEqual({ items: [], next_cursor: null });
   });
 
   // -------------------------------------------------------------------------

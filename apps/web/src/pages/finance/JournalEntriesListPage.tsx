@@ -1,23 +1,39 @@
-// JournalEntriesListPage. Finance. Migration to the shared UI kit
-// (F-Wave10-UI-KIT-01): PageHeader + DataTable + StatusBadge + Pagination
-// replace the hand-rolled header, table, raw uppercase status, and hand-rolled
-// pager. Behavior preserved: the period format (YYYY-MM, zero-padded), the
-// uppercase source, the number link to the detail, and the server-enforced
-// finance.journal_entries.enabled flag error surfaced inline.
+// JournalEntriesListPage. Workstream C of the 2026-06-17 UI scan adds the server
+// list toolbar (search on entry number, sortable headers, status facet, keyset
+// pager, saved views) behind feature.list_toolbar. The flag-off path is the
+// original client-state view (the F-Wave10-UI-KIT-01 migration: PageHeader +
+// DataTable + StatusBadge + Pagination, with the period format, uppercase
+// source, number link, and the server-enforced finance.journal_entries.enabled
+// flag error surfaced inline), extracted verbatim into JournalEntriesListLegacy;
+// the flag-on path is JournalEntriesListToolbar. The parent renders one or the
+// other.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
+import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { CursorPager } from '@/components/ui/CursorPager';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { useJournalEntries } from '@/lib/hooks/useJournalEntries';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listJournalEntriesPage } from '@/lib/services/journalEntriesService';
+import { journalEntryKeys } from '@/lib/queryKeys/journalEntries';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { JournalEntry } from '@/lib/types/finance';
 
 const PAGE_SIZE = 50;
+
+// Journal entry statuses the list accepts via ?status=. Ordered for the filter
+// dropdown; an arbitrary string never reaches the filter state.
+const JOURNAL_ENTRY_STATUSES = ['draft', 'posted', 'reversed'] as const;
 
 const COLUMNS: ReadonlyArray<DataColumn<JournalEntry>> = [
   {
@@ -36,6 +52,7 @@ const COLUMNS: ReadonlyArray<DataColumn<JournalEntry>> = [
   {
     key: 'date',
     header: 'Date',
+    sortKey: 'entry_date',
     cellClassName: 'text-ink-dim',
     render: (je) => je.entry_date,
   },
@@ -54,16 +71,108 @@ const COLUMNS: ReadonlyArray<DataColumn<JournalEntry>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (je) => <StatusBadge status={je.status} />,
   },
 ];
 
+export function JournalEntriesListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <JournalEntriesListToolbar />
+  ) : (
+    <JournalEntriesListLegacy />
+  );
+}
+
+function JournalEntriesListToolbar() {
+  const server = useServerList<JournalEntry>({
+    enabled: true,
+    queryKeyBase: journalEntryKeys.all,
+    fetchPage: listJournalEntriesPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Finance / Journal entries"
+        title="Journal entries"
+        actions={
+          <Link to="/finance/journal-entries/new">
+            <Button variant="primary">New journal entry</Button>
+          </Link>
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search entry number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            {JOURNAL_ENTRY_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="journal_entry"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="text-accent font-sans">
+          Journal entries unavailable for this org.
+        </p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(je) => je.id}
+            loading={server.isLoading}
+            empty="No journal entries match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
 /**
- * JournalEntriesListPage. Reverse-chronological list. The per-route
+ * JournalEntriesListLegacy. Reverse-chronological list. The per-route
  * finance.journal_entries.enabled flag is server-enforced; the SPA renders
  * the 403 message inline when the flag is off.
  */
-export function JournalEntriesListPage() {
+function JournalEntriesListLegacy() {
   const [page, setPage] = useState(0);
   const { data, isLoading, error } = useJournalEntries();
 

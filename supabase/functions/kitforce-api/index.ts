@@ -95,6 +95,10 @@ import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { nextDocNumber } from '../_shared/numbering.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
 import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
+import {
   WorkforceMemberSchema,
   WorkforceMemberCreateSchema,
   WorkforceMemberPatchSchema,
@@ -125,6 +129,53 @@ import {
 } from '../_shared/types/kitforce.ts';
 
 const BUNDLE = 'kitforce-api';
+
+// ---------------------------------------------------------------------------
+// Server list toolbar allowlists (Workstream C of the 2026-06-17 UI scan).
+// SEARCH_COLS are the free-text columns the ?search= ILIKE spans. SORT_COLS are
+// NOT NULL columns only, so the keyset cursor never straddles a null
+// (paginateSorted throws on a null cursor value). Nullable identifier columns
+// (member_number, shift_number, assignment_number) go in SEARCH_COLS, never
+// SORT_COLS. Default sort is created_at desc everywhere. The existing .eq facet
+// params (status, member_id, team_id, ...) and the open-only / range filters are
+// preserved below; keyset is additive on top of them.
+// ---------------------------------------------------------------------------
+
+const PAGE_LIMIT = 50;
+
+// workforce_members: member_number and email are nullable (migration 0078), so
+// they are SEARCH columns only; display_name, status, created_at are NOT NULL.
+const MEMBER_SEARCH_COLS = ['display_name', 'member_number', 'email'] as const;
+const MEMBER_SORT_COLS = ['created_at', 'display_name', 'status'] as const;
+const MEMBER_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// workforce_teams: name is NOT NULL (migration 0078). is_active is the facet,
+// never a sort. created_at and name are the NOT NULL sort columns.
+const TEAM_SEARCH_COLS = ['name'] as const;
+const TEAM_SORT_COLS = ['created_at', 'name'] as const;
+const TEAM_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// shifts: shift_number is nullable (migration 0084), so it is a SEARCH column
+// only; status, scheduled_start_at, scheduled_end_at, created_at are NOT NULL
+// (migration 0079).
+const SHIFT_SEARCH_COLS = ['shift_number'] as const;
+const SHIFT_SORT_COLS = [
+  'created_at', 'status', 'scheduled_start_at', 'scheduled_end_at',
+] as const;
+const SHIFT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// work_assignments: assignment_number is nullable (migration 0080), so it is a
+// SEARCH column only; title, status, created_at are NOT NULL.
+const ASSIGNMENT_SEARCH_COLS = ['title', 'assignment_number'] as const;
+const ASSIGNMENT_SORT_COLS = ['created_at', 'title', 'status'] as const;
+const ASSIGNMENT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// time_entries: there is no number or name column; notes is the only free-text
+// column (nullable, so SEARCH only). clock_in_at and created_at are NOT NULL
+// (migration 0081) and are the offered sorts.
+const TIME_ENTRY_SEARCH_COLS = ['notes'] as const;
+const TIME_ENTRY_SORT_COLS = ['created_at', 'clock_in_at'] as const;
+const TIME_ENTRY_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
 
 // ---------------------------------------------------------------------------
 // C2 rate-read gate. Member labor rates are compensation data; only org_owner
@@ -336,11 +387,21 @@ const TABLE: Route[] = [
       const caller = requireCaller(req);
       const status = url.searchParams.get('status');
       const teamId = url.searchParams.get('team_id');
+      // Server list toolbar: free-text search, sortable NOT NULL columns, keyset
+      // page. Keyset is additive on top of the existing org scope, soft-delete,
+      // and the status / team_id facets.
+      const search = parseSearch(url);
+      const sort = parseSort(url, MEMBER_SORT_COLS, MEMBER_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       let q = admin()
         .from('workforce_members').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(PAGE_LIMIT + 1);
       if (status) q = q.eq('status', status);
+      if (search) q = q.or(buildSearchOr(MEMBER_SEARCH_COLS, search));
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       if (teamId) {
         // Optional team filter via the join. A cross-tenant team_id resolves
         // to an empty IN set, so the list returns 200 + [] (RLS posture).
@@ -349,15 +410,17 @@ const TABLE: Route[] = [
           .eq('org_id', caller.orgId).eq('team_id', teamId).is('deleted_at', null);
         if (linkErr) throw internalError('kitforce-api', linkErr);
         const ids = (links ?? []).map((r) => r.member_id as string);
-        if (ids.length === 0) return ok([]);
+        if (ids.length === 0) return ok([], { next_cursor: null });
         q = q.in('id', ids);
       }
       const { data, error } = await q;
       if (error) throw internalError('kitforce-api', error);
+      const page = paginateSorted(data ?? [], PAGE_LIMIT, sort.column);
       return ok(
-        (data ?? [])
+        page.items
           .map((r) => WorkforceMemberSchema.parse(r))
           .map((r) => stripMemberRate(caller, r)),
+        { next_cursor: page.next_cursor },
       );
     },
   },
@@ -513,15 +576,28 @@ const TABLE: Route[] = [
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       const isActive = url.searchParams.get('is_active');
+      // Server list toolbar: search on name, sort on NOT NULL columns, keyset
+      // page. The is_active facet stays an .eq filter, never a sort.
+      const search = parseSearch(url);
+      const sort = parseSort(url, TEAM_SORT_COLS, TEAM_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       let q = admin()
         .from('workforce_teams').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(PAGE_LIMIT + 1);
       if (isActive === 'true') q = q.eq('is_active', true);
       if (isActive === 'false') q = q.eq('is_active', false);
+      if (search) q = q.or(buildSearchOr(TEAM_SEARCH_COLS, search));
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('kitforce-api', error);
-      return ok((data ?? []).map((r) => WorkforceTeamSchema.parse(r)));
+      const page = paginateSorted(data ?? [], PAGE_LIMIT, sort.column);
+      return ok(
+        page.items.map((r) => WorkforceTeamSchema.parse(r)),
+        { next_cursor: page.next_cursor },
+      );
     },
   },
   {
@@ -669,19 +745,33 @@ const TABLE: Route[] = [
       const warehouseId = url.searchParams.get('warehouse_id');
       const from = url.searchParams.get('from');
       const to = url.searchParams.get('to');
+      // Server list toolbar: search on shift_number, sort on NOT NULL columns,
+      // keyset page. The status / member_id / team_id / warehouse_id facets and
+      // the scheduled_start_at range stay .eq / .gte / .lte filters.
+      const search = parseSearch(url);
+      const sort = parseSort(url, SHIFT_SORT_COLS, SHIFT_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       let q = admin()
         .from('shifts').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('scheduled_start_at', { ascending: false }).limit(200);
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(PAGE_LIMIT + 1);
       if (status) q = q.eq('status', status);
       if (memberId) q = q.eq('member_id', memberId);
       if (teamId) q = q.eq('team_id', teamId);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       if (from) q = q.gte('scheduled_start_at', from);
       if (to) q = q.lte('scheduled_start_at', to);
+      if (search) q = q.or(buildSearchOr(SHIFT_SEARCH_COLS, search));
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('kitforce-api', error);
-      return ok((data ?? []).map((r) => ShiftSchema.parse(r)));
+      const page = paginateSorted(data ?? [], PAGE_LIMIT, sort.column);
+      return ok(
+        page.items.map((r) => ShiftSchema.parse(r)),
+        { next_cursor: page.next_cursor },
+      );
     },
   },
   {
@@ -868,18 +958,32 @@ const TABLE: Route[] = [
       const shiftId = url.searchParams.get('shift_id');
       const jobType = url.searchParams.get('job_type');
       const jobId = url.searchParams.get('job_id');
+      // Server list toolbar: search on title / assignment_number, sort on NOT
+      // NULL columns, keyset page. The status / member_id / shift_id / job_type
+      // / job_id facets stay .eq filters.
+      const search = parseSearch(url);
+      const sort = parseSort(url, ASSIGNMENT_SORT_COLS, ASSIGNMENT_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       let q = admin()
         .from('work_assignments').select('*')
         .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(PAGE_LIMIT + 1);
       if (status) q = q.eq('status', status);
       if (memberId) q = q.eq('member_id', memberId);
       if (shiftId) q = q.eq('shift_id', shiftId);
       if (jobType) q = q.eq('job_type', jobType);
       if (jobId) q = q.eq('job_id', jobId);
+      if (search) q = q.or(buildSearchOr(ASSIGNMENT_SEARCH_COLS, search));
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('kitforce-api', error);
-      return ok((data ?? []).map((r) => WorkAssignmentSchema.parse(r)));
+      const page = paginateSorted(data ?? [], PAGE_LIMIT, sort.column);
+      return ok(
+        page.items.map((r) => WorkAssignmentSchema.parse(r)),
+        { next_cursor: page.next_cursor },
+      );
     },
   },
   {
@@ -1137,22 +1241,36 @@ const TABLE: Route[] = [
       const openOnly = url.searchParams.get('open');
       const from = url.searchParams.get('from');
       const to = url.searchParams.get('to');
+      // Server list toolbar: search on notes (the only free-text column), sort
+      // on NOT NULL columns, keyset page. The member_id / shift_id /
+      // assignment_id facets, the open-only filter, and the clock_in_at range
+      // stay .eq / .is / .gte / .lte filters. time_entries has no deleted_at
+      // column (hard-delete per spec section 6), so no soft-delete filter here.
+      const search = parseSearch(url);
+      const sort = parseSort(url, TIME_ENTRY_SORT_COLS, TIME_ENTRY_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       let q = admin()
         .from('time_entries').select('*')
         .eq('org_id', caller.orgId)
-        .order('clock_in_at', { ascending: false }).limit(200);
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(PAGE_LIMIT + 1);
       if (memberId) q = q.eq('member_id', memberId);
       if (shiftId) q = q.eq('shift_id', shiftId);
       if (assignmentId) q = q.eq('assignment_id', assignmentId);
       if (openOnly === 'true') q = q.is('clock_out_at', null);
       if (from) q = q.gte('clock_in_at', from);
       if (to) q = q.lte('clock_in_at', to);
+      if (search) q = q.or(buildSearchOr(TIME_ENTRY_SEARCH_COLS, search));
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('kitforce-api', error);
+      const page = paginateSorted(data ?? [], PAGE_LIMIT, sort.column);
       return ok(
-        (data ?? [])
+        page.items
           .map((r) => TimeEntrySchema.parse(r))
           .map((r) => stripTimeEntryRate(caller, r)),
+        { next_cursor: page.next_cursor },
       );
     },
   },

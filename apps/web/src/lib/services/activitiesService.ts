@@ -3,7 +3,8 @@
  * opportunity; list takes entity_type + entity_id when scoped to a record.
  */
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   ActivitySchema,
   type Activity,
@@ -40,6 +41,19 @@ export async function listActivities(
     method: 'GET',
   });
   return ActivityListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+// The activity list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta.
+export async function listActivitiesPage(
+  params: ServerListParams,
+): Promise<{ items: Activity[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/crm-api/activities${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: ActivityListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getActivity(id: string): Promise<Activity> {

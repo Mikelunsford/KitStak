@@ -3,13 +3,27 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
-  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped,
+  ApiError, ok, admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, internalError,
+  requireCaller, requireCap, getByIdOrgScoped,
 } from '../shared.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import {
   VendorSchema,
   type Vendor,
 } from '../../_shared/types/vendors_inventory_ops.ts';
+
+// Workstream C (UI scan): server list toolbar allowlists for vendors. The
+// keyset cursor is keyed on the active sort column, so SORT_COLS are NOT NULL
+// columns only (created_at, display_name); a null cursor value can never
+// occur. vendor_number is nullable (unique only where present), so it is a
+// SEARCH target alongside display_name, never a sort. DEFAULT_SORT preserves
+// the legacy created_at desc ordering.
+const VENDOR_SEARCH_COLS = ['display_name', 'vendor_number'] as const;
+const VENDOR_SORT_COLS = ['created_at', 'display_name'] as const;
+const VENDOR_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
 
 const VendorCreateInput = z.object({
   display_name: z.string().min(1),
@@ -40,7 +54,29 @@ export function handleVendors(): Route[] {
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
         requireCap(caller, 'vendors.vendor.read');
-        const page = await listOrgScoped<Vendor>('vendors', caller, url);
+        const limit = parseLimit(url);
+        const sort = parseSort(url, VENDOR_SORT_COLS, VENDOR_DEFAULT_SORT);
+        const search = parseSearch(url);
+        const cursor = decodeSortCursor(url.searchParams.get('cursor'));
+
+        let query = admin()
+          .from('vendors').select('*')
+          .eq('org_id', caller.orgId)
+          .is('deleted_at', null);
+        if (search) query = query.or(buildSearchOr(VENDOR_SEARCH_COLS, search));
+        query = query
+          .order(sort.column, { ascending: sort.dir === 'asc' })
+          .order('id', { ascending: sort.dir === 'asc' })
+          .limit(limit + 1);
+        if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
+        const { data, error } = await query;
+        if (error) throw internalError('vendors-api/vendors', error);
+        const page = paginateSorted(
+          (data ?? []) as Array<Record<string, unknown> & { id: string }>,
+          limit,
+          sort.column,
+        );
         return ok(page.items.map((v) => VendorSchema.parse(v)), {
           next_cursor: page.next_cursor,
         });

@@ -2,7 +2,8 @@
  * Contacts service. Thin wrappers over the crm-api /contacts routes.
  */
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   ContactSchema,
   type Contact,
@@ -37,6 +38,19 @@ export async function listContacts(
     method: 'GET',
   });
   return ContactListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+// The contact list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta.
+export async function listContactsPage(
+  params: ServerListParams,
+): Promise<{ items: Contact[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/crm-api/contacts${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: ContactListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getContact(id: string): Promise<Contact> {

@@ -1,9 +1,12 @@
 // JobTemplatesListPage (Wave 12 Phase A2). The Job Builder list surface: the
-// reusable templates that drive 3PL jobs. Shared UI kit (PageHeader + FilterBar
-// + DataTable + Pagination + StatusBadge) matching the Accounts / Receiving
-// list surfaces. The status and variant filters narrow the list server-side
-// (three-pl-api GET /job-templates?status=&variant=). The create CTA is gated
-// on threepl.job_template.create; the server is authority.
+// reusable templates that drive 3PL jobs. Workstream C of the 2026-06-17 UI scan
+// adds the server list toolbar (search on name and template number, sortable
+// headers, status and variant facets, keyset pager, saved views) behind
+// feature.list_toolbar. The flag-off path is the original client-state view
+// (PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination),
+// extracted verbatim into JobTemplatesListLegacy; the flag-on path is
+// JobTemplatesListToolbar. The parent renders one or the other. The create CTA
+// is gated on threepl.job_template.create in both paths; the server is authority.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,12 +17,20 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { CursorPager } from '@/components/ui/CursorPager';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useJobTemplatesList } from '@/lib/hooks/useJobTemplates';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listJobTemplatesPage } from '@/lib/services/jobTemplatesService';
+import { jobTemplatesKeys } from '@/lib/queryKeys/threepl';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type {
   JobTemplate,
   JobTemplateStatus,
@@ -41,6 +52,7 @@ const COLUMNS: ReadonlyArray<DataColumn<JobTemplate>> = [
   {
     key: 'name',
     header: 'Name',
+    sortKey: 'name',
     render: (t) => (
       <Link to={`/3pl-operations/job-builders/${t.id}`} className={LINK_CLASS}>
         {t.name ?? t.template_number}
@@ -56,6 +68,7 @@ const COLUMNS: ReadonlyArray<DataColumn<JobTemplate>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (t) => <StatusBadge status={t.status} />,
   },
 ];
@@ -65,6 +78,116 @@ function renderJobTemplateDetails(t: JobTemplate) {
 }
 
 export function JobTemplatesListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <JobTemplatesListToolbar />
+  ) : (
+    <JobTemplatesListLegacy />
+  );
+}
+
+function JobTemplatesListToolbar() {
+  const caps = useCapabilities();
+  const server = useServerList<JobTemplate>({
+    enabled: true,
+    queryKeyBase: jobTemplatesKeys.all,
+    fetchPage: listJobTemplatesPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [
+      { key: 'status', label: 'Status', format: humaniseStatus },
+      { key: 'variant', label: 'Variant' },
+    ],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="3PL Operations"
+        title="Job Builders"
+        actions={
+          caps.can('threepl.job_template.create') ? (
+            <Link to="/3pl-operations/job-builders/new">
+              <Button variant="primary">New job builder</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search name or template number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter job builders by status"
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </Select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Variant
+          </span>
+          <Select
+            value={server.facetValues.variant ?? ''}
+            onChange={(e) => server.setFacet('variant', e.target.value)}
+            aria-label="Filter job builders by variant"
+          >
+            <option value="">All variants</option>
+            {VARIANTS.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="job_builder"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load job builders.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(t) => t.id}
+            loading={server.isLoading}
+            empty="No job builders match these filters."
+            renderRowDetails={renderJobTemplateDetails}
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function JobTemplatesListLegacy() {
   const [status, setStatus] = useState<JobTemplateStatus | ''>('');
   const [variant, setVariant] = useState<JobTemplateVariant | ''>('');
   const [page, setPage] = useState(0);

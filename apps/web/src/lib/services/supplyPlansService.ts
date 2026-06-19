@@ -7,7 +7,10 @@
 // table writes. Quantities are numeric on the wire. The apiClient attaches the
 // Idempotency-Key for non-GET requests, so handlers never hand-roll it.
 
+import { z } from 'zod';
+
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   SupplyPlanSchema,
   SupplyPlanLineSchema,
@@ -51,13 +54,31 @@ function supplyPlansQs(f: ListSupplyPlansFilters): string {
   return s ? `?${s}` : '';
 }
 
+// Workstream C (UI scan): the list route now returns a keyset page envelope
+// { items, next_cursor } (Shape A / DATA-cursor) on every request, mirroring
+// inventory warehouses / copack. The legacy flat-list reader extracts items.
+const SupplyPlanListEnvelope = z.object({
+  items: z.array(SupplyPlanSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+
 export async function listSupplyPlans(
   filters: ListSupplyPlansFilters = {},
 ): Promise<SupplyPlan[]> {
-  const data = await apiRequest<unknown>(`${BASE}${supplyPlansQs(filters)}`, {
+  const raw = await apiRequest<unknown>(`${BASE}${supplyPlansQs(filters)}`, {
     method: 'GET',
   });
-  return (data as SupplyPlan[]).map((r) => SupplyPlanSchema.parse(r));
+  return SupplyPlanListEnvelope.parse(raw).items;
+}
+
+export async function listSupplyPlansPage(
+  params: ServerListParams,
+): Promise<{ items: SupplyPlan[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  const parsed = SupplyPlanListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getSupplyPlan(id: string): Promise<SupplyPlan> {

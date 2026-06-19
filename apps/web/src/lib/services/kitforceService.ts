@@ -12,7 +12,8 @@
 // fields are stripped server-side for roles lacking kitforce.member.read_rate
 // (DECIDED C2); the SPA mirrors that for display only.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   WorkforceMemberSchema,
   WorkforceTeamSchema,
@@ -73,6 +74,17 @@ export type {
 
 const BASE = '/kitforce-api';
 
+// Workstream C (UI scan): the server list toolbar pages read one keyset page per
+// request. The kitforce-api list handlers map rows through Schema.parse (and the
+// member / time-entry rate strip), returning the rows in `data` and next_cursor
+// in `meta`, so the paged readers use apiRequestWithMeta + metaCursor (the
+// shipments / payments shape). Each entity parses its own row array schema.
+const MemberListSchema = WorkforceMemberSchema.array();
+const TeamListSchema = WorkforceTeamSchema.array();
+const ShiftListSchema = ShiftSchema.array();
+const AssignmentListSchema = WorkAssignmentSchema.array();
+const TimeEntryListSchema = TimeEntrySchema.array();
+
 // ===========================================================================
 // workforce_members (parent, state machine)
 // ===========================================================================
@@ -91,6 +103,17 @@ function membersQs(f: ListMembersFilters): string {
 export async function listMembers(filters: ListMembersFilters = {}): Promise<WorkforceMember[]> {
   const data = await apiRequest<unknown>(`${BASE}/members${membersQs(filters)}`, { method: 'GET' });
   return (data as WorkforceMember[]).map((r) => WorkforceMemberSchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+export async function listMembersPage(
+  params: ServerListParams,
+): Promise<{ items: WorkforceMember[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `${BASE}/members${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: MemberListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getMember(id: string): Promise<WorkforceMember> {
@@ -129,6 +152,17 @@ export async function reactivateMember(
 export async function listTeams(): Promise<WorkforceTeam[]> {
   const data = await apiRequest<unknown>(`${BASE}/teams`, { method: 'GET' });
   return (data as WorkforceTeam[]).map((r) => WorkforceTeamSchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+export async function listTeamsPage(
+  params: ServerListParams,
+): Promise<{ items: WorkforceTeam[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `${BASE}/teams${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: TeamListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function createTeam(input: WorkforceTeamCreate): Promise<WorkforceTeam> {
@@ -181,6 +215,17 @@ function shiftsQs(f: ListShiftsFilters): string {
 export async function listShifts(filters: ListShiftsFilters = {}): Promise<Shift[]> {
   const data = await apiRequest<unknown>(`${BASE}/shifts${shiftsQs(filters)}`, { method: 'GET' });
   return (data as Shift[]).map((r) => ShiftSchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+export async function listShiftsPage(
+  params: ServerListParams,
+): Promise<{ items: Shift[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `${BASE}/shifts${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: ShiftListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getShift(id: string): Promise<Shift> {
@@ -237,6 +282,17 @@ function assignmentsQs(f: ListAssignmentsFilters): string {
 export async function listAssignments(filters: ListAssignmentsFilters = {}): Promise<WorkAssignment[]> {
   const data = await apiRequest<unknown>(`${BASE}/assignments${assignmentsQs(filters)}`, { method: 'GET' });
   return (data as WorkAssignment[]).map((r) => WorkAssignmentSchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+export async function listAssignmentsPage(
+  params: ServerListParams,
+): Promise<{ items: WorkAssignment[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `${BASE}/assignments${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: AssignmentListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getAssignment(id: string): Promise<WorkAssignment> {
@@ -301,6 +357,17 @@ function timeEntriesQs(f: ListTimeEntriesFilters): string {
 export async function listTimeEntries(filters: ListTimeEntriesFilters = {}): Promise<TimeEntry[]> {
   const data = await apiRequest<unknown>(`${BASE}/time-entries${timeEntriesQs(filters)}`, { method: 'GET' });
   return (data as TimeEntry[]).map((r) => TimeEntrySchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset).
+export async function listTimeEntriesPage(
+  params: ServerListParams,
+): Promise<{ items: TimeEntry[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `${BASE}/time-entries${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: TimeEntryListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function clockInTimeEntry(input: TimeEntryClockIn): Promise<TimeEntry> {

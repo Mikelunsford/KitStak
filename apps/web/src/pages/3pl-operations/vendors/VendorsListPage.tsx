@@ -1,9 +1,10 @@
-// VendorsListPage. Migrated to the shared UI kit (F-Wave10-UI-KIT-01):
-// PageHeader + FilterBar + DataTable + Pagination replace the hand-rolled
-// header, raw name filter, table, and (previously absent) pagination.
-// Behavior preserved: the client-side display_name filter still drives the
-// list, the vendors.vendor.create capability still gates the New vendor CTA,
-// and the onboarding empty state still shows when the org has no vendors.
+// VendorsListPage. Workstream C of the 2026-06-17 UI scan adds the server list
+// toolbar (search on vendor name and number, sortable headers, keyset pager,
+// saved views) behind feature.list_toolbar. The flag-off path is the original
+// client-state view (the F-Wave10-UI-KIT-01 migration: PageHeader + FilterBar +
+// DataTable + Pagination, with the display_name filter applied client-side),
+// extracted verbatim into VendorsListLegacy; the flag-on path is
+// VendorsListToolbar. The parent renders one or the other.
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,10 +15,18 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { useVendorsList } from '@/lib/hooks/useVendors';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listVendorsPage } from '@/lib/services/vendorsService';
+import { vendorsKeys } from '@/lib/queryKeys/vendors';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { Vendor } from '@/lib/types/vendors_inventory_ops';
 
 const PAGE_SIZE = 50;
@@ -26,6 +35,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Vendor>> = [
   {
     key: 'name',
     header: 'Name',
+    sortKey: 'display_name',
     render: (v) => (
       <Link to={`/purchasing/vendors/${v.id}`} className={LINK_CLASS}>
         {v.display_name ?? v.vendor_number}
@@ -50,13 +60,88 @@ function renderVendorDetails(v: Vendor) {
   return <ReferenceField label="Number" value={v.vendor_number} />;
 }
 
+export function VendorsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <VendorsListToolbar />
+  ) : (
+    <VendorsListLegacy />
+  );
+}
+
+function VendorsListToolbar() {
+  const caps = useVioCapabilities();
+  const server = useServerList<Vendor>({
+    enabled: true,
+    queryKeyBase: vendorsKeys.all,
+    fetchPage: listVendorsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Purchasing / Vendors"
+        title="Vendors"
+        actions={
+          caps.can('vendors.vendor.create') ? (
+            <Link to="/purchasing/vendors/new">
+              <Button variant="primary">New vendor</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search name or number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      />
+
+      <SavedViewsBar
+        entityType="vendor"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load vendors.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(v) => v.id}
+            loading={server.isLoading}
+            empty="No vendors match these filters."
+            renderRowDetails={renderVendorDetails}
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
 /**
- * VendorsListPage. Lists active vendors for the caller's org.
+ * VendorsListLegacy. Lists active vendors for the caller's org.
  *
  * Filterable by display_name. Capability gate `vendors.vendor.create` hides
  * the Create button when the role lacks it.
  */
-export function VendorsListPage() {
+function VendorsListLegacy() {
   const { data, isLoading, error } = useVendorsList();
   const caps = useVioCapabilities();
   const [filter, setFilter] = useState('');

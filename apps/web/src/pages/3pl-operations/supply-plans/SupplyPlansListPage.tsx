@@ -1,9 +1,12 @@
 // SupplyPlansListPage (Wave 12 Phase A5). The Supply Plan list surface: shortage
-// resolution for a project's material demand. Shared UI kit (PageHeader +
-// FilterBar + DataTable + Pagination + StatusBadge) matching the Job Builders /
-// Accounts list surfaces. The status filter narrows server-side (three-pl-api
-// GET /supply-plans?status=). The create CTA is gated on
-// threepl.supply_plan.create; the server is authority.
+// resolution for a project's material demand. Workstream C of the 2026-06-17 UI
+// scan adds the server list toolbar (search on plan number, sortable headers,
+// status facet, keyset pager, saved views) behind feature.list_toolbar. The
+// flag-off path is the original client-state view (PageHeader + FilterBar +
+// Select + DataTable + StatusBadge + Pagination), extracted verbatim into
+// SupplyPlansListLegacy; the flag-on path is SupplyPlansListToolbar. The parent
+// renders one or the other. The create CTA is gated on threepl.supply_plan.create
+// in both paths; the server is authority.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -13,15 +16,30 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { CursorPager } from '@/components/ui/CursorPager';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useSupplyPlansList } from '@/lib/hooks/useSupplyPlans';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listSupplyPlansPage } from '@/lib/services/supplyPlansService';
+import { supplyPlansKeys } from '@/lib/queryKeys/threepl';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { SupplyPlan, SupplyPlanStatus } from '@/lib/services/supplyPlansService';
 
 const PAGE_SIZE = 50;
+
+const SUPPLY_PLAN_STATUSES: ReadonlyArray<SupplyPlanStatus> = [
+  'draft',
+  'released',
+  'fulfilled',
+  'cancelled',
+];
 
 const COLUMNS: ReadonlyArray<DataColumn<SupplyPlan>> = [
   {
@@ -40,17 +58,111 @@ const COLUMNS: ReadonlyArray<DataColumn<SupplyPlan>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (p) => <StatusBadge status={p.status} />,
   },
   {
     key: 'created',
     header: 'Created',
+    sortKey: 'created_at',
     cellClassName: 'tabular-nums text-ink-dim',
     render: (p) => p.created_at.slice(0, 10),
   },
 ];
 
 export function SupplyPlansListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <SupplyPlansListToolbar />
+  ) : (
+    <SupplyPlansListLegacy />
+  );
+}
+
+function SupplyPlansListToolbar() {
+  const caps = useCapabilities();
+  const server = useServerList<SupplyPlan>({
+    enabled: true,
+    queryKeyBase: supplyPlansKeys.all,
+    fetchPage: listSupplyPlansPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="3PL Operations"
+        title="Supply Plans"
+        actions={
+          caps.can('threepl.supply_plan.create') ? (
+            <Link to="/3pl-operations/supply-plans/new">
+              <Button variant="primary">New supply plan</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search plan number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter supply plans by status"
+          >
+            <option value="">All statuses</option>
+            {SUPPLY_PLAN_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="supply_plan"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load supply plans.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(p) => p.id}
+            loading={server.isLoading}
+            empty="No supply plans match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function SupplyPlansListLegacy() {
   const [status, setStatus] = useState<SupplyPlanStatus | ''>('');
   const [page, setPage] = useState(0);
 

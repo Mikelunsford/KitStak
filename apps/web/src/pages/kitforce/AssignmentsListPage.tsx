@@ -1,10 +1,11 @@
-// AssignmentsListPage. KitForce work queue. Migration to the shared UI kit
-// (F-Wave10-UI-KIT-01): PageHeader + FilterBar + Select + DataTable +
-// StatusBadge + Pagination replace the hand-rolled header, filter selects,
-// table, and raw status pill. Assignments have no dedicated create page, so the
-// inline create form (with its kit-Select member picker) stays. Behavior
-// preserved: the ?status= deep-link seeds the filter and the onboarding
-// ListEmptyState shows only when unfiltered.
+// AssignmentsListPage. KitForce work queue. The flag-on path
+// (feature.list_toolbar) is the server list toolbar (search on title /
+// assignment number, sortable NOT NULL columns, status + member facets, keyset
+// pager, saved views) via AssignmentsListToolbar. The flag-off path is the
+// original client-state view (the F-Wave10-UI-KIT-01 migration: PageHeader +
+// FilterBar + Select + DataTable + StatusBadge + Pagination), extracted verbatim
+// into AssignmentsListLegacy. Assignments have no dedicated create page, so the
+// inline create form (with its kit-Select member picker) stays on both paths.
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -13,8 +14,11 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
 import { Select } from '@/components/ui/Select';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
@@ -25,7 +29,12 @@ import {
   useMembersList,
   useCreateAssignment,
 } from '@/lib/hooks/useKitForce';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { listAssignmentsPage } from '@/lib/services/kitforceService';
+import { assignmentsKeys } from '@/lib/queryKeys/kitforce';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type {
   WorkAssignment,
   WorkAssignmentCreate,
@@ -63,68 +72,17 @@ function parseAssignmentStatusParam(raw: string | null): StatusFilter {
   return 'all';
 }
 
-export function AssignmentsListPage() {
-  const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<StatusFilter>(() =>
-    parseAssignmentStatusParam(searchParams.get('status')),
-  );
-  const [memberFilter, setMemberFilter] = useState<string>('');
-  const [page, setPage] = useState(0);
-
-  const filters = useMemo(() => {
-    const f: { status?: StatusFilter; member_id?: string } = {};
-    if (status !== 'all') f.status = status;
-    if (memberFilter) f.member_id = memberFilter;
-    return f;
-  }, [status, memberFilter]);
-
-  const assignments = useAssignmentsList(filters);
-  const members = useMembersList();
-  const create = useCreateAssignment();
-  const caps = useVioCapabilities();
-  const canCreate = caps.can('kitforce.assignment.create');
-
-  const [title, setTitle] = useState('');
-  const [memberId, setMemberId] = useState('');
-  const [plannedMinutes, setPlannedMinutes] = useState('');
-
-  const memberName = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const m of members.data ?? []) map[m.id] = m.display_name;
-    return map;
-  }, [members.data]);
-
-  function applyStatus(next: StatusFilter) {
-    setStatus(next);
-    setPage(0);
-  }
-
-  function applyMember(next: string) {
-    setMemberFilter(next);
-    setPage(0);
-  }
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!canCreate || !title.trim()) return;
-    const body: WorkAssignmentCreate = { title: title.trim() };
-    if (memberId) body.member_id = memberId;
-    if (plannedMinutes.trim() && /^\d+$/.test(plannedMinutes.trim())) {
-      body.planned_minutes = Number(plannedMinutes.trim());
-    }
-    create.mutate(body, {
-      onSuccess: () => {
-        setTitle('');
-        setMemberId('');
-        setPlannedMinutes('');
-      },
-    });
-  }
-
-  const columns: ReadonlyArray<DataColumn<WorkAssignment>> = [
+// Shared column set, parameterised by the member-id-to-name map. sortKey is set
+// only on NOT NULL sortable columns (title, status); assignment_number is
+// nullable, so it is search-only and surfaces in the row-detail disclosure.
+function buildAssignmentColumns(
+  memberName: Record<string, string>,
+): ReadonlyArray<DataColumn<WorkAssignment>> {
+  return [
     {
       key: 'title',
       header: 'Title',
+      sortKey: 'title',
       render: (a) => (
         <Link to={`/kitforce/assignments/${a.id}`} className={LINK_CLASS}>
           {a.title ?? a.assignment_number}
@@ -143,6 +101,7 @@ export function AssignmentsListPage() {
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (a) => <StatusBadge status={a.status} />,
     },
     {
@@ -153,6 +112,247 @@ export function AssignmentsListPage() {
       render: (a) => a.planned_minutes ?? '',
     },
   ];
+}
+
+// Inline create form shared by both paths. Assignments have no dedicated create
+// page.
+function AssignmentCreateForm() {
+  const members = useMembersList();
+  const create = useCreateAssignment();
+  const caps = useVioCapabilities();
+  const canCreate = caps.can('kitforce.assignment.create');
+
+  const [title, setTitle] = useState('');
+  const [memberId, setMemberId] = useState('');
+  const [plannedMinutes, setPlannedMinutes] = useState('');
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!canCreate || !title.trim()) return;
+    const body: WorkAssignmentCreate = { title: title.trim() };
+    if (memberId) body.member_id = memberId;
+    if (plannedMinutes.trim() && /^\d+$/.test(plannedMinutes.trim())) {
+      body.planned_minutes = Number(plannedMinutes.trim());
+    }
+    create.mutate(body, {
+      onSuccess: () => {
+        setTitle('');
+        setMemberId('');
+        setPlannedMinutes('');
+      },
+    });
+  }
+
+  if (!canCreate) {
+    return create.error ? (
+      <p className="text-accent font-sans text-sm">
+        {create.error instanceof Error ? create.error.message : 'Create failed.'}
+      </p>
+    ) : null;
+  }
+
+  return (
+    <>
+      <form
+        onSubmit={onSubmit}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end border border-line bg-bg-2 p-4"
+      >
+        <div className="lg:col-span-2">
+          <TextInput
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Member (optional)
+          </span>
+          <Select
+            value={memberId}
+            onChange={(e) => setMemberId(e.target.value)}
+            disabled={members.isLoading}
+          >
+            <option value="">Unassigned</option>
+            {(members.data ?? [])
+              .filter((m) => m.status === 'active')
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display_name}
+                </option>
+              ))}
+          </Select>
+        </label>
+        <TextInput
+          label="Planned minutes (optional)"
+          inputMode="numeric"
+          value={plannedMinutes}
+          onChange={(e) => setPlannedMinutes(e.target.value)}
+        />
+        <Button type="submit" disabled={!title.trim() || create.isPending}>
+          {create.isPending ? 'Saving.' : 'Add assignment'}
+        </Button>
+      </form>
+      {create.error ? (
+        <p className="text-accent font-sans text-sm">
+          {create.error instanceof Error ? create.error.message : 'Create failed.'}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+export function AssignmentsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <AssignmentsListToolbar />
+  ) : (
+    <AssignmentsListLegacy />
+  );
+}
+
+function AssignmentsListToolbar() {
+  const members = useMembersList();
+
+  const server = useServerList<WorkAssignment>({
+    enabled: true,
+    queryKeyBase: assignmentsKeys.all,
+    fetchPage: listAssignmentsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [
+      { key: 'status', label: 'Status', format: humaniseStatus },
+      { key: 'member_id', label: 'Member' },
+    ],
+  });
+
+  const memberName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of members.data ?? []) map[m.id] = m.display_name;
+    return map;
+  }, [members.data]);
+
+  const columns = useMemo(() => buildAssignmentColumns(memberName), [memberName]);
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader eyebrow="KitForce / Assignments" title="Assignments" />
+
+      <AssignmentCreateForm />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search title or number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All</option>
+            {ASSIGNMENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
+            Member
+          </span>
+          <Select
+            value={server.facetValues.member_id ?? ''}
+            onChange={(e) => server.setFacet('member_id', e.target.value)}
+            disabled={members.isLoading}
+            aria-label="Filter by member"
+          >
+            <option value="">All members</option>
+            {(members.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.display_name}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="assignment"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="text-accent font-sans text-sm">Failed to load assignments.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={server.rows}
+            getRowKey={(a) => a.id}
+            loading={server.isLoading}
+            empty="No assignments match these filters."
+            renderRowDetails={renderAssignmentDetails}
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function AssignmentsListLegacy() {
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState<StatusFilter>(() =>
+    parseAssignmentStatusParam(searchParams.get('status')),
+  );
+  const [memberFilter, setMemberFilter] = useState<string>('');
+  const [page, setPage] = useState(0);
+
+  const filters = useMemo(() => {
+    const f: { status?: StatusFilter; member_id?: string } = {};
+    if (status !== 'all') f.status = status;
+    if (memberFilter) f.member_id = memberFilter;
+    return f;
+  }, [status, memberFilter]);
+
+  const assignments = useAssignmentsList(filters);
+  const members = useMembersList();
+
+  const memberName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of members.data ?? []) map[m.id] = m.display_name;
+    return map;
+  }, [members.data]);
+
+  function applyStatus(next: StatusFilter) {
+    setStatus(next);
+    setPage(0);
+  }
+
+  function applyMember(next: string) {
+    setMemberFilter(next);
+    setPage(0);
+  }
+
+  const columns = useMemo(() => buildAssignmentColumns(memberName), [memberName]);
 
   const rows = assignments.data ?? [];
   const totalCount = rows.length;
@@ -191,54 +391,7 @@ export function AssignmentsListPage() {
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader eyebrow="KitForce / Assignments" title="Assignments" meta={meta} />
 
-      {canCreate ? (
-        <form
-          onSubmit={onSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end border border-line bg-bg-2 p-4"
-        >
-          <div className="lg:col-span-2">
-            <TextInput
-              label="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-          <label className="flex flex-col gap-1">
-            <span className="font-sans text-xs text-ink-dim tracking-wide uppercase">
-              Member (optional)
-            </span>
-            <Select
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              disabled={members.isLoading}
-            >
-              <option value="">Unassigned</option>
-              {(members.data ?? [])
-                .filter((m) => m.status === 'active')
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.display_name}
-                  </option>
-                ))}
-            </Select>
-          </label>
-          <TextInput
-            label="Planned minutes (optional)"
-            inputMode="numeric"
-            value={plannedMinutes}
-            onChange={(e) => setPlannedMinutes(e.target.value)}
-          />
-          <Button type="submit" disabled={!title.trim() || create.isPending}>
-            {create.isPending ? 'Saving.' : 'Add assignment'}
-          </Button>
-        </form>
-      ) : null}
-      {create.error ? (
-        <p className="text-accent font-sans text-sm">
-          {create.error instanceof Error ? create.error.message : 'Create failed.'}
-        </p>
-      ) : null}
+      <AssignmentCreateForm />
 
       <FilterBar chips={chips}>
         <label className="flex items-center gap-2">

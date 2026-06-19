@@ -5,7 +5,9 @@
 // for orgs that lack the flag (constitution rule: bundle gate off -> 404).
 // The Idempotency-Key header is auto-injected by apiClient for non-GET.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
+import { z } from 'zod';
 import {
   ManufacturingRunSchema,
   ManufacturingRunConsumedLineItemSchema,
@@ -64,6 +66,25 @@ export async function listManufacturingRuns(
     { method: 'GET' },
   );
   return (data as ManufacturingRun[]).map((r) => ManufacturingRunSchema.parse(r));
+}
+
+const ManufacturingRunListSchema = z.array(ManufacturingRunSchema);
+
+// Workstream C (UI scan): server-driven list toolbar page (search, sort,
+// keyset). The handler maps each row through ManufacturingRunSchema, so
+// next_cursor rides in the response meta block; this reads the full envelope
+// via apiRequestWithMeta.
+export async function listManufacturingRunsPage(
+  params: ServerListParams,
+): Promise<{ items: ManufacturingRun[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/manufacturing-api/manufacturing-runs${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return {
+    items: ManufacturingRunListSchema.parse(env.data),
+    next_cursor: metaCursor(env.meta),
+  };
 }
 
 export async function getManufacturingRun(id: string): Promise<ManufacturingRun> {

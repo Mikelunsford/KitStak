@@ -8,7 +8,10 @@
 // consumed / produced stock_movements. The apiClient attaches the
 // Idempotency-Key for non-GET requests, so handlers never hand-roll it.
 
+import { z } from 'zod';
+
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   JobRunSchema,
   JobRunDailyLogSchema,
@@ -66,13 +69,31 @@ function jobRunsQs(f: ListJobRunsFilters): string {
   return s ? `?${s}` : '';
 }
 
+// Workstream C (UI scan): the list route now returns a keyset page envelope
+// { items, next_cursor } (Shape A / DATA-cursor) on every request, mirroring
+// inventory warehouses / copack. The legacy flat-list reader extracts items.
+const JobRunListEnvelope = z.object({
+  items: z.array(JobRunSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+
 export async function listJobRuns(
   filters: ListJobRunsFilters = {},
 ): Promise<JobRun[]> {
-  const data = await apiRequest<unknown>(`${BASE}${jobRunsQs(filters)}`, {
+  const raw = await apiRequest<unknown>(`${BASE}${jobRunsQs(filters)}`, {
     method: 'GET',
   });
-  return (data as JobRun[]).map((r) => JobRunSchema.parse(r));
+  return JobRunListEnvelope.parse(raw).items;
+}
+
+export async function listJobRunsPage(
+  params: ServerListParams,
+): Promise<{ items: JobRun[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  const parsed = JobRunListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getJobRun(id: string): Promise<JobRun> {

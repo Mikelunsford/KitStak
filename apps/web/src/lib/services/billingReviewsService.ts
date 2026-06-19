@@ -9,7 +9,10 @@
 // invoice_id. The apiClient attaches the Idempotency-Key for non-GET requests,
 // so handlers never hand-roll it.
 
+import { z } from 'zod';
+
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   BillingReviewSchema,
   type BillingReview,
@@ -44,13 +47,31 @@ function billingReviewsQs(f: ListBillingReviewsFilters): string {
   return s ? `?${s}` : '';
 }
 
+// Workstream C (UI scan): the list route now returns a keyset page envelope
+// { items, next_cursor } (Shape A / DATA-cursor) on every request, mirroring
+// inventory warehouses / copack. The legacy flat-list reader extracts items.
+const BillingReviewListEnvelope = z.object({
+  items: z.array(BillingReviewSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+
 export async function listBillingReviews(
   filters: ListBillingReviewsFilters = {},
 ): Promise<BillingReview[]> {
-  const data = await apiRequest<unknown>(`${BASE}${billingReviewsQs(filters)}`, {
+  const raw = await apiRequest<unknown>(`${BASE}${billingReviewsQs(filters)}`, {
     method: 'GET',
   });
-  return (data as BillingReview[]).map((r) => BillingReviewSchema.parse(r));
+  return BillingReviewListEnvelope.parse(raw).items;
+}
+
+export async function listBillingReviewsPage(
+  params: ServerListParams,
+): Promise<{ items: BillingReview[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  const parsed = BillingReviewListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getBillingReview(id: string): Promise<BillingReview> {

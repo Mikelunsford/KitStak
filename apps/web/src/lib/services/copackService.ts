@@ -7,7 +7,10 @@
 // Three parents carry state machines (sales_orders, kitting_jobs,
 // fulfillments); sales_channels is a flat library. Reads are RLS-only.
 
+import { z } from 'zod';
+
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   SalesChannelSchema,
   SalesOrderSchema,
@@ -71,6 +74,26 @@ export type {
 
 const BASE = '/copack-api';
 
+// Workstream C (UI scan): the server list toolbar pages return one keyset page
+// as { items, next_cursor } in the data envelope (Shape A), mirroring
+// quotesService / itemsService. Each entity parses its own row schema.
+const SalesChannelListEnvelope = z.object({
+  items: z.array(SalesChannelSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+const SalesOrderListEnvelope = z.object({
+  items: z.array(SalesOrderSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+const KittingJobListEnvelope = z.object({
+  items: z.array(KittingJobSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+const FulfillmentListEnvelope = z.object({
+  items: z.array(FulfillmentSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+
 // ===========================================================================
 // warehouses (read-only, Co-Pack scoped). F-Wave10-CKSMOKE-04.
 // Reads the org's warehouses through the copack_ecom bundle so the kitting /
@@ -86,9 +109,20 @@ export async function listCoPackWarehouses(): Promise<Warehouse[]> {
 // sales_channels (library)
 // ===========================================================================
 
+// Workstream C (UI scan): the list route now returns a keyset page envelope
+// { items, next_cursor } (Shape A) on every request, so the legacy flat-list
+// reader extracts items. Mirrors quotesService / itemsService.
 export async function listSalesChannels(): Promise<SalesChannel[]> {
-  const data = await apiRequest<unknown>(`${BASE}/sales-channels`, { method: 'GET' });
-  return (data as SalesChannel[]).map((r) => SalesChannelSchema.parse(r));
+  const raw = await apiRequest<unknown>(`${BASE}/sales-channels`, { method: 'GET' });
+  return SalesChannelListEnvelope.parse(raw).items;
+}
+
+export async function listSalesChannelsPage(
+  params: ServerListParams,
+): Promise<{ items: SalesChannel[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}/sales-channels${serverListQs(params)}`, { method: 'GET' });
+  const parsed = SalesChannelListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function createSalesChannel(input: SalesChannelCreate): Promise<SalesChannel> {
@@ -127,8 +161,16 @@ function ordersQs(f: ListSalesOrdersFilters): string {
 export async function listSalesOrders(
   filters: ListSalesOrdersFilters = {},
 ): Promise<SalesOrder[]> {
-  const data = await apiRequest<unknown>(`${BASE}/sales-orders${ordersQs(filters)}`, { method: 'GET' });
-  return (data as SalesOrder[]).map((r) => SalesOrderSchema.parse(r));
+  const raw = await apiRequest<unknown>(`${BASE}/sales-orders${ordersQs(filters)}`, { method: 'GET' });
+  return SalesOrderListEnvelope.parse(raw).items;
+}
+
+export async function listSalesOrdersPage(
+  params: ServerListParams,
+): Promise<{ items: SalesOrder[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}/sales-orders${serverListQs(params)}`, { method: 'GET' });
+  const parsed = SalesOrderListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getSalesOrder(id: string): Promise<SalesOrder> {
@@ -209,8 +251,16 @@ function kittingQs(f: ListKittingJobsFilters): string {
 export async function listKittingJobs(
   filters: ListKittingJobsFilters = {},
 ): Promise<KittingJob[]> {
-  const data = await apiRequest<unknown>(`${BASE}/kitting-jobs${kittingQs(filters)}`, { method: 'GET' });
-  return (data as KittingJob[]).map((r) => KittingJobSchema.parse(r));
+  const raw = await apiRequest<unknown>(`${BASE}/kitting-jobs${kittingQs(filters)}`, { method: 'GET' });
+  return KittingJobListEnvelope.parse(raw).items;
+}
+
+export async function listKittingJobsPage(
+  params: ServerListParams,
+): Promise<{ items: KittingJob[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}/kitting-jobs${serverListQs(params)}`, { method: 'GET' });
+  const parsed = KittingJobListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getKittingJob(id: string): Promise<KittingJob> {
@@ -321,8 +371,16 @@ function fulfillmentsQs(f: ListFulfillmentsFilters): string {
 export async function listFulfillments(
   filters: ListFulfillmentsFilters = {},
 ): Promise<Fulfillment[]> {
-  const data = await apiRequest<unknown>(`${BASE}/fulfillments${fulfillmentsQs(filters)}`, { method: 'GET' });
-  return (data as Fulfillment[]).map((r) => FulfillmentSchema.parse(r));
+  const raw = await apiRequest<unknown>(`${BASE}/fulfillments${fulfillmentsQs(filters)}`, { method: 'GET' });
+  return FulfillmentListEnvelope.parse(raw).items;
+}
+
+export async function listFulfillmentsPage(
+  params: ServerListParams,
+): Promise<{ items: Fulfillment[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}/fulfillments${serverListQs(params)}`, { method: 'GET' });
+  const parsed = FulfillmentListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getFulfillment(id: string): Promise<Fulfillment> {

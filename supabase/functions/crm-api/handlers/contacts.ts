@@ -6,13 +6,15 @@ import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
 import {
   ContactCreateSchema,
@@ -63,31 +65,39 @@ async function fetchContactRow(caller: Caller, id: string): Promise<ContactRow> 
   return data as unknown as ContactRow;
 }
 
+// Workstream C (UI scan): the contact list toolbar searches the name and email
+// (the legacy ?q maps through parseSearch), sorts an allowlist of NOT NULL
+// columns, and pages by keyset on the active sort column. SEARCH_COLS may
+// include the nullable last_name / email; SORT_COLS are NOT NULL only
+// (created_at, first_name) so the keyset cursor value is never null.
+const CONTACT_SEARCH_COLS = ['first_name', 'last_name', 'email'] as const;
+const CONTACT_SORT_COLS = ['created_at', 'first_name'] as const;
+const CONTACT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCap(caller, 'crm.contacts.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
+  const sort = parseSort(url, CONTACT_SORT_COLS, CONTACT_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const customerId = url.searchParams.get('customer_id');
-  const q = url.searchParams.get('q');
 
   let query = admin()
     .from('contacts')
     .select(CONTACT_COLS)
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
 
   if (customerId) query = query.eq('customer_id', customerId);
-  if (q) query = query.ilike('first_name', `%${q}%`);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
-  }
+  if (search) query = query.or(buildSearchOr(CONTACT_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
 
   const { data, error } = await query;
   if (error) {
@@ -95,9 +105,9 @@ export async function listContacts({ req, url }: RouteCtx): Promise<Response> {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as ContactRow[];
-  const { items, next_cursor } = paginate(rows, limit);
-  return ok(items.map(rowToContact), { next_cursor });
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+  return ok(items.map((r) => rowToContact(r as unknown as ContactRow)), { next_cursor });
 }
 
 export async function getContact({ req, params }: RouteCtx): Promise<Response> {

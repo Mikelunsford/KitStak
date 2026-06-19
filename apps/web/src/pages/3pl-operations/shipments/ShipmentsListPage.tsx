@@ -1,11 +1,10 @@
-// ShipmentsListPage. Migrated to the shared UI kit (F-Wave10-UI-KIT-01):
-// PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination
-// replace the hand-rolled header, inline status pill, table, and (previously
-// absent) pagination. Behavior preserved: the create CTA stays ungated as
-// before; the ?status= deep-link still filters the list client-side and an
-// invalid value falls back to the full list. The status filter is now an
-// interactive Select that writes the value back to the URL, replacing the
-// previous read-only "Filtering by status" note.
+// ShipmentsListPage. Workstream C of the 2026-06-17 UI scan adds the server
+// list toolbar (search on shipment number, sortable headers, status facet,
+// keyset pager, saved views) behind feature.list_toolbar. The flag-off path is
+// the original client-state view (the F-Wave10-UI-KIT-01 migration: PageHeader +
+// FilterBar + Select + DataTable + StatusBadge + Pagination, with the ?status=
+// deep-link applied client-side), extracted verbatim into ShipmentsListLegacy;
+// the flag-on path is ShipmentsListToolbar. The parent renders one or the other.
 
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -16,11 +15,19 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useShipmentsList } from '@/lib/hooks/useOps';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listShipmentsPage } from '@/lib/services/shipmentsService';
+import { shipmentsKeys } from '@/lib/queryKeys/ops';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type { Shipment } from '@/lib/services/shipmentsService';
 
 const PAGE_SIZE = 50;
@@ -53,6 +60,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Shipment>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (s) => <StatusBadge status={s.status} />,
   },
   {
@@ -90,6 +98,95 @@ const COLUMNS: ReadonlyArray<DataColumn<Shipment>> = [
 ];
 
 export function ShipmentsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <ShipmentsListToolbar />
+  ) : (
+    <ShipmentsListLegacy />
+  );
+}
+
+function ShipmentsListToolbar() {
+  const server = useServerList<Shipment>({
+    enabled: true,
+    queryKeyBase: shipmentsKeys.all,
+    fetchPage: listShipmentsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="3PL Operations / Shipments"
+        title="Shipments"
+        actions={
+          <Link to="/3pl-operations/shipments/new">
+            <Button variant="primary">New shipment</Button>
+          </Link>
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search shipment number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            {SHIPMENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="shipment"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load shipments.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(s) => s.id}
+            loading={server.isLoading}
+            empty="No shipments match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function ShipmentsListLegacy() {
   // UX-Q5: support ?status= deep-links from the dashboard work card
   // ("Shipments ready to ship" -> ?status=picking). The shipments service
   // does not yet accept a status filter on the wire, so the predicate is

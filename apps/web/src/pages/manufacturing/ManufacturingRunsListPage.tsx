@@ -5,6 +5,14 @@
 // the dashboard work card seeds the filter, the create CTAs stay gated
 // (Build from BOM additionally needs line_item.create), and the onboarding
 // ListEmptyState shows only when unfiltered.
+//
+// Workstream C (UI scan): adds the server list toolbar (search on run number,
+// sortable status + created headers, status + warehouse facets, keyset pager,
+// saved views) behind feature.list_toolbar. The flag-off path is the original
+// client-slice view, extracted verbatim into ManufacturingRunsListLegacy; the
+// flag-on path is ManufacturingRunsListToolbar. The parent renders one or the
+// other. The "N runs" meta string is decorative and is replaced by the
+// CursorPager "N shown" label in the toolbar variant.
 
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -15,13 +23,21 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useManufacturingRunsList } from '@/lib/hooks/useManufacturing';
 import { useWarehousesList } from '@/lib/hooks/useInventory';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listManufacturingRunsPage } from '@/lib/services/manufacturingService';
+import { manufacturingRunsKeys } from '@/lib/queryKeys/manufacturing';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type {
   ManufacturingRun,
   ManufacturingRunStatus,
@@ -66,6 +82,7 @@ const COLUMNS: ReadonlyArray<DataColumn<ManufacturingRun>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (r) => <StatusBadge status={r.status} />,
   },
   {
@@ -90,12 +107,148 @@ const COLUMNS: ReadonlyArray<DataColumn<ManufacturingRun>> = [
   {
     key: 'created',
     header: 'Created',
+    sortKey: 'created_at',
     cellClassName: 'text-ink-dim',
     render: (r) => r.created_at.slice(0, 10),
   },
 ];
 
 export function ManufacturingRunsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <ManufacturingRunsListToolbar />
+  ) : (
+    <ManufacturingRunsListLegacy />
+  );
+}
+
+function ManufacturingRunsListToolbar() {
+  const caps = useVioCapabilities();
+  const warehouses = useWarehousesList();
+
+  const warehouseName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const w of warehouses.data ?? [])
+      map[w.id] = `${w.code} · ${w.display_name}`;
+    return map;
+  }, [warehouses.data]);
+
+  const server = useServerList<ManufacturingRun>({
+    enabled: true,
+    queryKeyBase: manufacturingRunsKeys.all,
+    fetchPage: listManufacturingRunsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [
+      { key: 'status', label: 'Status', format: humaniseStatus },
+      {
+        key: 'warehouse_id',
+        label: 'Warehouse',
+        format: (id) => warehouseName[id] ?? id,
+      },
+    ],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Manufacturing / Runs"
+        title="Manufacturing runs"
+        actions={
+          caps.can('manufacturing.run.create') ? (
+            <>
+              {caps.can('manufacturing.run.line_item.create') ? (
+                <Link to="/manufacturing/runs/from-bom">
+                  <Button variant="secondary">Build from BOM</Button>
+                </Link>
+              ) : null}
+              <Link to="/manufacturing/runs/new">
+                <Button variant="primary">New manufacturing run</Button>
+              </Link>
+            </>
+          ) : undefined
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search run number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            {RUN_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Warehouse
+          </span>
+          <Select
+            value={server.facetValues.warehouse_id ?? ''}
+            onChange={(e) => server.setFacet('warehouse_id', e.target.value)}
+            disabled={warehouses.isLoading}
+            aria-label="Filter by warehouse"
+          >
+            <option value="">All warehouses</option>
+            {(warehouses.data ?? []).map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.code} · {w.display_name}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="manufacturing_run"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">
+          Failed to load manufacturing runs.
+        </p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(r) => r.id}
+            loading={server.isLoading}
+            empty="No manufacturing runs match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function ManufacturingRunsListLegacy() {
   // UX-Q5: support ?status= deep-links from the dashboard work card
   // ("Runs in production" -> ?status=started). Filter is preserved as
   // local state once the page mounts so the operator can change it.

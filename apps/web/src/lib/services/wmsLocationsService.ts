@@ -4,7 +4,8 @@
 // attaches the Idempotency-Key for non-GET requests, so handlers never hand-roll
 // it.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   WarehouseLocationSchema,
   type WarehouseLocation,
@@ -46,6 +47,21 @@ export async function listWmsLocations(
     method: 'GET',
   });
   return (data as WarehouseLocation[]).map((r) => WarehouseLocationSchema.parse(r));
+}
+
+// UI scan Workstream C: server-driven list toolbar page (search, sort, keyset).
+// The locations list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta (META-cursor shape).
+export async function listWmsLocationsPage(
+  params: ServerListParams,
+): Promise<{ items: WarehouseLocation[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  return {
+    items: (env.data as WarehouseLocation[]).map((r) => WarehouseLocationSchema.parse(r)),
+    next_cursor: metaCursor(env.meta),
+  };
 }
 
 export async function getWmsLocation(id: string): Promise<WarehouseLocation> {

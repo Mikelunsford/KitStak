@@ -81,8 +81,12 @@
 import { type Route } from '../_shared/route.ts';
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
-  admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { assertRefInOrg } from '../_shared/crud.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
@@ -270,6 +274,31 @@ function nowIso(): string {
 }
 
 // ---------------------------------------------------------------------------
+// Server list toolbar allowlists (Workstream C, UI scan). Each entity exposes a
+// free-text SEARCH_COLS set and a SORT_COLS allowlist. Every SORT_COLS column is
+// NOT NULL in the schema (created_at, status, name) so the keyset cursor value
+// is never null; the nullable doc-number columns (order_number / job_number /
+// fulfillment_number) are search targets only, never sorts. DEFAULT_SORT keeps
+// the legacy created_at desc ordering when no sort param is sent.
+// ---------------------------------------------------------------------------
+
+const SALES_CHANNEL_SEARCH_COLS = ['name'] as const;
+const SALES_CHANNEL_SORT_COLS = ['created_at', 'name'] as const;
+const SALES_CHANNEL_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+const SALES_ORDER_SEARCH_COLS = ['order_number'] as const;
+const SALES_ORDER_SORT_COLS = ['created_at', 'status'] as const;
+const SALES_ORDER_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+const KITTING_JOB_SEARCH_COLS = ['job_number'] as const;
+const KITTING_JOB_SORT_COLS = ['created_at', 'status'] as const;
+const KITTING_JOB_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+const FULFILLMENT_SEARCH_COLS = ['fulfillment_number'] as const;
+const FULFILLMENT_SORT_COLS = ['created_at', 'status'] as const;
+const FULFILLMENT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// ---------------------------------------------------------------------------
 // Route table
 // ---------------------------------------------------------------------------
 
@@ -281,18 +310,28 @@ const TABLE: Route[] = [
     method: 'GET', path: '/sales-channels',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      const limit = parseLimit(url);
+      const sort = parseSort(url, SALES_CHANNEL_SORT_COLS, SALES_CHANNEL_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const isActive = url.searchParams.get('is_active');
       const kind = url.searchParams.get('kind');
       let q = admin()
         .from('sales_channels').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (isActive === 'true') q = q.eq('is_active', true);
       if (isActive === 'false') q = q.eq('is_active', false);
       if (kind) q = q.eq('kind', kind);
+      if (search) q = q.or(buildSearchOr(SALES_CHANNEL_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('copack-api', error);
-      return ok((data ?? []).map((r) => SalesChannelSchema.parse(r)));
+      const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+      return ok(paginateSorted(rows, limit, sort.column));
     },
   },
   {
@@ -352,21 +391,31 @@ const TABLE: Route[] = [
     method: 'GET', path: '/sales-orders',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      const limit = parseLimit(url);
+      const sort = parseSort(url, SALES_ORDER_SORT_COLS, SALES_ORDER_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const status = url.searchParams.get('status');
       const channelId = url.searchParams.get('channel_id');
       const customerId = url.searchParams.get('customer_id');
       const projectId = url.searchParams.get('project_id');
       let q = admin()
         .from('sales_orders').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (status) q = q.eq('status', status);
       if (channelId) q = q.eq('channel_id', channelId);
       if (customerId) q = q.eq('customer_id', customerId);
       if (projectId) q = q.eq('project_id', projectId);
+      if (search) q = q.or(buildSearchOr(SALES_ORDER_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('copack-api', error);
-      return ok((data ?? []).map((r) => SalesOrderSchema.parse(r)));
+      const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+      return ok(paginateSorted(rows, limit, sort.column));
     },
   },
   {
@@ -683,19 +732,29 @@ const TABLE: Route[] = [
     method: 'GET', path: '/kitting-jobs',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      const limit = parseLimit(url);
+      const sort = parseSort(url, KITTING_JOB_SORT_COLS, KITTING_JOB_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const status = url.searchParams.get('status');
       const warehouseId = url.searchParams.get('warehouse_id');
       const salesOrderId = url.searchParams.get('sales_order_id');
       let q = admin()
         .from('kitting_jobs').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (status) q = q.eq('status', status);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       if (salesOrderId) q = q.eq('sales_order_id', salesOrderId);
+      if (search) q = q.or(buildSearchOr(KITTING_JOB_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('copack-api', error);
-      return ok((data ?? []).map((r) => KittingJobSchema.parse(r)));
+      const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+      return ok(paginateSorted(rows, limit, sort.column));
     },
   },
   {
@@ -1134,19 +1193,29 @@ const TABLE: Route[] = [
     method: 'GET', path: '/fulfillments',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      const limit = parseLimit(url);
+      const sort = parseSort(url, FULFILLMENT_SORT_COLS, FULFILLMENT_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const status = url.searchParams.get('status');
       const salesOrderId = url.searchParams.get('sales_order_id');
       const warehouseId = url.searchParams.get('warehouse_id');
       let q = admin()
         .from('fulfillments').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (status) q = q.eq('status', status);
       if (salesOrderId) q = q.eq('sales_order_id', salesOrderId);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
+      if (search) q = q.or(buildSearchOr(FULFILLMENT_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('copack-api', error);
-      return ok((data ?? []).map((r) => FulfillmentSchema.parse(r)));
+      const rows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+      return ok(paginateSorted(rows, limit, sort.column));
     },
   },
   {
