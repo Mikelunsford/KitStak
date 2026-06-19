@@ -1,5 +1,59 @@
 # Kitstak Status
 
+## 2026-06-19 Operator active-org claim fix and dual-role portal dead-end follow-up
+
+The operator (mike@team-01.com) could not switch into the Team 1 workspace and
+suspected the upper and lower case email spellings were two different logins.
+Diagnosis against prod: there is one account (`ce7c0eaf`); Supabase normalises
+email case to a single row, so both spellings sign in to the same user. That
+account holds two active memberships, `org_owner` in Team 1 (`4e234c7d`) and
+`customer_user` in the Kitstak org (`ba4622dd`), and its active-org claim was
+pinned to the Kitstak portal membership. Because `customer_user` is a portal role
+and the workspace switcher lives only in the operator shell, the session had no
+UI control to switch itself out. The differing "views" were the same account
+rendering the portal versus the operator app, not a case split.
+
+Fix (operator-authorized direct re-stamp, the same write `switch-org` performs):
+set the active claim to Team 1 / `org_owner` and `profiles.last_org_id` to Team 1.
+Verified live; both memberships intact; the operator signs out and back in to pick
+up the new JWT. Journal `03-workspace/journal/2026-06-19-auth-active-org-claim-fix.md`.
+
+Follow-up `F-Wave14-PORTAL-DUALROLE-SWITCH-01`: a dual-role user (operator in one
+org, `customer_user` in another) can be stranded in the portal with no switcher.
+Harden by surfacing a "switch to your operator workspace" affordance in the portal
+for sessions whose `/me` carries a non-portal membership, and/or defaulting the
+sign-in claim to the highest-privilege membership. Housekeeping noted: an
+unconfirmed typo account `accounts@team-01.om` (`fbada073`) left in place pending
+direction.
+
+## 2026-06-19 List readability and reference-number disclosure (merged, PR #345)
+
+A system-wide presentational pass (`R-W14-READ-01`..`05`) from the Quotes-screen
+review. Data numerals (totals, balances, quantities, counts, dates-as-digits,
+reference numbers, and money) moved from JetBrains Mono to tabular Inter Tight
+(`tabular-nums`), whose dotted zero was the legibility complaint; mono stays for
+code, identifiers, UUIDs, currency/account/tax codes, UOM tokens, and CSV
+mappings. Entity names and list titles render bold with a hover and focus-visible
+color instead of an underline (bold is the non-color affordance, WCAG 1.4.1).
+Reference numbers moved off the main view into an "Additional details" disclosure:
+a per-row expander on lists and a centralized collapsible in `DetailHeader` so
+every detail page inherits it with no per-page edit.
+
+New shared pieces: a hand-rolled `Disclosure` primitive (lucide chevron, no Radix
+or headless library), `ReferenceField`, `entityLabelStyles`
+(`LINK_CLASS`/`PLAIN_CLASS`), `displayTitle.formatName`, and a `DataTable`
+`renderRowDetails` opt-in. The foundation was built by hand; the ~90-file rollout
+(~37 list pages, ~53 detail and editor surfaces) ran via eight scoped parallel
+agents over disjoint file sets, then unified-verified. No data, schema,
+capability, money-helper, RLS, idempotency, or `audit_log` change. Gates green:
+typecheck, lint (`--max-warnings 0`), 823 unit/regression, 47 contract/parity,
+bundle index 37.14 kB / 40 kB. Merged to main via PR #345, CI green on the first
+run. Journal `03-workspace/journal/2026-06-19-list-readability-reference-disclosure.md`.
+Decisions: no feature flag (A1), money to tabular too (A2). Follow-ups:
+`F-Wave14-READ-SORT-01` (sort-by-number to the toolbar), `F-Wave14-READ-SEARCH-01`
+(search hint), and swapping the remaining UUID-in-mono detail cross-links to
+`EntityLabel` names.
+
 ## 2026-06-18 Production readiness pass: 78 to ~93, hard gate cleared, money integrity full marks, merged
 
 `/ship-ready all` ran an eleven-agent parallel audit against the readiness
