@@ -12,10 +12,10 @@ Nothing currently held. All shipped work is versioned below.
 
 An eleven-agent parallel audit scored the repo at 78.0 / 100, BLOCKED by one
 failing hard gate (the migration numbering gap). A safe, non-schema remediation
-pass plus one operator-authorized constitution clarification lifted it to an
-estimated 90.5 / 100 with zero failing hard gates and zero open P0 or P1
-findings. No migrations were written; money-SQL banker's-rounding work was
-deferred to a future operator-gated session. Scorecard:
+pass plus one operator-authorized constitution clarification, followed by the
+operator-authorized money banker's-rounding migration (0126), lifted it to an
+estimated ~92.5 / 100 with zero failing hard gates and zero open P0 or P1
+findings. Scorecard:
 `03-workspace/audits/readiness-2026-06-18.md`; closeout:
 `03-workspace/journal/2026-06-18-production-readiness-pass.md`.
 
@@ -49,10 +49,20 @@ deferred to a future operator-gated session. Scorecard:
   0089-0110) added to the nightly cross-tenant matrix.
 - **WMS Body B closeout journal** (`wave-12-wms-body-b-closeout.md`).
 
+### Migration
+
+- **`0126_money_banker_rounding.sql`**: adds a `round_half_even(numeric)` SQL
+  helper (banker's rounding, tie-break parity with `money.ts`) and replaces all
+  13 money `round()` call sites across `convert_project_to_invoice`,
+  `recompute_project_totals`, `approve_billing_review`, and
+  `view_job_profitability`. The view is recreated with `security_invoker = true`
+  preserved (RLS unchanged). Validated on staging; no idempotency or `audit_log`
+  change. Closes `R-W14-MONEY-02`.
+
 ### Deferred (operator-gated, forward migrations)
 
-- `R-W14-MONEY-02` SQL banker's rounding, `R-W14-MONEY-01` project-line tax
-  snapshot, `R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry.
+- `R-W14-MONEY-01` project-line tax snapshot, `R-W14-CAT4-CREATED-AUDIT-01`
+  created-event audit symmetry.
 
 ## [0.30.0] · 2026-06-18 Branding: color-wheel picker, text-on-brand color, logo/favicon upload (PR #342)
 

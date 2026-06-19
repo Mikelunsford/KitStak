@@ -7,13 +7,16 @@ Driver: `/ship-ready all` (target 90, budget 3 iterations). Rubric:
 ## Outcome
 
 Starting score: 78.0 / 100, BLOCKED (one failing hard gate).
-Ending score: 90.5 / 100 (estimated by synthesis, see note), zero failing hard
+Ending score: ~92.5 / 100 (estimated by synthesis, see note), zero failing hard
 gates, zero open P0, zero open P1.
 
 The repo crossed the production-grade line with safe, non-schema work plus one
-operator-authorized constitution clarification. No migrations were written.
-Money-SQL rounding and the two related forward migrations were deferred to a
-future operator-gated session by operator decision.
+operator-authorized constitution clarification, then the operator authorized the
+money banker's-rounding migration (R-W14-MONEY-02, migration 0126), which was
+written, validated on staging, and committed. The other two money-adjacent
+forward migrations (R-W14-MONEY-01 project tax snapshot, R-W14-CAT4-CREATED-AUDIT-01)
+remain deferred. The PR is held by operator decision so prod has not been touched;
+0126 ships via the migrate workflow on merge.
 
 Scoring note: the ending number is the orchestrator's synthesis of the eleven
 category deltas, each backed by concrete evidence (gate output, file existence,
@@ -66,16 +69,21 @@ The single failing hard gate was the migration numbering gap (slots 0005 and
 - `R-W14-RLS-PROBE-GAP-01`. Extended the nightly RLS probe matrix with the nine
   3PL and WMS tenant-scoped tables added in migrations 0089-0110 (all verified
   Pattern A); corrected the `probes.md` coverage list.
+- `R-W14-MONEY-02` (operator-authorized, migration 0126). SQL money arithmetic
+  used Postgres `round()` (half-away-from-zero on numeric), not the
+  constitution's banker's rounding. Added a `round_half_even(numeric)` helper
+  with byte-for-byte tie-break parity to `money.ts`, and replaced all 13 money
+  `round()` call sites across the four live objects (convert_project_to_invoice,
+  recompute_project_totals, approve_billing_review, view_job_profitability). The
+  view was recreated with `security_invoker = true` preserved. Validated on
+  staging; helper matches TS at 2.5/3.5/-2.5/-0.5 ties; zero bare `round()` left;
+  no new advisor. Ships to prod on PR merge (held).
 
 ## Risks carried (with follow-up IDs)
 
 Deferred to a future operator-gated session because they require forward
 migrations touching money or `audit_log` (constitution stop list):
 
-- `R-W14-MONEY-02`. Six migrations use Postgres `round()` (half-up) instead of
-  banker's rounding in SQL money arithmetic. Fix is a new `round_half_even`
-  Postgres function plus call-site replacement. Crossing the last weighted point
-  cleanly depends on this.
 - `R-W14-MONEY-01`. `project_line_items` does not snapshot the tax rate; the
   convert-to-invoice path hardcodes `tax_rate_snapshot = 0`.
 - `R-W14-CAT4-CREATED-AUDIT-01`. Created-event audit triggers are incomplete for
@@ -107,15 +115,19 @@ Deferred non-blocking:
 
 ## Gates
 
-`pnpm lint`, `pnpm typecheck`, `pnpm test` (97 unit + 98 regression files),
-`pnpm test:contract` (4 files), `pnpm build`, `pnpm bundle-budget` (index
-37.14 kB gzip) all green on the branch. `pnpm test:rls`, `pnpm test:e2e`, and
+`pnpm lint`, `pnpm typecheck`, `pnpm test` (97 unit + 99 regression files, incl.
+the new `db-0126` money-rounding regression), `pnpm test:contract` (4 files),
+`pnpm build`, `pnpm bundle-budget` (index 37.14 kB gzip) all green on the branch. `pnpm test:rls`, `pnpm test:e2e`, and
 `supabase db reset` were not run here (they need staging secrets and a local
 Docker stack); they are unchanged from baseline and now CI-gated.
 
 ## Next session
 
-Open the PR for `chore/readiness-2026-06-18-safe`. If the operator wants the
-last clean point and a verified re-audit, run the money-SQL banker's-rounding
-forward migration (`R-W14-MONEY-02`) and re-dispatch the touched-category
+The PR for `chore/readiness-2026-06-18-safe` is held by operator decision (four
+commits: `0277ccc`, `3e41c67`, `f2d0770`, `5f46870`). On merge, the migrate
+workflow ships migration 0126 to prod and staging; confirm the four live objects
+carry `round_half_even` on prod afterward and that advisors stay at the known
+baseline. Optional remaining money work: `R-W14-MONEY-01` (project line tax
+snapshot) and `R-W14-CAT4-CREATED-AUDIT-01` (created-event audit symmetry), both
+forward migrations. If a verified score is wanted, re-dispatch the touched
 auditors.

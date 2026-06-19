@@ -1,15 +1,17 @@
 # Kitstak Status
 
-## 2026-06-18 Production readiness pass: 78 to ~90, hard gate cleared
+## 2026-06-18 Production readiness pass: 78 to ~92.5, hard gate cleared, money rounding fixed
 
 `/ship-ready all` ran an eleven-agent parallel audit against the readiness
 rubric. Starting score 78.0 / 100, BLOCKED by one failing hard gate (the
-migration numbering gap at 0005/0006). After a safe non-schema remediation pass
-plus one operator-authorized constitution clarification, the estimated score is
-90.5 / 100 with zero failing hard gates and zero open P0 or P1. CHANGELOG
-`0.31.0`; scorecard `03-workspace/audits/readiness-2026-06-18.md`; closeout
+migration numbering gap at 0005/0006). After a safe non-schema remediation pass,
+one operator-authorized constitution clarification, and the operator-authorized
+money banker's-rounding migration (0126), the estimated score is ~92.5 / 100 with
+zero failing hard gates and zero open P0 or P1. CHANGELOG `0.31.0`; scorecard
+`03-workspace/audits/readiness-2026-06-18.md`; closeout
 `03-workspace/journal/2026-06-18-production-readiness-pass.md`. Branch
-`chore/readiness-2026-06-18-safe` (`0277ccc`, `3e41c67`), PR not yet opened.
+`chore/readiness-2026-06-18-safe` (`0277ccc`, `3e41c67`, `f2d0770`, `5f46870`),
+PR held by operator decision.
 
 The substantive correctness gates passed from the start: RLS isolation and the
 404/403 contract, money parity, idempotency, the audit hash chain, capability
@@ -23,18 +25,21 @@ loud and open incident issues; authored the deploy and incident runbooks plus
 manufacturing, copack, kitforce, and kitcost docs; added FSM and capability
 tests; invoked the previously-dead axe-core sweep; extended the RLS probe matrix
 to the nine 3PL and WMS tables; fixed the README and the Kitstak and TS1
-branding nits. Gates green: lint, typecheck, test (97 unit + 98 regression
+branding nits; and shipped the money banker's-rounding migration 0126
+(`R-W14-MONEY-02`). Gates green: lint, typecheck, test (97 unit + 99 regression
 files), test:contract, build, bundle-budget (index 37.14 kB gzip).
 
-Operator decisions on the run: ratify the gap (not backfill placeholders), and
-safe non-schema work only this pass. Deferred to a future operator-gated
-session (all forward migrations): `R-W14-MONEY-02` SQL banker's rounding (the
-last clean weighted point depends on it), `R-W14-MONEY-01` project-line tax
-snapshot, `R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry. Also
-deferred non-blocking: `LIGHTHOUSE_ENABLED` repo variable, a `req.json()` lint
-guard, and un-skipping the quote-to-cash smoke chain. Open manual item: open
-the PR and, if a verified number is wanted, re-dispatch the touched-category
-auditors after the money migration.
+Operator decisions on the run: ratify the gap (not backfill placeholders), safe
+non-schema work, then hold the PR and do the money migration. `R-W14-MONEY-02`
+shipped as migration 0126 (a `round_half_even` SQL helper plus all 13 money
+`round()` call sites rewritten across the four live objects; the profitability
+view recreated with `security_invoker = true` preserved; validated on staging,
+no new advisor). Still deferred (forward migrations): `R-W14-MONEY-01`
+project-line tax snapshot, `R-W14-CAT4-CREATED-AUDIT-01` created-event audit
+symmetry. Deferred non-blocking: `LIGHTHOUSE_ENABLED` repo variable, a
+`req.json()` lint guard, un-skipping the quote-to-cash smoke chain. Open manual
+item: open the PR when ready (on merge the migrate workflow ships 0126 to prod);
+if a verified number is wanted, re-dispatch the touched-category auditors.
 
 ## 2026-06-18 Branding overhaul: color wheel, text-on-brand color, logo/favicon upload
 
