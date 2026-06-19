@@ -8,6 +8,71 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing currently held. All shipped work is versioned below.
 
+## [0.31.0] · 2026-06-18 Production readiness pass: safe non-schema remediation (`/ship-ready all`)
+
+An eleven-agent parallel audit scored the repo at 78.0 / 100, BLOCKED by one
+failing hard gate (the migration numbering gap). A safe, non-schema remediation
+pass plus one operator-authorized constitution clarification, followed by the two
+operator-authorized money forward migrations (0126 banker's rounding, 0127
+project-line tax snapshot), lifted it to an estimated ~93.0 / 100 with zero
+failing hard gates, zero open P0 or P1, and Money integrity at full marks.
+Scorecard:
+`03-workspace/audits/readiness-2026-06-18.md`; closeout:
+`03-workspace/journal/2026-06-18-production-readiness-pass.md`.
+
+### Changed
+
+- **Migration numbering rule clarified** (`CLAUDE.md`): the 0005 and 0006 slots
+  never existed and are ratified as a documented accepted artifact
+  (`F-Wave6-MIG-01`). The forward-only invariant is about never editing an
+  applied migration and never breaking the apply chain, not consecutive
+  integers. Cleared the only failing hard gate.
+- **CI now enforces `pnpm test:rls` and `pnpm test:e2e`** at PR time via a
+  staging-gated `rls-e2e` job (warns on fork PRs without secrets; the nightly
+  hard-fails).
+- **Nightly probes fail loud**: the RLS probe, audit-chain-verify, and
+  idempotency-gc workflows now error and exit non-zero on missing secrets
+  instead of passing green, and the two probe workflows open a tracked incident
+  issue on failure.
+- **Branding**: `Kitstak` rendered one-word capital-K in the logo and the
+  welcome banner; `TS1` codename removed from docs and README.
+
+### Added
+
+- **Operations runbooks**: `docs/operations/deploy.md` and `incidents.md`.
+- **Add-on docs**: manufacturing, copack, kitforce, and kitcost API and user
+  docs; the branding logo upload-url endpoint documented in
+  `docs/api/identity.md`.
+- **Tests**: FSM regression specs for period-close, organization, and the three
+  3PL status machines; a behavioral `CAPABILITIES_BY_ROLE` parity test; an
+  `@axe-core/playwright` accessibility sweep in the smoke spec.
+- **RLS probe coverage**: the nine 3PL and WMS tenant-scoped tables (migrations
+  0089-0110) added to the nightly cross-tenant matrix.
+- **WMS Body B closeout journal** (`wave-12-wms-body-b-closeout.md`).
+
+### Migration
+
+- **`0126_money_banker_rounding.sql`**: adds a `round_half_even(numeric)` SQL
+  helper (banker's rounding, tie-break parity with `money.ts`) and replaces all
+  13 money `round()` call sites across `convert_project_to_invoice`,
+  `recompute_project_totals`, `approve_billing_review`, and
+  `view_job_profitability`. The view is recreated with `security_invoker = true`
+  preserved (RLS unchanged). Validated on staging; no idempotency or `audit_log`
+  change. Closes `R-W14-MONEY-02`.
+- **`0127_convert_carries_project_tax.sql`**: `convert_project_to_invoice` now
+  snapshots the project line's tax at invoice issuance. It reads `taxes.rate_bps`
+  through the existing `project_line_items.tax_rate_id` FK (org-scoped join, no
+  schema change / trigger / backfill), snapshots it as the invoice
+  decimal-fraction `tax_rate_snapshot` (`rate_bps / 10000`), and computes
+  `tax_amount_cents` and a tax-inclusive `line_total_cents` with `round_half_even`
+  (mirrors the invoicing-api line math). Lines with no `tax_rate_id` stay
+  tax-free. Validated on staging. Closes `R-W14-MONEY-01`.
+
+### Deferred (operator-gated, forward migration)
+
+- `R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry (`audit_log` trigger
+  coverage).
+
 ## [0.30.0] · 2026-06-18 Branding: color-wheel picker, text-on-brand color, logo/favicon upload (PR #342)
 
 The org Branding admin page (`/admin/branding`) goes from hex-code typing and URL pasting to real white-label setup: a color wheel, an editable text-on-brand color, and direct logo/favicon upload. Prod advanced to migration `0125` (the new public `branding` storage bucket); advisors unchanged (the same deliberate exceptions only, the bucket adds none).

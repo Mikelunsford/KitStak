@@ -138,6 +138,43 @@ Flag routes require `flags.read` / `flags.write`. Branding writes require
 
 * `GET /settings-api/branding` -> branding row
 * `PUT /settings-api/branding` (idempotent) -> patched branding row
+* `POST /settings-api/branding/logo/upload-url` (idempotent) -> signed upload URL
+
+The upload-url route mints a single-use signed link so the SPA can PUT a logo,
+favicon, or email logo straight to the public `branding` storage bucket without
+the JSON-only `apiClient` carrying the binary. It requires the
+`branding.logo.upload` capability (the capability gate is the authority; storage
+RLS is role-based and cannot see this capability). The object path is org-scoped
+from the caller's JWT, so an asset can only ever land under the caller's own
+prefix.
+
+Request:
+```json
+{
+  "kind": "logo | icon | email_logo",
+  "content_type": "image/png | image/jpeg | image/svg+xml | image/webp | image/x-icon",
+  "size_bytes": 12345
+}
+```
+
+`size_bytes` is validated against a per-kind ceiling: `logo` and `email_logo`
+cap at 1 MiB, `icon` caps at 256 KiB. An oversize body returns
+`422 VALIDATION_ERROR` with `details: { kind, max_bytes, size_bytes }`.
+
+Response (201):
+```json
+{
+  "data": {
+    "token": "single-use upload token",
+    "path": "<org_id>/<kind>-<uuid>.<ext>",
+    "public_url": "https://.../storage/v1/object/public/branding/<path>"
+  }
+}
+```
+
+The SPA uploads the bytes with the token, then persists `public_url` through the
+`PUT /settings-api/branding` route on save. The mint itself is idempotent. A
+failed signed-URL mint surfaces `500 INTERNAL_ERROR`.
 
 ### Numbering
 

@@ -32,7 +32,7 @@ Standard CRUD with `pricing_tiers.tier.write` / `pricing_tiers.override.write` c
 
 ### items + item_categories + units
 
-Standard CRUD. `items` is the clean replacement for TS1's `pricing_menu` legacy. Money: `unit_price_cents`, `unit_cost_cents`, BIGINT. Currency: `currency_code` references `currencies(code)`.
+Standard CRUD. `items` is the clean replacement for the legacy `pricing_menu` table. Money: `unit_price_cents`, `unit_cost_cents`, BIGINT. Currency: `currency_code` references `currencies(code)`.
 
 ### value_added_services + job_types
 

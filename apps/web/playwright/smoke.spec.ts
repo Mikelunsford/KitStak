@@ -39,6 +39,7 @@
 //   [data-testid="audit-timeline"]     AuditTimeline ordered list
 
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? '';
 const SMOKE_USER_EMAIL = process.env.SMOKE_USER_EMAIL ?? '';
@@ -111,6 +112,59 @@ test.describe('@smoke pillar-1 flow', () => {
         timeline.waitFor({ state: 'visible', timeout: 10_000 }),
         empty.waitFor({ state: 'visible', timeout: 10_000 }),
       ]);
+    });
+  });
+
+  test('@smoke accessibility sweep: sign-in and dashboard', async ({ page }) => {
+    // R-W14-TEST-02: @axe-core/playwright is installed but was never invoked.
+    // This sweep runs the axe engine on the two highest-traffic surfaces (the
+    // unauthenticated sign-in page and the dashboard after sign-in) and fails
+    // on any serious or critical violation. It rides the same skip gate as the
+    // rest of the suite, so it stays green-without-doing-nothing when staging
+    // is unwired. Moderate / minor violations are reported but not blocking;
+    // serious / critical are blocking.
+    const SEVERITIES = ['serious', 'critical'] as const;
+
+    await test.step('axe sweep on the sign-in surface', async () => {
+      await page.goto('/signin');
+      await page.locator('input[name="email"]').waitFor({ state: 'visible' });
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa'])
+        .analyze();
+      const blocking = results.violations.filter((v) =>
+        SEVERITIES.includes(v.impact as (typeof SEVERITIES)[number]),
+      );
+      expect(
+        blocking,
+        `sign-in serious/critical axe violations: ${blocking
+          .map((v) => v.id)
+          .join(', ')}`,
+      ).toEqual([]);
+    });
+
+    await test.step('axe sweep on the dashboard after sign-in', async () => {
+      await page.goto('/signin');
+      await page.locator('input[name="email"]').fill(SMOKE_USER_EMAIL);
+      await page.locator('input[name="password"]').fill(SMOKE_USER_PASSWORD);
+      await page.locator('button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+      // Wait for the workspace switcher so the shell has rendered before axe
+      // walks the tree; an empty shell would under-report violations.
+      await page
+        .getByTestId('workspace-switcher')
+        .waitFor({ state: 'visible', timeout: 10_000 });
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa'])
+        .analyze();
+      const blocking = results.violations.filter((v) =>
+        SEVERITIES.includes(v.impact as (typeof SEVERITIES)[number]),
+      );
+      expect(
+        blocking,
+        `dashboard serious/critical axe violations: ${blocking
+          .map((v) => v.id)
+          .join(', ')}`,
+      ).toEqual([]);
     });
   });
 

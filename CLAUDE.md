@@ -26,7 +26,7 @@ Ship fast, validate with the first operator, defer perfection where the chassis 
 - Probed nightly with ephemeral fixtures. A `403` where `404` is expected is a release blocker.
 
 ### Migration rules
-- Forward-only. Files numbered `NNNN_snake_case.sql`, four-digit zero-padded.
+- Forward-only. Files numbered `NNNN_snake_case.sql`, four-digit zero-padded. Numbering need not be gapless: slots 0005 and 0006 never existed in git history and are a documented accepted artifact (F-Wave6-MIG-01, ratified 2026-06-18). The forward-only invariant is about never editing an applied migration and never breaking the apply chain, not about consecutive integers. The chain applies clean on every reset.
 - Never edit a numbered file after apply. If a migration fails or a prior decision was wrong, write a new forward migration.
 - Multi-stage drops: relax NOT NULL, redeploy code that stops using the column, drop the column one release later.
 - Every migration header declares: Wave, Phase, Closes, DOWN MIGRATION (operator-only), date stamp, constitutional alignment.

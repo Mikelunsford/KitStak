@@ -51,7 +51,7 @@ export function FirstSigninWelcomeBanner({
           className="font-display text-2xl tracking-wide text-ink"
           data-testid="first-signin-welcome-headline"
         >
-          WELCOME TO KITSTAK
+          Welcome to Kitstak
         </h2>
         <p
           className="font-sans text-sm text-ink-dim"

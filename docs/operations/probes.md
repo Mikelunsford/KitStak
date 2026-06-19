@@ -18,8 +18,8 @@ the staging Supabase preview branch every day at 09:00 UTC. The spec:
    itself; read the spec for the current list. The set grows with each new
    tenant-scoped table, so this runbook does not duplicate it (the 3PL
    commercial layer added `three_pl_accounts`, `job_templates`,
-   `supply_plans`, `job_runs`, `billing_reviews`; the WMS add-on added
-   `warehouse_locations`, `putaway_tasks`, `lots`).
+   `supply_plans`, `job_runs`, `job_run_daily_logs`, `billing_reviews`; the
+   WMS add-on added `warehouse_locations`, `putaway_tasks`, `lots`).
 3. Authenticates as the org B owner and asserts every cross-tenant read
    returns 200 plus empty array, every cross-tenant workflow POST returns
    404 (never 403), bundle gates 404 when off, per-route flags return 403

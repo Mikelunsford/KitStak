@@ -53,7 +53,7 @@ describe('FirstSigninWelcomeBanner', () => {
       (n) => n.props['data-testid'] === 'first-signin-welcome-headline',
     );
     expect(headline).toBeDefined();
-    expect(headline?.props.children).toBe('WELCOME TO KITSTAK');
+    expect(headline?.props.children).toBe('Welcome to Kitstak');
   });
 
   it('renders the welcome body copy explaining the optional skip', () => {

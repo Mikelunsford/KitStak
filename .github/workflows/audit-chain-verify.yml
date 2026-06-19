@@ -9,7 +9,20 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # R-W14-OBS-01: issues:write so the failure step below can open a durable
+    # incident issue. No external Slack/PagerDuty webhook secret exists, so a
+    # GitHub issue is the self-contained alert channel.
+    permissions:
+      contents: read
+      issues: write
     steps:
+      # R-W14-OBS-02: a scheduled run with missing secrets must go RED, not
+      # silently green. This job backs the v1 "30 consecutive green nights"
+      # gate on the audit hash chain, so a silent skip would break the streak
+      # invisibly. On the nightly `schedule` event a missing secret is an
+      # `::error::` plus `exit 1`. A manual `workflow_dispatch` re-run is still
+      # allowed to no-op gracefully so an operator can fire it without a wired
+      # environment and not get a false failure.
       - name: Verify secrets are configured
         id: secrets
         env:
@@ -17,7 +30,11 @@ jobs:
           AUDIT_VERIFY_SECRET: ${{ secrets.AUDIT_VERIFY_SECRET }}
         run: |
           if [ -z "${SUPABASE_FUNCTION_URL:-}" ] || [ -z "${AUDIT_VERIFY_SECRET:-}" ]; then
-            echo "::notice::SUPABASE_FUNCTION_URL or AUDIT_VERIFY_SECRET not configured. Skipping audit chain verify. Set both secrets in the repo Actions settings to enable nightly verification."
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "::error::SUPABASE_FUNCTION_URL or AUDIT_VERIFY_SECRET not configured. The scheduled audit chain verify cannot run and must NOT pass silently green (it backs the 30-night v1 gate). Failing. Set both secrets in the repo Actions settings."
+              exit 1
+            fi
+            echo "::notice::SUPABASE_FUNCTION_URL or AUDIT_VERIFY_SECRET not configured. Manual run, skipping cleanly. Set both secrets in the repo Actions settings to enable nightly verification."
             echo "configured=false" >> "$GITHUB_OUTPUT"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -40,3 +57,37 @@ jobs:
             echo "::error::Audit chain broken in $broken row(s). Failing."
             exit 1
           fi
+
+      # R-W14-OBS-01: durable external alert channel. On any failure (a real
+      # chain break, a missing-secret scheduled run, or an unhealthy edge
+      # function) open a tracked GitHub issue so the failure is not just a
+      # default email that can be missed. Self-contained: no third-party
+      # webhook secret required.
+      - name: Open incident issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `audit-chain-verify failed (${new Date().toISOString().slice(0, 10)})`;
+            const body = [
+              'The nightly audit hash chain verification failed.',
+              '',
+              `Run: ${runUrl}`,
+              `Event: ${context.eventName}`,
+              `Commit: ${context.sha}`,
+              '',
+              'A failure here is a constitutional emergency. It is one of:',
+              '- broken_count greater than 0 from verify_audit_chain (an audit_log row was tampered with, deleted, or inserted out of band of the trigger),',
+              '- a missing-secret scheduled run (SUPABASE_FUNCTION_URL or AUDIT_VERIFY_SECRET not configured), or',
+              '- a non-2xx response from the audit-chain-verify edge function.',
+              '',
+              'Triage with docs/operations/probes.md and docs/operations/incidents.md. The run log contains the JSON envelope listing affected orgs. This issue also affects the 30-consecutive-green-night v1 gate.',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['incident', 'probe-failure'],
+            });

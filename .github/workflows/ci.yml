@@ -49,3 +49,93 @@ jobs:
       - run: pnpm --filter web test:contract
       - run: pnpm --filter web build
       - run: pnpm --filter web bundle-budget
+
+  # R-W14-TEST-01: PR-level RLS and e2e gate.
+  #
+  # `pnpm test:rls` (cross-tenant Playwright probe matrix) and `pnpm test:e2e`
+  # (Playwright smoke flow) are both skip-when-unconfigured: they need the
+  # staging Supabase secrets plus a base URL to run. Before this job, only
+  # `pnpm test` and `pnpm test:contract` ran on a PR, so a change that broke
+  # RLS could merge green.
+  #
+  # Chosen behavior (documented per task requirement):
+  #   - When the staging secrets ARE configured (STAGING_SUPABASE_URL,
+  #     STAGING_SUPABASE_ANON_KEY, STAGING_SUPABASE_SERVICE_ROLE_KEY) the job
+  #     runs both suites against the staging environment and hard-fails the PR
+  #     on any RLS or smoke regression.
+  #   - When the secrets are ABSENT (e.g. a fork PR that cannot read the
+  #     'staging' environment secrets) the job emits a visible `::warning::`
+  #     and exits 0. It does NOT silently pass green and it does NOT hard-fail
+  #     a legitimate fork that has no access to the secrets. The nightly
+  #     scheduled probe (nightly-rls-probe.yml) is the hard-fail backstop and
+  #     opens an incident issue on failure, so a misconfigured CI is caught
+  #     there too.
+  rls-e2e:
+    name: RLS and e2e against staging
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 15
+    steps:
+      - name: Verify staging secrets are configured
+        id: secrets
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "${STAGING_SUPABASE_URL:-}" ] || [ -z "${STAGING_SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::warning::Staging Supabase secrets are not configured for this run, so pnpm test:rls and pnpm test:e2e are skipped. This is expected for fork PRs that cannot read the 'staging' environment secrets. The nightly-rls-probe workflow is the hard-fail backstop. If you see this on a trusted in-repo PR, the 'staging' environment secrets are misconfigured."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v6
+        if: steps.secrets.outputs.configured == 'true'
+
+      - uses: pnpm/action-setup@v6
+        if: steps.secrets.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v6
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          # Node 22 for native WebSocket parity with the nightly probe; the
+          # supabase-js admin client used in fixture bootstrap initializes the
+          # realtime client eagerly.
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Run RLS probe
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm test:rls
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Run e2e smoke
+        if: steps.secrets.outputs.configured == 'true'
+        run: pnpm test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+          SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
+          SMOKE_SECONDARY_ORG_NAME: ${{ secrets.SMOKE_SECONDARY_ORG_NAME }}
+
+      - name: Upload Playwright report on failure
+        if: failure() && steps.secrets.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ci-report
+          path: apps/web/playwright-report

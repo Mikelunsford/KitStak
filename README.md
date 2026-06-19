@@ -12,12 +12,35 @@ The Kitstak product codebase. One spine (the always-on business backbone plus sh
 
 ```bash
 pnpm install
-cp .env.example .env.local
-# edit .env.local with your Supabase project URL and anon key
+cp apps/web/.env.example apps/web/.env.local
+# edit apps/web/.env.local with your Supabase project URL and anon key
 pnpm --filter web dev
 ```
 
 The SPA serves at `http://localhost:5173`.
+
+### Local database
+
+The migrations and edge functions run against a local Supabase stack.
+
+```bash
+supabase start          # boot the local Postgres plus edge runtime
+supabase db reset       # apply every migration forward-only on a fresh DB
+```
+
+`supabase db reset` is the canonical way to verify the migration chain: it
+drops the local DB and replays `supabase/migrations/*.sql` in order, so a
+clean reset is the same gate CI enforces. Migrations are forward-only. Never
+edit a numbered file after it has applied.
+
+Edge functions read their secrets from `supabase/functions/.env.example`. Copy
+it, fill in the values for the bundles you are exercising locally, and pass the
+file when you serve a function:
+
+```bash
+cp supabase/functions/.env.example supabase/functions/.env
+supabase functions serve <bundle> --env-file supabase/functions/.env
+```
 
 ## Stack
 
@@ -69,14 +92,14 @@ kitstak/
 ## Deployment
 
 - Push to `main` with changes under `supabase/migrations/**` triggers `migrate.yml`. The job runs against prod through the IPv4 pooler at `aws-1-us-west-1.pooler.supabase.com` and is gated by the `production-db` GitHub environment.
-- `deploy-functions.yml` fires on `workflow_run` after `migrate.yml` succeeds, pinning `head_sha` so function code deploys at the same SHA the schema was applied at. Closes the TS1 R-W2-01 deploy-ordering lesson.
+- `deploy-functions.yml` fires on `workflow_run` after `migrate.yml` succeeds, pinning `head_sha` so function code deploys at the same SHA the schema was applied at. Closes the R-W2-01 deploy-ordering lesson.
 - Push to `main` with changes under `apps/web/**` triggers `deploy-prod.yml` (Vercel). Production runs at `https://www.kitstak.com`.
 - Pull requests get a Vercel preview.
 - Nightly: `audit-chain-verify.yml`, `idempotency-gc.yml`, `nightly-rls-probe.yml` (48 cross-tenant probes against the staging Supabase preview branch; skip-with-clear-message when secrets absent).
 
 ## Current status
 
-Wave 13 is live on prod, plus its first closeout follow-ups. The schema runs through migration `0117`; there are 31 edge-function bundles under `supabase/functions/`.
+Wave 13 is live on prod, plus its first closeout follow-ups. The schema runs through migration `0125`; there are 31 edge-function bundles under `supabase/functions/` (the directory also holds the shared `_shared` library and the `deno.json` / `deno.lock` config, which are not deployable bundles).
 
 The 3PL commercial layer (Body A) is complete: Accounts, Job Builders, Quote integration, Project conversion with template snapshot, Supply Plans, Job Runs, Billing Review, and Job Profitability, building the loop Job Builder to Quote to Project to Supply Plan to Job Run to invoice (migrations 0089 to 0104, CHANGELOG `0.16.0` and `0.17.0`).
 

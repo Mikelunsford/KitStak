@@ -27,7 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 10
+    # R-W14-OBS-01: issues:write so the failure step below can open a durable
+    # incident issue. There is no external Slack/PagerDuty webhook secret, so
+    # a GitHub issue is the self-contained alert channel.
+    permissions:
+      contents: read
+      issues: write
     steps:
+      # R-W14-OBS-02 / R-W14-RLS-PROBE-SILENTGREEN-01: a scheduled run with
+      # missing secrets must go RED, not silently green. This probe backs the
+      # v1 "30 consecutive green nights" gate, so a silent skip would break the
+      # streak invisibly. On the nightly `schedule` event a missing secret is
+      # an `::error::` plus `exit 1`. A manual `workflow_dispatch` re-run is
+      # still allowed to no-op gracefully (a notice plus skip) so an operator
+      # can fire the workflow on a branch that has no staging wire-up without
+      # generating a false failure.
       - name: Verify staging secrets are configured
         id: secrets
         env:
@@ -35,7 +49,11 @@ jobs:
           STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "${STAGING_SUPABASE_URL:-}" ] || [ -z "${STAGING_SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
-            echo "::notice::STAGING_SUPABASE_URL or STAGING_SUPABASE_SERVICE_ROLE_KEY not configured. Skipping nightly RLS probe. Configure these secrets under the 'staging' environment (sourced from supabase branches get staging) to enable the probe."
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "::error::STAGING_SUPABASE_URL or STAGING_SUPABASE_SERVICE_ROLE_KEY not configured. The scheduled nightly RLS probe cannot run and must NOT pass silently green (it backs the 30-night v1 gate). Failing. Configure these secrets under the 'staging' environment (sourced from supabase branches get staging)."
+              exit 1
+            fi
+            echo "::notice::STAGING_SUPABASE_URL or STAGING_SUPABASE_SERVICE_ROLE_KEY not configured. Manual run, skipping cleanly. Configure these secrets under the 'staging' environment to enable the probe."
             echo "configured=false" >> "$GITHUB_OUTPUT"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -79,3 +97,36 @@ jobs:
         with:
           name: playwright-rls-report
           path: apps/web/playwright-report
+
+      # R-W14-OBS-01: durable external alert channel. On any failure (a real
+      # RLS regression, a missing-secret scheduled run, or an infra error) open
+      # a tracked GitHub issue so the failure is not just a default email that
+      # can be missed. Self-contained: no third-party webhook secret required.
+      - name: Open incident issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `nightly-rls-probe failed (${new Date().toISOString().slice(0, 10)})`;
+            const body = [
+              'The nightly cross-tenant RLS probe failed.',
+              '',
+              `Run: ${runUrl}`,
+              `Event: ${context.eventName}`,
+              `Commit: ${context.sha}`,
+              '',
+              'A failure here is a release blocker per the constitution. It is one of:',
+              '- a real cross-tenant RLS leak (a read returned rows or a workflow POST returned 403 where 404 is required),',
+              '- a missing-secret scheduled run (the staging environment secrets are not configured), or',
+              '- an infrastructure error during fixture bootstrap.',
+              '',
+              'Triage with docs/operations/probes.md. Download the playwright-rls-report artifact from the run for the full assertion trace. This issue also affects the 30-consecutive-green-night v1 gate.',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['incident', 'probe-failure'],
+            });

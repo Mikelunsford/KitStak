@@ -42,8 +42,13 @@ Fields:
   to your workspace display name.
 * `Primary color` is the navy chrome behind the topbar and sidebar.
 * `Accent color` is the call-to-action color.
-* `Logo URL` and `Favicon URL` point to hosted images. A storage upload
-  helper is on the roadmap.
+* `Logo URL` and `Favicon URL` point to hosted images. You can either paste
+  a URL to an image you already host, or upload a file directly from the
+  branding page. The upload control mints a single-use signed link, sends the
+  file straight to the workspace `branding` storage bucket, and fills the URL
+  field with the public address for you. Logos and email logos accept PNG,
+  JPEG, SVG, WebP, or ICO up to 1 MB; the favicon ceiling is 256 KB. Uploading
+  requires the `branding.logo.upload` capability.
 * `Invoice PDF footer` prints on every rendered invoice. Use this for a
   bank routing line or a remit-to address.
 

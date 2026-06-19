@@ -1196,6 +1196,20 @@ test.describe('@rls cross-tenant probe matrix', () => {
     ['workforce_team_members', 'KitForce'],
     ['shifts', 'KitForce'],
     ['time_entries', 'KitForce'],
+    // 3PL commercial layer (migrations 0089-0102) and WMS Body B
+    // (0106-0110). All Pattern A (org_id uuid not null = current_org_id())
+    // confirmed against their creating migrations. Added 2026-06-18 to close
+    // R-W14-RLS-PROBE-GAP-01: these tenant-scoped tables shipped after the
+    // matrix was last extended and were silently unprobed.
+    ['three_pl_accounts', '3PL Operations'],
+    ['job_templates', '3PL Operations'],
+    ['supply_plans', '3PL Operations'],
+    ['job_runs', '3PL Operations'],
+    ['job_run_daily_logs', '3PL Operations'],
+    ['billing_reviews', '3PL Operations'],
+    ['warehouse_locations', 'WMS'],
+    ['putaway_tasks', 'WMS'],
+    ['lots', 'WMS'],
   ];
 
   // PostgREST returns PGRST205 with HTTP 404 when a relation is not in the

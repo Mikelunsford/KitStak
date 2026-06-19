@@ -27,7 +27,7 @@ export function Logo({ size = 'default', className = '' }: LogoProps) {
         />
       </div>
       <span className={`font-display ${d.textSize} text-ink tracking-[0.08em]`}>
-        KITSTAK
+        Kitstak
       </span>
     </div>
   );
