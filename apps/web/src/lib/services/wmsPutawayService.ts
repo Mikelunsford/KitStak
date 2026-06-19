@@ -7,7 +7,8 @@
 // bin). The apiClient attaches the Idempotency-Key for non-GET requests, so
 // handlers never hand-roll it.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   PutawayTaskSchema,
   type PutawayTask,
@@ -45,6 +46,22 @@ export async function listWmsPutaway(
     method: 'GET',
   });
   return (data as PutawayTask[]).map((r) => PutawayTaskSchema.parse(r));
+}
+
+// UI scan Workstream C: server-driven list toolbar page (sort, keyset; no text
+// search column on the task). The putaway list returns its rows in `data` and
+// next_cursor in `meta`, so this reads the full envelope via apiRequestWithMeta
+// (META-cursor shape).
+export async function listWmsPutawayPage(
+  params: ServerListParams,
+): Promise<{ items: PutawayTask[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  return {
+    items: (env.data as PutawayTask[]).map((r) => PutawayTaskSchema.parse(r)),
+    next_cursor: metaCursor(env.meta),
+  };
 }
 
 export async function getWmsPutaway(id: string): Promise<PutawayTask> {

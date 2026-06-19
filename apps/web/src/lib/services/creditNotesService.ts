@@ -4,7 +4,8 @@
 
 import { z } from 'zod';
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   CreditNoteAllocationSchema,
   CreditNoteSchema,
@@ -53,6 +54,19 @@ export async function listCreditNotes(
     method: 'GET',
   });
   return CreditNoteListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset). The
+// credit note list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta. Mirrors listInvoicesPage.
+export async function listCreditNotesPage(
+  params: ServerListParams,
+): Promise<{ items: CreditNote[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/invoicing-api/credit-notes${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: CreditNoteListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getCreditNote(id: string): Promise<CreditNote> {

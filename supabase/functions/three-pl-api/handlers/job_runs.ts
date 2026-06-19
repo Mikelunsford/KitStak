@@ -10,8 +10,12 @@
 import type { RouteCtx } from '../../_shared/route.ts';
 import { ApiError, ok, internalError } from '../../_shared/responses.ts';
 import {
-  admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
 import { assertRefInOrg } from '../../_shared/crud.ts';
 import { nextDocNumber } from '../../_shared/numbering.ts';
@@ -34,21 +38,42 @@ import {
   assertDailyLogParent, nextDailyLogLinePosition, buildTemplateSnapshot,
 } from './_helpers.ts';
 
+// Workstream C (UI scan) server list toolbar allowlists. run_number is nullable
+// (migration 0098: org-scoped, nullable, unique only where present) so it is a
+// SEARCH column only, never a sort. SORT_COLS are NOT NULL only (created_at,
+// status), so the keyset cursor never straddles a null. DEFAULT_SORT keeps the
+// legacy created_at desc ordering when no sort param is sent.
+const JOB_RUN_SEARCH_COLS = ['run_number'] as const;
+const JOB_RUN_SORT_COLS = ['created_at', 'status'] as const;
+const JOB_RUN_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listJobRuns({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
+  const limit = parseLimit(url);
+  const sort = parseSort(url, JOB_RUN_SORT_COLS, JOB_RUN_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
   const projectId = url.searchParams.get('project_id');
   const accountId = url.searchParams.get('account_id');
   let q = admin()
     .from('job_runs').select('*')
-    .eq('org_id', caller.orgId).is('deleted_at', null)
-    .order('created_at', { ascending: false }).limit(200);
+    .eq('org_id', caller.orgId).is('deleted_at', null);
   if (status) q = q.eq('status', status);
   if (projectId) q = q.eq('project_id', projectId);
   if (accountId) q = q.eq('account_id', accountId);
+  if (search) q = q.or(buildSearchOr(JOB_RUN_SEARCH_COLS, search));
+  q = q
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) q = q.or(buildKeysetOr(sort, cursor));
   const { data, error } = await q;
   if (error) throw internalError(BUNDLE, error);
-  return ok((data ?? []).map((r) => JobRunSchema.parse(r)));
+  const rows = (data ?? []).map((r) => JobRunSchema.parse(r)) as Array<
+    ReturnType<typeof JobRunSchema.parse> & { id: string }
+  >;
+  return ok(paginateSorted(rows, limit, sort.column));
 }
 
 export async function createJobRun({ req }: RouteCtx): Promise<Response> {

@@ -1,11 +1,14 @@
 // Shipments service. Lives under bundle-gated ops-api.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   ShipmentSchema, type Shipment, type ShipmentStatus,
 } from '@/lib/types/vendors_inventory_ops';
 
 export type { Shipment, ShipmentStatus };
+
+const ShipmentListSchema = ShipmentSchema.array();
 
 export type ListShipmentsFilters = {
   customer_id?: string;
@@ -33,6 +36,19 @@ export async function listShipments(
     { method: 'GET' },
   );
   return (data as Shipment[]).map((r) => ShipmentSchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset). The
+// shipment list returns its rows in `data` and next_cursor in `meta`, so this
+// reads the full envelope via apiRequestWithMeta.
+export async function listShipmentsPage(
+  params: ServerListParams,
+): Promise<{ items: Shipment[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/ops-api/shipments${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: ShipmentListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getShipment(id: string): Promise<Shipment> {

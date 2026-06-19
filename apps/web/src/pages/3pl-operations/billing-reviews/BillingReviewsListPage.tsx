@@ -1,10 +1,15 @@
 // BillingReviewsListPage (Wave 12 Phase A7). The Billing Review list surface:
 // the finance reconciliation step over a completed Job Run, planned estimate
-// against realized actual before an invoice is cut. Shared UI kit (PageHeader +
-// FilterBar + DataTable + Pagination + StatusBadge) matching the Job Runs /
-// Supply Plans list surfaces. The status filter narrows server-side
-// (three-pl-api GET /billing-reviews?status=). The create CTA is gated on
-// threepl.billing_review.create; the server is authority.
+// against realized actual before an invoice is cut. Workstream C of the
+// 2026-06-17 UI scan adds the server list toolbar (search on review number,
+// sortable headers, status facet, keyset pager, saved views) behind
+// feature.list_toolbar. The flag-off path is the original client-state view
+// (PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination),
+// extracted verbatim into BillingReviewsListLegacy; the flag-on path is
+// BillingReviewsListToolbar. The parent renders one or the other. The estimate
+// and actual totals are per-row money columns only (no whole-list rollup), so
+// paging the list keeps every figure correct. The create CTA is gated on
+// threepl.billing_review.create in both paths; the server is authority.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,19 +19,34 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { CursorPager } from '@/components/ui/CursorPager';
+import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { formatCents } from '@/lib/money';
 import { useBillingReviewsList } from '@/lib/hooks/useBillingReviews';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listBillingReviewsPage } from '@/lib/services/billingReviewsService';
+import { billingReviewsKeys } from '@/lib/queryKeys/threepl';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type {
   BillingReview,
   BillingReviewStatus,
 } from '@/lib/services/billingReviewsService';
 
 const PAGE_SIZE = 50;
+
+const BILLING_REVIEW_STATUSES: ReadonlyArray<BillingReviewStatus> = [
+  'draft',
+  'approved',
+  'invoiced',
+  'cancelled',
+];
 
 function reviewMoney(
   cents: number | string | null,
@@ -53,6 +73,7 @@ const COLUMNS: ReadonlyArray<DataColumn<BillingReview>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (r) => <StatusBadge status={r.status} />,
   },
   {
@@ -72,12 +93,105 @@ const COLUMNS: ReadonlyArray<DataColumn<BillingReview>> = [
   {
     key: 'created',
     header: 'Created',
+    sortKey: 'created_at',
     cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => r.created_at.slice(0, 10),
   },
 ];
 
 export function BillingReviewsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <BillingReviewsListToolbar />
+  ) : (
+    <BillingReviewsListLegacy />
+  );
+}
+
+function BillingReviewsListToolbar() {
+  const caps = useCapabilities();
+  const server = useServerList<BillingReview>({
+    enabled: true,
+    queryKeyBase: billingReviewsKeys.all,
+    fetchPage: listBillingReviewsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="3PL Operations"
+        title="Billing Review"
+        actions={
+          caps.can('threepl.billing_review.create') ? (
+            <Link to="/3pl-operations/billing-reviews/new">
+              <Button variant="primary">New billing review</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search review number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter billing reviews by status"
+          >
+            <option value="">All statuses</option>
+            {BILLING_REVIEW_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="billing_review"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load billing reviews.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(r) => r.id}
+            loading={server.isLoading}
+            empty="No billing reviews match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function BillingReviewsListLegacy() {
   const [status, setStatus] = useState<BillingReviewStatus | ''>('');
   const [page, setPage] = useState(0);
 

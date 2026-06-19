@@ -77,10 +77,17 @@ export function ProductionRunDetailPage() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
+      {/* production_run is a legacy-only entity: every create path is retired
+          (the /3pl-operations/production list+create routes are <Navigate>
+          redirects to the manufacturing pillar, ops-api POST /production-runs
+          has no caller). This detail page is reachable only by deep link and
+          the stock-ledger source cell, so the leading crumbs are display-only.
+          A `to: '/3pl-operations/production'` here redirected to
+          /manufacturing/runs (a different table's list that never contains this
+          run). See F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01. */}
       <Breadcrumbs
         items={[
-          { label: 'Production', to: '/3pl-operations/production' },
-          { label: 'Runs', to: '/3pl-operations/production' },
+          { label: 'Production runs' },
           { label: d.run_number ?? d.id.slice(0, 8) },
         ]}
       />

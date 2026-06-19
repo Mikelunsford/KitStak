@@ -44,8 +44,12 @@ import { z } from 'zod';
 import { type Route } from '../_shared/route.ts';
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
-  admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
 import { assertRefInOrg, assertLotForItem } from '../_shared/crud.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
@@ -287,6 +291,23 @@ async function nextPositionFor(
 // Route table
 // ---------------------------------------------------------------------------
 
+// Workstream C (UI scan): the receiving-order list toolbar searches the
+// receiving number, sorts an allowlist of NOT NULL columns (created_at, status),
+// and pages by keyset on the active sort column. The nullable date columns
+// (expected_date, received_date) stay filters, never sorts, so the keyset cursor
+// never straddles a NULL.
+const RECEIVING_SEARCH_COLS = ['receiving_number'] as const;
+const RECEIVING_SORT_COLS = ['created_at', 'status'] as const;
+const RECEIVING_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// Workstream C (UI scan): the shipment list toolbar searches the shipment
+// number, sorts an allowlist of NOT NULL columns (created_at, status), and
+// pages by keyset on the active sort column. The nullable ship_date stays a
+// filter, never a sort, so the keyset cursor never straddles a NULL.
+const SHIPMENT_SEARCH_COLS = ['shipment_number'] as const;
+const SHIPMENT_SORT_COLS = ['created_at', 'status'] as const;
+const SHIPMENT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 const TABLE: Route[] = [
   // receiving_orders
   {
@@ -302,17 +323,35 @@ const TABLE: Route[] = [
       // server for only receiving orders bound to a given project instead
       // of fetching the whole list and filtering client-side. The
       // receiving_orders_project_id_idx (0061) covers this lookup.
+      //
+      // Workstream C (UI scan): the keyset toolbar params (search, sort_by,
+      // sort_dir, cursor, status) are additive. Absent params reproduce the
+      // legacy "newest first" ordering; the vendor_id / project_id FK filters
+      // are preserved verbatim.
+      const limit = parseLimit(url);
+      const sort = parseSort(url, RECEIVING_SORT_COLS, RECEIVING_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const vendorId = url.searchParams.get('vendor_id');
       const projectId = url.searchParams.get('project_id');
+      const status = url.searchParams.get('status');
       let q = admin()
         .from('receiving_orders').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (vendorId) q = q.eq('vendor_id', vendorId);
       if (projectId) q = q.eq('project_id', projectId);
+      if (status) q = q.eq('status', status);
+      if (search) q = q.or(buildSearchOr(RECEIVING_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('ops-api', error);
-      return ok((data ?? []).map((r) => ReceivingOrderSchema.parse(r)));
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+      const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+      return ok(items.map((r) => ReceivingOrderSchema.parse(r)), { next_cursor });
     },
   },
   {
@@ -773,16 +812,34 @@ const TABLE: Route[] = [
       // a given project. Mirrors the receiving_orders project_id filter
       // shape (UX-Q6). Backed by shipments_project_id_idx (migration 0063
       // re-declaration of 0046).
+      //
+      // Workstream C (UI scan): the keyset toolbar params (search, sort_by,
+      // sort_dir, cursor, status) are additive. Absent params reproduce the
+      // legacy "newest first" ordering; the customer_id / project_id FK
+      // filters are preserved verbatim.
+      const limit = parseLimit(url);
+      const sort = parseSort(url, SHIPMENT_SORT_COLS, SHIPMENT_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const customerId = url.searchParams.get('customer_id');
       const projectId = url.searchParams.get('project_id');
+      const status = url.searchParams.get('status');
       let q = admin().from('shipments').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(200);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (customerId) q = q.eq('customer_id', customerId);
       if (projectId) q = q.eq('project_id', projectId);
+      if (status) q = q.eq('status', status);
+      if (search) q = q.or(buildSearchOr(SHIPMENT_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError('ops-api', error);
-      return ok((data ?? []).map((r) => ShipmentSchema.parse(r)));
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+      const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+      return ok(items.map((r) => ShipmentSchema.parse(r)), { next_cursor });
     },
   },
   {

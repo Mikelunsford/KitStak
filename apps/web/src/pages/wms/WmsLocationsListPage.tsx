@@ -1,10 +1,11 @@
 // WmsLocationsListPage (Wave 12 Body B Phase B1). The WMS add-on's first
 // surface: the bins, shelves, racks, docks, and staging areas inside a
-// warehouse. Shared UI kit (PageHeader + FilterBar + DataTable + Pagination +
-// StatusBadge) matching the Accounts / Receiving list surfaces. The location
-// type filter narrows the list server-side (wms-api GET /locations?
-// location_type=). The create CTA is gated on wms.location.create; the server
-// is authority.
+// warehouse. UI scan Workstream C adds the server list toolbar (search on code,
+// sortable headers, location-type facet, keyset pager, saved views) behind
+// feature.list_toolbar. The flag-off path is the original client-state view,
+// extracted verbatim into WmsLocationsListLegacy; the flag-on path is
+// WmsLocationsListToolbar. The parent renders one or the other. The create CTA
+// is gated on wms.location.create; the server is authority.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -15,12 +16,20 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useWmsLocationsList } from '@/lib/hooks/useWmsLocations';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listWmsLocationsPage } from '@/lib/services/wmsLocationsService';
+import { wmsLocationsKeys } from '@/lib/queryKeys/wms';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type {
   WarehouseLocation,
   WarehouseLocationType,
@@ -28,10 +37,13 @@ import type {
 
 const PAGE_SIZE = 50;
 
+const LOCATION_TYPES = ['bin', 'shelf', 'rack', 'dock', 'staging'] as const;
+
 const COLUMNS: ReadonlyArray<DataColumn<WarehouseLocation>> = [
   {
     key: 'code',
     header: 'Code',
+    sortKey: 'code',
     cellClassName: 'tabular-nums',
     render: (l) => (
       <Link to={`/wms/locations/${l.id}`} className={LINK_CLASS}>
@@ -42,6 +54,7 @@ const COLUMNS: ReadonlyArray<DataColumn<WarehouseLocation>> = [
   {
     key: 'type',
     header: 'Type',
+    sortKey: 'location_type',
     cellClassName: 'text-ink-dim capitalize',
     render: (l) => l.location_type,
   },
@@ -59,6 +72,98 @@ const COLUMNS: ReadonlyArray<DataColumn<WarehouseLocation>> = [
 ];
 
 export function WmsLocationsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <WmsLocationsListToolbar />
+  ) : (
+    <WmsLocationsListLegacy />
+  );
+}
+
+function WmsLocationsListToolbar() {
+  const caps = useCapabilities();
+  const server = useServerList<WarehouseLocation>({
+    enabled: true,
+    queryKeyBase: wmsLocationsKeys.all,
+    fetchPage: listWmsLocationsPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'location_type', label: 'Type' }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="WMS"
+        title="Locations"
+        actions={
+          caps.can('wms.location.create') ? (
+            <Link to="/wms/locations/new">
+              <Button variant="primary">New location</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search code"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Type
+          </span>
+          <Select
+            value={server.facetValues.location_type ?? ''}
+            onChange={(e) => server.setFacet('location_type', e.target.value)}
+            aria-label="Filter locations by type"
+          >
+            <option value="">All types</option>
+            {LOCATION_TYPES.map((t) => (
+              <option key={t} value={t} className="capitalize">
+                {t}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="warehouse_location"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load locations.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(l) => l.id}
+            loading={server.isLoading}
+            empty="No locations match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function WmsLocationsListLegacy() {
   const [locationType, setLocationType] = useState<WarehouseLocationType | ''>('');
   const [page, setPage] = useState(0);
 

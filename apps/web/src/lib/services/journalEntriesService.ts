@@ -6,7 +6,8 @@
 
 import { z } from 'zod';
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   JournalEntryLineSchema,
   JournalEntrySchema,
@@ -69,6 +70,20 @@ export async function listJournalEntries(
     method: 'GET',
   });
   return JeListSchema.parse(data);
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset). The
+// journal entry list returns its rows in `data` (through the JournalEntry
+// schema mapper) and next_cursor in `meta`, so this reads the full envelope via
+// apiRequestWithMeta. Mirrors listShipmentsPage / listPaymentsPage.
+export async function listJournalEntriesPage(
+  params: ServerListParams,
+): Promise<{ items: JournalEntry[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/finance-api/journal-entries${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: JeListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export type JournalEntryDetail = {

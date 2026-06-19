@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   ProjectSchema, ProjectPhaseSchema,
   type Project, type ProjectPhase,
@@ -33,6 +34,18 @@ function projectsQs(filters: ListProjectsFilters): string {
 export async function listProjects(filters: ListProjectsFilters = {}): Promise<Project[]> {
   const raw = await apiRequest<unknown>(`/projects-api/projects${projectsQs(filters)}`, { method: 'GET' });
   return ListEnvelope.parse(raw).items;
+}
+
+// Workstream C (UI scan): the server list toolbar returns one keyset page as
+// { items, next_cursor } in the data envelope (Shape A), mirroring
+// listSalesOrdersPage / listWarehousesPage. The legacy listProjects above is
+// left intact for the flag-off path.
+export async function listProjectsPage(
+  params: ServerListParams,
+): Promise<{ items: Project[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`/projects-api/projects${serverListQs(params)}`, { method: 'GET' });
+  const parsed = ListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getProject(

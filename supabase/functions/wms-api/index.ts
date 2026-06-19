@@ -56,12 +56,16 @@
 import { type Route } from '../_shared/route.ts';
 import { ApiError, ok, internalError } from '../_shared/responses.ts';
 import {
-  admin, parseBody, parseUuidParam, respondWithIdempotency, created, requireCap,
+  admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, requireCap,
 } from '../_shared/handler-helpers.ts';
 import { requireCaller, type Caller } from '../_shared/tenant.ts';
 import { assertRefInOrg, assertLotForItem } from '../_shared/crud.ts';
 import { serveBundleWithGate } from '../_shared/bundleGate.ts';
 import { FEATURE_FLAGS } from '../_shared/constants.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
 import {
   WarehouseLocationSchema,
   WarehouseLocationCreateSchema,
@@ -222,6 +226,44 @@ async function lotForReceivingLine(
 }
 
 // ---------------------------------------------------------------------------
+// Server list toolbar allowlists (UI scan Workstream C; mirrors the ops-api /
+// inventory-api keyset trios). SEARCH_COLS are NOT NULL text columns an operator
+// types to find a row; SORT_COLS are NOT NULL only, so the keyset cursor never
+// straddles a null (paginateSorted throws on a null cursor value). Nullable
+// identifier or audit columns stay filters, never sorts. Default sort is the
+// legacy "newest first" ordering for each list.
+// ---------------------------------------------------------------------------
+
+// warehouse_locations: code is NOT NULL (the operator-facing identifier), so it
+// is both a search and a sort column. location_type is NOT NULL. The legacy list
+// ordered by code asc, but the toolbar default mirrors the rest of the suite
+// (created_at desc); code asc stays available as a sort.
+const LOCATION_SEARCH_COLS = ['code'] as const;
+const LOCATION_SORT_COLS = ['created_at', 'code', 'location_type'] as const;
+const LOCATION_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// bin_stock_levels: a read-only rollup with no text identifier column, so there
+// is no search (no SEARCH_COLS). updated_at is NOT NULL (the legacy "most
+// recently moved first" ordering) and quantity_on_hand is a NOT NULL numeric, so
+// both are safe sorts. There is no created_at on the rollup, so the default sort
+// is updated_at desc, matching the legacy order.
+const BIN_STOCK_SORT_COLS = ['updated_at', 'quantity_on_hand'] as const;
+const BIN_STOCK_DEFAULT_SORT: SortSpec = { column: 'updated_at', dir: 'desc' };
+
+// putaway_tasks: no text identifier column (source_entity_type is a nullable
+// audit ref, never an identifier), so there is no search (no SEARCH_COLS).
+// status and created_at are the confirmed NOT NULL columns offered as sorts.
+const PUTAWAY_SORT_COLS = ['created_at', 'status'] as const;
+const PUTAWAY_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// lots: lot_code is NOT NULL (the operator-facing identifier), so it is both a
+// search and a sort column. status and created_at are NOT NULL too. expiration
+// and received timestamps are nullable, so they stay filters, never sorts.
+const LOT_SEARCH_COLS = ['lot_code'] as const;
+const LOT_SORT_COLS = ['created_at', 'lot_code', 'status'] as const;
+const LOT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
+// ---------------------------------------------------------------------------
 // Route table
 // ---------------------------------------------------------------------------
 
@@ -233,22 +275,37 @@ const TABLE: Route[] = [
     method: 'GET', path: '/locations',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      // UI scan Workstream C: the keyset toolbar params (search, sort_by,
+      // sort_dir, cursor) are additive. Absent params reproduce the legacy
+      // ordering; the warehouse_id / location_type / parent_location_id / active
+      // facets are preserved verbatim as .eq filters.
+      const limit = parseLimit(url);
+      const sort = parseSort(url, LOCATION_SORT_COLS, LOCATION_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const warehouseId = url.searchParams.get('warehouse_id');
       const locationType = url.searchParams.get('location_type');
       const parentLocationId = url.searchParams.get('parent_location_id');
       const activeParam = url.searchParams.get('active');
       let q = admin()
         .from('warehouse_locations').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('code', { ascending: true }).limit(500);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       if (locationType) q = q.eq('location_type', locationType);
       if (parentLocationId) q = q.eq('parent_location_id', parentLocationId);
       if (activeParam === 'true') q = q.eq('active', true);
       if (activeParam === 'false') q = q.eq('active', false);
+      if (search) q = q.or(buildSearchOr(LOCATION_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError(BUNDLE, error);
-      return ok((data ?? []).map((r) => WarehouseLocationSchema.parse(r)));
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+      const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+      return ok(items.map((r) => WarehouseLocationSchema.parse(r)), { next_cursor });
     },
   },
   {
@@ -383,19 +440,32 @@ const TABLE: Route[] = [
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
       requireCap(caller, 'wms.bin_stock.read');
+      // UI scan Workstream C: the keyset toolbar params (sort_by, sort_dir,
+      // cursor) are additive. Absent params reproduce the legacy updated_at desc
+      // ordering; the warehouse_id / item_id / location_id facets are preserved
+      // verbatim. The rollup has no text identifier column, so there is no search.
+      const limit = parseLimit(url);
+      const sort = parseSort(url, BIN_STOCK_SORT_COLS, BIN_STOCK_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const warehouseId = url.searchParams.get('warehouse_id');
       const itemId = url.searchParams.get('item_id');
       const locationId = url.searchParams.get('location_id');
       let q = admin()
         .from('bin_stock_levels').select('*')
-        .eq('org_id', caller.orgId)
-        .order('updated_at', { ascending: false }).limit(500);
+        .eq('org_id', caller.orgId);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
       if (itemId) q = q.eq('item_id', itemId);
       if (locationId) q = q.eq('location_id', locationId);
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError(BUNDLE, error);
-      return ok((data ?? []).map((r) => BinStockLevelSchema.parse(r)));
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+      const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+      return ok(items.map((r) => BinStockLevelSchema.parse(r)), { next_cursor });
     },
   },
   {
@@ -418,17 +488,30 @@ const TABLE: Route[] = [
     method: 'GET', path: '/putaway',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      // UI scan Workstream C: the keyset toolbar params (sort_by, sort_dir,
+      // cursor) are additive. Absent params reproduce the legacy created_at desc
+      // ordering; the status / warehouse_id facets are preserved verbatim. The
+      // task has no text identifier column, so there is no search.
+      const limit = parseLimit(url);
+      const sort = parseSort(url, PUTAWAY_SORT_COLS, PUTAWAY_DEFAULT_SORT);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const status = url.searchParams.get('status');
       const warehouseId = url.searchParams.get('warehouse_id');
       let q = admin()
         .from('putaway_tasks').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(500);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (status) q = q.eq('status', status);
       if (warehouseId) q = q.eq('warehouse_id', warehouseId);
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError(BUNDLE, error);
-      return ok((data ?? []).map((r) => PutawayTaskSchema.parse(r)));
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+      const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+      return ok(items.map((r) => PutawayTaskSchema.parse(r)), { next_cursor });
     },
   },
   {
@@ -741,17 +824,32 @@ const TABLE: Route[] = [
     method: 'GET', path: '/lots',
     handler: async ({ req, url }) => {
       const caller = requireCaller(req);
+      // UI scan Workstream C: the keyset toolbar params (search, sort_by,
+      // sort_dir, cursor) are additive. Absent params reproduce the legacy
+      // created_at desc ordering; the item_id / status facets are preserved
+      // verbatim. Search matches lot_code (the NOT NULL operator identifier).
+      const limit = parseLimit(url);
+      const sort = parseSort(url, LOT_SORT_COLS, LOT_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
       const itemId = url.searchParams.get('item_id');
       const status = url.searchParams.get('status');
       let q = admin()
         .from('lots').select('*')
-        .eq('org_id', caller.orgId).is('deleted_at', null)
-        .order('created_at', { ascending: false }).limit(500);
+        .eq('org_id', caller.orgId).is('deleted_at', null);
       if (itemId) q = q.eq('item_id', itemId);
       if (status) q = q.eq('status', status);
+      if (search) q = q.or(buildSearchOr(LOT_SEARCH_COLS, search));
+      q = q
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
+        .limit(limit + 1);
+      if (cursor) q = q.or(buildKeysetOr(sort, cursor));
       const { data, error } = await q;
       if (error) throw internalError(BUNDLE, error);
-      return ok((data ?? []).map((r) => LotSchema.parse(r)));
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+      const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+      return ok(items.map((r) => LotSchema.parse(r)), { next_cursor });
     },
   },
   {

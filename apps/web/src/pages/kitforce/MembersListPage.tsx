@@ -1,12 +1,15 @@
-// MembersListPage. KitForce pillar. Migration to the shared UI kit
-// (F-Wave10-UI-KIT-01): PageHeader + FilterBar + Select + DataTable +
-// StatusBadge + Pagination replace the hand-rolled header, status select,
-// table, and raw status pill. Behavior preserved: the ?status= deep-link from
-// the home tiles still seeds the filter, the create CTA stays gated on
-// kitforce.member.create, the onboarding ListEmptyState only shows when
-// unfiltered, and the default-rate column is still gated on
-// kitforce.member.read_rate (the column is omitted entirely for roles without
-// it; DataTable derives the empty-row colSpan from columns.length).
+// MembersListPage. KitForce pillar. The flag-on path (feature.list_toolbar) is
+// the server list toolbar (search on name / member number / email, sortable NOT
+// NULL columns, status facet, keyset pager, saved views) via MembersListToolbar.
+// The flag-off path is the original client-state view (the F-Wave10-UI-KIT-01
+// migration: PageHeader + FilterBar + Select + DataTable + StatusBadge +
+// Pagination, with the ?status= deep-link applied client-side), extracted
+// verbatim into MembersListLegacy. The parent renders one or the other.
+//
+// C2 rate gate (both paths): the default-rate column is omitted entirely for
+// roles without kitforce.member.read_rate, so the columns array is computed from
+// canReadRate. DataTable reads columns.length for the empty-row colSpan, so the
+// column count stays correct without a manual colSpan.
 
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -15,15 +18,23 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ReferenceField } from '@/components/data/ReferenceField';
 import { useMembersList } from '@/lib/hooks/useKitForce';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { listMembersPage } from '@/lib/services/kitforceService';
+import { membersKeys } from '@/lib/queryKeys/kitforce';
 import { formatCents } from '@/lib/money';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import type {
   WorkforceMember,
   WorkforceMemberStatus,
@@ -47,7 +58,155 @@ function renderMemberDetails(m: WorkforceMember) {
   return <ReferenceField label="Number" value={m.member_number} />;
 }
 
+// Shared column set for both paths. The rate column is appended only when the
+// caller may read rates (C2). sortKey is set only on NOT NULL sortable columns
+// (display_name, status); email / phone / rate are render-only.
+function buildMemberColumns(
+  canReadRate: boolean,
+): ReadonlyArray<DataColumn<WorkforceMember>> {
+  const cols: DataColumn<WorkforceMember>[] = [
+    {
+      key: 'member',
+      header: 'Member',
+      sortKey: 'display_name',
+      render: (m) => (
+        <Link to={`/kitforce/members/${m.id}`} className={LINK_CLASS}>
+          {m.display_name ?? m.member_number}
+        </Link>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortKey: 'status',
+      render: (m) => <StatusBadge status={m.status} />,
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      cellClassName: 'text-ink-dim',
+      render: (m) => m.email ?? '·',
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      cellClassName: 'text-ink-dim',
+      render: (m) => m.phone ?? '·',
+    },
+  ];
+  if (canReadRate) {
+    cols.push({
+      key: 'rate',
+      header: 'Default rate',
+      align: 'right',
+      cellClassName: 'tabular-nums text-ink-dim',
+      render: (m) =>
+        m.default_hourly_rate_cents != null
+          ? `${formatCents(m.default_hourly_rate_cents, 'USD')}/hr`
+          : '·',
+    });
+  }
+  return cols;
+}
+
 export function MembersListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <MembersListToolbar />
+  ) : (
+    <MembersListLegacy />
+  );
+}
+
+function MembersListToolbar() {
+  const caps = useVioCapabilities();
+  const canReadRate = caps.can('kitforce.member.read_rate');
+
+  const server = useServerList<WorkforceMember>({
+    enabled: true,
+    queryKeyBase: membersKeys.all,
+    fetchPage: listMembersPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  const columns = useMemo(() => buildMemberColumns(canReadRate), [canReadRate]);
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="KitForce / Members"
+        title="Members"
+        actions={
+          caps.can('kitforce.member.create') ? (
+            <Link to="/kitforce/members/new">
+              <Button variant="primary">New member</Button>
+            </Link>
+          ) : undefined
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search name, number, or email"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All</option>
+            {MEMBER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="member"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load members.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={server.rows}
+            getRowKey={(m) => m.id}
+            loading={server.isLoading}
+            empty="No members match these filters."
+            renderRowDetails={renderMemberDetails}
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function MembersListLegacy() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<StatusFilter>(() =>
     parseMemberStatusParam(searchParams.get('status')),
@@ -73,49 +232,7 @@ export function MembersListPage() {
   // without kitforce.member.read_rate, so the columns array is computed from
   // canReadRate. DataTable reads columns.length for the empty-row colSpan, so
   // the column count stays correct without a manual colSpan.
-  const columns = useMemo<ReadonlyArray<DataColumn<WorkforceMember>>>(() => {
-    const cols: DataColumn<WorkforceMember>[] = [
-      {
-        key: 'member',
-        header: 'Member',
-        render: (m) => (
-          <Link to={`/kitforce/members/${m.id}`} className={LINK_CLASS}>
-            {m.display_name ?? m.member_number}
-          </Link>
-        ),
-      },
-      {
-        key: 'status',
-        header: 'Status',
-        render: (m) => <StatusBadge status={m.status} />,
-      },
-      {
-        key: 'email',
-        header: 'Email',
-        cellClassName: 'text-ink-dim',
-        render: (m) => m.email ?? '·',
-      },
-      {
-        key: 'phone',
-        header: 'Phone',
-        cellClassName: 'text-ink-dim',
-        render: (m) => m.phone ?? '·',
-      },
-    ];
-    if (canReadRate) {
-      cols.push({
-        key: 'rate',
-        header: 'Default rate',
-        align: 'right',
-        cellClassName: 'tabular-nums text-ink-dim',
-        render: (m) =>
-          m.default_hourly_rate_cents != null
-            ? `${formatCents(m.default_hourly_rate_cents, 'USD')}/hr`
-            : '·',
-      });
-    }
-    return cols;
-  }, [canReadRate]);
+  const columns = useMemo(() => buildMemberColumns(canReadRate), [canReadRate]);
 
   const rows = members.data ?? [];
   const totalCount = rows.length;

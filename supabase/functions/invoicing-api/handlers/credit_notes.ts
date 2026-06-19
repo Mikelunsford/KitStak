@@ -25,13 +25,15 @@ import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller, type Caller } from '../../_shared/tenant.ts';
 import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
@@ -107,12 +109,22 @@ async function fetchCN(orgId: string, id: string) {
   return data;
 }
 
+// Workstream C (UI scan): the credit note list toolbar searches the credit note
+// number, sorts an allowlist of NOT NULL columns, and pages by keyset on the
+// active sort column. The existing status facet and customer_id FK filter are
+// preserved. All params are optional and additive.
+const CN_SEARCH_COLS = ['credit_note_number'] as const;
+const CN_SORT_COLS = ['created_at', 'amount_cents', 'status', 'credit_note_number'] as const;
+const CN_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCap(caller, 'credit_notes.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
+  const sort = parseSort(url, CN_SORT_COLS, CN_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
   // F-Wave7-LISTFILTER-01: customer_id FK filter mirrors invoices/payments
   // parity. RLS Pattern A wraps the org gate so a cross-tenant customer_id
@@ -123,26 +135,26 @@ export async function listCreditNotes({ req, url }: RouteCtx): Promise<Response>
     .from('credit_notes')
     .select(CN_COLS)
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
 
   if (status) query = query.eq('status', status);
   if (customerId) query = query.eq('customer_id', customerId);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
-  }
+  if (search) query = query.or(buildSearchOr(CN_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
   const { data, error } = await query;
   if (error) {
     throw new ApiError('INTERNAL_ERROR', 500, 'credit note list failed', {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
-  const { items, next_cursor } = paginate(rows, limit);
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
   return ok(items.map(rowToCN), next_cursor ? { next_cursor } : undefined);
 }
 

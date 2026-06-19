@@ -17,13 +17,15 @@ import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
 import { assertRefInOrg } from '../../_shared/crud.ts';
 import {
@@ -99,12 +101,24 @@ async function fetchPayment(orgId: string, id: string) {
   return data;
 }
 
+// Workstream C (UI scan): the payment list toolbar searches the payment number,
+// sorts an allowlist of NOT NULL columns, and pages by keyset on the active
+// sort column. created_at desc is the legacy primary order and stays the default
+// sort; received_at and amount_cents are added as NOT NULL sortable headers. The
+// existing customer_id and invoice_id filters are preserved. All params are
+// optional and additive.
+const PAYMENT_SEARCH_COLS = ['payment_number'] as const;
+const PAYMENT_SORT_COLS = ['created_at', 'received_at', 'amount_cents', 'payment_number'] as const;
+const PAYMENT_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   requireCap(caller, 'payments.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
+  const sort = parseSort(url, PAYMENT_SORT_COLS, PAYMENT_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const customerId = url.searchParams.get('customer_id');
   // BNEW-12: invoice_id filter resolves payments via payment_allocations.
   // The 2026-05-22 re-smoke surfaced that InvoiceDetailPage's PAYMENTS
@@ -143,24 +157,22 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
       .select(PAYMENT_COLS)
       .eq('org_id', caller.orgId)
       .is('deleted_at', null)
-      .in('id', paymentIds)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(limit + 1);
+      .in('id', paymentIds);
     if (customerId) query = query.eq('customer_id', customerId);
-    if (cursor) {
-      query = query.or(
-        `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-      );
-    }
+    if (search) query = query.or(buildSearchOr(PAYMENT_SEARCH_COLS, search));
+    query = query
+      .order(sort.column, { ascending: sort.dir === 'asc' })
+      .order('id', { ascending: sort.dir === 'asc' })
+      .limit(limit + 1);
+    if (cursor) query = query.or(buildKeysetOr(sort, cursor));
     const { data, error } = await query;
     if (error) {
       throw new ApiError('INTERNAL_ERROR', 500, 'payment list failed', {
         detail: error.message,
       });
     }
-    const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
-    const { items, next_cursor } = paginate(rows, limit);
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+    const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
     return ok(items.map(rowToPayment), next_cursor ? { next_cursor } : undefined);
   }
 
@@ -168,25 +180,25 @@ export async function listPayments({ req, url }: RouteCtx): Promise<Response> {
     .from('payments')
     .select(PAYMENT_COLS)
     .eq('org_id', caller.orgId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .is('deleted_at', null);
 
   if (customerId) query = query.eq('customer_id', customerId);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
-  }
+  if (search) query = query.or(buildSearchOr(PAYMENT_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
   const { data, error } = await query;
   if (error) {
     throw new ApiError('INTERNAL_ERROR', 500, 'payment list failed', {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
-  const { items, next_cursor } = paginate(rows, limit);
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
   return ok(items.map(rowToPayment), next_cursor ? { next_cursor } : undefined);
 }
 

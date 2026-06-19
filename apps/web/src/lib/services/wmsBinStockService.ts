@@ -5,7 +5,8 @@
 // maintained by the recompute_bin_stock_level trigger. The sum of on-hand over
 // every location partition reconciles to the spine warehouse total.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   BinStockLevelSchema,
   type BinStockLevel,
@@ -37,6 +38,22 @@ export async function listWmsBinStock(
     method: 'GET',
   });
   return (data as BinStockLevel[]).map((r) => BinStockLevelSchema.parse(r));
+}
+
+// UI scan Workstream C: server-driven list toolbar page (sort, keyset; no text
+// search column on the rollup). The bin-stock list returns its rows in `data`
+// and next_cursor in `meta`, so this reads the full envelope via
+// apiRequestWithMeta (META-cursor shape).
+export async function listWmsBinStockPage(
+  params: ServerListParams,
+): Promise<{ items: BinStockLevel[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  return {
+    items: (env.data as BinStockLevel[]).map((r) => BinStockLevelSchema.parse(r)),
+    next_cursor: metaCursor(env.meta),
+  };
 }
 
 export async function getWmsBinStock(id: string): Promise<BinStockLevel> {

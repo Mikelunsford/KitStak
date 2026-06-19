@@ -7,7 +7,10 @@
 // Rate Card overlay. Money is BIGINT _cents on the wire. The apiClient attaches
 // the Idempotency-Key for non-GET requests, so handlers never hand-roll it.
 
+import { z } from 'zod';
+
 import { apiRequest } from '@/lib/apiClient';
+import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   ThreePlAccountSchema,
   AccountServiceDefinitionSchema,
@@ -51,13 +54,31 @@ function accountsQs(f: ListAccountsFilters): string {
   return s ? `?${s}` : '';
 }
 
+// Workstream C (UI scan): the list route now returns a keyset page envelope
+// { items, next_cursor } (Shape A / DATA-cursor) on every request, mirroring
+// inventory warehouses / copack. The legacy flat-list reader extracts items.
+const AccountListEnvelope = z.object({
+  items: z.array(ThreePlAccountSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+
 export async function listAccounts(
   filters: ListAccountsFilters = {},
 ): Promise<ThreePlAccount[]> {
-  const data = await apiRequest<unknown>(`${BASE}${accountsQs(filters)}`, {
+  const raw = await apiRequest<unknown>(`${BASE}${accountsQs(filters)}`, {
     method: 'GET',
   });
-  return (data as ThreePlAccount[]).map((r) => ThreePlAccountSchema.parse(r));
+  return AccountListEnvelope.parse(raw).items;
+}
+
+export async function listAccountsPage(
+  params: ServerListParams,
+): Promise<{ items: ThreePlAccount[]; next_cursor: string | null }> {
+  const raw = await apiRequest<unknown>(`${BASE}${serverListQs(params)}`, {
+    method: 'GET',
+  });
+  const parsed = AccountListEnvelope.parse(raw);
+  return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
 export async function getAccount(id: string): Promise<ThreePlAccount> {

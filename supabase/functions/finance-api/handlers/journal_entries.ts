@@ -19,13 +19,15 @@ import { ApiError, ok, noContent } from '../../_shared/responses.ts';
 import {
   admin,
   created,
-  decodeCursor,
-  paginate,
   parseBody,
   parseLimit,
   parseUuidParam,
   respondWithIdempotency,
 } from '../../_shared/handler-helpers.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import { requireCaller } from '../../_shared/tenant.ts';
 import { assertRefsInOrg } from '../../_shared/crud.ts';
 import {
@@ -101,38 +103,51 @@ async function fetchJe(orgId: string, id: string) {
   return data;
 }
 
+// Workstream C (UI scan): the journal entry list toolbar searches the entry
+// number, sorts an allowlist of NOT NULL columns, and pages by keyset on the
+// active sort column. created_at desc is the legacy primary order and stays the
+// default sort; entry_date and status are added as NOT NULL sortable headers.
+// entry_number carries a unique(org_id, entry_number) but is the identifier
+// column, so it is a SEARCH column only, never a sort. The existing status
+// filter is preserved. All params are optional and additive.
+const JE_SEARCH_COLS = ['entry_number'] as const;
+const JE_SORT_COLS = ['created_at', 'entry_date', 'status'] as const;
+const JE_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 export async function listJournalEntries({ req, url }: RouteCtx): Promise<Response> {
   const caller = requireCaller(req);
   await requireFinanceJeFlag(caller);
   requireCap(caller, 'journal_entries.read');
 
   const limit = parseLimit(url);
-  const cursor = decodeCursor(url.searchParams.get('cursor'));
+  const sort = parseSort(url, JE_SORT_COLS, JE_DEFAULT_SORT);
+  const search = parseSearch(url);
+  const cursor = decodeSortCursor(url.searchParams.get('cursor'));
   const status = url.searchParams.get('status');
 
   let query = admin()
     .from('journal_entries')
     .select(JE_COLS)
-    .eq('org_id', caller.orgId)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .eq('org_id', caller.orgId);
 
   if (status) query = query.eq('status', status);
-  if (cursor) {
-    query = query.or(
-      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
-    );
-  }
+  if (search) query = query.or(buildSearchOr(JE_SEARCH_COLS, search));
+
+  query = query
+    .order(sort.column, { ascending: sort.dir === 'asc' })
+    .order('id', { ascending: sort.dir === 'asc' })
+    .limit(limit + 1);
+  if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
   const { data, error } = await query;
   if (error) {
     throw new ApiError('INTERNAL_ERROR', 500, 'je list failed', {
       detail: error.message,
     });
   }
-  const rows = (data ?? []) as unknown as Array<{ id: string; created_at: string }>;
-  const { items, next_cursor } = paginate(rows, limit);
-  return ok(items.map(rowToJe), next_cursor ? { next_cursor } : undefined);
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>;
+  const { items, next_cursor } = paginateSorted(rows, limit, sort.column);
+  return ok(items.map(rowToJe), { next_cursor });
 }
 
 export async function getJournalEntry({ req, params }: RouteCtx): Promise<Response> {

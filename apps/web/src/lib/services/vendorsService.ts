@@ -1,6 +1,7 @@
 // Vendors service. Wraps `vendors-api/vendors` endpoints.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   VendorSchema, type Vendor,
 } from '@/lib/types/vendors_inventory_ops';
@@ -11,6 +12,8 @@ export interface VendorsListPage {
   items: Vendor[];
   next_cursor: string | null;
 }
+
+const VendorListSchema = VendorSchema.array();
 
 export async function listVendors(params: { cursor?: string | null; limit?: number } = {}): Promise<VendorsListPage> {
   const sp = new URLSearchParams();
@@ -23,6 +26,19 @@ export async function listVendors(params: { cursor?: string | null; limit?: numb
   // Envelope here returns array as data and next_cursor in meta. apiClient
   // strips the envelope, so we re-shape on the caller side via a wrapper.
   return { items: (raw as Vendor[]).map((v) => VendorSchema.parse(v)), next_cursor: null };
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset). The
+// vendor list returns its rows in `data` and next_cursor in `meta`, so this
+// reads the full envelope via apiRequestWithMeta.
+export async function listVendorsPage(
+  params: ServerListParams,
+): Promise<{ items: Vendor[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/vendors-api/vendors${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return { items: VendorListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
 export async function getVendor(id: string): Promise<Vendor> {

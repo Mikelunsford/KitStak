@@ -50,12 +50,13 @@ function sourceLinkFor(
   if (!entityType || !entityId) return null;
   switch (entityType) {
     case 'receiving_order':
-      return `/3pl-operations/receiving-orders/${entityId}`;
+      return `/3pl-operations/receiving/${entityId}`;
     case 'shipment':
       return `/3pl-operations/shipments/${entityId}`;
     case 'manufacturing_run':
-    case 'production_run':
       return `/manufacturing/runs/${entityId}`;
+    case 'production_run':
+      return `/3pl-operations/production/${entityId}`;
     default:
       return null;
   }

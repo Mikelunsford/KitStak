@@ -3,15 +3,29 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
-  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped, assertRefInOrg,
+  ApiError, ok, admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, internalError,
+  requireCaller, requireCap, getByIdOrgScoped, assertRefInOrg,
   assertTransition,
 } from '../shared.ts';
+import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
 import {
   ExpenseSchema, ExpenseStatusSchema,
   type Expense,
 } from '../../_shared/types/vendors_inventory_ops.ts';
 import { EXPENSE_FSM } from '../../_shared/workflow/vendors_inventory_ops.ts';
+
+// Workstream C (UI scan): server list toolbar allowlists for expenses.
+// SORT_COLS are NOT NULL columns only (created_at, status, expense_date) so
+// the keyset cursor never straddles a null. expense_number is nullable (unique
+// only where present), so it is a SEARCH target only, never a sort. status,
+// vendor_id, and project_id stay facet filters (.eq). DEFAULT_SORT preserves
+// the legacy created_at desc ordering.
+const EXPENSE_SEARCH_COLS = ['expense_number'] as const;
+const EXPENSE_SORT_COLS = ['created_at', 'status', 'expense_date'] as const;
+const EXPENSE_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
 
 const ExpCreate = z.object({
   expense_category_id: z.string().uuid().optional().nullable(),
@@ -48,16 +62,39 @@ export function handleExpenses(): Route[] {
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
         requireCap(caller, 'expenses.expense.read');
+        const limit = parseLimit(url);
+        const sort = parseSort(url, EXPENSE_SORT_COLS, EXPENSE_DEFAULT_SORT);
+        const search = parseSearch(url);
+        const cursor = decodeSortCursor(url.searchParams.get('cursor'));
+
+        let query = admin()
+          .from('expenses').select('*')
+          .eq('org_id', caller.orgId)
+          .is('deleted_at', null);
         // F-Wave7-LISTFILTER-01: vendor_id and project_id FK filters lift
         // VendorDetailPage / project-related client-side .filter(...) into
         // a SQL where-clause. RLS Pattern A wraps the org gate so a
         // cross-tenant id still resolves to 200 + [].
         const vendorId = url.searchParams.get('vendor_id');
+        if (vendorId) query = query.eq('vendor_id', vendorId);
         const projectId = url.searchParams.get('project_id');
-        const filters: Array<[string, string, string]> = [];
-        if (vendorId) filters.push(['vendor_id', 'eq', vendorId]);
-        if (projectId) filters.push(['project_id', 'eq', projectId]);
-        const page = await listOrgScoped<Expense>('expenses', caller, url, { filters });
+        if (projectId) query = query.eq('project_id', projectId);
+        const status = url.searchParams.get('status');
+        if (status) query = query.eq('status', status);
+        if (search) query = query.or(buildSearchOr(EXPENSE_SEARCH_COLS, search));
+        query = query
+          .order(sort.column, { ascending: sort.dir === 'asc' })
+          .order('id', { ascending: sort.dir === 'asc' })
+          .limit(limit + 1);
+        if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
+        const { data, error } = await query;
+        if (error) throw internalError('vendors-api/expenses', error);
+        const page = paginateSorted(
+          (data ?? []) as Array<Record<string, unknown> & { id: string }>,
+          limit,
+          sort.column,
+        );
         return ok(page.items.map((v) => ExpenseSchema.parse(v)), {
           next_cursor: page.next_cursor,
         });

@@ -35,6 +35,10 @@ import {
   requireCaller, requireCap, internalError, assertRefInOrg,
 } from './shared.ts';
 import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../_shared/list-query.ts';
+import {
   WarehouseSchema, StockLevelSchema, StockMovementSchema, BomItemSchema,
   type Warehouse,
 } from '../_shared/types/vendors_inventory_ops.ts';
@@ -64,6 +68,15 @@ const BomInput = z.object({
 });
 const BomUpdate = BomInput.partial();
 
+// Workstream C (UI scan): warehouse search/sort allowlists for the keyset
+// list toolbar. SEARCH_COLS are NOT NULL text columns an operator types to
+// find a warehouse (display name, code); SORT_COLS are NOT NULL only, so the
+// keyset cursor never straddles a null. is_active is exposed as a facet, not
+// a sort.
+const WAREHOUSE_SEARCH_COLS = ['display_name', 'code'] as const;
+const WAREHOUSE_SORT_COLS = ['created_at', 'display_name', 'code'] as const;
+const WAREHOUSE_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
+
 const TABLE: Route[] = [
   // -------------------------------------------------------------- warehouses
   {
@@ -72,15 +85,31 @@ const TABLE: Route[] = [
       const caller = requireCaller(req);
       requireCap(caller, 'warehouses.warehouse.read');
       const limit = parseLimit(url);
-      const { data, error } = await admin()
+      const sort = parseSort(url, WAREHOUSE_SORT_COLS, WAREHOUSE_DEFAULT_SORT);
+      const search = parseSearch(url);
+      const cursor = decodeSortCursor(url.searchParams.get('cursor'));
+
+      let query = admin()
         .from('warehouses').select('*')
         .eq('org_id', caller.orgId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
+        .is('deleted_at', null);
+
+      const activeParam = url.searchParams.get('active');
+      if (activeParam === 'true' || activeParam === 'false') {
+        query = query.eq('is_active', activeParam === 'true');
+      }
+      if (search) query = query.or(buildSearchOr(WAREHOUSE_SEARCH_COLS, search));
+
+      query = query
+        .order(sort.column, { ascending: sort.dir === 'asc' })
+        .order('id', { ascending: sort.dir === 'asc' })
         .limit(limit + 1);
+      if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
+      const { data, error } = await query;
       if (error) throw internalError('inventory-api', error);
-      const parsed = (data ?? []).map((r) => WarehouseSchema.parse(r)) as Array<Warehouse>;
-      return ok(paginate(parsed, limit));
+      const rows = (data ?? []).map((r) => WarehouseSchema.parse(r)) as Array<Warehouse>;
+      return ok(paginateSorted(rows, limit, sort.column));
     },
   },
   {

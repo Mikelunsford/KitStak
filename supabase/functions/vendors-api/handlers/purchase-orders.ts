@@ -3,16 +3,30 @@
 import { z } from 'zod';
 import type { Route } from '../../_shared/route.ts';
 import {
-  ApiError, ok, admin, parseBody, parseUuidParam, respondWithIdempotency, created, internalError,
-  requireCaller, requireCap, listOrgScoped, getByIdOrgScoped, assertRefInOrg,
+  ApiError, ok, admin, parseBody, parseLimit, parseUuidParam, respondWithIdempotency, created, internalError,
+  requireCaller, requireCap, getByIdOrgScoped, assertRefInOrg,
   assertTransition,
 } from '../shared.ts';
 import {
+  parseSearch, parseSort, decodeSortCursor, buildSearchOr, buildKeysetOr,
+  paginateSorted, type SortSpec,
+} from '../../_shared/list-query.ts';
+import {
   PurchaseOrderSchema, PurchaseOrderStatusSchema, PoLineItemSchema,
-  type PurchaseOrder, type PoLineItem,
+  type PurchaseOrder,
 } from '../../_shared/types/vendors_inventory_ops.ts';
 import { PURCHASE_ORDER_FSM } from '../../_shared/workflow/vendors_inventory_ops.ts';
 import { roundHalfEven } from '../../_shared/money.ts';
+
+// Workstream C (UI scan): server list toolbar allowlists for purchase orders.
+// SORT_COLS are NOT NULL columns only (created_at, status, order_date) so the
+// keyset cursor never straddles a null. po_number is nullable (unique only
+// where present), so it is a SEARCH target only, never a sort. status and
+// vendor_id stay facet filters (.eq). DEFAULT_SORT preserves the legacy
+// created_at desc ordering.
+const PO_SEARCH_COLS = ['po_number'] as const;
+const PO_SORT_COLS = ['created_at', 'status', 'order_date'] as const;
+const PO_DEFAULT_SORT: SortSpec = { column: 'created_at', dir: 'desc' };
 
 const PoCreateInput = z.object({
   vendor_id: z.string().uuid(),
@@ -68,13 +82,36 @@ export function handlePurchaseOrders(): Route[] {
       handler: async ({ req, url }) => {
         const caller = requireCaller(req);
         requireCap(caller, 'purchase_orders.purchase_order.read');
+        const limit = parseLimit(url);
+        const sort = parseSort(url, PO_SORT_COLS, PO_DEFAULT_SORT);
+        const search = parseSearch(url);
+        const cursor = decodeSortCursor(url.searchParams.get('cursor'));
+
+        let query = admin()
+          .from('purchase_orders').select('*')
+          .eq('org_id', caller.orgId)
+          .is('deleted_at', null);
         // F-Wave7-LISTFILTER-01: vendor_id FK filter lifts VendorDetailPage
         // client-side .filter(...) into a SQL where-clause. RLS Pattern A
         // wraps the org gate so a cross-tenant vendor_id still 200 + [].
         const vendorId = url.searchParams.get('vendor_id');
-        const filters: Array<[string, string, string]> = [];
-        if (vendorId) filters.push(['vendor_id', 'eq', vendorId]);
-        const page = await listOrgScoped<PurchaseOrder>('purchase_orders', caller, url, { filters });
+        if (vendorId) query = query.eq('vendor_id', vendorId);
+        const status = url.searchParams.get('status');
+        if (status) query = query.eq('status', status);
+        if (search) query = query.or(buildSearchOr(PO_SEARCH_COLS, search));
+        query = query
+          .order(sort.column, { ascending: sort.dir === 'asc' })
+          .order('id', { ascending: sort.dir === 'asc' })
+          .limit(limit + 1);
+        if (cursor) query = query.or(buildKeysetOr(sort, cursor));
+
+        const { data, error } = await query;
+        if (error) throw internalError('vendors-api/purchase-orders', error);
+        const page = paginateSorted(
+          (data ?? []) as Array<Record<string, unknown> & { id: string }>,
+          limit,
+          sort.column,
+        );
         return ok(page.items.map((v) => PurchaseOrderSchema.parse(v)), {
           next_cursor: page.next_cursor,
         });

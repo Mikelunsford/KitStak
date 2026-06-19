@@ -1,11 +1,14 @@
 // Receiving orders service. Lives under bundle-gated ops-api.
 
-import { apiRequest } from '@/lib/apiClient';
+import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient';
+import { serverListQs, metaCursor, type ServerListParams } from '@/lib/services/serverListQs';
 import {
   ReceivingOrderSchema, type ReceivingOrder, type ReceivingOrderStatus,
 } from '@/lib/types/vendors_inventory_ops';
 
 export type { ReceivingOrder, ReceivingOrderStatus };
+
+const ReceivingOrderListSchema = ReceivingOrderSchema.array();
 
 export type ListReceivingOrdersFilters = {
   vendor_id?: string;
@@ -31,6 +34,22 @@ export async function listReceivingOrders(
     { method: 'GET' },
   );
   return (data as ReceivingOrder[]).map((r) => ReceivingOrderSchema.parse(r));
+}
+
+// Workstream C: server-driven list toolbar page (search, sort, keyset). The
+// receiving-order list returns its rows in `data` and next_cursor in `meta`, so
+// this reads the full envelope via apiRequestWithMeta.
+export async function listReceivingOrdersPage(
+  params: ServerListParams,
+): Promise<{ items: ReceivingOrder[]; next_cursor: string | null }> {
+  const env = await apiRequestWithMeta<unknown>(
+    `/ops-api/receiving-orders${serverListQs(params)}`,
+    { method: 'GET' },
+  );
+  return {
+    items: ReceivingOrderListSchema.parse(env.data),
+    next_cursor: metaCursor(env.meta),
+  };
 }
 
 export async function getReceivingOrder(id: string): Promise<ReceivingOrder> {

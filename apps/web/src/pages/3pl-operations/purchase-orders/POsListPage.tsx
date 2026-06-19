@@ -1,9 +1,10 @@
-// POsListPage. Migration to the shared UI kit (F-Wave10-UI-KIT-01):
-// PageHeader + FilterBar + Select + DataTable + StatusBadge + Pagination
-// replace the hand-rolled header, inline status pill, table, and (previously
-// absent) pagination. Behavior preserved: the create CTA stays gated by the
-// existing capability; a new ?status deep-link filters the list client-side
-// and invalid values fall back to the full list.
+// POsListPage. Workstream C of the 2026-06-17 UI scan adds the server list
+// toolbar (search on PO number, sortable headers, status facet, keyset pager,
+// saved views) behind feature.list_toolbar. The flag-off path is the original
+// client-state view (the F-Wave10-UI-KIT-01 migration: PageHeader + FilterBar +
+// Select + DataTable + StatusBadge + Pagination, with the ?status= deep-link
+// applied client-side), extracted verbatim into POsListLegacy; the flag-on path
+// is POsListToolbar. The parent renders one or the other.
 
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -14,12 +15,20 @@ import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FilterBar, type FilterChip } from '@/components/ui/FilterBar';
+import { ListToolbar } from '@/components/ui/ListToolbar';
+import { SavedViewsBar } from '@/components/ui/SavedViewsBar';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
+import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { usePurchaseOrdersList } from '@/lib/hooks/usePurchaseOrders';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
+import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
+import { useServerList } from '@/lib/hooks/useServerList';
+import { listPurchaseOrdersPage } from '@/lib/services/purchaseOrdersService';
+import { purchaseOrdersKeys } from '@/lib/queryKeys/purchaseOrders';
+import { FEATURE_FLAGS } from '@/lib/constants';
 import { formatCents } from '@/lib/money';
 import type { PurchaseOrder } from '@/lib/services/purchaseOrdersService';
 
@@ -67,6 +76,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PurchaseOrder>> = [
   {
     key: 'status',
     header: 'Status',
+    sortKey: 'status',
     render: (po) => <StatusBadge status={po.status} />,
   },
   {
@@ -79,12 +89,105 @@ const COLUMNS: ReadonlyArray<DataColumn<PurchaseOrder>> = [
   {
     key: 'order_date',
     header: 'Order date',
+    sortKey: 'order_date',
     cellClassName: 'text-ink-dim',
     render: (po) => po.order_date,
   },
 ];
 
 export function POsListPage() {
+  const flags = useOrgFlags();
+  return flags.data[FEATURE_FLAGS.UI_LIST_TOOLBAR] ? (
+    <POsListToolbar />
+  ) : (
+    <POsListLegacy />
+  );
+}
+
+function POsListToolbar() {
+  const caps = useVioCapabilities();
+  const server = useServerList<PurchaseOrder>({
+    enabled: true,
+    queryKeyBase: purchaseOrdersKeys.all,
+    fetchPage: listPurchaseOrdersPage,
+    defaultSort: { by: 'created_at', dir: 'desc' },
+    facets: [{ key: 'status', label: 'Status', format: humaniseStatus }],
+  });
+
+  return (
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
+      <PageHeader
+        eyebrow="Purchasing / Purchase orders"
+        title="Purchase Orders"
+        actions={
+          caps.can('purchase_orders.purchase_order.create') ? (
+            <Link to="/purchasing/purchase-orders/new">
+              <Button variant="primary">New PO</Button>
+            </Link>
+          ) : null
+        }
+      />
+
+      <ListToolbar
+        searchValue={server.searchInput}
+        onSearchChange={server.setSearchInput}
+        searchPlaceholder="Search PO number"
+        chips={server.chips}
+        onClearAll={server.clearAll}
+      >
+        <label className="flex items-center gap-2">
+          <span className="font-sans text-xs uppercase tracking-wide text-ink-dim">
+            Status
+          </span>
+          <Select
+            value={server.facetValues.status ?? ''}
+            onChange={(e) => server.setFacet('status', e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            {PO_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {humaniseStatus(s)}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </ListToolbar>
+
+      <SavedViewsBar
+        entityType="purchase_order"
+        currentConfig={server.viewConfig}
+        onApply={server.applyView}
+      />
+
+      {server.isError ? (
+        <p className="font-sans text-accent">Failed to load.</p>
+      ) : (
+        <>
+          <DataTable
+            columns={COLUMNS}
+            rows={server.rows}
+            getRowKey={(po) => po.id}
+            loading={server.isLoading}
+            empty="No purchase orders match these filters."
+            sortBy={server.sortBy}
+            sortDir={server.sortDir}
+            onSort={server.onSort}
+          />
+          <CursorPager
+            canPrev={server.canPrev}
+            canNext={server.canNext}
+            onPrev={server.onPrev}
+            onNext={server.onNext}
+            label={`${server.rows.length} shown`}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function POsListLegacy() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = parseStatusParam(searchParams.get('status'));
   const [page, setPage] = useState(0);
