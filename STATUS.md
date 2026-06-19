@@ -1,5 +1,66 @@
 # Kitstak Status
 
+## 2026-06-19 List toolbar completed across every list surface, merged (PR #347)
+
+The server-driven list toolbar (keyset pagination, free-text search, column sort,
+saved views; gated by `feature.list_toolbar`, on for all six prod orgs) was live
+on only four of about thirty-five lists. This pass finished the migration: 31 more
+list entities across twelve edge bundles now run the toolbar, joining customers,
+quotes, items, and invoices. Bundles: crm-api (contacts, activities), vendors-api
+(vendors, purchase orders, expenses), ops-api (shipments, receiving orders),
+invoicing-api (credit notes, payments), inventory-api (warehouses), copack-api
+(sales orders, fulfillments, kitting jobs, channels), manufacturing-api (runs),
+three-pl-api (accounts, job templates, supply plans, job runs, billing reviews),
+finance-api (journal entries), kitforce-api (members, teams, shifts, assignments,
+time entries), wms-api (locations, lots, putaway, bin stock), projects-api
+(projects).
+
+Per entity the change is uniform: the edge list handler gains additive keyset
+support through the shared `list-query` helpers (a NOT NULL sort allowlist plus an
+id tiebreaker, so the cursor never skips or duplicates a row), a `listXPage`
+service method, a dual-path page that keeps the prior client-side body verbatim as
+the flag-off fallback, and a `list-query` allowlist test. Two surfaces were left
+on their existing views by design: the leads kanban (a board, not a list) and the
+bill-of-materials list (a derived per-parent rollup that a single keyset page
+cannot reconstruct without a new server aggregate endpoint).
+
+Built with dynamic multi-agent workflows. A current-state mapping pass over the
+whole app produced the inventory and surfaced the wiring defects fixed alongside.
+The twelve-wide edge-plus-page fan-out twice tripped a transient server-side API
+capacity throttle; the recovery was small batches of two with per-bundle retry,
+which completed clean. Three adversarial review passes over the 21 new entities
+returned one low nit (a response-envelope ternary, fixed) and five
+false-positive HIGH findings (a reviewer wanted a read capability added to the
+three-pl list handlers; a git-diff check showed those handlers are RLS-only reads
+by design, the migration removed nothing, and the proposed capabilities do not
+exist, so adding them would have 403-broken all five lists; rejected with
+evidence).
+
+Two navigation defects from the same mapping pass shipped in the same PR.
+`StockMovementsPage` linked a receiving-order source cell to a nonexistent route
+(a 404, now the receiving detail page) and a production-run source cell to the
+wrong pillar's table (now the live production-run detail page).
+`ProductionRunDetailPage` had a breadcrumb that bounced through a redirect to a
+different pillar's list; production runs are legacy-only, so the crumbs are now
+display-only.
+
+Read-path only: no schema, RLS, money-helper, idempotency, `audit_log`,
+capability, or dependency change; byte-mirror canon parity intact. Gates green:
+typecheck, lint (`--max-warnings 0`), 919 unit and regression, 47 contract and
+parity, `deno check` on all twelve edge bundles, production build with the SPA
+index chunk at 37.51 kB against the 40 kB budget. Merged to main as `968a65d`
+(PR #347), CI green including RLS and e2e against staging on the first run; both
+prod deploys (edge functions and SPA) confirmed green. Journal
+`03-workspace/journal/2026-06-19-list-toolbar-rollout-closeout.md`.
+
+Accepted tradeoff: the flag-off legacy readers on the newly migrated lists now cap
+at the default page size (50) rather than the old 200, identical to the four
+lists shipped earlier and dormant while the flag is on. Follow-ups: a
+copack/manufacturing channel-name and order-number lookup in the flag-off path
+degrades past the first page (graceful, flag-off only); the per-list saved-view
+defaults are unset. A separate current-state map of the whole app lives locally at
+`current-state-map/CURRENT-STATE-MAP.md` (untracked by request).
+
 ## 2026-06-19 Operator active-org claim fix and dual-role portal dead-end follow-up
 
 The operator (mike@team-01.com) could not switch into the Team 1 workspace and
