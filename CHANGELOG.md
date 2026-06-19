@@ -12,10 +12,11 @@ Nothing currently held. All shipped work is versioned below.
 
 An eleven-agent parallel audit scored the repo at 78.0 / 100, BLOCKED by one
 failing hard gate (the migration numbering gap). A safe, non-schema remediation
-pass plus one operator-authorized constitution clarification, followed by the
-operator-authorized money banker's-rounding migration (0126), lifted it to an
-estimated ~92.5 / 100 with zero failing hard gates and zero open P0 or P1
-findings. Scorecard:
+pass plus one operator-authorized constitution clarification, followed by the two
+operator-authorized money forward migrations (0126 banker's rounding, 0127
+project-line tax snapshot), lifted it to an estimated ~93.0 / 100 with zero
+failing hard gates, zero open P0 or P1, and Money integrity at full marks.
+Scorecard:
 `03-workspace/audits/readiness-2026-06-18.md`; closeout:
 `03-workspace/journal/2026-06-18-production-readiness-pass.md`.
 
@@ -58,11 +59,19 @@ findings. Scorecard:
   `view_job_profitability`. The view is recreated with `security_invoker = true`
   preserved (RLS unchanged). Validated on staging; no idempotency or `audit_log`
   change. Closes `R-W14-MONEY-02`.
+- **`0127_convert_carries_project_tax.sql`**: `convert_project_to_invoice` now
+  snapshots the project line's tax at invoice issuance. It reads `taxes.rate_bps`
+  through the existing `project_line_items.tax_rate_id` FK (org-scoped join, no
+  schema change / trigger / backfill), snapshots it as the invoice
+  decimal-fraction `tax_rate_snapshot` (`rate_bps / 10000`), and computes
+  `tax_amount_cents` and a tax-inclusive `line_total_cents` with `round_half_even`
+  (mirrors the invoicing-api line math). Lines with no `tax_rate_id` stay
+  tax-free. Validated on staging. Closes `R-W14-MONEY-01`.
 
-### Deferred (operator-gated, forward migrations)
+### Deferred (operator-gated, forward migration)
 
-- `R-W14-MONEY-01` project-line tax snapshot, `R-W14-CAT4-CREATED-AUDIT-01`
-  created-event audit symmetry.
+- `R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry (`audit_log` trigger
+  coverage).
 
 ## [0.30.0] · 2026-06-18 Branding: color-wheel picker, text-on-brand color, logo/favicon upload (PR #342)
 

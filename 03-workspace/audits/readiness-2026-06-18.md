@@ -8,13 +8,15 @@ Driver: `/ship-ready all`. Rubric: `.claude/PRODUCTION-READINESS.md`. Constituti
 ---
 
 > POST-REMEDIATION UPDATE (2026-06-18 to 2026-06-19): after the safe non-schema
-> pass, the constitution ratification (F-Wave6-MIG-01), and the operator-authorized
-> money banker's-rounding migration (R-W14-MONEY-02, migration 0126), the estimated
-> ending score is **~92.5 / 100, zero failing hard gates, zero open P0/P1**. Category
-> deltas: RLS 12->13, Money 7.5->9.5, Migrations 7->9 (unblocked), Data integrity
-> 10->11, Contract 7->8, Tests 7->8.5, Observability 5->8, Branding 3->4, Docs
-> 1.5->3.5. This is the orchestrator's evidence-backed synthesis, not a fresh
-> re-audit. The number below is the as-found starting state. Full detail in
+> pass, the constitution ratification (F-Wave6-MIG-01), and both operator-authorized
+> money forward migrations (R-W14-MONEY-02 / 0126 banker's rounding, R-W14-MONEY-01
+> / 0127 project-line tax snapshot), the estimated ending score is **~93.0 / 100,
+> zero failing hard gates, zero open P0/P1**. Category deltas: RLS 12->13, Money
+> 7.5->10 (full marks), Migrations 7->9 (unblocked), Data integrity 10->11, Contract
+> 7->8, Tests 7->8.5, Observability 5->8, Branding 3->4, Docs 1.5->3.5. The branch
+> was merged to main, shipping 0126 and 0127 to prod. This is the orchestrator's
+> evidence-backed synthesis, not a fresh re-audit. The number below is the as-found
+> starting state. Full detail in
 > `03-workspace/journal/2026-06-18-production-readiness-pass.md`.
 
 ## Total: 78.0 / 100 — BLOCKED (1 hard gate failing) [AS-FOUND, see update above]

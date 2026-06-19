@@ -1,17 +1,17 @@
 # Kitstak Status
 
-## 2026-06-18 Production readiness pass: 78 to ~92.5, hard gate cleared, money rounding fixed
+## 2026-06-18 Production readiness pass: 78 to ~93, hard gate cleared, money integrity full marks, merged
 
 `/ship-ready all` ran an eleven-agent parallel audit against the readiness
 rubric. Starting score 78.0 / 100, BLOCKED by one failing hard gate (the
 migration numbering gap at 0005/0006). After a safe non-schema remediation pass,
-one operator-authorized constitution clarification, and the operator-authorized
-money banker's-rounding migration (0126), the estimated score is ~92.5 / 100 with
-zero failing hard gates and zero open P0 or P1. CHANGELOG `0.31.0`; scorecard
+one operator-authorized constitution clarification, and the two operator-authorized
+money forward migrations (0126 banker's rounding, 0127 project-line tax snapshot),
+the estimated score is ~93.0 / 100 with zero failing hard gates, zero open P0 or
+P1, and Money integrity at full marks. The branch was merged to main, shipping
+0126 and 0127 to prod. CHANGELOG `0.31.0`; scorecard
 `03-workspace/audits/readiness-2026-06-18.md`; closeout
-`03-workspace/journal/2026-06-18-production-readiness-pass.md`. Branch
-`chore/readiness-2026-06-18-safe` (`0277ccc`, `3e41c67`, `f2d0770`, `5f46870`),
-PR held by operator decision.
+`03-workspace/journal/2026-06-18-production-readiness-pass.md`.
 
 The substantive correctness gates passed from the start: RLS isolation and the
 404/403 contract, money parity, idempotency, the audit hash chain, capability
@@ -25,21 +25,24 @@ loud and open incident issues; authored the deploy and incident runbooks plus
 manufacturing, copack, kitforce, and kitcost docs; added FSM and capability
 tests; invoked the previously-dead axe-core sweep; extended the RLS probe matrix
 to the nine 3PL and WMS tables; fixed the README and the Kitstak and TS1
-branding nits; and shipped the money banker's-rounding migration 0126
-(`R-W14-MONEY-02`). Gates green: lint, typecheck, test (97 unit + 99 regression
-files), test:contract, build, bundle-budget (index 37.14 kB gzip).
+branding nits; and shipped both money migrations 0126 (`R-W14-MONEY-02`
+banker's rounding) and 0127 (`R-W14-MONEY-01` project-line tax snapshot). Gates
+green: lint, typecheck, test (97 unit + 100 regression files), test:contract,
+build, bundle-budget (index 37.14 kB gzip).
 
 Operator decisions on the run: ratify the gap (not backfill placeholders), safe
-non-schema work, then hold the PR and do the money migration. `R-W14-MONEY-02`
+non-schema work, then do both money migrations and merge. `R-W14-MONEY-02`
 shipped as migration 0126 (a `round_half_even` SQL helper plus all 13 money
-`round()` call sites rewritten across the four live objects; the profitability
-view recreated with `security_invoker = true` preserved; validated on staging,
-no new advisor). Still deferred (forward migrations): `R-W14-MONEY-01`
-project-line tax snapshot, `R-W14-CAT4-CREATED-AUDIT-01` created-event audit
-symmetry. Deferred non-blocking: `LIGHTHOUSE_ENABLED` repo variable, a
-`req.json()` lint guard, un-skipping the quote-to-cash smoke chain. Open manual
-item: open the PR when ready (on merge the migrate workflow ships 0126 to prod);
-if a verified number is wanted, re-dispatch the touched-category auditors.
+`round()` call sites rewritten across four live objects; profitability view
+recreated with `security_invoker = true` preserved). `R-W14-MONEY-01` shipped as
+migration 0127 (`convert_project_to_invoice` snapshots the project line's tax at
+issuance via the org-scoped `taxes` FK, computing tax and a tax-inclusive
+line_total with banker's rounding; no schema change / trigger / backfill). Both
+validated on staging, no new advisor, then merged to main. Still deferred:
+`R-W14-CAT4-CREATED-AUDIT-01` created-event audit symmetry (an `audit_log`
+forward migration). Deferred non-blocking: `LIGHTHOUSE_ENABLED` repo variable, a
+`req.json()` lint guard, the quote-to-cash smoke chain, the kitcost display
+`Math.round`. Post-merge: confirm the migrate workflow went green on prod.
 
 ## 2026-06-18 Branding overhaul: color wheel, text-on-brand color, logo/favicon upload
 
