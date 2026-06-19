@@ -38,7 +38,7 @@ export function PeriodClosePage() {
               type="number"
               value={year}
               onChange={(e) => setYear(Number.parseInt(e.target.value, 10))}
-              className="bg-bg-2 border border-line px-2 py-1 text-ink font-mono w-24"
+              className="bg-bg-2 border border-line px-2 py-1 text-ink tabular-nums w-24"
             />
           </label>
         }
@@ -66,7 +66,7 @@ export function PeriodClosePage() {
               const status = row?.status ?? 'open';
               return (
                 <tr key={month} className="border-b border-line">
-                  <td className="py-2 font-mono">
+                  <td className="py-2 tabular-nums">
                     {year}-{String(month).padStart(2, '0')}
                   </td>
                   <td className="py-2">

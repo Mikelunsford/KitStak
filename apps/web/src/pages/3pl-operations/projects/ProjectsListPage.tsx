@@ -6,6 +6,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -19,22 +21,13 @@ const PAGE_SIZE = 50;
 
 const COLUMNS: ReadonlyArray<DataColumn<Project>> = [
   {
-    key: 'number',
-    header: 'Number',
-    cellClassName: 'font-mono',
-    render: (p) => (
-      <Link
-        to={`/projects/${p.id}`}
-        className="text-ink hover:text-accent"
-      >
-        {p.number}
-      </Link>
-    ),
-  },
-  {
     key: 'name',
     header: 'Name',
-    render: (p) => p.name,
+    render: (p) => (
+      <Link to={`/projects/${p.id}`} className={LINK_CLASS}>
+        {p.name ?? p.number}
+      </Link>
+    ),
   },
   {
     key: 'state',
@@ -44,10 +37,14 @@ const COLUMNS: ReadonlyArray<DataColumn<Project>> = [
   {
     key: 'due',
     header: 'Due',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (p) => p.due_date ?? '.',
   },
 ];
+
+function renderProjectDetails(p: Project) {
+  return <ReferenceField label="Number" value={p.number} />;
+}
 
 export function ProjectsListPage() {
   const { data, isLoading, error } = useProjectsList();
@@ -95,6 +92,7 @@ export function ProjectsListPage() {
             getRowKey={(p) => p.id}
             loading={isLoading}
             empty="No projects yet."
+            renderRowDetails={renderProjectDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

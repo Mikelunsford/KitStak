@@ -6,8 +6,11 @@ import { describe, it, expect } from 'vitest';
 
 import {
   DataTable,
+  ExpandableDataRowView,
   resolveTableView,
   alignClass,
+  bodyColSpan,
+  rowDetailsRegionId,
   type DataColumn,
 } from './DataTable';
 
@@ -118,5 +121,107 @@ describe('DataTable render', () => {
     const tree = walk(el);
     // 1 header row + 2 data rows.
     expect(countType(tree, 'tr')).toBe(3);
+  });
+
+  it('adds a leading toggle header cell when renderRowDetails is provided', () => {
+    const el = DataTable({
+      columns: COLUMNS,
+      rows: [{ id: '1', name: 'Alpha' }],
+      getRowKey: (r: Row) => r.id,
+      renderRowDetails: (r: Row) => r.id,
+    });
+    const tree = walk(el);
+    // One extra header cell for the chevron column.
+    expect(countType(tree, 'th')).toBe(COLUMNS.length + 1);
+  });
+
+  it('spans the toggle column in the empty cell when row details are on', () => {
+    const el = DataTable({
+      columns: COLUMNS,
+      rows: [] as Row[],
+      getRowKey: (r: Row) => r.id,
+      renderRowDetails: (r: Row) => r.id,
+    });
+    const tree = walk(el);
+    expect(findByTestId(tree, 'datatable-empty')?.props.colSpan).toBe(
+      COLUMNS.length + 1,
+    );
+  });
+});
+
+describe('bodyColSpan', () => {
+  it('adds one for the toggle column only when row details are enabled', () => {
+    expect(bodyColSpan(4, false)).toBe(4);
+    expect(bodyColSpan(4, true)).toBe(5);
+  });
+});
+
+describe('rowDetailsRegionId', () => {
+  it('derives a stable region id from the row key', () => {
+    expect(rowDetailsRegionId('abc')).toBe('row-details-abc');
+  });
+});
+
+describe('ExpandableDataRowView', () => {
+  const row: Row = { id: '1', name: 'Alpha' };
+  const regionId = rowDetailsRegionId('1');
+
+  function findButton(tree: RNode[]): RNode | undefined {
+    return tree.find((n) => n.type === 'button');
+  }
+
+  it('wires the toggle button to the details region and reports collapsed state', () => {
+    const el = ExpandableDataRowView({
+      row,
+      columns: COLUMNS,
+      open: false,
+      onToggle: () => {},
+      regionId,
+      renderRowDetails: (r: Row) => r.id,
+    });
+    const tree = walk(el);
+    const button = findButton(tree);
+    expect(button?.props['aria-controls']).toBe(regionId);
+    expect(button?.props['aria-expanded']).toBe(false);
+
+    const detailsCell = findByTestId(tree, 'datatable-row-details');
+    expect(detailsCell?.props.id).toBe(regionId);
+    expect(detailsCell?.props.colSpan).toBe(COLUMNS.length + 1);
+  });
+
+  it('reveals the details row and reports expanded state when open', () => {
+    const el = ExpandableDataRowView({
+      row,
+      columns: COLUMNS,
+      open: true,
+      onToggle: () => {},
+      regionId,
+      renderRowDetails: (r: Row) => r.id,
+    });
+    const tree = walk(el);
+    expect(findButton(tree)?.props['aria-expanded']).toBe(true);
+    // The hidden flag sits on the details <tr>; open means not hidden.
+    const detailsRow = tree.find(
+      (n) => n.type === 'tr' && n.props.hidden === false,
+    );
+    expect(detailsRow).toBeDefined();
+  });
+
+  it('invokes the toggle handler when activated', () => {
+    let toggled = 0;
+    const el = ExpandableDataRowView({
+      row,
+      columns: COLUMNS,
+      open: false,
+      onToggle: () => {
+        toggled += 1;
+      },
+      regionId,
+      renderRowDetails: (r: Row) => r.id,
+    });
+    const onClick = walk(el).find((n) => n.type === 'button')?.props
+      .onClick as () => void;
+    onClick();
+    expect(toggled).toBe(1);
   });
 });

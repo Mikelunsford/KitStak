@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { Select } from '@/components/ui/Select';
 import { TextInput } from '@/components/ui/TextInput';
 import { useBomItemsList } from '@/lib/hooks/useInventory';
@@ -256,7 +257,7 @@ export function ManufacturingRunFromBomPage() {
             A draft run was created.{' '}
             <Link
               to={`/manufacturing/runs/${draftRunId}`}
-              className="text-ink underline"
+              className={LINK_CLASS}
             >
               Open it to finish manually.
             </Link>

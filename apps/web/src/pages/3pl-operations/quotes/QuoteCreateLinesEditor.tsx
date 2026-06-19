@@ -111,13 +111,13 @@ export function QuoteCreateLinesEditor({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm">
+                <td className="px-4 py-2 tabular-nums text-sm">
                   {((l.quantity_e3 ?? 0) / 1000).toFixed(3)}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm">
+                <td className="px-4 py-2 tabular-nums text-sm">
                   {formatCents(l.unit_price_cents ?? 0, currencyCode)}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm">
+                <td className="px-4 py-2 tabular-nums text-sm">
                   {((l.discount_bps ?? 0) / 100).toFixed(2)}%
                 </td>
                 <td className="px-4 py-2">

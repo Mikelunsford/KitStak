@@ -12,6 +12,7 @@ import { DetailHeader } from '@/components/ui/DetailHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Tabs, type TabSpec } from '@/components/ui/Tabs';
 import { formatCents } from '@/lib/money';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { displayTitle } from '@/lib/displayTitle';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { FEATURE_FLAGS } from '@/lib/constants';
@@ -141,7 +142,7 @@ export function CustomerDetailPage() {
         >
           {relatedQuotes.map((q) => (
             <li key={q.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
-              <Link to={`/quotes/${q.id}`} className="underline">
+              <Link to={`/quotes/${q.id}`} className={`${LINK_CLASS} text-sm`}>
                 {q.number}
                 {q.title ? ` . ${q.title}` : ''}
               </Link>
@@ -167,7 +168,7 @@ export function CustomerDetailPage() {
         >
           {relatedProjects.map((p) => (
             <li key={p.id} className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans">
-              <Link to={`/projects/${p.id}`} className="underline">
+              <Link to={`/projects/${p.id}`} className={`${LINK_CLASS} text-sm`}>
                 {p.number}
                 {p.name ? ` . ${p.name}` : ''}
               </Link>
@@ -196,7 +197,7 @@ export function CustomerDetailPage() {
               key={inv.id}
               className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
             >
-              <Link to={`/invoicing/invoices/${inv.id}`} className="underline">
+              <Link to={`/invoicing/invoices/${inv.id}`} className={`${LINK_CLASS} text-sm`}>
                 {inv.invoice_number}
               </Link>
               <span className="ml-2 inline-flex"><StatusBadge status={inv.status} /></span>
@@ -225,7 +226,7 @@ export function CustomerDetailPage() {
               className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
             >
               <span>{p.payment_number}</span>
-              <span className="text-ink-dim ml-2 text-xs font-mono">
+              <span className="text-ink-dim ml-2 text-xs tabular-nums">
                 {formatCents(p.amount_cents, p.currency_code ?? 'USD')}
               </span>
             </li>
@@ -252,7 +253,7 @@ export function CustomerDetailPage() {
               key={ct.id}
               className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
             >
-              <Link to={`/crm/contacts/${ct.id}`} className="underline">
+              <Link to={`/crm/contacts/${ct.id}`} className={`${LINK_CLASS} text-sm`}>
                 {[ct.first_name, ct.last_name].filter(Boolean).join(' ')}
               </Link>
               {ct.title ? (

@@ -309,21 +309,21 @@ export function ProjectDetailPage() {
       key: 'qty',
       header: 'Qty',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => Number(l.quantity).toFixed(2),
     },
     {
       key: 'unit',
       header: 'Unit price',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => formatCents(l.unit_price_cents, project.currency_code),
     },
     {
       key: 'total',
       header: 'Total',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => {
         const qty = Number(l.quantity);
         const unit = Number(l.unit_price_cents);
@@ -463,7 +463,7 @@ export function ProjectDetailPage() {
                   </Link>
                 </span>
               )}
-              <span className="font-mono">
+              <span className="tabular-nums">
                 Budget: {formatCents(project.budget_cents, project.currency_code)}
               </span>
             </span>
@@ -549,7 +549,7 @@ export function ProjectDetailPage() {
                       <span className="text-ink">{l.name}</span>
                       <span className="text-ink-dim text-sm font-mono">{l.line_kind}</span>
                     </span>
-                    <span className="text-ink-dim text-sm font-mono">
+                    <span className="text-ink-dim text-sm tabular-nums">
                       {snapshotLineSummary(l)}
                     </span>
                   </li>
@@ -713,7 +713,7 @@ export function ProjectDetailPage() {
                 <li key={r.id} className="border border-line p-3">
                   <Link
                     to={`/3pl-operations/receiving/${r.id}`}
-                    className="text-ink hover:text-accent font-mono text-sm"
+                    className="text-ink hover:text-accent tabular-nums text-sm"
                   >
                     {r.receiving_number ?? r.id}
                   </Link>
@@ -757,13 +757,13 @@ export function ProjectDetailPage() {
                 <li key={r.id} className="border border-line p-3">
                   <Link
                     to={buildManufacturingRunDetailUrl(r.id)}
-                    className="text-ink hover:text-accent font-mono text-sm"
+                    className="text-ink hover:text-accent tabular-nums text-sm"
                   >
                     {r.run_number ?? r.id}
                   </Link>
                   <span className="text-ink-dim text-sm ml-3">{r.status}</span>
                   {r.planned_start_at && (
-                    <span className="text-ink-dim text-sm ml-3 font-mono">
+                    <span className="text-ink-dim text-sm ml-3 tabular-nums">
                       planned {r.planned_start_at.slice(0, 10)}
                     </span>
                   )}
@@ -803,13 +803,13 @@ export function ProjectDetailPage() {
                 <li key={s.id} className="border border-line p-3">
                   <Link
                     to={buildShipmentDetailUrl(s.id)}
-                    className="text-ink hover:text-accent font-mono text-sm"
+                    className="text-ink hover:text-accent tabular-nums text-sm"
                   >
                     {s.shipment_number ?? s.id}
                   </Link>
                   <span className="text-ink-dim text-sm ml-3">{s.status}</span>
                   {s.ship_date && (
-                    <span className="text-ink-dim text-sm ml-3 font-mono">
+                    <span className="text-ink-dim text-sm ml-3 tabular-nums">
                       {s.ship_date.slice(0, 10)}
                     </span>
                   )}
@@ -852,7 +852,7 @@ export function ProjectDetailPage() {
                 <li key={inv.id} className="border border-line p-3">
                   <Link
                     to={`/invoicing/invoices/${inv.id}`}
-                    className="text-ink hover:text-accent font-mono text-sm"
+                    className="text-ink hover:text-accent tabular-nums text-sm"
                   >
                     {inv.invoice_number}
                   </Link>

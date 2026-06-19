@@ -199,7 +199,7 @@ export function JournalEntryCreatePage() {
                       inputMode="numeric"
                       value={line.debit_cents}
                       onChange={(e) => setLineField(i, 'debit_cents', e.target.value)}
-                      className="w-full bg-bg-2 border border-line text-ink px-2 py-2 font-mono text-right focus:outline-none focus:border-accent"
+                      className="w-full bg-bg-2 border border-line text-ink px-2 py-2 tabular-nums text-right focus:outline-none focus:border-accent"
                     />
                   </td>
                   <td className="py-2 pr-2">
@@ -208,7 +208,7 @@ export function JournalEntryCreatePage() {
                       inputMode="numeric"
                       value={line.credit_cents}
                       onChange={(e) => setLineField(i, 'credit_cents', e.target.value)}
-                      className="w-full bg-bg-2 border border-line text-ink px-2 py-2 font-mono text-right focus:outline-none focus:border-accent"
+                      className="w-full bg-bg-2 border border-line text-ink px-2 py-2 tabular-nums text-right focus:outline-none focus:border-accent"
                     />
                   </td>
                   <td className="py-2 pr-2">
@@ -235,7 +235,7 @@ export function JournalEntryCreatePage() {
           </table>
         </section>
 
-        <div className="flex items-center justify-between bg-bg-2 border border-line px-4 py-3 font-mono text-sm">
+        <div className="flex items-center justify-between bg-bg-2 border border-line px-4 py-3 tabular-nums text-sm">
           <span>
             Debits: {formatCents(totalDebit, 'USD')} · Credits:{' '}
             {formatCents(totalCredit, 'USD')}

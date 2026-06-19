@@ -212,10 +212,10 @@ export function JobTemplateLines({ templateId }: { templateId: string }) {
                     ''
                   )}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm text-right">
+                <td className="px-4 py-2 tabular-nums text-sm text-right">
                   {line.quantity == null ? '' : String(line.quantity)}
                 </td>
-                <td className="px-4 py-2 font-mono text-sm text-right">
+                <td className="px-4 py-2 tabular-nums text-sm text-right">
                   {line.rate_cents == null
                     ? ''
                     : formatCents(line.rate_cents, line.currency_code ?? 'USD')}

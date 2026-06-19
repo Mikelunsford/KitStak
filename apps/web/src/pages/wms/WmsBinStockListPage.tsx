@@ -46,7 +46,7 @@ export function WmsBinStockListPage() {
       {
         key: 'location',
         header: 'Location',
-        cellClassName: 'font-mono text-ink',
+        cellClassName: 'tabular-nums text-ink',
         render: (r) => locationCode(locations, r.location_id),
       },
       {
@@ -64,13 +64,13 @@ export function WmsBinStockListPage() {
       {
         key: 'lot',
         header: 'Lot',
-        cellClassName: 'font-mono text-ink-dim',
+        cellClassName: 'tabular-nums text-ink-dim',
         render: (r) => (r.lot_id ? `${r.lot_id.slice(0, 8)}…` : 'No lot'),
       },
       {
         key: 'on_hand',
         header: 'On hand',
-        cellClassName: 'text-right font-mono tabular-nums',
+        cellClassName: 'text-right tabular-nums',
         render: (r) => String(r.quantity_on_hand),
       },
     ],

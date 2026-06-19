@@ -34,7 +34,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PricingTier>> = [
     key: 'discount',
     header: 'Discount',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (t) => `${(t.discount_bps / 100).toFixed(2)}%`,
   },
   {

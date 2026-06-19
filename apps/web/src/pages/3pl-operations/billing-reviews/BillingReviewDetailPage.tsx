@@ -54,7 +54,7 @@ function NumberRow({
         {label}
       </span>
       <span
-        className={`font-mono ${marginNegative ? 'text-accent' : 'text-ink'}`}
+        className={`tabular-nums ${marginNegative ? 'text-accent' : 'text-ink'}`}
       >
         {value}
       </span>

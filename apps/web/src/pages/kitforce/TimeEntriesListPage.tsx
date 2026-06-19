@@ -19,6 +19,7 @@ import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
 import { TextInput } from '@/components/ui/TextInput';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import {
   useTimeEntriesList,
   useMembersList,
@@ -78,7 +79,7 @@ function ClockOutButton({
       <button
         onClick={() => clockOut.mutate({ clock_out_at: new Date().toISOString() })}
         disabled={clockOut.isPending}
-        className="text-ink underline text-xs text-left"
+        className={`${LINK_CLASS} text-xs text-left`}
       >
         {clockOut.isPending ? 'Saving.' : 'Clock out'}
       </button>
@@ -189,7 +190,7 @@ export function TimeEntriesListPage() {
         key: 'minutes',
         header: 'Minutes',
         align: 'right',
-        cellClassName: 'font-mono text-ink-dim',
+        cellClassName: 'tabular-nums text-ink-dim',
         render: (t) => formatMinutes(t.minutes),
       },
     ];
@@ -198,7 +199,7 @@ export function TimeEntriesListPage() {
         key: 'rate',
         header: 'Rate',
         align: 'right',
-        cellClassName: 'font-mono text-ink-dim',
+        cellClassName: 'tabular-nums text-ink-dim',
         render: (t) => `${formatCents(t.hourly_rate_cents, 'USD')}/hr`,
       });
     }
@@ -214,7 +215,7 @@ export function TimeEntriesListPage() {
           {canUpdate ? (
             <Link
               to={`/kitforce/time-entries/${t.id}/edit`}
-              className="text-ink underline text-xs"
+              className={`${LINK_CLASS} text-xs`}
             >
               Edit
             </Link>

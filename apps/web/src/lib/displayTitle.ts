@@ -102,8 +102,9 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
 
 /**
  * Render the "code · name" label used for an entity reference (e.g.
- * "SKU-1 · Widget"). Shared with EntityLabel so both surfaces agree on the
- * format. When no code is present the name stands alone.
+ * "SKU-1 · Widget"). Retained for the Additional details surface, which still
+ * shows both the code and the name. When no code is present the name stands
+ * alone.
  */
 export function formatCodeName(
   code: string | null | undefined,
@@ -111,6 +112,16 @@ export function formatCodeName(
 ): string {
   const cleaned = clean(code);
   return cleaned ? `${cleaned} · ${displayName}` : displayName;
+}
+
+/**
+ * Render the human name on its own, dropping any code prefix (R-W14-READ-03).
+ * EntityLabel and list titles use this for the main view so the reference
+ * number travels to the Additional details disclosure instead of sitting
+ * inline. The code is still reachable via formatCodeName on that surface.
+ */
+export function formatName(displayName: string): string {
+  return displayName;
 }
 
 /**

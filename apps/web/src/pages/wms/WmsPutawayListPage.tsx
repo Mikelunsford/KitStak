@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -30,9 +31,9 @@ const COLUMNS: ReadonlyArray<DataColumn<PutawayTask>> = [
   {
     key: 'id',
     header: 'Task',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (t) => (
-      <Link to={`/wms/putaway/${t.id}`} className="text-ink hover:text-accent">
+      <Link to={`/wms/putaway/${t.id}`} className={LINK_CLASS}>
         {t.id.slice(0, 8)}
       </Link>
     ),
@@ -47,7 +48,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PutawayTask>> = [
     key: 'qty',
     header: 'Qty',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (t) => Number(t.quantity).toFixed(2),
   },
   {

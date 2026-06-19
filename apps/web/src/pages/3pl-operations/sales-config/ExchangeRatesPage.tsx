@@ -35,13 +35,13 @@ const COLUMNS: ReadonlyArray<DataColumn<ExchangeRate>> = [
     key: 'rate',
     header: 'Rate (1e-9)',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (r) => String(r.rate_e9),
   },
   {
     key: 'effective',
     header: 'Effective',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (r) => r.effective_date,
   },
 ];

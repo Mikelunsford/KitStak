@@ -48,7 +48,7 @@ export function FilterBar({ children, chips = [], onClearAll }: FilterBarProps) 
             <button
               type="button"
               onClick={onClearAll}
-              className="font-sans text-xs text-accent underline underline-offset-2"
+              className="font-sans text-xs font-semibold text-accent hover:text-accent-bright focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Clear all
             </button>

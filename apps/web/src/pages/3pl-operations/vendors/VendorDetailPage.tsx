@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { CreditCard, PackageOpen, Receipt, ReceiptText } from 'lucide-react';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { RelatedSection } from '@/components/shell/RelatedSection';
 import { Button } from '@/components/ui/Button';
@@ -91,7 +92,7 @@ export function VendorDetailPage() {
             >
               <Link
                 to={`/purchasing/purchase-orders/${po.id}`}
-                className="underline"
+                className={LINK_CLASS}
               >
                 {po.po_number ?? po.id.slice(0, 8)}
               </Link>
@@ -124,7 +125,7 @@ export function VendorDetailPage() {
             >
               <Link
                 to={`/purchasing/vendor-bills/${b.id}`}
-                className="underline"
+                className={LINK_CLASS}
               >
                 {b.bill_number ?? b.id.slice(0, 8)}
               </Link>
@@ -155,7 +156,7 @@ export function VendorDetailPage() {
               key={e.id}
               className="border border-line bg-bg-2 px-3 py-2 text-sm font-sans"
             >
-              <Link to={`/purchasing/expenses/${e.id}`} className="underline">
+              <Link to={`/purchasing/expenses/${e.id}`} className={LINK_CLASS}>
                 {e.expense_number ?? e.id.slice(0, 8)}
               </Link>
               <span className="ml-2 inline-flex">
@@ -187,7 +188,7 @@ export function VendorDetailPage() {
             >
               <Link
                 to={`/3pl-operations/receiving/${r.id}`}
-                className="underline"
+                className={LINK_CLASS}
               >
                 {r.receiving_number ?? r.id.slice(0, 8)}
               </Link>

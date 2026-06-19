@@ -210,7 +210,7 @@ export function AssignmentDetailPage() {
 
         <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
           <dt className="text-ink-dim">Assignment number</dt>
-          <dd className="text-ink font-mono">{d.assignment_number ?? 'None'}</dd>
+          <dd className="text-ink tabular-nums">{d.assignment_number ?? 'None'}</dd>
           <dt className="text-ink-dim">Member</dt>
           <dd className="text-ink">
             {d.member_id
@@ -228,7 +228,7 @@ export function AssignmentDetailPage() {
               : 'None'}
           </dd>
           <dt className="text-ink-dim">Planned minutes</dt>
-          <dd className="text-ink font-mono">{d.planned_minutes ?? 'None'}</dd>
+          <dd className="text-ink tabular-nums">{d.planned_minutes ?? 'None'}</dd>
           <dt className="text-ink-dim">Started</dt>
           <dd className="text-ink">{formatDateTimeMedium(d.started_at)}</dd>
           <dt className="text-ink-dim">Completed</dt>

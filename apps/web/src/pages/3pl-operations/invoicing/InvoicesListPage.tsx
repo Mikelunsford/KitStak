@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -53,12 +54,9 @@ const COLUMNS: ReadonlyArray<DataColumn<Invoice>> = [
     key: 'number',
     header: 'Number',
     sortKey: 'invoice_number',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (inv) => (
-      <Link
-        to={`/invoicing/invoices/${inv.id}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/invoicing/invoices/${inv.id}`} className={LINK_CLASS}>
         {inv.invoice_number}
       </Link>
     ),
@@ -105,7 +103,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Invoice>> = [
     header: 'Total',
     align: 'right',
     sortKey: 'total_cents',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (inv) =>
       formatCents(inv.total_cents as number | string, inv.currency_code),
   },
@@ -113,7 +111,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Invoice>> = [
     key: 'balance',
     header: 'Balance',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (inv) =>
       formatCents(inv.balance_cents as number | string, inv.currency_code),
   },

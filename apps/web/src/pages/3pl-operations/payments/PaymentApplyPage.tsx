@@ -92,7 +92,7 @@ export function PaymentApplyPage() {
               value={a.amount_cents}
               onChange={(e) => setAlloc(i, 'amount_cents', e.target.value)}
               placeholder="Amount cents"
-              className="w-40 bg-bg-2 border border-line px-3 py-2 text-ink font-mono"
+              className="w-40 bg-bg-2 border border-line px-3 py-2 text-ink tabular-nums"
             />
           </div>
         ))}

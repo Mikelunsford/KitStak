@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -47,11 +48,11 @@ const COLUMNS: ReadonlyArray<DataColumn<PurchaseOrder>> = [
   {
     key: 'po_number',
     header: 'PO #',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (po) => (
       <Link
         to={`/purchasing/purchase-orders/${po.id}`}
-        className="text-ink hover:text-accent"
+        className={LINK_CLASS}
       >
         {po.po_number ?? po.id.slice(0, 8)}
       </Link>
@@ -72,7 +73,7 @@ const COLUMNS: ReadonlyArray<DataColumn<PurchaseOrder>> = [
     key: 'total',
     header: 'Total',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (po) => formatCents(po.total_cents as number | string, po.currency_code),
   },
   {

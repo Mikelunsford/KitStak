@@ -1,7 +1,9 @@
 /**
- * EntityLabel. Resolves a foreign-key UUID to a human-readable label
- * (`{code ?? short_label} · {display_name}`) using the matching list hook
- * for the given kind. While the list query is in flight we render a
+ * EntityLabel. Resolves a foreign-key UUID to a human-readable label (the
+ * entity's name only, via formatName, so the reference code stays off the main
+ * view per R-W14-READ-03) using the matching list hook for the given kind.
+ * Clickable labels read as bold text with a hover/focus color, not an
+ * underline (R-W14-READ-02). While the list query is in flight we render a
  * short-prefix placeholder so the operator never sees a raw UUID flash
  * on first paint (BNEW-8 from the 2026-05-22 v2 smoke walk). When the
  * fetch settles and the row is genuinely missing (deleted parent,
@@ -17,7 +19,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
-import { formatCodeName } from '@/lib/displayTitle';
+import { formatName } from '@/lib/displayTitle';
 import { useChartOfAccounts } from '@/lib/hooks/useChartOfAccounts';
 import { useCustomers } from '@/lib/hooks/useCustomers';
 import { useItemsList } from '@/lib/hooks/useItems';
@@ -31,6 +33,7 @@ import { listContacts } from '@/lib/services/contactsService';
 import { listOpportunities } from '@/lib/services/opportunitiesService';
 
 import { classifyEntityLabel } from './entityLabelState';
+import { LINK_CLASS, PLAIN_CLASS } from './entityLabelStyles';
 
 export type EntityKind =
   | 'warehouse'
@@ -76,8 +79,8 @@ function WarehouseLabel({ id }: { id: string }) {
   const row = q.data?.find((w) => w.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/inventory/warehouses/${id}`} className="text-ink underline">
-      {formatCodeName(row.code, row.display_name)}
+    <Link to={`/inventory/warehouses/${id}`} className={LINK_CLASS}>
+      {formatName(row.display_name)}
     </Link>
   );
 }
@@ -89,8 +92,8 @@ function ItemLabel({ id }: { id: string }) {
   const row = q.data?.find((it) => it.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/catalog/items/${id}`} className="text-ink underline">
-      {formatCodeName(row.sku, row.name)}
+    <Link to={`/catalog/items/${id}`} className={LINK_CLASS}>
+      {formatName(row.name)}
     </Link>
   );
 }
@@ -102,8 +105,8 @@ function CustomerLabel({ id }: { id: string }) {
   const row = q.data?.find((c) => c.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/crm/customers/${id}`} className="text-ink underline">
-      {formatCodeName(null, row.display_name)}
+    <Link to={`/crm/customers/${id}`} className={LINK_CLASS}>
+      {formatName(row.display_name)}
     </Link>
   );
 }
@@ -117,8 +120,8 @@ function VendorLabel({ id }: { id: string }) {
   const row = items?.find((v) => v.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/purchasing/vendors/${id}`} className="text-ink underline">
-      {formatCodeName(row.vendor_number, row.display_name)}
+    <Link to={`/purchasing/vendors/${id}`} className={LINK_CLASS}>
+      {formatName(row.display_name)}
     </Link>
   );
 }
@@ -130,8 +133,8 @@ function ProjectLabel({ id }: { id: string }) {
   const row = q.data?.find((p) => p.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/projects/${id}`} className="text-ink underline">
-      {formatCodeName(row.number, row.name)}
+    <Link to={`/projects/${id}`} className={LINK_CLASS}>
+      {formatName(row.name)}
     </Link>
   );
 }
@@ -148,8 +151,8 @@ function ContactLabel({ id }: { id: string }) {
   if (!row) return <span className="text-ink">{id}</span>;
   const displayName = [row.first_name, row.last_name].filter(Boolean).join(' ');
   return (
-    <Link to={`/crm/contacts/${id}`} className="text-ink underline">
-      {formatCodeName(null, displayName)}
+    <Link to={`/crm/contacts/${id}`} className={LINK_CLASS}>
+      {formatName(displayName)}
     </Link>
   );
 }
@@ -160,7 +163,7 @@ function AccountLabel({ id }: { id: string }) {
   if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((a) => a.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
-  return <span className="text-ink">{formatCodeName(row.code, row.name)}</span>;
+  return <span className={PLAIN_CLASS}>{formatName(row.name)}</span>;
 }
 
 function OpportunityLabel({ id }: { id: string }) {
@@ -174,8 +177,8 @@ function OpportunityLabel({ id }: { id: string }) {
   const row = q.data?.find((o) => o.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/crm/opportunities/${id}`} className="text-ink underline">
-      {formatCodeName(null, row.display_name)}
+    <Link to={`/crm/opportunities/${id}`} className={LINK_CLASS}>
+      {formatName(row.display_name)}
     </Link>
   );
 }
@@ -187,7 +190,7 @@ function SalesOrderLabel({ id }: { id: string }) {
   const row = q.data?.find((o) => o.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
   return (
-    <Link to={`/copack/orders/${id}`} className="text-ink underline">
+    <Link to={`/copack/orders/${id}`} className={LINK_CLASS}>
       {row.order_number ?? id.slice(0, 8)}
     </Link>
   );
@@ -204,7 +207,7 @@ function CoPackWarehouseLabel({ id }: { id: string }) {
   if (state === 'pending') return <PendingLabel id={id} />;
   const row = q.data?.find((w) => w.id === id);
   if (!row) return <span className="text-ink">{id}</span>;
-  return <span className="text-ink">{formatCodeName(row.code, row.display_name)}</span>;
+  return <span className={PLAIN_CLASS}>{formatName(row.display_name)}</span>;
 }
 
 export function EntityLabel({ kind, id }: EntityLabelProps) {

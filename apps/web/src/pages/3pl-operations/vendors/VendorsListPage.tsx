@@ -8,6 +8,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -25,19 +27,10 @@ const COLUMNS: ReadonlyArray<DataColumn<Vendor>> = [
     key: 'name',
     header: 'Name',
     render: (v) => (
-      <Link
-        to={`/purchasing/vendors/${v.id}`}
-        className="text-ink hover:text-accent"
-      >
-        {v.display_name}
+      <Link to={`/purchasing/vendors/${v.id}`} className={LINK_CLASS}>
+        {v.display_name ?? v.vendor_number}
       </Link>
     ),
-  },
-  {
-    key: 'number',
-    header: 'Number',
-    cellClassName: 'font-mono',
-    render: (v) => v.vendor_number ?? '',
   },
   {
     key: 'currency',
@@ -52,6 +45,10 @@ const COLUMNS: ReadonlyArray<DataColumn<Vendor>> = [
     render: (v) => `${v.default_payment_terms_days}d`,
   },
 ];
+
+function renderVendorDetails(v: Vendor) {
+  return <ReferenceField label="Number" value={v.vendor_number} />;
+}
 
 /**
  * VendorsListPage. Lists active vendors for the caller's org.
@@ -131,6 +128,7 @@ export function VendorsListPage() {
             getRowKey={(v) => v.id}
             loading={isLoading}
             empty="No vendors match this search."
+            renderRowDetails={renderVendorDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

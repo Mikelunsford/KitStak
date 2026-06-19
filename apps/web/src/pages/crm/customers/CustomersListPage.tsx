@@ -17,6 +17,7 @@ import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
 import { CursorPager } from '@/components/ui/CursorPager';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
 import { useCustomers } from '@/lib/hooks/useCustomers';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
@@ -37,7 +38,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Customer>> = [
     header: 'Name',
     sortKey: 'display_name',
     render: (c) => (
-      <Link to={`/crm/customers/${c.id}`} className="text-ink hover:text-accent">
+      <Link to={`/crm/customers/${c.id}`} className={LINK_CLASS}>
         {c.display_name}
       </Link>
     ),

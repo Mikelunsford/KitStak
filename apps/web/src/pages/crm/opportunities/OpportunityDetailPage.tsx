@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
 import { StateStepper } from '@/components/shell/StateStepper';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import {
@@ -143,13 +144,13 @@ export function OpportunityDetailPage() {
         <dd>
           <Link
             to={`/crm/customers/${o.customer_id}`}
-            className="underline"
+            className={LINK_CLASS}
           >
             {customerQuery.data?.display_name ?? o.customer_id}
           </Link>
         </dd>
         <dt className="text-ink-dim">Amount (cents)</dt>
-        <dd className="font-mono">{o.amount_cents}</dd>
+        <dd className="tabular-nums">{o.amount_cents}</dd>
         <dt className="text-ink-dim">Currency</dt>
         <dd>{o.currency_code ?? ''}</dd>
         <dt className="text-ink-dim">Probability (pct)</dt>

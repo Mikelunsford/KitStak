@@ -84,7 +84,7 @@ export function LeadConvertPage() {
             min={0}
             value={amountCents}
             onChange={(e) => setAmountCents(e.target.value)}
-            className="bg-bg-2 border border-line px-3 py-2 font-mono"
+            className="bg-bg-2 border border-line px-3 py-2 tabular-nums"
           />
         </label>
         <label className="flex flex-col gap-1">

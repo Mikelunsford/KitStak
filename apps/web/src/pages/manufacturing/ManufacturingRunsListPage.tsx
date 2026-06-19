@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -55,12 +56,9 @@ const COLUMNS: ReadonlyArray<DataColumn<ManufacturingRun>> = [
   {
     key: 'run',
     header: 'Run',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (r) => (
-      <Link
-        to={`/manufacturing/runs/${r.id}`}
-        className="text-ink hover:text-accent"
-      >
+      <Link to={`/manufacturing/runs/${r.id}`} className={LINK_CLASS}>
         {r.run_number ?? r.id.slice(0, 8)}
       </Link>
     ),

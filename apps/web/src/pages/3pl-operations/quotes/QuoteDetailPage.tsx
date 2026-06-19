@@ -291,28 +291,28 @@ export function QuoteDetailPage() {
       key: 'qty',
       header: 'Qty',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => (Number(l.quantity_e3) / 1000).toFixed(3),
     },
     {
       key: 'unit',
       header: 'Unit price',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => formatCents(l.unit_price_cents, quote.currency_code),
     },
     {
       key: 'tax',
       header: 'Tax %',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => (l.tax_rate_snapshot / 100).toFixed(2),
     },
     {
       key: 'total',
       header: 'Total',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => formatCents(l.line_total_cents, quote.currency_code),
     },
     {
@@ -586,7 +586,7 @@ export function QuoteDetailPage() {
         />
         <div className="flex items-center justify-end gap-6 px-4 text-sm">
           <span className="text-ink-dim">Total</span>
-          <span className="font-mono text-ink">
+          <span className="tabular-nums text-ink">
             {formatCents(quote.total_cents, quote.currency_code)}
           </span>
         </div>

@@ -7,6 +7,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -32,19 +34,12 @@ const ITEM_KINDS = ['product', 'service', 'kit', 'subscription', 'bundle'] as co
 
 const COLUMNS: ReadonlyArray<DataColumn<Item>> = [
   {
-    key: 'sku',
-    header: 'SKU',
-    sortKey: 'sku',
-    cellClassName: 'font-mono',
-    render: (item) => item.sku,
-  },
-  {
     key: 'name',
     header: 'Name',
     sortKey: 'name',
     render: (item) => (
-      <Link to={`/catalog/items/${item.id}`} className="text-ink hover:text-accent">
-        {item.name}
+      <Link to={`/catalog/items/${item.id}`} className={LINK_CLASS}>
+        {item.name ?? item.sku}
       </Link>
     ),
   },
@@ -58,7 +53,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Item>> = [
     header: 'Price',
     align: 'right',
     sortKey: 'unit_price_cents',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (item) => formatCents(item.unit_price_cents, item.currency_code),
   },
   {
@@ -69,6 +64,10 @@ const COLUMNS: ReadonlyArray<DataColumn<Item>> = [
     ),
   },
 ];
+
+function renderItemDetails(item: Item) {
+  return <ReferenceField label="SKU" value={item.sku} />;
+}
 
 export function ItemsListPage() {
   const flags = useOrgFlags();
@@ -156,6 +155,7 @@ function ItemsListToolbar() {
             sortBy={server.sortBy}
             sortDir={server.sortDir}
             onSort={server.onSort}
+            renderRowDetails={renderItemDetails}
           />
           <CursorPager
             canPrev={server.canPrev}
@@ -216,6 +216,7 @@ function ItemsListLegacy() {
             getRowKey={(item) => item.id}
             loading={isLoading}
             empty="No items yet."
+            renderRowDetails={renderItemDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

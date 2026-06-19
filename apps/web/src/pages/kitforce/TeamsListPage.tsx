@@ -14,6 +14,7 @@ import { TextInput } from '@/components/ui/TextInput';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { useTeamsList, useCreateTeam } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
@@ -26,7 +27,7 @@ const COLUMNS: ReadonlyArray<DataColumn<WorkforceTeam>> = [
     key: 'name',
     header: 'Team',
     render: (t) => (
-      <Link to={`/kitforce/teams/${t.id}`} className="text-ink hover:text-accent">
+      <Link to={`/kitforce/teams/${t.id}`} className={LINK_CLASS}>
         {t.name}
       </Link>
     ),

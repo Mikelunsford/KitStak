@@ -305,8 +305,8 @@ export function KittingJobDetailPage() {
                       <td className="px-4 py-2">
                         <EntityLabel kind="item" id={l.item_id} />
                       </td>
-                      <td className="px-4 py-2 font-mono text-sm">{Number(l.quantity).toFixed(2)}</td>
-                      <td className="px-4 py-2 font-mono text-sm">
+                      <td className="px-4 py-2 tabular-nums text-sm">{Number(l.quantity).toFixed(2)}</td>
+                      <td className="px-4 py-2 tabular-nums text-sm">
                         {l.unit_cost_cents == null ? '' : formatCents(l.unit_cost_cents, 'USD')}
                       </td>
                       <td className="px-4 py-2 font-mono text-sm">{l.uom ?? ''}</td>
@@ -422,8 +422,8 @@ export function KittingJobDetailPage() {
                           <span className="text-ink-dim text-xs">No item</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-sm">{Number(l.quantity).toFixed(2)}</td>
-                      <td className="px-4 py-2 font-mono text-sm">
+                      <td className="px-4 py-2 tabular-nums text-sm">{Number(l.quantity).toFixed(2)}</td>
+                      <td className="px-4 py-2 tabular-nums text-sm">
                         {l.unit_cost_cents == null ? '' : formatCents(l.unit_cost_cents, 'USD')}
                       </td>
                       <td className="px-4 py-2 font-mono text-sm">{l.uom ?? ''}</td>

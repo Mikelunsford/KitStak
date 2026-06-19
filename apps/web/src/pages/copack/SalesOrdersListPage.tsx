@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -74,9 +75,9 @@ export function SalesOrdersListPage() {
       {
         key: 'order',
         header: 'Order',
-        cellClassName: 'font-mono',
+        cellClassName: 'tabular-nums',
         render: (o) => (
-          <Link to={`/copack/orders/${o.id}`} className="text-ink hover:text-accent">
+          <Link to={`/copack/orders/${o.id}`} className={LINK_CLASS}>
             {o.order_number ?? o.id.slice(0, 8)}
           </Link>
         ),

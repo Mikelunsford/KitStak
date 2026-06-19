@@ -19,6 +19,8 @@ import { Select } from '@/components/ui/Select';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
+import { ReferenceField } from '@/components/data/ReferenceField';
 import { useMembersList } from '@/lib/hooks/useKitForce';
 import { useVioCapabilities } from '@/lib/hooks/useVioCapabilities';
 import { formatCents } from '@/lib/money';
@@ -39,6 +41,10 @@ function parseMemberStatusParam(raw: string | null): StatusFilter {
     return raw as WorkforceMemberStatus;
   }
   return 'all';
+}
+
+function renderMemberDetails(m: WorkforceMember) {
+  return <ReferenceField label="Number" value={m.member_number} />;
 }
 
 export function MembersListPage() {
@@ -73,19 +79,9 @@ export function MembersListPage() {
         key: 'member',
         header: 'Member',
         render: (m) => (
-          <span className="flex items-center gap-2">
-            <Link
-              to={`/kitforce/members/${m.id}`}
-              className="text-ink hover:text-accent"
-            >
-              {m.display_name}
-            </Link>
-            {m.member_number ? (
-              <span className="font-mono text-xs text-ink-dim">
-                {m.member_number}
-              </span>
-            ) : null}
-          </span>
+          <Link to={`/kitforce/members/${m.id}`} className={LINK_CLASS}>
+            {m.display_name ?? m.member_number}
+          </Link>
         ),
       },
       {
@@ -111,7 +107,7 @@ export function MembersListPage() {
         key: 'rate',
         header: 'Default rate',
         align: 'right',
-        cellClassName: 'font-mono text-ink-dim',
+        cellClassName: 'tabular-nums text-ink-dim',
         render: (m) =>
           m.default_hourly_rate_cents != null
             ? `${formatCents(m.default_hourly_rate_cents, 'USD')}/hr`
@@ -198,6 +194,7 @@ export function MembersListPage() {
             getRowKey={(m) => m.id}
             loading={members.isLoading}
             empty="No members match the current filters."
+            renderRowDetails={renderMemberDetails}
           />
           {totalCount > PAGE_SIZE ? (
             <Pagination

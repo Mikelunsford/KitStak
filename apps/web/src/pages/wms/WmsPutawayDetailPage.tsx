@@ -97,7 +97,7 @@ export function WmsPutawayDetailPage() {
             <span className="text-sm">
               Item: <EntityLabel kind="item" id={task.item_id} />
             </span>
-            <span className="text-sm font-mono">
+            <span className="text-sm tabular-nums">
               Qty {Number(task.quantity).toFixed(2)}
             </span>
           </span>
@@ -188,7 +188,7 @@ export function WmsPutawayDetailPage() {
             <EntityLabel kind="item" id={task.item_id} />
           </dd>
           <dt className="text-ink-dim">Quantity</dt>
-          <dd className="text-ink font-mono">{Number(task.quantity).toFixed(2)}</dd>
+          <dd className="text-ink tabular-nums">{Number(task.quantity).toFixed(2)}</dd>
           <dt className="text-ink-dim">Warehouse</dt>
           <dd className="text-ink">
             <EntityLabel kind="warehouse" id={task.warehouse_id} />

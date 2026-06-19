@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -25,11 +26,11 @@ const COLUMNS: ReadonlyArray<DataColumn<VendorBill>> = [
   {
     key: 'number',
     header: 'Bill #',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (b) => (
       <Link
         to={`/purchasing/vendor-bills/${b.id}`}
-        className="text-ink hover:text-accent"
+        className={LINK_CLASS}
       >
         {b.bill_number ?? b.id.slice(0, 8)}
       </Link>
@@ -50,7 +51,7 @@ const COLUMNS: ReadonlyArray<DataColumn<VendorBill>> = [
     key: 'total',
     header: 'Total',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (b) =>
       formatCents(b.total_cents as number | string, b.currency_code),
   },
@@ -58,7 +59,7 @@ const COLUMNS: ReadonlyArray<DataColumn<VendorBill>> = [
     key: 'balance',
     header: 'Balance',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (b) =>
       formatCents(b.balance_cents as number | string, b.currency_code),
   },

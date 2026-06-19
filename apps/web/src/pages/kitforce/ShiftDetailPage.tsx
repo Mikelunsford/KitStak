@@ -286,7 +286,7 @@ export function ShiftDetailPage() {
 
         <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
           <dt className="text-ink-dim">Shift number</dt>
-          <dd className="text-ink font-mono">{d.shift_number ?? '·'}</dd>
+          <dd className="text-ink tabular-nums">{d.shift_number ?? '·'}</dd>
           <dt className="text-ink-dim">Member</dt>
           <dd className="text-ink">
             {memberName[d.member_id] ?? d.member_id.slice(0, 8)}

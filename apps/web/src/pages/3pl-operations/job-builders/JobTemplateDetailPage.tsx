@@ -122,7 +122,7 @@ export function JobTemplateDetailPage() {
       >
         <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
           <dt className="text-ink-dim">Template number</dt>
-          <dd className="text-ink font-mono">{d.template_number ?? ''}</dd>
+          <dd className="text-ink tabular-nums">{d.template_number ?? ''}</dd>
           <dt className="text-ink-dim">Variant</dt>
           <dd className="text-ink capitalize">{d.variant}</dd>
           <dt className="text-ink-dim">Status</dt>

@@ -96,7 +96,7 @@ export function ExchangeRateCreatePage() {
           inputMode="numeric"
           placeholder="e.g. 920000000"
           required
-          className="font-mono"
+          className="tabular-nums"
         />
         <TextInput
           label="Effective date"

@@ -113,28 +113,28 @@ export function SupplyPlanDetailPage() {
       key: 'required',
       header: 'Required',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => Number(l.required_qty).toFixed(2),
     },
     {
       key: 'available',
       header: 'Available',
       align: 'right',
-      cellClassName: 'font-mono text-ink-dim',
+      cellClassName: 'tabular-nums text-ink-dim',
       render: (l) => Number(l.available_qty).toFixed(2),
     },
     {
       key: 'reserved',
       header: 'Reserved',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => Number(l.reserved_qty).toFixed(2),
     },
     {
       key: 'shortage',
       header: 'Shortage',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => {
         const s = Number(l.shortage_qty);
         return <span className={s > 0 ? 'text-accent' : ''}>{s.toFixed(2)}</span>;

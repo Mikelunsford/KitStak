@@ -168,6 +168,99 @@ test.describe('@smoke pillar-1 flow', () => {
     });
   });
 
+  test('@smoke quotes list: reference number hides behind Additional details', async ({
+    page,
+  }) => {
+    // R-W14-READ-03: the reference number leaves the main list view and lives
+    // under a per-row "Additional details" disclosure. This asserts the
+    // disclosure contract on a real list: the row's "Number" reference is
+    // hidden until the operator opens the disclosure, and visible after. Then
+    // an axe sweep confirms the calmer treatment (no underline, bold names,
+    // tabular numerals, the new toggle button) stays accessible.
+    //
+    // Selector contract (additive):
+    //   button[aria-label="Additional details"]  per-row disclosure toggle
+    await test.step('sign in', async () => {
+      await page.goto('/signin');
+      await page.locator('input[name="email"]').fill(SMOKE_USER_EMAIL);
+      await page.locator('input[name="password"]').fill(SMOKE_USER_PASSWORD);
+      await page.locator('button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+    });
+
+    await test.step('reference number is disclosed, not shown by default', async () => {
+      await page.goto('/quotes');
+
+      // The disclosure toggle carries aria-label="Additional details". When the
+      // seed has no quotes, there are no rows to assert on; record and return.
+      const toggle = page
+        .getByRole('button', { name: 'Additional details' })
+        .first();
+      if (!(await toggle.isVisible({ timeout: 10_000 }).catch(() => false))) {
+        test.info().annotations.push({
+          type: 'smoke-skip',
+          description: 'no quote rows in seed; disclosure coverage skipped',
+        });
+        return;
+      }
+
+      // Collapsed: the toggle reports collapsed, and the row's "Number"
+      // reference label (rendered only inside the disclosure region) is hidden.
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      const numberLabel = page.getByText('Number', { exact: true }).first();
+      await expect(numberLabel).toBeHidden();
+
+      // Expanded: opening the disclosure reveals the reference label.
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(numberLabel).toBeVisible();
+    });
+
+    await test.step('axe sweep on the quotes list surface', async () => {
+      const SEVERITIES = ['serious', 'critical'] as const;
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa'])
+        .analyze();
+      const blocking = results.violations.filter((v) =>
+        SEVERITIES.includes(v.impact as (typeof SEVERITIES)[number]),
+      );
+      expect(
+        blocking,
+        `quotes-list serious/critical axe violations: ${blocking
+          .map((v) => v.id)
+          .join(', ')}`,
+      ).toEqual([]);
+    });
+
+    await test.step('detail header discloses the reference number too', async () => {
+      // Walk into the first quote detail by its title link and assert the same
+      // contract on the detail header (R-W14-READ-04): the reference number
+      // sits in the Additional details disclosure, hidden until opened. The
+      // number value carries data-testid="detail-reference-number". Tolerant of
+      // a seed without quotes or an org without the detail header.
+      await page.goto('/quotes');
+      const firstTitle = page.locator('table tbody a').first();
+      if (!(await firstTitle.isVisible({ timeout: 10_000 }).catch(() => false))) {
+        return;
+      }
+      await firstTitle.click();
+      await expect(page).toHaveURL(/\/quotes\/[0-9a-f-]+/, { timeout: 15_000 });
+
+      const toggle = page.getByRole('button', { name: 'Additional details' });
+      if (!(await toggle.isVisible({ timeout: 10_000 }).catch(() => false))) {
+        test.info().annotations.push({
+          type: 'smoke-skip',
+          description: 'detail header disclosure not present in this seed/org',
+        });
+        return;
+      }
+      const ref = page.getByTestId('detail-reference-number');
+      await expect(ref).toBeHidden();
+      await toggle.click();
+      await expect(ref).toBeVisible();
+    });
+  });
+
   // ---------------------------------------------------------------------
   // The cross-domain quote-to-cash chain below is the original scope of
   // F-Wave5-TEST-02. Selector dry-run revealed that every create step in

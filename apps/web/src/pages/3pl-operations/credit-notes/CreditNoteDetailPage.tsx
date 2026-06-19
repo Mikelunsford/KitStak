@@ -29,6 +29,7 @@ import { useInvoice } from '@/lib/hooks/useInvoices';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { destructiveConfirm } from '@/lib/destructiveConfirm';
 import { formatCents } from '@/lib/money';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { canApplyCreditNote } from './creditNoteApplyGate';
 import {
   STATE_STEPPER_PATHS,
@@ -153,7 +154,7 @@ export function CreditNoteDetailPage() {
               ) : sourceInvoice.data ? (
                 <Link
                   to={`/invoicing/invoices/${sourceInvoiceId}`}
-                  className="text-accent underline"
+                  className={LINK_CLASS}
                 >
                   {sourceInvoice.data.invoice_number}
                 </Link>
@@ -239,7 +240,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-bg-2 border border-line p-4">
       <p className="text-xs uppercase text-ink-dim font-sans">{label}</p>
-      <p className="text-xl font-mono text-ink break-words">{value}</p>
+      <p className="text-xl tabular-nums text-ink break-words">{value}</p>
     </div>
   );
 }

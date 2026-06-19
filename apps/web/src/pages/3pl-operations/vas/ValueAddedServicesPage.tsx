@@ -41,7 +41,7 @@ const COLUMNS: ReadonlyArray<DataColumn<ValueAddedService>> = [
     key: 'base_price',
     header: 'Base price',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (v) => formatCents(v.base_price_cents, v.currency_code),
   },
   {

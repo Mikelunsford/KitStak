@@ -19,6 +19,7 @@ import type { ReactNode } from 'react';
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { DetailSectionEmptyCoaching } from '@/components/shell/DetailSectionEmptyCoaching';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { formatCents } from '@/lib/money';
 import { formatDateMedium, formatDateTimeMedium } from '@/lib/dates';
 import type {
@@ -56,7 +57,7 @@ export function MemberOverviewPanel({
     <div className="flex flex-col gap-6">
       <dl className="grid grid-cols-2 gap-4 font-sans text-sm">
         <dt className="text-ink-dim">Member number</dt>
-        <dd className="text-ink font-mono">{d.member_number ?? 'None'}</dd>
+        <dd className="text-ink tabular-nums">{d.member_number ?? 'None'}</dd>
         <dt className="text-ink-dim">Email</dt>
         <dd className="text-ink">{d.email ?? '·'}</dd>
         <dt className="text-ink-dim">Phone</dt>
@@ -64,7 +65,7 @@ export function MemberOverviewPanel({
         {canReadRate ? (
           <>
             <dt className="text-ink-dim">Default hourly rate</dt>
-            <dd className="text-ink font-mono">
+            <dd className="text-ink tabular-nums">
               {d.default_hourly_rate_cents != null
                 ? `${formatCents(d.default_hourly_rate_cents, 'USD')}/hr`
                 : 'None'}
@@ -153,7 +154,7 @@ export function MemberAssignmentsPanel({
     >
       {rows.map((a) => (
         <li key={a.id} className={ROW_CLASS}>
-          <Link to={`/kitforce/assignments/${a.id}`} className="underline">
+          <Link to={`/kitforce/assignments/${a.id}`} className={`${LINK_CLASS} text-sm`}>
             {a.title}
           </Link>
           <span className="ml-2 inline-flex">
@@ -191,12 +192,12 @@ export function MemberTimeEntriesPanel({
       {rows.map((t) => (
         <li key={t.id} className={ROW_CLASS}>
           <span className="text-ink">{formatDateTimeMedium(t.clock_in_at)}</span>
-          <span className="ml-2 text-ink-dim text-xs font-mono">
+          <span className="ml-2 text-ink-dim text-xs tabular-nums">
             {formatMinutes(t.minutes)} min
             {t.clock_out_at == null ? ' . open' : ''}
           </span>
           {canReadRate ? (
-            <span className="ml-2 text-ink-dim text-xs font-mono">
+            <span className="ml-2 text-ink-dim text-xs tabular-nums">
               {formatCents(t.hourly_rate_cents, 'USD')}/hr
             </span>
           ) : null}
@@ -228,7 +229,7 @@ export function MemberShiftsPanel({
     >
       {rows.map((s) => (
         <li key={s.id} className={ROW_CLASS}>
-          <Link to={`/kitforce/shifts/${s.id}`} className="underline font-mono">
+          <Link to={`/kitforce/shifts/${s.id}`} className={`${LINK_CLASS} text-sm`}>
             {s.shift_number ?? s.id.slice(0, 8)}
           </Link>
           <span className="ml-2 text-ink-dim text-xs">

@@ -8,6 +8,7 @@
 import { Link } from 'react-router-dom';
 
 import { EntityLabel } from '@/components/data/EntityLabel';
+import { LINK_CLASS } from '@/components/data/entityLabelStyles';
 import { ListEmptyState } from '@/components/shell/ListEmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable, type DataColumn } from '@/components/ui/DataTable';
@@ -72,7 +73,7 @@ function SourceCell({
   const label = entityType.replace(/_/g, ' ');
   if (!href) return <span>{label}</span>;
   return (
-    <Link to={href} className="text-ink underline hover:text-accent">
+    <Link to={href} className={LINK_CLASS}>
       {label}
     </Link>
   );
@@ -101,7 +102,7 @@ const COLUMNS: ReadonlyArray<DataColumn<StockMovement>> = [
     key: 'qty',
     header: 'Qty',
     align: 'right',
-    cellClassName: 'font-mono',
+    cellClassName: 'tabular-nums',
     render: (m) => {
       const sign = signForMovementType(m.movement_type);
       const qtyClass =
@@ -113,7 +114,7 @@ const COLUMNS: ReadonlyArray<DataColumn<StockMovement>> = [
     key: 'unit_cost',
     header: 'Unit cost',
     align: 'right',
-    cellClassName: 'font-mono text-ink-dim',
+    cellClassName: 'tabular-nums text-ink-dim',
     render: (m) =>
       m.unit_cost_cents == null ? '' : formatCents(m.unit_cost_cents, 'USD'),
   },

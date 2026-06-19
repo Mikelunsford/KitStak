@@ -90,7 +90,7 @@ function DailyLogLines({
       key: 'qty',
       header: 'Qty',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => Number(l.quantity).toFixed(2),
     },
     ...(canEdit
@@ -115,7 +115,7 @@ function DailyLogLines({
       key: 'qty',
       header: 'Qty',
       align: 'right',
-      cellClassName: 'font-mono',
+      cellClassName: 'tabular-nums',
       render: (l) => Number(l.quantity).toFixed(2),
     },
     ...(canEdit
@@ -253,13 +253,13 @@ function DailyLogCard({ runId, log }: { runId: string; log: JobRunDailyLog }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="font-mono text-ink hover:text-accent"
+            className="tabular-nums text-ink hover:text-accent"
             aria-expanded={open}
           >
             {open ? '▾' : '▸'} {log.log_date.slice(0, 10)}
           </button>
           <StatusBadge status={log.status} />
-          <span className="font-mono text-sm text-ink-dim">
+          <span className="tabular-nums text-sm text-ink-dim">
             {Number(log.labor_hours).toFixed(2)} h
           </span>
         </div>
