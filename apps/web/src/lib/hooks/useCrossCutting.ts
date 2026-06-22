@@ -29,6 +29,8 @@ import {
   getMoneySummary,
   getInventorySummary,
   getProductionSummary,
+  getBuySummary,
+  getWorkforceSummary,
 } from '@/lib/services/dashboardService';
 import {
   getPortalMe,
@@ -198,6 +200,24 @@ export function useProductionSummary(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: dashboardKeys.productionSummary(),
     queryFn: getProductionSummary,
+    enabled: opts.enabled ?? true,
+    staleTime: 30_000,
+  });
+}
+
+export function useBuySummary(opts: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: dashboardKeys.buySummary(),
+    queryFn: getBuySummary,
+    enabled: opts.enabled ?? true,
+    staleTime: 30_000,
+  });
+}
+
+export function useWorkforceSummary(opts: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: dashboardKeys.workforceSummary(),
+    queryFn: getWorkforceSummary,
     enabled: opts.enabled ?? true,
     staleTime: 30_000,
   });

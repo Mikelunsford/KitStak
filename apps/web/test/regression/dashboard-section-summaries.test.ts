@@ -176,6 +176,68 @@ function productionFixture() {
   });
 }
 
+const MEMBER_1 = '00000000-0000-4000-8000-0000000000e1';
+const MEMBER_2 = '00000000-0000-4000-8000-0000000000e2';
+
+function buyFixture() {
+  const thisMonth = dateOffsetDays(0);
+  const old = '2000-01-01';
+  return makeState({
+    purchase_orders: [
+      { id: 'po1', org_id: ORG_A, po_number: 'PO-1', status: 'submitted', expected_date: dateOffsetDays(2), total_cents: 100, deleted_at: null },
+      { id: 'po2', org_id: ORG_A, po_number: 'PO-2', status: 'approved', expected_date: dateOffsetDays(1), total_cents: 200, deleted_at: null },
+      { id: 'po3', org_id: ORG_A, po_number: 'PO-3', status: 'partial_received', expected_date: dateOffsetDays(3), total_cents: 300, deleted_at: null },
+      { id: 'po4', org_id: ORG_A, po_number: 'PO-4', status: 'received', expected_date: dateOffsetDays(1), total_cents: 400, deleted_at: null },
+      { id: 'po5', org_id: ORG_A, po_number: 'PO-5', status: 'draft', expected_date: dateOffsetDays(1), total_cents: 500, deleted_at: null },
+    ],
+    vendor_bills: [
+      { id: 'vb1', org_id: ORG_A, bill_number: 'VB-1', status: 'approved', due_date: dateOffsetDays(2), balance_cents: 5000, total_cents: 5000, bill_date: thisMonth, deleted_at: null },
+      { id: 'vb2', org_id: ORG_A, bill_number: 'VB-2', status: 'partial_paid', due_date: dateOffsetDays(5), balance_cents: 3000, total_cents: 8000, bill_date: thisMonth, deleted_at: null },
+      { id: 'vb3', org_id: ORG_A, bill_number: 'VB-3', status: 'submitted', due_date: dateOffsetDays(1), balance_cents: 2000, total_cents: 2000, bill_date: thisMonth, deleted_at: null },
+      { id: 'vb4', org_id: ORG_A, bill_number: 'VB-4', status: 'paid', due_date: dateOffsetDays(1), balance_cents: 0, total_cents: 9000, bill_date: thisMonth, deleted_at: null },
+      { id: 'vb5', org_id: ORG_A, bill_number: 'VB-5', status: 'approved', due_date: dateOffsetDays(1), balance_cents: 0, total_cents: 1000, bill_date: old, deleted_at: null },
+    ],
+    expenses: [
+      { id: 'e1', org_id: ORG_A, expense_number: 'EX-1', status: 'submitted', expense_date: thisMonth, total_cents: 700, deleted_at: null },
+      { id: 'e2', org_id: ORG_A, expense_number: 'EX-2', status: 'submitted', expense_date: thisMonth, total_cents: 300, deleted_at: null },
+      { id: 'e3', org_id: ORG_A, expense_number: 'EX-3', status: 'approved', expense_date: thisMonth, total_cents: 1000, deleted_at: null },
+      { id: 'e4', org_id: ORG_A, expense_number: 'EX-4', status: 'submitted', expense_date: old, total_cents: 50, deleted_at: null },
+    ],
+    organizations: [{ id: ORG_A, default_currency_code: 'USD' }],
+  });
+}
+
+function workforceFixture() {
+  const now = tsOffsetDays(0);
+  const old = '2000-01-01T00:00:00Z';
+  return makeState({
+    workforce_members: [
+      { id: MEMBER_1, org_id: ORG_A, display_name: 'Dana Picker', status: 'active', deleted_at: null },
+      { id: MEMBER_2, org_id: ORG_A, display_name: 'Sam Packer', status: 'active', deleted_at: null },
+      { id: 'm-inactive', org_id: ORG_A, display_name: 'Gone Away', status: 'inactive', deleted_at: null },
+    ],
+    shifts: [
+      { id: 'sh1', org_id: ORG_A, shift_number: 'SH-1', member_id: MEMBER_1, status: 'started', started_at: now, deleted_at: null },
+      { id: 'sh2', org_id: ORG_A, shift_number: 'SH-2', member_id: MEMBER_2, status: 'started', started_at: now, deleted_at: null },
+      { id: 'sh3', org_id: ORG_A, shift_number: 'SH-3', member_id: MEMBER_1, status: 'scheduled', started_at: null, deleted_at: null },
+      { id: 'sh4', org_id: ORG_A, shift_number: 'SH-4', member_id: MEMBER_2, status: 'completed', started_at: old, deleted_at: null },
+    ],
+    work_assignments: [
+      { id: 'wa1', org_id: ORG_A, assignment_number: 'WA-1', title: 'Pick order 1', status: 'open', member_id: null, created_at: '2026-01-01T00:00:00Z', deleted_at: null },
+      { id: 'wa2', org_id: ORG_A, assignment_number: 'WA-2', title: 'Pack order 2', status: 'assigned', member_id: MEMBER_1, created_at: '2026-01-02T00:00:00Z', deleted_at: null },
+      { id: 'wa3', org_id: ORG_A, assignment_number: 'WA-3', title: 'Stage order 3', status: 'in_progress', member_id: MEMBER_2, created_at: '2026-01-03T00:00:00Z', deleted_at: null },
+      { id: 'wa4', org_id: ORG_A, assignment_number: 'WA-4', title: 'Done one', status: 'done', member_id: MEMBER_1, created_at: '2026-01-04T00:00:00Z', deleted_at: null },
+      { id: 'wa5', org_id: ORG_A, assignment_number: 'WA-5', title: 'Cancelled one', status: 'cancelled', member_id: MEMBER_1, created_at: '2026-01-05T00:00:00Z', deleted_at: null },
+    ],
+    time_entries: [
+      { org_id: ORG_A, member_id: MEMBER_1, minutes: 60, hourly_rate_cents: 6000, clock_in_at: now },
+      { org_id: ORG_A, member_id: MEMBER_2, minutes: 120, hourly_rate_cents: 3000, clock_in_at: now },
+      { org_id: ORG_A, member_id: MEMBER_1, minutes: 60, hourly_rate_cents: 9999, clock_in_at: old },
+    ],
+    organizations: [{ id: ORG_A, default_currency_code: 'USD' }],
+  });
+}
+
 describe('dashboard-api section summaries (Section Dashboards)', () => {
   let handler: (req: Request) => Promise<Response> | Response;
 
@@ -351,5 +413,65 @@ describe('dashboard-api section summaries (Section Dashboards)', () => {
     expect(data.manufacturing_runs).toEqual([]);
     expect(data.sales_orders).toEqual([]);
     expect(data.job_runs).toEqual([]);
+  });
+
+  it('buy-summary computes open POs, bills due, expenses to approve, and spend', async () => {
+    setActiveMockState(buyFixture());
+    const { res, data } = await getSummary('/dashboard/buy-summary');
+    expect(res.status).toBe(200);
+    const kpis = data.kpis as Record<string, unknown>;
+    // submitted + approved + partial_received = 3 open POs.
+    expect(kpis.open_pos_count).toBe(3);
+    // vb1+vb2+vb3 have positive balance and a due status; vb4 paid, vb5 zero.
+    expect(kpis.vendor_bills_due_count).toBe(3);
+    expect(kpis.vendor_bills_due_cents).toBe('10000');
+    // all submitted expenses regardless of date.
+    expect(kpis.expenses_to_approve_count).toBe(3);
+    // bills this month (5000+8000+2000+9000) + expenses this month (700+300+1000).
+    expect(kpis.spend_this_month_cents).toBe('26000');
+    expect(data.open_purchase_orders).toHaveLength(3);
+    expect(data.vendor_bills_due).toHaveLength(3);
+  });
+
+  it('buy-summary returns zeros and empty lists for a cross-tenant caller (RLS Pattern A)', async () => {
+    setActiveMockState(buyFixture());
+    const { data } = await getSummary('/dashboard/buy-summary', OWNER_B);
+    const kpis = data.kpis as Record<string, unknown>;
+    expect(kpis.open_pos_count).toBe(0);
+    expect(kpis.vendor_bills_due_count).toBe(0);
+    expect(kpis.vendor_bills_due_cents).toBe('0');
+    expect(kpis.spend_this_month_cents).toBe('0');
+    expect(data.open_purchase_orders).toEqual([]);
+    expect(data.vendor_bills_due).toEqual([]);
+  });
+
+  it('workforce-summary computes members, shifts, assignments, and labor cost', async () => {
+    setActiveMockState(workforceFixture());
+    const { res, data } = await getSummary('/dashboard/workforce-summary');
+    expect(res.status).toBe(200);
+    const kpis = data.kpis as Record<string, unknown>;
+    expect(kpis.active_members_count).toBe(2);
+    expect(kpis.on_shift_count).toBe(2);
+    // open + assigned + in_progress = 3.
+    expect(kpis.open_assignments_count).toBe(3);
+    // (60min * 6000) / 60 + (120min * 3000) / 60 = 6000 + 6000; old entry excluded.
+    expect(kpis.labor_cost_this_month_cents).toBe('12000');
+    expect(data.open_assignments).toHaveLength(3);
+    expect(data.on_shift).toHaveLength(2);
+    const assignments = data.open_assignments as Array<Record<string, unknown>>;
+    const wa2 = assignments.find((a) => a.number === 'WA-2');
+    expect(wa2?.member_name).toBe('Dana Picker');
+  });
+
+  it('workforce-summary returns zeros and empty lists for a cross-tenant caller (RLS Pattern A)', async () => {
+    setActiveMockState(workforceFixture());
+    const { data } = await getSummary('/dashboard/workforce-summary', OWNER_B);
+    const kpis = data.kpis as Record<string, unknown>;
+    expect(kpis.active_members_count).toBe(0);
+    expect(kpis.on_shift_count).toBe(0);
+    expect(kpis.open_assignments_count).toBe(0);
+    expect(kpis.labor_cost_this_month_cents).toBe('0');
+    expect(data.open_assignments).toEqual([]);
+    expect(data.on_shift).toEqual([]);
   });
 });

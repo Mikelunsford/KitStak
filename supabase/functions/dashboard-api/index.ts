@@ -13,12 +13,14 @@ import { ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { roundHalfEven } from '../_shared/money.ts';
 import type {
+  BuySummary,
   DashboardSummary,
   InventorySummary,
   KitCostSummary,
   MoneySummary,
   ProductionSummary,
   SellSummary,
+  WorkforceSummary,
 } from '../_shared/types/cross_cutting.ts';
 
 const BUNDLE = 'dashboard-api';
@@ -1310,6 +1312,269 @@ const productionSummary: Route = {
   },
 };
 
+async function resolveMemberNames(
+  client: ReturnType<typeof admin>,
+  orgId: string,
+  ids: ReadonlyArray<string>,
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const { data } = await client
+    .from('workforce_members')
+    .select('id,display_name')
+    .eq('org_id', orgId)
+    .in('id', [...ids]);
+  return new Map(
+    ((data ?? []) as Array<Record<string, unknown>>).map((m) => [
+      m.id as string,
+      (m.display_name as string | null) ?? '',
+    ]),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Buy section dashboard (Section Dashboards, Phase 3)
+//
+// Read-only aggregate gated on vendors.vendor.read (mirrors the BUY section
+// gate). Open POs and vendor bills due use the open-status sets; spend this
+// month sums vendor bills and expenses dated in the current UTC month.
+// Org-scoped (Pattern A); BIGINT cents (string), integer arithmetic.
+// ---------------------------------------------------------------------------
+const PO_OPEN_STATUSES: ReadonlyArray<string> = [
+  'submitted',
+  'approved',
+  'partial_received',
+];
+const VENDOR_BILL_DUE_STATUSES: ReadonlyArray<string> = [
+  'submitted',
+  'approved',
+  'partial_paid',
+];
+
+const buySummary: Route = {
+  method: 'GET',
+  path: '/dashboard/buy-summary',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'vendors.vendor.read');
+    const client = admin();
+    const orgId = caller.orgId;
+    const monthStartDate = startOfMonthUTC(new Date()).slice(0, 10);
+
+    const [
+      openPosCount,
+      poListRes,
+      billsDueRes,
+      expensesToApprove,
+      billsMonthRes,
+      expensesMonthRes,
+    ] = await Promise.all([
+      countByStates(client, 'purchase_orders', 'status', orgId, PO_OPEN_STATUSES).catch(
+        () => 0,
+      ),
+      client
+        .from('purchase_orders')
+        .select('id,po_number,status,expected_date,total_cents')
+        .eq('org_id', orgId)
+        .in('status', PO_OPEN_STATUSES)
+        .is('deleted_at', null)
+        .order('expected_date', { ascending: true })
+        .limit(5)
+        .then((r) => r),
+      client
+        .from('vendor_bills')
+        .select('id,bill_number,status,due_date,balance_cents')
+        .eq('org_id', orgId)
+        .in('status', VENDOR_BILL_DUE_STATUSES)
+        .is('deleted_at', null)
+        .then((r) => r),
+      countByStates(client, 'expenses', 'status', orgId, ['submitted']).catch(() => 0),
+      client
+        .from('vendor_bills')
+        .select('total_cents,bill_date')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .gte('bill_date', monthStartDate)
+        .then((r) => r),
+      client
+        .from('expenses')
+        .select('total_cents,expense_date')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .gte('expense_date', monthStartDate)
+        .then((r) => r),
+    ]);
+
+    const billRows = (
+      (billsDueRes.data ?? []) as Array<Record<string, unknown>>
+    ).filter((b) => asBig(b.balance_cents) > 0n);
+    let billsDue = 0n;
+    for (const b of billRows) billsDue += asBig(b.balance_cents);
+    const billsSorted = [...billRows].sort((a, b) => {
+      const da = (a.due_date as string | null) ?? '9999-12-31';
+      const db = (b.due_date as string | null) ?? '9999-12-31';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+    const vendor_bills_due = billsSorted.slice(0, 5).map((b) => ({
+      id: b.id as string,
+      number: (b.bill_number as string | null) ?? '',
+      status: (b.status as string | null) ?? '',
+      due_date: (b.due_date as string | null) ?? null,
+      balance_cents: asBig(b.balance_cents).toString(),
+    }));
+
+    let spend = 0n;
+    for (const r of (billsMonthRes.data ?? []) as Array<Record<string, unknown>>) {
+      spend += asBig(r.total_cents);
+    }
+    for (const r of (expensesMonthRes.data ?? []) as Array<Record<string, unknown>>) {
+      spend += asBig(r.total_cents);
+    }
+
+    const open_purchase_orders = (
+      (poListRes.data ?? []) as Array<Record<string, unknown>>
+    ).map((p) => ({
+      id: p.id as string,
+      number: (p.po_number as string | null) ?? '',
+      status: (p.status as string | null) ?? '',
+      expected_date: (p.expected_date as string | null) ?? null,
+      total_cents: asBig(p.total_cents).toString(),
+    }));
+
+    const currency = await resolveCurrency(client, orgId);
+
+    const out: BuySummary = {
+      kpis: {
+        open_pos_count: openPosCount,
+        vendor_bills_due_count: billRows.length,
+        vendor_bills_due_cents: billsDue.toString(),
+        expenses_to_approve_count: expensesToApprove,
+        spend_this_month_cents: spend.toString(),
+      },
+      currency_code: currency,
+      open_purchase_orders,
+      vendor_bills_due,
+    };
+    return ok(out);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Workforce section dashboard (Section Dashboards, Phase 3)
+//
+// Read-only aggregate gated on kitforce.member.read (mirrors the WORKFORCE
+// section gate). Labor cost this month sums time entries (minutes * hourly rate
+// / 60, banker's-rounded) clocked in during the current UTC month. Org-scoped
+// (Pattern A); BIGINT cents (string).
+// ---------------------------------------------------------------------------
+const ASSIGNMENT_OPEN_STATUSES: ReadonlyArray<string> = [
+  'open',
+  'assigned',
+  'in_progress',
+];
+
+const workforceSummary: Route = {
+  method: 'GET',
+  path: '/dashboard/workforce-summary',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'kitforce.member.read');
+    const client = admin();
+    const orgId = caller.orgId;
+    const monthStartIso = startOfMonthUTC(new Date());
+
+    const [
+      activeMembers,
+      onShiftCount,
+      openAssignCount,
+      assignListRes,
+      shiftListRes,
+      timeRes,
+    ] = await Promise.all([
+      countByStates(client, 'workforce_members', 'status', orgId, ['active']).catch(
+        () => 0,
+      ),
+      countByStates(client, 'shifts', 'status', orgId, ['started']).catch(() => 0),
+      countByStates(
+        client,
+        'work_assignments',
+        'status',
+        orgId,
+        ASSIGNMENT_OPEN_STATUSES,
+      ).catch(() => 0),
+      client
+        .from('work_assignments')
+        .select('id,assignment_number,title,status,member_id')
+        .eq('org_id', orgId)
+        .in('status', ASSIGNMENT_OPEN_STATUSES)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+        .limit(5)
+        .then((r) => r),
+      client
+        .from('shifts')
+        .select('id,shift_number,member_id,started_at')
+        .eq('org_id', orgId)
+        .eq('status', 'started')
+        .is('deleted_at', null)
+        .order('started_at', { ascending: false })
+        .limit(5)
+        .then((r) => r),
+      client
+        .from('time_entries')
+        .select('minutes,hourly_rate_cents,clock_in_at')
+        .eq('org_id', orgId)
+        .gte('clock_in_at', monthStartIso)
+        .then((r) => r),
+    ]);
+
+    let labor = 0n;
+    for (const r of (timeRes.data ?? []) as Array<Record<string, unknown>>) {
+      const minutes = asNum(r.minutes);
+      const rate = asNum(r.hourly_rate_cents);
+      if (minutes > 0 && rate > 0) {
+        labor += BigInt(roundHalfEven((minutes * rate) / 60));
+      }
+    }
+
+    const assignRows = (assignListRes.data ?? []) as Array<Record<string, unknown>>;
+    const shiftRows = (shiftListRes.data ?? []) as Array<Record<string, unknown>>;
+    const memberIds = Array.from(
+      new Set(
+        [...assignRows, ...shiftRows]
+          .map((r) => r.member_id as string)
+          .filter(Boolean),
+      ),
+    );
+    const memberNames = await resolveMemberNames(client, orgId, memberIds);
+
+    const open_assignments = assignRows.map((a) => ({
+      id: a.id as string,
+      number: (a.assignment_number as string | null) ?? '',
+      title: (a.title as string | null) ?? '',
+      status: (a.status as string | null) ?? '',
+      member_name: memberNames.get(a.member_id as string) ?? '',
+    }));
+    const on_shift = shiftRows.map((s) => ({
+      id: s.id as string,
+      number: (s.shift_number as string | null) ?? '',
+      member_name: memberNames.get(s.member_id as string) ?? '',
+      started_at: (s.started_at as string | null) ?? null,
+    }));
+
+    const out: WorkforceSummary = {
+      kpis: {
+        active_members_count: activeMembers,
+        on_shift_count: onShiftCount,
+        open_assignments_count: openAssignCount,
+        labor_cost_this_month_cents: labor.toString(),
+      },
+      open_assignments,
+      on_shift,
+    };
+    return ok(out);
+  },
+};
+
 Deno.serve((req) =>
   route(
     req,
@@ -1320,6 +1585,8 @@ Deno.serve((req) =>
       moneySummary,
       inventorySummary,
       productionSummary,
+      buySummary,
+      workforceSummary,
     ],
     { bundle: BUNDLE },
   ),
@@ -1332,4 +1599,6 @@ export {
   moneySummary,
   inventorySummary,
   productionSummary,
+  buySummary,
+  workforceSummary,
 };
