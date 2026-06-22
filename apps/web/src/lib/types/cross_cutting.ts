@@ -317,6 +317,83 @@ export const MoneySummarySchema = z.object({
 export type MoneySummary = z.infer<typeof MoneySummarySchema>;
 
 // ---------------------------------------------------------------------------
+// InventorySummary (Section Dashboards, Phase 2)
+//
+// Read-only Inventory section dashboard payload. Quantities are plain numbers
+// (numeric columns, possibly fractional), not cents. The endpoint always
+// computes the inbound/outbound and bin metrics; the SPA surfaces them per
+// entitlement (3PL and WMS).
+// ---------------------------------------------------------------------------
+export const InventorySummarySchema = z.object({
+  kpis: z.object({
+    below_reorder_count: z.number().int().nonnegative(),
+    stocked_skus_count: z.number().int().nonnegative(),
+    inbound_receiving_count: z.number().int().nonnegative(),
+    outbound_shipments_count: z.number().int().nonnegative(),
+    occupied_bins_count: z.number().int().nonnegative(),
+  }),
+  below_reorder: z.array(
+    z.object({
+      item_id: UuidSchema,
+      sku: z.string(),
+      name: z.string(),
+      on_hand: z.number(),
+      reorder_point: z.number(),
+    }),
+  ),
+  inbound_receiving: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      status: z.string(),
+      expected_date: z.string().nullable(),
+    }),
+  ),
+});
+export type InventorySummary = z.infer<typeof InventorySummarySchema>;
+
+// ---------------------------------------------------------------------------
+// ProductionSummary (Section Dashboards, Phase 2)
+//
+// Read-only Production and Fulfillment section dashboard payload. KPIs span the
+// manufacturing, co-pack, and 3PL add-ons; the SPA folds the per-add-on widget
+// lists by entitlement. The endpoint always computes all counts (org-scoped
+// reads yield zero for add-ons the org does not use).
+// ---------------------------------------------------------------------------
+export const ProductionSummarySchema = z.object({
+  kpis: z.object({
+    runs_in_production_count: z.number().int().nonnegative(),
+    kitting_in_progress_count: z.number().int().nonnegative(),
+    orders_to_fulfill_count: z.number().int().nonnegative(),
+    late_jobs_count: z.number().int().nonnegative(),
+  }),
+  manufacturing_runs: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      status: z.string(),
+      planned_complete_at: z.string().nullable(),
+    }),
+  ),
+  sales_orders: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      status: z.string(),
+      customer_name: z.string(),
+    }),
+  ),
+  job_runs: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      status: z.string(),
+    }),
+  ),
+});
+export type ProductionSummary = z.infer<typeof ProductionSummarySchema>;
+
+// ---------------------------------------------------------------------------
 // ImportJob
 // ---------------------------------------------------------------------------
 export const ImportEntityTypeSchema = z.enum([

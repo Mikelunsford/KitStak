@@ -5,10 +5,14 @@
 import { apiRequest } from '@/lib/apiClient';
 import {
   DashboardSummarySchema,
+  InventorySummarySchema,
   MoneySummarySchema,
+  ProductionSummarySchema,
   SellSummarySchema,
   type DashboardSummary,
+  type InventorySummary,
   type MoneySummary,
+  type ProductionSummary,
   type SellSummary,
 } from '@/lib/types/cross_cutting';
 
@@ -31,4 +35,20 @@ export async function getMoneySummary(): Promise<MoneySummary> {
     method: 'GET',
   });
   return MoneySummarySchema.parse(data);
+}
+
+export async function getInventorySummary(): Promise<InventorySummary> {
+  const data = await apiRequest<unknown>(
+    '/dashboard-api/dashboard/inventory-summary',
+    { method: 'GET' },
+  );
+  return InventorySummarySchema.parse(data);
+}
+
+export async function getProductionSummary(): Promise<ProductionSummary> {
+  const data = await apiRequest<unknown>(
+    '/dashboard-api/dashboard/production-summary',
+    { method: 'GET' },
+  );
+  return ProductionSummarySchema.parse(data);
 }

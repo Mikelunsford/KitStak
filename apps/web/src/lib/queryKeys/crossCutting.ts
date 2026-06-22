@@ -32,6 +32,8 @@ export const dashboardKeys = {
   summary: () => ['dashboard', 'summary'] as const,
   sellSummary: () => ['dashboard', 'sell-summary'] as const,
   moneySummary: () => ['dashboard', 'money-summary'] as const,
+  inventorySummary: () => ['dashboard', 'inventory-summary'] as const,
+  productionSummary: () => ['dashboard', 'production-summary'] as const,
 };
 
 export const portalKeys = {
