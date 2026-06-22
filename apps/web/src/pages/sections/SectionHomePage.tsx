@@ -24,6 +24,7 @@ import { InventoryPanel } from './InventoryPanel';
 import { ProductionPanel } from './ProductionPanel';
 import { BuyPanel } from './BuyPanel';
 import { WorkforcePanel } from './WorkforcePanel';
+import { InsightsPanel } from './InsightsPanel';
 
 function SectionHub({
   groups,
@@ -115,6 +116,7 @@ export function SectionHomePage() {
       {mode.key === 'production' ? <ProductionPanel /> : null}
       {mode.key === 'buy' ? <BuyPanel /> : null}
       {mode.key === 'workforce' ? <WorkforcePanel /> : null}
+      {mode.key === 'insights' ? <InsightsPanel /> : null}
 
       <SectionHub groups={groups} loading={!ready} />
     </section>
