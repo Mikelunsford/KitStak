@@ -14,7 +14,12 @@ import type { ReactNode } from 'react';
 export interface PageHeaderProps {
   /** The page title. Rendered uppercase in the brand display font. */
   title: string;
-  /** Small mono eyebrow above the title: mode, breadcrumb, or section. */
+  /**
+   * @deprecated No longer rendered. The "Category / Page" eyebrow was removed
+   * as noisy navigation chrome (the global Back button plus section dashboards
+   * cover wayfinding now). The prop is kept so existing call sites compile; the
+   * dead props can be swept in a follow-up.
+   */
   eyebrow?: ReactNode;
   /** One-line summary under the title (counts, context). */
   meta?: ReactNode;
@@ -22,16 +27,11 @@ export interface PageHeaderProps {
   actions?: ReactNode;
 }
 
-export function PageHeader({ title, eyebrow, meta, actions }: PageHeaderProps) {
+export function PageHeader({ title, meta, actions }: PageHeaderProps) {
   return (
     <header className="flex flex-col gap-2 border-b border-line pb-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          {eyebrow ? (
-            <div className="font-mono text-xs uppercase tracking-wider text-ink-dim">
-              {eyebrow}
-            </div>
-          ) : null}
           <h1 className="font-display text-4xl uppercase tracking-wide text-ink">
             {title}
           </h1>

@@ -37,10 +37,9 @@ describe('PageHeader', () => {
     expect(textOf(tree, 'h1')).toContain('Quotes');
   });
 
-  it('renders eyebrow, meta, and actions when provided', () => {
+  it('renders meta and actions when provided', () => {
     const el = PageHeader({
       title: 'Quotes',
-      eyebrow: 'Quotes',
       meta: '5 quotes',
       actions: createElement('button', { 'data-testid': 'cta' }, 'New quote'),
     });
@@ -51,6 +50,16 @@ describe('PageHeader', () => {
     expect(strings).toContain('Quotes');
     expect(strings).toContain('5 quotes');
     expect(tree.some((n) => n.props?.['data-testid'] === 'cta')).toBe(true);
+  });
+
+  it('does not render the eyebrow (removed as noisy nav chrome)', () => {
+    const el = PageHeader({ title: 'Quotes', eyebrow: 'Sell / Quotes' });
+    const tree = walk(el);
+    const strings = tree
+      .map((n) => n.props.children)
+      .filter((c): c is string => typeof c === 'string');
+    expect(strings).not.toContain('Sell / Quotes');
+    expect(strings).toContain('Quotes');
   });
 
   it('omits the eyebrow, meta, and action containers when not provided', () => {
