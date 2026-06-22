@@ -8,6 +8,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Section dashboards and a navigation redesign** (PRs #353 to #357). Every
+  task-section header now opens a real destination. A single generic
+  SectionHomePage serves all eight sections (Sell, Buy, Inventory, Production,
+  Money, Workforce, Insights, Settings), rendering the section header, an optional
+  KPI panel, and a hub of the section's sub-areas as cards (reusing the existing
+  flag and capability gating). Six sections gained rich KPI panels backed by new
+  read-only summary endpoints in the dashboard-api bundle, each org-scoped,
+  capability-gated, BIGINT cents on the wire, with byte-mirrored canon and
+  regression coverage. Navigation gained a global Back button, a static section
+  rail in place of the accordion, and a role-aware section launcher on the global
+  dashboard.
+- **Dashboard personalization** (PRs #360 to #362). Per-user default landing: a
+  "Set as home" control on the dashboard and each section home chooses where the
+  root path resolves after sign-in (stored per browser). DB-backed, cross-device
+  dashboard layout: migration 0128 adds `user_dashboard_prefs` (RLS owner-scoped,
+  mirroring `saved_views`), served by a new dashboard-api GET and an
+  idempotency-keyed PUT with byte-mirrored canon and hooks. Customize UI: each
+  section home composes its content as widgets, with a Customize toggle to hide,
+  show, and reorder them (up and down, not drag), persisted per user and
+  cross-device. The schema was operator-approved before authoring; no new
+  capability (the endpoints reuse `dashboard.summary.read`, with RLS and an
+  explicit user_id filter as the ownership authority).
+- **Insights consolidation** (PR #358). The Insights section home surfaces the
+  KitCost headline metrics through a capability-gated panel that reuses the
+  existing KitCost summary hook, with no new endpoint.
+
 - **Server-driven list toolbar completed across every list surface.** Thirty-one
   list entities across twelve edge bundles (CRM contacts and activities; vendors,
   purchase orders, expenses; shipments and receiving orders; credit notes and
@@ -29,6 +55,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Portal dead-end for dual-role accounts** (PR #352). The operator topbar
+  workspace switcher listed a user's own `customer_user` portal membership as a
+  switch target; switching into it stranded them, since the portal has no switcher
+  and `customer_user` cannot switch back. The switcher now filters to staff
+  memberships only (SPA-only). A bidirectional escape hatch for portal roles is a
+  follow-up (it needs a capabilities-canon change).
+
 - **Stock-ledger source links** (`StockMovementsPage`). A receiving-order source
   cell linked to `/3pl-operations/receiving-orders/:id`, a route that does not
   exist (a hard 404); it now resolves to the receiving detail page. A
@@ -41,6 +74,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   display-only.
 
 ### Changed
+
+- **Navigation chrome cleanup** (PRs #355, #358, #359). A global Back button at
+  the top of the app shell; the sidebar converted to a static section rail (each
+  section is a single icon-and-label link to its dashboard, no accordion); the
+  global dashboard's pillars block replaced by a role-aware section launcher.
+  Detail-page breadcrumbs were retired (the component is now a no-op), which also
+  removed the quote breadcrumb id-flash. The now-dead category eyebrow prop was
+  swept from 126 page surfaces and dropped from the PageHeader and DetailHeader
+  interfaces. SPA-only; no behavior change beyond the chrome.
 
 - **List readability and reference-number disclosure** (`R-W14-READ-01`..`05`).
   A system-wide, presentational-only pass driven by the Quotes-screen review.
