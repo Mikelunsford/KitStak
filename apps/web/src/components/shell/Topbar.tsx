@@ -16,6 +16,7 @@ import { useBrandingContext } from '@/whitelabel/BrandingProvider';
 import { useTheme } from '@/whitelabel/ThemeProvider';
 import { useMe } from '@/lib/hooks/useMe';
 import { useSwitchOrg } from '@/lib/hooks/useSwitchOrg';
+import { staffMemberships } from './workspaceMemberships';
 import { Logo } from '@/components/ui/Logo';
 import { lazyWithReload } from '@/lib/lazyWithReload';
 
@@ -110,6 +111,11 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
   const activeOrgId = me.data?.active_org_id;
   const activeOrg =
     memberships.find((m) => m.org_id === activeOrgId) ?? memberships[0];
+  // Only staff orgs are valid switch targets. Offering a portal-role membership
+  // here would let a dual-role operator switch into their own portal and strand
+  // themselves: the portal has no switcher, and customer_user / vendor_user lack
+  // the identity.session.switch cap to return. F-Wave14-PORTAL-DUALROLE-SWITCH-01.
+  const switchTargets = staffMemberships(memberships);
 
   const appName =
     branding.branding?.app_name_override ??
@@ -171,7 +177,7 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
             aria-haspopup="menu"
             aria-label="Workspace switcher"
             aria-expanded={orgMenuOpen}
-            disabled={!isAuthed || me.isLoading || memberships.length === 0}
+            disabled={!isAuthed || me.isLoading || switchTargets.length === 0}
             data-testid="workspace-switcher"
           >
             <span className="font-sans font-medium text-ink">
@@ -180,12 +186,12 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
             </span>
             <ChevronDown className="h-4 w-4 text-ink-dim" />
           </button>
-          {orgMenuOpen && memberships.length > 0 ? (
+          {orgMenuOpen && switchTargets.length > 0 ? (
             <ul
               role="menu"
               className="absolute right-0 mt-1 w-56 border border-line bg-bg shadow-lg"
             >
-              {memberships.map((m) => {
+              {switchTargets.map((m) => {
                 const active = m.org_id === activeOrgId;
                 return (
                   <li key={m.org_id}>
