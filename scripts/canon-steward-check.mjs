@@ -204,8 +204,9 @@ function parseSidebarLinks() {
   const out = [];
   // NavChild entries / ModeSpec route entries: `{ to: '/foo', label: 'Foo' }` or
   // `{ path: '/foo', label: 'Foo' }`. Match both the `to:` and `path:`
-  // keys inside object literals. Sidebar.tsx also has a top-level
-  // `<NavLink to="/dashboard">`; pick that up too.
+  // keys inside object literals. Sidebar.tsx also renders top-level
+  // `<Link to="/dashboard">` (the static section rail uses Link, not NavLink);
+  // pick up both Link and NavLink JSX.
   const reTo = /\bto:\s*['"`]([^'"`]+)['"`]/g;
   const rePath = /\bpath:\s*['"`]([^'"`]+)['"`]/g;
   // Section Dashboards (Phase 1): each ModeSpec carries a `homePath` that the
@@ -213,7 +214,7 @@ function parseSidebarLinks() {
   // section home is reachable from the rail in one hop. Recognize it here so
   // the section routes (/sell, /money, ...) are not flagged as orphans.
   const reHomePath = /\bhomePath:\s*['"`]([^'"`]+)['"`]/g;
-  const reJsx = /<NavLink\s+to=["']([^"']+)["']/g;
+  const reJsx = /<(?:Nav)?Link\s+to=["']([^"']+)["']/g;
   let m;
   for (const file of sources) {
     const text = readFileSync(file, 'utf8');

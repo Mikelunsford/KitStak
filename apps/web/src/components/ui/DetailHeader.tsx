@@ -69,7 +69,11 @@ export interface DetailHeaderProps {
   money?: DetailHeaderMoney | null;
   /** Quieter second row of related links (project, source quote, template). */
   links?: DetailHeaderLink[];
-  /** Mono eyebrow above the title (section label on hub pages). */
+  /**
+   * @deprecated No longer rendered. The section-label eyebrow was removed as
+   * noisy navigation chrome (the global Back button covers wayfinding now).
+   * Kept so existing call sites compile; safe to sweep in a follow-up.
+   */
   eyebrow?: ReactNode;
   /** Right-aligned actions. */
   actions?: ReactNode;
@@ -83,7 +87,6 @@ export function DetailHeader({
   customer,
   money,
   links,
-  eyebrow,
   actions,
 }: DetailHeaderProps) {
   const hasIdentityRow = Boolean(status || customer || money);
@@ -94,11 +97,6 @@ export function DetailHeader({
     <header className="flex flex-col gap-2 border-b border-line pb-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
-          {eyebrow ? (
-            <div className="font-mono text-xs uppercase tracking-wider text-ink-dim">
-              {eyebrow}
-            </div>
-          ) : null}
           <h1 className="font-display text-4xl uppercase tracking-wide text-ink">
             {title}
           </h1>

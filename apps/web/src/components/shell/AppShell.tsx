@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 import { Topbar } from './Topbar';
 import { TrialBanner } from './TrialBanner';
@@ -36,6 +37,31 @@ const Sidebar = lazyWithReload(() =>
 const CommandBar = lazyWithReload(() =>
   import('./CommandBar').then((m) => ({ default: m.CommandBar })),
 );
+
+/**
+ * BackBar. A single global "back to the previous screen" control at the top of
+ * the content area, replacing the per-page breadcrumb/eyebrow wayfinding that
+ * was removed as noisy. Hidden on the dashboard (the home surface, nothing
+ * meaningful to go back to). Uses router history so it mirrors the browser back.
+ */
+function BackBar() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  if (pathname === '/dashboard') return null;
+  return (
+    <div className="px-8 pt-4">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-1.5 font-sans text-sm text-ink-dim transition-colors hover:text-ink"
+        data-testid="back-button"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back
+      </button>
+    </div>
+  );
+}
 
 function SidebarFallback() {
   // Mirror only the real rail's footprint-bearing classes (width, border,
@@ -107,7 +133,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClose={() => setMobileNavOpen(false)}
           />
         </Suspense>
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          <BackBar />
+          {children}
+        </main>
       </div>
       {commandBarOpen && (
         <Suspense fallback={null}>
