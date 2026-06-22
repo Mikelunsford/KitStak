@@ -394,6 +394,78 @@ export const ProductionSummarySchema = z.object({
 export type ProductionSummary = z.infer<typeof ProductionSummarySchema>;
 
 // ---------------------------------------------------------------------------
+// BuySummary (Section Dashboards, Phase 3)
+//
+// Read-only Buy section dashboard payload. Monetary fields are BIGINT cents on
+// the wire (string). Spend this month sums vendor bills and expenses dated in
+// the current UTC month.
+// ---------------------------------------------------------------------------
+export const BuySummarySchema = z.object({
+  kpis: z.object({
+    open_pos_count: z.number().int().nonnegative(),
+    vendor_bills_due_count: z.number().int().nonnegative(),
+    vendor_bills_due_cents: BigIntCentsSchema,
+    expenses_to_approve_count: z.number().int().nonnegative(),
+    spend_this_month_cents: BigIntCentsSchema,
+  }),
+  currency_code: z.string().default('USD'),
+  open_purchase_orders: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      status: z.string(),
+      expected_date: z.string().nullable(),
+      total_cents: BigIntCentsSchema,
+    }),
+  ),
+  vendor_bills_due: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      status: z.string(),
+      due_date: z.string().nullable(),
+      balance_cents: BigIntCentsSchema,
+    }),
+  ),
+});
+export type BuySummary = z.infer<typeof BuySummarySchema>;
+
+// ---------------------------------------------------------------------------
+// WorkforceSummary (Section Dashboards, Phase 3)
+//
+// Read-only Workforce section dashboard payload (KitForce). Labor cost this
+// month sums time entries (minutes * hourly rate) clocked in during the current
+// UTC month, as BIGINT cents (string). time_entries carries no approval state,
+// so the "to approve" idea from the plan is surfaced as labor cost instead.
+// ---------------------------------------------------------------------------
+export const WorkforceSummarySchema = z.object({
+  kpis: z.object({
+    active_members_count: z.number().int().nonnegative(),
+    on_shift_count: z.number().int().nonnegative(),
+    open_assignments_count: z.number().int().nonnegative(),
+    labor_cost_this_month_cents: BigIntCentsSchema,
+  }),
+  open_assignments: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      title: z.string(),
+      status: z.string(),
+      member_name: z.string(),
+    }),
+  ),
+  on_shift: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      member_name: z.string(),
+      started_at: z.string().nullable(),
+    }),
+  ),
+});
+export type WorkforceSummary = z.infer<typeof WorkforceSummarySchema>;
+
+// ---------------------------------------------------------------------------
 // ImportJob
 // ---------------------------------------------------------------------------
 export const ImportEntityTypeSchema = z.enum([

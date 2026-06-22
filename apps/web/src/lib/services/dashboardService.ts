@@ -4,16 +4,20 @@
 
 import { apiRequest } from '@/lib/apiClient';
 import {
+  BuySummarySchema,
   DashboardSummarySchema,
   InventorySummarySchema,
   MoneySummarySchema,
   ProductionSummarySchema,
   SellSummarySchema,
+  WorkforceSummarySchema,
+  type BuySummary,
   type DashboardSummary,
   type InventorySummary,
   type MoneySummary,
   type ProductionSummary,
   type SellSummary,
+  type WorkforceSummary,
 } from '@/lib/types/cross_cutting';
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
@@ -51,4 +55,19 @@ export async function getProductionSummary(): Promise<ProductionSummary> {
     { method: 'GET' },
   );
   return ProductionSummarySchema.parse(data);
+}
+
+export async function getBuySummary(): Promise<BuySummary> {
+  const data = await apiRequest<unknown>('/dashboard-api/dashboard/buy-summary', {
+    method: 'GET',
+  });
+  return BuySummarySchema.parse(data);
+}
+
+export async function getWorkforceSummary(): Promise<WorkforceSummary> {
+  const data = await apiRequest<unknown>(
+    '/dashboard-api/dashboard/workforce-summary',
+    { method: 'GET' },
+  );
+  return WorkforceSummarySchema.parse(data);
 }
