@@ -7,6 +7,7 @@ import { useDashboardSummary } from '@/lib/hooks/useCrossCutting';
 import { useMe } from '@/lib/hooks/useMe';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { WorkCard } from '@/components/shell/WorkCard';
+import { SetHomeButton } from '@/components/shell/SetHomeButton';
 import { SetupChecklist } from '@/components/shell/SetupChecklist';
 import { SetupCompleteCelebration } from '@/components/shell/SetupCompleteCelebration';
 import {
@@ -97,13 +98,16 @@ export function DashboardPage() {
 
   return (
     <section className="px-8 py-12 max-w-6xl mx-auto flex flex-col gap-12">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-3xl font-display tracking-wide text-ink">
-          DASHBOARD
-        </h1>
-        <p className="font-sans text-sm text-ink-dim">
-          Signed in to {appName}. Your work for the day is below.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-display tracking-wide text-ink">
+            DASHBOARD
+          </h1>
+          <p className="font-sans text-sm text-ink-dim">
+            Signed in to {appName}. Your work for the day is below.
+          </p>
+        </div>
+        <SetHomeButton path="/dashboard" />
       </header>
 
       {showCelebration && (

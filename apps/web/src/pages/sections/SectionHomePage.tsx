@@ -25,6 +25,7 @@ import { ProductionPanel } from './ProductionPanel';
 import { BuyPanel } from './BuyPanel';
 import { WorkforcePanel } from './WorkforcePanel';
 import { InsightsPanel } from './InsightsPanel';
+import { SetHomeButton } from '@/components/shell/SetHomeButton';
 
 function SectionHub({
   groups,
@@ -103,11 +104,14 @@ export function SectionHomePage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-10 px-8 py-12">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-4xl tracking-wide text-ink">
-          {mode.label}
-        </h1>
-        <p className="font-sans text-sm text-ink-dim">{mode.subtitle}</p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-4xl tracking-wide text-ink">
+            {mode.label}
+          </h1>
+          <p className="font-sans text-sm text-ink-dim">{mode.subtitle}</p>
+        </div>
+        <SetHomeButton path={mode.homePath} />
       </header>
 
       {mode.key === 'sell' ? <SellPanel /> : null}

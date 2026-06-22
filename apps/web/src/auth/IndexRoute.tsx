@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 
 import { useMe } from '@/lib/hooks/useMe';
+import { getHomeLanding } from '@/lib/homeLandingPref';
 import { useAuth } from './AuthContext';
 
 /**
@@ -41,5 +42,7 @@ export function IndexRoute() {
     return <Navigate to="/portal" replace />;
   }
 
-  return <Navigate to="/dashboard" replace />;
+  // Per-user default landing (Personalization). Defaults to /dashboard; an
+  // invalid or now-inaccessible choice self-heals (SectionHomePage bounces it).
+  return <Navigate to={getHomeLanding()} replace />;
 }
