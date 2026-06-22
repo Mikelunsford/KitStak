@@ -59,6 +59,14 @@ const SignInPage = lazy(() =>
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
+// Section Dashboards (Phase 1). One page serves all eight task-section homes;
+// it resolves which section from the pathname. Lazy so the section panels and
+// their summary hooks stay out of the eager index chunk.
+const SectionHomePage = lazy(() =>
+  import('./pages/sections/SectionHomePage').then((m) => ({
+    default: m.SectionHomePage,
+  })),
+);
 const FeatureUnavailablePage = lazy(() =>
   import('./pages/FeatureUnavailablePage').then((m) => ({
     default: m.FeatureUnavailablePage,
@@ -947,6 +955,20 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     guard: 'protected',
     layout: 'shell',
   },
+  // === Section Dashboards (header-opens-dashboard mechanic, Phase 1) ===
+  // Each task section is a destination. SectionHomePage resolves the section by
+  // pathname; Sell and Money render fixed KPI dashboards above the hub, the rest
+  // render the hub of their sub-areas. SETTINGS is admin-guarded to mirror the
+  // AdminProtectedRoute on /admin/*. URLs of the underlying pages are unchanged.
+  { path: '/sell',       element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/buy',        element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/inventory',  element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/production', element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/money',      element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/workforce',  element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/insights',   element: SectionHomePage, guard: 'protected', layout: 'shell' },
+  { path: '/settings',   element: SectionHomePage, guard: 'admin',     layout: 'shell' },
+  // === End Section Dashboards ===
   {
     path: '/feature-unavailable',
     element: FeatureUnavailablePage,

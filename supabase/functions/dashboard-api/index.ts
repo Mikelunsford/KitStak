@@ -15,6 +15,8 @@ import { roundHalfEven } from '../_shared/money.ts';
 import type {
   DashboardSummary,
   KitCostSummary,
+  MoneySummary,
+  SellSummary,
 } from '../_shared/types/cross_cutting.ts';
 
 const BUNDLE = 'dashboard-api';
@@ -722,6 +724,324 @@ const kitcostSummary: Route = {
   },
 };
 
-Deno.serve((req) => route(req, [summary, kitcostSummary], { bundle: BUNDLE }));
+// ---------------------------------------------------------------------------
+// Shared resolvers for the section dashboards.
+// ---------------------------------------------------------------------------
 
-export { summary, kitcostSummary };
+async function resolveCurrency(
+  client: ReturnType<typeof admin>,
+  orgId: string,
+): Promise<string> {
+  const { data: org } = await client
+    .from('organizations')
+    .select('default_currency_code')
+    .eq('id', orgId)
+    .maybeSingle();
+  return (org?.default_currency_code as string | undefined) ?? 'USD';
+}
+
+async function resolveCustomerNames(
+  client: ReturnType<typeof admin>,
+  orgId: string,
+  ids: ReadonlyArray<string>,
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const { data } = await client
+    .from('customers')
+    .select('id,display_name')
+    .eq('org_id', orgId)
+    .in('id', [...ids]);
+  return new Map(
+    ((data ?? []) as Array<Record<string, unknown>>).map((c) => [
+      c.id as string,
+      (c.display_name as string | null) ?? '',
+    ]),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sell section dashboard (Section Dashboards, Phase 1)
+//
+// Read-only aggregate gated on quotes.quote.read (mirrors the SELL section
+// gate). Opportunity KPIs and the pipeline-by-stage widget are derived from a
+// single opportunities pull; quotes-needing-action lists the five oldest quotes
+// in a working state. All amounts cross the wire as BIGINT cents (string).
+// Org-scoped (Pattern A); each helper tolerates a missing table by yielding 0.
+// ---------------------------------------------------------------------------
+const OPEN_OPPORTUNITY_STAGES: ReadonlyArray<string> = [
+  'discovery',
+  'evaluation',
+  'proposal',
+  'negotiation',
+];
+
+const sellSummary: Route = {
+  method: 'GET',
+  path: '/dashboard/sell-summary',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'quotes.quote.read');
+    const client = admin();
+    const orgId = caller.orgId;
+
+    const [oppRes, quotesAwaitingApproval, activeProjects, quotesActionRes] =
+      await Promise.all([
+        client
+          .from('opportunities')
+          .select('stage,amount_cents')
+          .eq('org_id', orgId)
+          .is('deleted_at', null)
+          .then((r) => r),
+        countByStates(client, 'quotes', 'state', orgId, [
+          'submitted',
+          'revise_requested',
+        ]).catch(() => 0),
+        countByStates(client, 'projects', 'state', orgId, [
+          'pending',
+          'ready_to_build',
+          'in_production',
+          'ready_to_ship',
+        ]).catch(() => 0),
+        client
+          .from('quotes')
+          .select('id,number,customer_id,state,total_cents,created_at')
+          .eq('org_id', orgId)
+          .in('state', ['draft', 'submitted', 'revise_requested'])
+          .is('deleted_at', null)
+          .order('created_at', { ascending: true })
+          .limit(5)
+          .then((r) => r),
+      ]);
+
+    const oppRows = (oppRes.data ?? []) as Array<Record<string, unknown>>;
+    let openCount = 0;
+    let pipelineValue = 0n;
+    let wonCount = 0;
+    let lostCount = 0;
+    const byStage = new Map<string, { count: number; value: bigint }>();
+    for (const row of oppRows) {
+      const stage = (row.stage as string | null) ?? '';
+      const amount = asBig(row.amount_cents);
+      if (stage === 'closed_won') {
+        wonCount += 1;
+        continue;
+      }
+      if (stage === 'closed_lost') {
+        lostCount += 1;
+        continue;
+      }
+      openCount += 1;
+      pipelineValue += amount;
+      const cur = byStage.get(stage) ?? { count: 0, value: 0n };
+      cur.count += 1;
+      cur.value += amount;
+      byStage.set(stage, cur);
+    }
+    const decided = wonCount + lostCount;
+    const winRatePct =
+      decided === 0 ? 0 : Math.round((wonCount / decided) * 1000) / 10;
+
+    const pipeline_by_stage = OPEN_OPPORTUNITY_STAGES.filter((s) =>
+      byStage.has(s),
+    ).map((s) => {
+      const v = byStage.get(s)!;
+      return { stage: s, count: v.count, value_cents: v.value.toString() };
+    });
+
+    const quoteRows = (quotesActionRes.data ?? []) as Array<
+      Record<string, unknown>
+    >;
+    const quoteCustomerIds = Array.from(
+      new Set(quoteRows.map((q) => q.customer_id as string).filter(Boolean)),
+    );
+    const quoteCustomerNames = await resolveCustomerNames(
+      client,
+      orgId,
+      quoteCustomerIds,
+    );
+    const quotes_needing_action = quoteRows.map((q) => ({
+      id: q.id as string,
+      number: (q.number as string | null) ?? '',
+      customer_name: quoteCustomerNames.get(q.customer_id as string) ?? '',
+      state: (q.state as string | null) ?? '',
+      total_cents: asBig(q.total_cents).toString(),
+    }));
+
+    const currency = await resolveCurrency(client, orgId);
+
+    const out: SellSummary = {
+      kpis: {
+        open_opportunities_count: openCount,
+        pipeline_value_cents: pipelineValue.toString(),
+        quotes_awaiting_approval_count: quotesAwaitingApproval,
+        active_projects_count: activeProjects,
+        win_rate_pct: winRatePct,
+      },
+      currency_code: currency,
+      pipeline_by_stage,
+      quotes_needing_action,
+    };
+    return ok(out);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Money section dashboard (Section Dashboards, Phase 1)
+//
+// Read-only aggregate gated on invoices.read (mirrors the MONEY section gate).
+// AR balance and the aging buckets sum the outstanding balance of unpaid
+// invoices by days past due_date; payments-this-month sums payments.received_at
+// in the current UTC month; credit-notes-outstanding sums issued credit notes
+// with unapplied balance. Top five unpaid invoices (oldest due first) back the
+// embedded list. BIGINT cents (string), org-scoped (Pattern A).
+// ---------------------------------------------------------------------------
+const UNPAID_INVOICE_STATUSES: ReadonlyArray<string> = [
+  'sent',
+  'partially_paid',
+  'overdue',
+];
+
+const moneySummary: Route = {
+  method: 'GET',
+  path: '/dashboard/money-summary',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'invoices.read');
+    const client = admin();
+    const orgId = caller.orgId;
+
+    const now = new Date();
+    const monthStart = startOfMonthUTC(now);
+
+    const [unpaidRes, paymentsRes, creditRes] = await Promise.all([
+      client
+        .from('invoices')
+        .select('id,invoice_number,customer_id,status,due_date,balance_cents')
+        .eq('org_id', orgId)
+        .in('status', UNPAID_INVOICE_STATUSES)
+        .is('deleted_at', null)
+        .then((r) => r),
+      client
+        .from('payments')
+        .select('amount_cents,received_at')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .gte('received_at', monthStart)
+        .then((r) => r),
+      client
+        .from('credit_notes')
+        .select('amount_cents,applied_cents')
+        .eq('org_id', orgId)
+        .eq('status', 'issued')
+        .is('deleted_at', null)
+        .then((r) => r),
+    ]);
+
+    const todayMs = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    );
+    const ONE_DAY_MS = 86_400_000;
+    let arBalance = 0n;
+    let current = 0n;
+    let d1_30 = 0n;
+    let d31_60 = 0n;
+    let d61_90 = 0n;
+    let d90 = 0n;
+    const invRows = (unpaidRes.data ?? []) as Array<Record<string, unknown>>;
+    const positive = invRows.filter((r) => asBig(r.balance_cents) > 0n);
+    for (const row of positive) {
+      const bal = asBig(row.balance_cents);
+      arBalance += bal;
+      const due = row.due_date as string | null;
+      let daysPast = 0;
+      if (due) {
+        const dueMs = Date.parse(`${due}T00:00:00Z`);
+        if (Number.isFinite(dueMs)) {
+          daysPast = Math.floor((todayMs - dueMs) / ONE_DAY_MS);
+        }
+      }
+      if (daysPast <= 0) current += bal;
+      else if (daysPast <= 30) d1_30 += bal;
+      else if (daysPast <= 60) d31_60 += bal;
+      else if (daysPast <= 90) d61_90 += bal;
+      else d90 += bal;
+    }
+
+    let paymentsThisMonth = 0n;
+    for (const row of (paymentsRes.data ?? []) as Array<
+      Record<string, unknown>
+    >) {
+      paymentsThisMonth += asBig(row.amount_cents);
+    }
+
+    let cnOutstanding = 0n;
+    let cnCount = 0;
+    for (const row of (creditRes.data ?? []) as Array<
+      Record<string, unknown>
+    >) {
+      const remaining = asBig(row.amount_cents) - asBig(row.applied_cents);
+      if (remaining > 0n) {
+        cnOutstanding += remaining;
+        cnCount += 1;
+      }
+    }
+
+    const sorted = [...positive].sort((a, b) => {
+      const da = (a.due_date as string | null) ?? '9999-12-31';
+      const db = (b.due_date as string | null) ?? '9999-12-31';
+      if (da !== db) return da < db ? -1 : 1;
+      const ba = asBig(a.balance_cents);
+      const bb = asBig(b.balance_cents);
+      return ba > bb ? -1 : ba < bb ? 1 : 0;
+    });
+    const top = sorted.slice(0, 5);
+    const invCustomerIds = Array.from(
+      new Set(top.map((r) => r.customer_id as string).filter(Boolean)),
+    );
+    const invCustomerNames = await resolveCustomerNames(
+      client,
+      orgId,
+      invCustomerIds,
+    );
+    const unpaid_invoices = top.map((r) => ({
+      id: r.id as string,
+      number: (r.invoice_number as string | null) ?? '',
+      customer_name: invCustomerNames.get(r.customer_id as string) ?? '',
+      status: (r.status as string | null) ?? '',
+      due_date: (r.due_date as string | null) ?? null,
+      balance_cents: asBig(r.balance_cents).toString(),
+    }));
+
+    const currency = await resolveCurrency(client, orgId);
+
+    const out: MoneySummary = {
+      kpis: {
+        ar_balance_cents: arBalance.toString(),
+        unpaid_invoices_count: positive.length,
+        payments_this_month_cents: paymentsThisMonth.toString(),
+        credit_notes_outstanding_cents: cnOutstanding.toString(),
+        credit_notes_outstanding_count: cnCount,
+      },
+      currency_code: currency,
+      ar_aging: {
+        current_cents: current.toString(),
+        d1_30_cents: d1_30.toString(),
+        d31_60_cents: d31_60.toString(),
+        d61_90_cents: d61_90.toString(),
+        d90_plus_cents: d90.toString(),
+      },
+      unpaid_invoices,
+    };
+    return ok(out);
+  },
+};
+
+Deno.serve((req) =>
+  route(req, [summary, kitcostSummary, sellSummary, moneySummary], {
+    bundle: BUNDLE,
+  }),
+);
+
+export { summary, kitcostSummary, sellSummary, moneySummary };

@@ -246,6 +246,77 @@ export const KitCostSummarySchema = z.object({
 export type KitCostSummary = z.infer<typeof KitCostSummarySchema>;
 
 // ---------------------------------------------------------------------------
+// SellSummary (Section Dashboards, Phase 1)
+//
+// Read-only Sell section dashboard payload. Monetary fields are BIGINT cents on
+// the wire (string to survive Number.MAX_SAFE_INTEGER at 9.0e15). win_rate_pct
+// is a Number with one decimal (0 when no opportunity has been decided yet).
+// ---------------------------------------------------------------------------
+export const SellSummarySchema = z.object({
+  kpis: z.object({
+    open_opportunities_count: z.number().int().nonnegative(),
+    pipeline_value_cents: BigIntCentsSchema,
+    quotes_awaiting_approval_count: z.number().int().nonnegative(),
+    active_projects_count: z.number().int().nonnegative(),
+    win_rate_pct: z.number(),
+  }),
+  currency_code: z.string().default('USD'),
+  pipeline_by_stage: z.array(
+    z.object({
+      stage: z.string(),
+      count: z.number().int().nonnegative(),
+      value_cents: BigIntCentsSchema,
+    }),
+  ),
+  quotes_needing_action: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      customer_name: z.string(),
+      state: z.string(),
+      total_cents: BigIntCentsSchema,
+    }),
+  ),
+});
+export type SellSummary = z.infer<typeof SellSummarySchema>;
+
+// ---------------------------------------------------------------------------
+// MoneySummary (Section Dashboards, Phase 1)
+//
+// Read-only Money section dashboard payload. All monetary fields are BIGINT
+// cents on the wire (string). AR aging buckets sum the outstanding balance of
+// unpaid invoices by days past their due_date.
+// ---------------------------------------------------------------------------
+export const MoneySummarySchema = z.object({
+  kpis: z.object({
+    ar_balance_cents: BigIntCentsSchema,
+    unpaid_invoices_count: z.number().int().nonnegative(),
+    payments_this_month_cents: BigIntCentsSchema,
+    credit_notes_outstanding_cents: BigIntCentsSchema,
+    credit_notes_outstanding_count: z.number().int().nonnegative(),
+  }),
+  currency_code: z.string().default('USD'),
+  ar_aging: z.object({
+    current_cents: BigIntCentsSchema,
+    d1_30_cents: BigIntCentsSchema,
+    d31_60_cents: BigIntCentsSchema,
+    d61_90_cents: BigIntCentsSchema,
+    d90_plus_cents: BigIntCentsSchema,
+  }),
+  unpaid_invoices: z.array(
+    z.object({
+      id: UuidSchema,
+      number: z.string(),
+      customer_name: z.string(),
+      status: z.string(),
+      due_date: z.string().nullable(),
+      balance_cents: BigIntCentsSchema,
+    }),
+  ),
+});
+export type MoneySummary = z.infer<typeof MoneySummarySchema>;
+
+// ---------------------------------------------------------------------------
 // ImportJob
 // ---------------------------------------------------------------------------
 export const ImportEntityTypeSchema = z.enum([

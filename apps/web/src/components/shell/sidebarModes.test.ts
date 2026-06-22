@@ -657,3 +657,43 @@ describe('filterRoutesByQuery (sidebar type-to-filter)', () => {
     expect(filterRoutesByQuery(sell.routes, 'zzznotathing')).toEqual([]);
   });
 });
+
+describe('section home routes (Section Dashboards, Phase 1)', () => {
+  it('every section declares its /<key> home path', () => {
+    const expected: Record<ModeKey, string> = {
+      sell: '/sell',
+      buy: '/buy',
+      inventory: '/inventory',
+      production: '/production',
+      money: '/money',
+      workforce: '/workforce',
+      insights: '/insights',
+      settings: '/settings',
+    };
+    for (const mode of SIDEBAR_MODES) {
+      expect(mode.homePath, `homePath for ${mode.key}`).toBe(expected[mode.key]);
+    }
+  });
+
+  it('home paths are unique', () => {
+    const homes = SIDEBAR_MODES.map((m) => m.homePath);
+    expect(new Set(homes).size).toBe(homes.length);
+  });
+
+  it('findActiveMode resolves a section home path to its own section', () => {
+    expect(findActiveMode('/sell')).toBe('sell');
+    expect(findActiveMode('/money')).toBe('money');
+    expect(findActiveMode('/inventory')).toBe('inventory');
+    expect(findActiveMode('/settings')).toBe('settings');
+  });
+
+  it('no section home path collides with a sub-route path', () => {
+    const homes = new Set(SIDEBAR_MODES.map((m) => m.homePath));
+    const subRoutes = SIDEBAR_MODES.flatMap((m) => m.routes.map((r) => r.path));
+    for (const p of subRoutes) {
+      expect(homes.has(p), `sub-route ${p} must not equal a section home`).toBe(
+        false,
+      );
+    }
+  });
+});
