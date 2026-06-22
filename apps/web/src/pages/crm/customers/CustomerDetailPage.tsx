@@ -304,7 +304,6 @@ export function CustomerDetailPage() {
       />
       {detailHeaderV2 ? (
         <DetailHeader
-          eyebrow="CRM / Customers"
           title={customerTitle.title}
           status={c.status}
           actions={
@@ -315,7 +314,6 @@ export function CustomerDetailPage() {
         />
       ) : (
         <PageHeader
-          eyebrow="CRM / Customers"
           title={c.display_name}
           actions={
             <Link to={`/crm/customers/${c.id}/edit`}>

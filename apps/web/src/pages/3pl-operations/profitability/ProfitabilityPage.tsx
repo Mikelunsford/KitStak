@@ -94,7 +94,7 @@ export function ProfitabilityPage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="3PL Operations" title="Profitability" meta={meta} />
+      <PageHeader title="Profitability" meta={meta} />
 
       {!canRead ? (
         <p className="font-sans text-sm text-ink-dim">

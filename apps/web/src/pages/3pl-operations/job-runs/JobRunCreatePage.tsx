@@ -47,7 +47,7 @@ export function JobRunCreatePage() {
 
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="3PL Operations" title="New job run" />
+      <PageHeader title="New job run" />
 
       {!canCreate ? (
         <p className="font-sans text-sm text-accent">

@@ -117,7 +117,6 @@ function POsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Purchasing / Purchase orders"
         title="Purchase Orders"
         actions={
           caps.can('purchase_orders.purchase_order.create') ? (
@@ -232,7 +231,6 @@ function POsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Purchasing / Purchase orders"
         title="Purchase Orders"
         meta={meta}
         actions={

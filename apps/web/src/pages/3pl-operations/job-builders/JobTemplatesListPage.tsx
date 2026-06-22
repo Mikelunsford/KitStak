@@ -102,7 +102,6 @@ function JobTemplatesListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="3PL Operations"
         title="Job Builders"
         actions={
           caps.can('threepl.job_template.create') ? (
@@ -217,7 +216,6 @@ function JobTemplatesListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="3PL Operations"
         title="Job Builders"
         meta={meta}
         actions={

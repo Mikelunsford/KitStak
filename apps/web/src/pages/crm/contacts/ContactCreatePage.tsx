@@ -97,7 +97,7 @@ export function ContactCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="CRM / Contacts" title="New contact" />
+      <PageHeader title="New contact" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <CustomerPicker
           value={customerId}

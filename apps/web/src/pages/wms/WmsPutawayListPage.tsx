@@ -104,7 +104,6 @@ function WmsPutawayListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="WMS"
         title="Putaway"
         actions={
           caps.can('wms.putaway.create') ? (
@@ -193,7 +192,6 @@ function WmsPutawayListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="WMS"
         title="Putaway"
         meta={meta}
         actions={

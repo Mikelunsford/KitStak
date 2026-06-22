@@ -71,7 +71,7 @@ export function WmsLocationDetailPage() {
           { label: d.code },
         ]}
       />
-      <PageHeader eyebrow="WMS" title={d.code} actions={statusAction} />
+      <PageHeader title={d.code} actions={statusAction} />
 
       {deactivate.error && (
         <p className="font-sans text-sm text-accent">

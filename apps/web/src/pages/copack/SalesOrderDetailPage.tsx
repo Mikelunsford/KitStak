@@ -191,7 +191,6 @@ export function SalesOrderDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Co-Pack and Ecom / Sales orders"
         title={`Sales order ${d.order_number ?? d.id.slice(0, 8)}`}
         meta={<StatusBadge status={d.status} />}
       />

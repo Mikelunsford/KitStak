@@ -99,7 +99,6 @@ function ExpensesListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Purchasing / Expenses"
         title="Expenses"
         actions={
           caps.can('expenses.expense.create') ? (
@@ -189,7 +188,6 @@ function ExpensesListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Purchasing / Expenses"
         title="Expenses"
         meta={meta}
         actions={

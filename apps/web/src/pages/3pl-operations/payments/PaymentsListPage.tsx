@@ -90,7 +90,6 @@ function PaymentsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Invoicing / Payments"
         title="Payments"
         actions={
           <Link to="/invoicing/payments/new">
@@ -162,7 +161,6 @@ function PaymentsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Invoicing / Payments"
         title="Payments"
         meta={meta}
         actions={

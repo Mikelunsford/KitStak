@@ -79,7 +79,6 @@ function ActivitiesListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="CRM / Activities"
         title="Activities"
         actions={
           <Link to="/crm/activities/new">
@@ -188,7 +187,6 @@ function ActivitiesListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="CRM / Activities"
         title="Activities"
         meta={meta}
         actions={

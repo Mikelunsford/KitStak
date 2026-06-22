@@ -324,7 +324,7 @@ function TimeEntriesListToolbar() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Time entries" title="Time entries" />
+      <PageHeader title="Time entries" />
 
       <ClockInForm />
 
@@ -471,7 +471,7 @@ function TimeEntriesListLegacy() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Time entries" title="Time entries" meta={meta} />
+      <PageHeader title="Time entries" meta={meta} />
 
       <ClockInForm />
 

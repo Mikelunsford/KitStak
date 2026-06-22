@@ -263,7 +263,7 @@ function ShiftsListToolbar() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Schedule" title="Shifts" />
+      <PageHeader title="Shifts" />
 
       <ShiftCreateForm />
 
@@ -415,7 +415,7 @@ function ShiftsListLegacy() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Schedule" title="Shifts" meta={meta} />
+      <PageHeader title="Shifts" meta={meta} />
 
       <ShiftCreateForm />
 

@@ -83,7 +83,7 @@ export function AccountDetailPage() {
           { label: d.name },
         ]}
       />
-      <PageHeader eyebrow="3PL Operations" title={d.name} actions={statusAction} />
+      <PageHeader title={d.name} actions={statusAction} />
 
       {toggleError && (
         <p className="font-sans text-sm text-accent">

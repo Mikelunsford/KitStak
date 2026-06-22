@@ -35,7 +35,6 @@ export function OpportunitiesPipelinePage() {
   return (
     <section className="mx-auto flex max-w-7xl flex-col gap-6 px-8 py-10">
       <PageHeader
-        eyebrow="CRM / Opportunities"
         title="Pipeline"
         actions={
           <Link to="/crm/opportunities/new">

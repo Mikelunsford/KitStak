@@ -59,7 +59,7 @@ export function WmsLotCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="WMS" title="New lot" />
+      <PageHeader title="New lot" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <ItemPicker
           value={itemId}

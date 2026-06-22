@@ -61,7 +61,7 @@ export function ProjectCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Projects" title="New project" />
+      <PageHeader title="New project" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="Project number"

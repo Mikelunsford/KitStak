@@ -91,7 +91,7 @@ export function StockLevelsPage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Inventory / Stock levels" title="Stock levels" />
+      <PageHeader title="Stock levels" />
 
       <FilterBar chips={chips}>
         <label className="flex items-center gap-2">

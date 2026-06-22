@@ -71,7 +71,7 @@ export function VendorBillCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Purchasing / Vendor bills" title="New vendor bill" />
+      <PageHeader title="New vendor bill" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="Bill number"

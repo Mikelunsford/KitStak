@@ -78,7 +78,6 @@ export function ValueAddedServicesPage() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Catalog / Value-added services"
         title="Value added services"
         meta={meta}
         actions={

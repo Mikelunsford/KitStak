@@ -140,7 +140,6 @@ export function ShipmentDetailPage() {
         advancePending={transition.isPending || ship.isPending}
       />
       <PageHeader
-        eyebrow="3PL Operations / Shipments"
         title={`Shipment ${d.shipment_number ?? d.id.slice(0, 8)}`}
       />
 

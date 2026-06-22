@@ -236,7 +236,7 @@ function AssignmentsListToolbar() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Assignments" title="Assignments" />
+      <PageHeader title="Assignments" />
 
       <AssignmentCreateForm />
 
@@ -389,7 +389,7 @@ function AssignmentsListLegacy() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Assignments" title="Assignments" meta={meta} />
+      <PageHeader title="Assignments" meta={meta} />
 
       <AssignmentCreateForm />
 

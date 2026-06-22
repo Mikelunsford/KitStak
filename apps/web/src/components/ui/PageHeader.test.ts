@@ -52,16 +52,6 @@ describe('PageHeader', () => {
     expect(tree.some((n) => n.props?.['data-testid'] === 'cta')).toBe(true);
   });
 
-  it('does not render the eyebrow (removed as noisy nav chrome)', () => {
-    const el = PageHeader({ title: 'Quotes', eyebrow: 'Sell / Quotes' });
-    const tree = walk(el);
-    const strings = tree
-      .map((n) => n.props.children)
-      .filter((c): c is string => typeof c === 'string');
-    expect(strings).not.toContain('Sell / Quotes');
-    expect(strings).toContain('Quotes');
-  });
-
   it('omits the eyebrow, meta, and action containers when not provided', () => {
     const el = PageHeader({ title: 'Quotes' });
     const tree = walk(el);

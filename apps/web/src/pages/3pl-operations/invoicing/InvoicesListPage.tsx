@@ -142,7 +142,6 @@ function InvoicesListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Invoicing / Invoices"
         title="Invoices"
         actions={
           <Link to="/invoicing/invoices/new">
@@ -265,7 +264,6 @@ function InvoicesListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Invoicing / Invoices"
         title="Invoices"
         meta={meta}
         actions={

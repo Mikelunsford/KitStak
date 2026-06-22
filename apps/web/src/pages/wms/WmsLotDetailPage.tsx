@@ -75,7 +75,7 @@ export function WmsLotDetailPage() {
           { label: d.lot_code },
         ]}
       />
-      <PageHeader eyebrow="WMS" title={d.lot_code} actions={statusAction} />
+      <PageHeader title={d.lot_code} actions={statusAction} />
 
       {quarantine.error && (
         <p className="font-sans text-sm text-accent">

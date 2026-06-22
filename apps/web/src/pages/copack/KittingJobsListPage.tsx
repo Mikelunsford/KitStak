@@ -134,7 +134,6 @@ function KittingJobsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Co-Pack and Ecom / Kitting jobs"
         title="Kitting Jobs"
         actions={
           caps.can('copack.kitting_job.create') ? (
@@ -347,7 +346,6 @@ function KittingJobsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Co-Pack and Ecom / Kitting jobs"
         title="Kitting Jobs"
         meta={meta}
         actions={

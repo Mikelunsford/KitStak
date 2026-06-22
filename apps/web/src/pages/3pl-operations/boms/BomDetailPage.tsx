@@ -138,7 +138,7 @@ export function BomDetailPage() {
           { label: parentLabel },
         ]}
       />
-      <PageHeader eyebrow="Catalog / Bills of materials" title={parentLabel} />
+      <PageHeader title={parentLabel} />
 
       <DataTable
         columns={columns}
