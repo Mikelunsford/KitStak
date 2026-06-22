@@ -194,30 +194,46 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
         const Icon = mode.icon;
         return (
           <div key={mode.key} className="flex flex-col">
-            <button
-              type="button"
-              onClick={() => toggle(mode.key)}
-              aria-expanded={isOpen}
+            {/* Section header: the caret toggles the inline sub-links, the
+                label navigates to the Section Dashboard (Section Dashboards,
+                Phase 1). Splitting them keeps fast rail expand for power users
+                while making the section a destination. */}
+            <div
               className={cn(
-                'flex w-full items-center gap-2 px-3 py-2 text-left font-display text-base tracking-wider uppercase',
+                'flex w-full items-stretch border-l-2',
                 isActive
-                  ? 'bg-bg-2 text-ink border-l-2 border-accent'
-                  : 'text-ink hover:bg-bg-2',
+                  ? 'bg-bg-2 border-accent'
+                  : 'border-transparent hover:bg-bg-2',
               )}
             >
-              {isOpen ? (
-                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-              )}
-              <Icon className="h-4 w-4" />
-              <span className="flex-1 leading-tight">
-                <span className="block">{mode.label}</span>
-                <span className="block text-[10px] font-sans font-normal text-ink-dim tracking-normal normal-case">
-                  {mode.subtitle}
+              <button
+                type="button"
+                onClick={() => toggle(mode.key)}
+                aria-expanded={isOpen}
+                aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${mode.label}`}
+                className="flex items-center px-2 text-ink-dim hover:text-ink"
+              >
+                {isOpen ? (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                )}
+              </button>
+              <NavLink
+                to={mode.homePath}
+                end
+                onClick={onNavClick}
+                className="flex flex-1 items-center gap-2 py-2 pr-3 text-left font-display text-base tracking-wider uppercase text-ink"
+              >
+                <Icon className="h-4 w-4" />
+                <span className="flex-1 leading-tight">
+                  <span className="block">{mode.label}</span>
+                  <span className="block text-[10px] font-sans font-normal text-ink-dim tracking-normal normal-case">
+                    {mode.subtitle}
+                  </span>
                 </span>
-              </span>
-            </button>
+              </NavLink>
+            </div>
             {isOpen && (
               <div className="ml-6 flex flex-col border-l border-line pl-2">
                 {groupRoutesByDomain(routes).map((grp, gi) => {

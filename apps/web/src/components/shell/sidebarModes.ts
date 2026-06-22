@@ -137,6 +137,12 @@ export interface ModeRoute {
 
 export interface ModeSpec {
   key: ModeKey;
+  /**
+   * Section home route. The Sidebar renders the section label as a link to this
+   * path (the Section Dashboard) while the caret toggles the inline sub-links.
+   * Section Dashboards, Phase 1.
+   */
+  homePath: string;
   /** Branded uppercase label. */
   label: string;
   /** One-line description in plain English, period-ending. */
@@ -156,6 +162,7 @@ export interface ModeSpec {
 export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   {
     key: 'sell',
+    homePath: '/sell',
     label: 'SELL',
     subtitle: 'Win the work. Customers through quotes and projects.',
     icon: Target,
@@ -177,6 +184,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'buy',
+    homePath: '/buy',
     label: 'BUY',
     subtitle: 'Source and pay for what you bring in.',
     icon: ShoppingCart,
@@ -190,6 +198,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'inventory',
+    homePath: '/inventory',
     label: 'INVENTORY AND WAREHOUSE',
     subtitle: 'Catalog, stock, receiving, and shipping.',
     icon: Warehouse,
@@ -259,6 +268,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'production',
+    homePath: '/production',
     label: 'PRODUCTION AND FULFILLMENT',
     subtitle: 'Build, kit, and fulfill the work.',
     icon: Factory,
@@ -342,6 +352,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'money',
+    homePath: '/money',
     label: 'MONEY',
     subtitle: 'Invoices, payments, and the books.',
     icon: DollarSign,
@@ -366,6 +377,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'workforce',
+    homePath: '/workforce',
     label: 'WORKFORCE',
     subtitle: 'People, schedules, and labor.',
     icon: HardHat,
@@ -410,6 +422,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'insights',
+    homePath: '/insights',
     label: 'INSIGHTS',
     subtitle: 'Cost, margin, and profitability.',
     icon: TrendingUp,
@@ -433,6 +446,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
   },
   {
     key: 'settings',
+    homePath: '/settings',
     label: 'SETTINGS',
     subtitle: 'Configure the org and your team.',
     icon: Settings,
@@ -597,6 +611,10 @@ export function groupRoutesByDomain(
  */
 export function findActiveMode(pathname: string): ModeKey | null {
   for (const mode of SIDEBAR_MODES) {
+    // The section home (e.g. /sell) highlights and auto-expands its section.
+    if (pathname === mode.homePath) {
+      return mode.key;
+    }
     for (const route of mode.routes) {
       if (pathname === route.path || pathname.startsWith(`${route.path}/`)) {
         return mode.key;

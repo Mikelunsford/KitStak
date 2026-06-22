@@ -208,12 +208,18 @@ function parseSidebarLinks() {
   // `<NavLink to="/dashboard">`; pick that up too.
   const reTo = /\bto:\s*['"`]([^'"`]+)['"`]/g;
   const rePath = /\bpath:\s*['"`]([^'"`]+)['"`]/g;
+  // Section Dashboards (Phase 1): each ModeSpec carries a `homePath` that the
+  // Sidebar renders as the section-header NavLink (to={mode.homePath}), so the
+  // section home is reachable from the rail in one hop. Recognize it here so
+  // the section routes (/sell, /money, ...) are not flagged as orphans.
+  const reHomePath = /\bhomePath:\s*['"`]([^'"`]+)['"`]/g;
   const reJsx = /<NavLink\s+to=["']([^"']+)["']/g;
   let m;
   for (const file of sources) {
     const text = readFileSync(file, 'utf8');
     while ((m = reTo.exec(text)) !== null) out.push(m[1]);
     while ((m = rePath.exec(text)) !== null) out.push(m[1]);
+    while ((m = reHomePath.exec(text)) !== null) out.push(m[1]);
     while ((m = reJsx.exec(text)) !== null) out.push(m[1]);
   }
   return out;

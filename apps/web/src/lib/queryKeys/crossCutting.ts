@@ -30,6 +30,8 @@ export const searchKeys = {
 
 export const dashboardKeys = {
   summary: () => ['dashboard', 'summary'] as const,
+  sellSummary: () => ['dashboard', 'sell-summary'] as const,
+  moneySummary: () => ['dashboard', 'money-summary'] as const,
 };
 
 export const portalKeys = {

@@ -23,7 +23,11 @@ import {
   deleteSavedView,
 } from '@/lib/services/savedViewsService';
 import { globalSearch } from '@/lib/services/searchService';
-import { getDashboardSummary } from '@/lib/services/dashboardService';
+import {
+  getDashboardSummary,
+  getSellSummary,
+  getMoneySummary,
+} from '@/lib/services/dashboardService';
 import {
   getPortalMe,
   listPortalInvoices,
@@ -156,6 +160,24 @@ export function useDashboardSummary(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: dashboardKeys.summary(),
     queryFn: getDashboardSummary,
+    enabled: opts.enabled ?? true,
+    staleTime: 30_000,
+  });
+}
+
+export function useSellSummary(opts: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: dashboardKeys.sellSummary(),
+    queryFn: getSellSummary,
+    enabled: opts.enabled ?? true,
+    staleTime: 30_000,
+  });
+}
+
+export function useMoneySummary(opts: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: dashboardKeys.moneySummary(),
+    queryFn: getMoneySummary,
     enabled: opts.enabled ?? true,
     staleTime: 30_000,
   });
