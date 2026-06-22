@@ -1,12 +1,14 @@
 // SectionHomePage. The destination behind every task-section header (Section
-// Dashboards, Phase 1). One component serves all eight section homes: it
-// resolves which section from the pathname, renders the section header, the
-// fixed KPI dashboard for Sell and Money, and a hub of the section's sub-areas
-// as navigational cards (mirroring the rail sub-links, reusing the exact flag
-// and capability gating from sidebarModes). Role-gated sections bounce to the
-// global dashboard once capabilities resolve. URLs of the underlying pages do
-// not change; this is purely a new landing layer.
+// Dashboards). One component serves all eight section homes: it resolves which
+// section from the pathname, renders the section header, and composes the
+// section's content as a list of widgets (the KPI panel, where one exists, plus
+// one widget per hub domain group). The widget list is rendered through
+// CustomizableSection, which applies the user's saved order/visibility and
+// hosts Customize mode (Personalization, Phase A2). Role-gated sections bounce
+// to the global dashboard once capabilities resolve; underlying page URLs are
+// unchanged.
 
+import { type ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
@@ -18,6 +20,7 @@ import {
   visibleRoutesForMode,
   type SidebarRouteGroup,
 } from '@/components/shell/sidebarModes';
+import type { DashboardSectionKey } from '@/lib/types/cross_cutting';
 import { SellPanel } from './SellPanel';
 import { MoneyPanel } from './MoneyPanel';
 import { InventoryPanel } from './InventoryPanel';
@@ -26,61 +29,61 @@ import { BuyPanel } from './BuyPanel';
 import { WorkforcePanel } from './WorkforcePanel';
 import { InsightsPanel } from './InsightsPanel';
 import { SetHomeButton } from '@/components/shell/SetHomeButton';
+import {
+  CustomizableSection,
+  type DashboardWidget,
+} from './CustomizableSection';
 
-function SectionHub({
-  groups,
-  loading,
-}: {
-  groups: ReadonlyArray<SidebarRouteGroup>;
-  loading: boolean;
-}) {
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-16 animate-pulse border border-line bg-bg-2"
-          />
-        ))}
-      </div>
-    );
-  }
-  if (groups.length === 0) {
-    return (
-      <p className="font-sans text-sm text-ink-dim">
-        Nothing in this section is available yet.
-      </p>
-    );
-  }
+// A single hub domain group rendered as its own widget: the group heading (kept
+// visible outside Customize mode) plus the grid of sub-area cards.
+function HubGroupNode({ group }: { group: SidebarRouteGroup }) {
   return (
-    <div className="flex flex-col gap-6">
-      {groups.map((grp, gi) => (
-        <div key={grp.label ?? `group-${gi}`} className="flex flex-col gap-3">
-          {grp.label ? (
-            <h2 className="font-display text-xl tracking-wide text-ink-dim">
-              {grp.label}
-            </h2>
-          ) : null}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {grp.routes.map((r) => {
-              const Icon = r.icon;
-              return (
-                <Link
-                  key={r.path}
-                  to={r.path}
-                  className="group flex items-center gap-3 border border-line bg-bg-2 p-5 hover:border-accent"
-                >
-                  <Icon className="h-5 w-5 text-ink-dim group-hover:text-ink" />
-                  <span className="font-sans text-sm text-ink">{r.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+    <div className="flex flex-col gap-3">
+      {group.label ? (
+        <h2 className="font-display text-xl tracking-wide text-ink-dim">
+          {group.label}
+        </h2>
+      ) : null}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {group.routes.map((r) => {
+          const Icon = r.icon;
+          return (
+            <Link
+              key={r.path}
+              to={r.path}
+              className="group flex items-center gap-3 border border-line bg-bg-2 p-5 hover:border-accent"
+            >
+              <Icon className="h-5 w-5 text-ink-dim group-hover:text-ink" />
+              <span className="font-sans text-sm text-ink">{r.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
+}
+
+// The KPI panel for the sections that have one. Returns null for sections that
+// are hub-only (e.g. Settings).
+function panelFor(key: string): ReactNode {
+  switch (key) {
+    case 'sell':
+      return <SellPanel />;
+    case 'money':
+      return <MoneyPanel />;
+    case 'inventory':
+      return <InventoryPanel />;
+    case 'production':
+      return <ProductionPanel />;
+    case 'buy':
+      return <BuyPanel />;
+    case 'workforce':
+      return <WorkforcePanel />;
+    case 'insights':
+      return <InsightsPanel />;
+    default:
+      return null;
+  }
 }
 
 export function SectionHomePage() {
@@ -102,6 +105,22 @@ export function SectionHomePage() {
     ? groupRoutesByDomain(visibleRoutesForMode(mode, orgFlags.data, can))
     : [];
 
+  // Compose the section's widgets: the KPI panel (when the section has one)
+  // followed by one widget per hub domain group. Stable ids let the saved
+  // layout survive across visits and new sections.
+  const widgets: DashboardWidget[] = [];
+  const panelNode = panelFor(mode.key);
+  if (panelNode) {
+    widgets.push({ id: 'panel', title: 'Key metrics', node: panelNode });
+  }
+  for (const grp of groups) {
+    widgets.push({
+      id: `hub:${grp.label ?? 'general'}`,
+      title: grp.label ?? 'Shortcuts',
+      node: <HubGroupNode group={grp} />,
+    });
+  }
+
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-10 px-8 py-12">
       <header className="flex items-start justify-between gap-4">
@@ -114,15 +133,11 @@ export function SectionHomePage() {
         <SetHomeButton path={mode.homePath} />
       </header>
 
-      {mode.key === 'sell' ? <SellPanel /> : null}
-      {mode.key === 'money' ? <MoneyPanel /> : null}
-      {mode.key === 'inventory' ? <InventoryPanel /> : null}
-      {mode.key === 'production' ? <ProductionPanel /> : null}
-      {mode.key === 'buy' ? <BuyPanel /> : null}
-      {mode.key === 'workforce' ? <WorkforcePanel /> : null}
-      {mode.key === 'insights' ? <InsightsPanel /> : null}
-
-      <SectionHub groups={groups} loading={!ready} />
+      <CustomizableSection
+        sectionKey={mode.key as DashboardSectionKey}
+        widgets={widgets}
+        loadingHub={!ready}
+      />
     </section>
   );
 }
