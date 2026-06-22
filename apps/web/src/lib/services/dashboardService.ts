@@ -5,6 +5,8 @@
 import { apiRequest } from '@/lib/apiClient';
 import {
   BuySummarySchema,
+  DashboardPrefSavedSchema,
+  DashboardPrefsSchema,
   DashboardSummarySchema,
   InventorySummarySchema,
   MoneySummarySchema,
@@ -12,6 +14,9 @@ import {
   SellSummarySchema,
   WorkforceSummarySchema,
   type BuySummary,
+  type DashboardPrefSaved,
+  type DashboardPrefUpdate,
+  type DashboardPrefs,
   type DashboardSummary,
   type InventorySummary,
   type MoneySummary,
@@ -70,4 +75,24 @@ export async function getWorkforceSummary(): Promise<WorkforceSummary> {
     { method: 'GET' },
   );
   return WorkforceSummarySchema.parse(data);
+}
+
+// Personalization: per-user dashboard layout. GET returns the caller's saved
+// layouts as a section_key -> layout map; PUT replaces one section's layout
+// (idempotency key minted by apiRequest).
+export async function getDashboardPrefs(): Promise<DashboardPrefs> {
+  const data = await apiRequest<unknown>('/dashboard-api/dashboard/prefs', {
+    method: 'GET',
+  });
+  return DashboardPrefsSchema.parse(data);
+}
+
+export async function setDashboardPref(
+  input: DashboardPrefUpdate,
+): Promise<DashboardPrefSaved> {
+  const data = await apiRequest<unknown>('/dashboard-api/dashboard/prefs', {
+    method: 'PUT',
+    body: input,
+  });
+  return DashboardPrefSavedSchema.parse(data);
 }

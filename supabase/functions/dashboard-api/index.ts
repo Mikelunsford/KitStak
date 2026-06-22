@@ -8,12 +8,20 @@
 // mutation surface; one bundle keeps deploy-functions short.
 
 import { route, type Route } from '../_shared/route.ts';
-import { admin, requireCap } from '../_shared/handler-helpers.ts';
-import { ok } from '../_shared/responses.ts';
+import {
+  admin,
+  parseBody,
+  requireCap,
+  respondWithIdempotency,
+} from '../_shared/handler-helpers.ts';
+import { ApiError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import { roundHalfEven } from '../_shared/money.ts';
+import { DashboardPrefUpdateSchema } from '../_shared/types/cross_cutting.ts';
 import type {
   BuySummary,
+  DashboardPrefs,
+  DashboardPrefSaved,
   DashboardSummary,
   InventorySummary,
   KitCostSummary,
@@ -1575,6 +1583,105 @@ const workforceSummary: Route = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Dashboard preferences (Personalization)
+//
+// Per-user dashboard layout, stored in user_dashboard_prefs (migration 0128).
+// GET returns the caller's saved layouts as a section_key -> layout map; PUT
+// replaces one section's layout. Both gate on dashboard.summary.read: editing
+// your own dashboard layout is a non-privileged action available to anyone who
+// can see a dashboard. The row is owner-scoped by RLS (org_id =
+// current_org_id() AND user_id = auth.uid()) plus the explicit user_id filter
+// here, which is the real authority on "only your own prefs". A dedicated write
+// capability could be carved out later; today the read cap is the gate.
+// ---------------------------------------------------------------------------
+const prefsGet: Route = {
+  method: 'GET',
+  path: '/dashboard/prefs',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'dashboard.summary.read');
+    const client = admin();
+    const sections: Record<string, unknown> = {};
+    try {
+      const { data, error } = await client
+        .from('user_dashboard_prefs')
+        .select('section_key,config')
+        .eq('org_id', caller.orgId)
+        .eq('user_id', caller.userId);
+      if (!error) {
+        for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+          const key = row.section_key as string | null;
+          if (key) sections[key] = (row.config as unknown) ?? {};
+        }
+      }
+    } catch (err) {
+      // Tolerate a missing table (pre-migration) by returning empty prefs so a
+      // dashboard never 500s on a fresh deploy.
+      console.error('dashboard.prefs.read.fallback', {
+        org_id: caller.orgId,
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+    const out: DashboardPrefs = {
+      sections: sections as DashboardPrefs['sections'],
+    };
+    return ok(out);
+  },
+};
+
+const prefsPut: Route = {
+  method: 'PUT',
+  path: '/dashboard/prefs',
+  async handler({ req, bundle }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'dashboard.summary.read');
+    const body = await parseBody(req, DashboardPrefUpdateSchema);
+    return respondWithIdempotency(
+      req,
+      caller,
+      bundle,
+      '/dashboard/prefs',
+      body,
+      async () => {
+        const client = admin();
+        const now = new Date().toISOString();
+        const { data, error } = await client
+          .from('user_dashboard_prefs')
+          .upsert(
+            {
+              org_id: caller.orgId,
+              user_id: caller.userId,
+              section_key: body.section_key,
+              config: body.config,
+              updated_at: now,
+              updated_by: caller.userId,
+            },
+            { onConflict: 'org_id,user_id,section_key' },
+          )
+          .select('section_key,config')
+          .maybeSingle();
+        if (error) {
+          throw new ApiError(
+            'INTERNAL_ERROR',
+            500,
+            'Failed to save dashboard preferences.',
+          );
+        }
+        const row = (data ?? null) as
+          | { section_key?: string; config?: unknown }
+          | null;
+        const out: DashboardPrefSaved = {
+          section_key: body.section_key,
+          config:
+            (row?.config as DashboardPrefSaved['config']) ?? body.config,
+        };
+        return ok(out);
+      },
+    );
+  },
+};
+
 Deno.serve((req) =>
   route(
     req,
@@ -1587,6 +1694,8 @@ Deno.serve((req) =>
       productionSummary,
       buySummary,
       workforceSummary,
+      prefsGet,
+      prefsPut,
     ],
     { bundle: BUNDLE },
   ),
@@ -1601,4 +1710,6 @@ export {
   productionSummary,
   buySummary,
   workforceSummary,
+  prefsGet,
+  prefsPut,
 };

@@ -31,6 +31,8 @@ import {
   getProductionSummary,
   getBuySummary,
   getWorkforceSummary,
+  getDashboardPrefs,
+  setDashboardPref,
 } from '@/lib/services/dashboardService';
 import {
   getPortalMe,
@@ -220,6 +222,25 @@ export function useWorkforceSummary(opts: { enabled?: boolean } = {}) {
     queryFn: getWorkforceSummary,
     enabled: opts.enabled ?? true,
     staleTime: 30_000,
+  });
+}
+
+// Personalization: per-user dashboard layout. Long staleTime since layout
+// changes are self-initiated and the mutation invalidates on success.
+export function useDashboardPrefs(opts: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: dashboardKeys.prefs(),
+    queryFn: getDashboardPrefs,
+    enabled: opts.enabled ?? true,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useSetDashboardPref() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: setDashboardPref,
+    onSuccess: () => qc.invalidateQueries({ queryKey: dashboardKeys.prefs() }),
   });
 }
 

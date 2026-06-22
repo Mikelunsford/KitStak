@@ -543,3 +543,67 @@ export const PortalInvoiceSummarySchema = z.object({
   currency_code: z.string(),
 });
 export type PortalInvoiceSummary = z.infer<typeof PortalInvoiceSummarySchema>;
+
+// ---------------------------------------------------------------------------
+// DashboardPrefs (Personalization)
+//
+// Per-user, per-section dashboard layout, stored in user_dashboard_prefs
+// (migration 0128): one row per (org, user, section_key). section_key is
+// 'dashboard' (the global home) or a sidebar section home key
+// ('sell','money',...). widgets maps a widget id to its visibility + order;
+// pinned_views promotes a saved view to a dashboard widget. The shape is
+// intentionally open: an unknown widget id is tolerated so a layout written by
+// a newer build degrades gracefully on an older one.
+// ---------------------------------------------------------------------------
+export const DashboardWidgetPrefSchema = z.object({
+  hidden: z.boolean().optional(),
+  order: z.number().int().optional(),
+});
+export type DashboardWidgetPref = z.infer<typeof DashboardWidgetPrefSchema>;
+
+export const DashboardPinnedViewSchema = z.object({
+  saved_view_id: UuidSchema,
+  order: z.number().int().optional(),
+});
+export type DashboardPinnedView = z.infer<typeof DashboardPinnedViewSchema>;
+
+export const DashboardSectionLayoutSchema = z.object({
+  widgets: z.record(DashboardWidgetPrefSchema).optional(),
+  pinned_views: z.array(DashboardPinnedViewSchema).optional(),
+});
+export type DashboardSectionLayout = z.infer<typeof DashboardSectionLayoutSchema>;
+
+// Section keys a layout may be stored against: the global dashboard plus each
+// sidebar section home. Mirrors the SPA SIDEBAR_MODES home paths (sans slash).
+export const DashboardSectionKeySchema = z.enum([
+  'dashboard',
+  'sell',
+  'buy',
+  'inventory',
+  'production',
+  'money',
+  'workforce',
+  'insights',
+  'settings',
+]);
+export type DashboardSectionKey = z.infer<typeof DashboardSectionKeySchema>;
+
+// GET /dashboard/prefs response: a map of section_key -> layout.
+export const DashboardPrefsSchema = z.object({
+  sections: z.record(DashboardSectionLayoutSchema),
+});
+export type DashboardPrefs = z.infer<typeof DashboardPrefsSchema>;
+
+// PUT /dashboard/prefs request: replace one section's layout.
+export const DashboardPrefUpdateSchema = z.object({
+  section_key: DashboardSectionKeySchema,
+  config: DashboardSectionLayoutSchema,
+});
+export type DashboardPrefUpdate = z.infer<typeof DashboardPrefUpdateSchema>;
+
+// PUT /dashboard/prefs response: the persisted section + layout.
+export const DashboardPrefSavedSchema = z.object({
+  section_key: DashboardSectionKeySchema,
+  config: DashboardSectionLayoutSchema,
+});
+export type DashboardPrefSaved = z.infer<typeof DashboardPrefSavedSchema>;
