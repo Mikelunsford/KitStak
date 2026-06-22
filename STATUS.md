@@ -1,5 +1,55 @@
 # Kitstak Status
 
+## 2026-06-22 Section dashboards, navigation redesign, and dashboard personalization (PRs #352 to #362)
+
+Eleven PRs, all merged to main and verified on prod, across three threads.
+
+Portal dead-end fix (PR #352): the operator topbar workspace switcher listed the
+operator's own customer_user portal membership as a switch target, and switching
+into it stranded him (the portal has no switcher and customer_user cannot switch
+back). The switcher now filters to staff memberships only. A bidirectional escape
+hatch for portal roles is a follow-up because it needs a capabilities-canon change.
+
+Section dashboards and navigation (PRs #353 to #357): a single generic
+SectionHomePage now serves all eight task sections. It renders the section header,
+an optional KPI panel, and a hub of the section's sub-areas as cards, reusing the
+existing flag and capability gating. Six sections gained rich KPI panels backed by
+new read-only summary endpoints in the dashboard-api bundle (sell, money,
+inventory, production, buy, workforce), each org-scoped, capability-gated, BIGINT
+cents on the wire, with byte-mirrored canon and regression coverage. Navigation
+cleanup: a global Back button, removal of the per-page category eyebrow, a static
+section rail in place of the accordion, and a role-aware section launcher on the
+global dashboard.
+
+Insights and cleanup (PRs #358, #359): the Insights home surfaces KitCost
+headline metrics through a cap-gated panel reusing the existing summary hook.
+Detail-page breadcrumbs were retired (the component is now a no-op), which also
+removed the quote breadcrumb id-flash. A mechanical sweep removed the dead
+category eyebrow prop from 126 pages and from the header interfaces.
+
+Personalization (PRs #360, #361, #362): per-user default landing (a "Set as home"
+control, stored per browser); the DB-backed preferences chassis (migration 0128
+adds user_dashboard_prefs, RLS owner-scoped mirroring saved_views, with
+dashboard-api GET and an idempotency-keyed PUT, canon, hooks, and tests); and the
+Customize UI (each section home composes its content as widgets, with a Customize
+toggle to hide, show, and reorder them, persisted per user and cross-device). The
+0128 schema was operator-approved before authoring, shipped through the post-merge
+migrate workflow, and verified read-only on prod (RLS enabled, two owner-scoped
+policies, chain stamped at 0128). Reorder uses up and down buttons, not drag.
+
+Gates green on every PR: typecheck, lint, full unit and regression (924 passing
+plus 2 skipped), contract and parity (47), build, and size-limit (SPA index chunk
+at 37.78 kB against the 40 kB budget). CI green on the first run including RLS and
+e2e against staging; prod deploys confirmed green. Single constitution stop-list
+item (the migration) was held for sign-off; no money-helper, audit_log,
+dependency, or capability change across the arc. Journal
+`03-workspace/journal/2026-06-22-section-dashboards-nav-personalization-closeout.md`.
+
+Follow-ups: Phase B saved-view-as-widget (the table and canon already carry a
+pinned_views slot); finer panel-internal widgets and an optional drag affordance;
+the bidirectional portal escape hatch; a cross-device default-landing preference;
+sweeping the now-inert per-page breadcrumb calls.
+
 ## 2026-06-19 List toolbar completed across every list surface, merged (PR #347)
 
 The server-driven list toolbar (keyset pagination, free-text search, column sort,
