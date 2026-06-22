@@ -92,7 +92,7 @@ export function ExpenseCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Purchasing / Expenses" title="New expense" />
+      <PageHeader title="New expense" />
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-4 font-sans text-sm"

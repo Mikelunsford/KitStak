@@ -16,7 +16,6 @@ export function WmsHomePage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="WMS"
         title="Warehouse execution"
         meta="Bin-level inventory, directed putaway, and lot capture. Surfaces land as the WMS phases ship."
       />

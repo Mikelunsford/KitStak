@@ -135,7 +135,6 @@ function MembersListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="KitForce / Members"
         title="Members"
         actions={
           caps.can('kitforce.member.create') ? (
@@ -261,7 +260,6 @@ function MembersListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="KitForce / Members"
         title="Members"
         meta={meta}
         actions={

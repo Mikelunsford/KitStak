@@ -135,7 +135,7 @@ export function POCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Purchasing / Purchase orders" title="New Purchase Order" />
+      <PageHeader title="New Purchase Order" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <VendorPicker
           value={vendorId}

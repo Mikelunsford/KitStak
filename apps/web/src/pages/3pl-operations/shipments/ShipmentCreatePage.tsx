@@ -150,7 +150,7 @@ export function ShipmentCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="3PL Operations / Shipments" title="New shipment" />
+      <PageHeader title="New shipment" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
           <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">

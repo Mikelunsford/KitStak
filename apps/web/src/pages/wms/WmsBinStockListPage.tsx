@@ -115,7 +115,7 @@ function WmsBinStockListToolbar() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="WMS" title="Bin stock" />
+      <PageHeader title="Bin stock" />
 
       <FilterBar chips={server.chips} onClearAll={server.clearAll}>
         <label className="flex items-center gap-2">
@@ -194,7 +194,7 @@ function WmsBinStockListLegacy() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="WMS" title="Bin stock" meta={meta} />
+      <PageHeader title="Bin stock" meta={meta} />
 
       <FilterBar>
         <Select

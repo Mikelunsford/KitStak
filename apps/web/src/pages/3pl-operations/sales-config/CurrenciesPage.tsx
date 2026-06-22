@@ -49,7 +49,7 @@ export function CurrenciesPage() {
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Settings / Sales config / Currencies" title="Currencies" meta={meta} />
+      <PageHeader title="Currencies" meta={meta} />
       <DataTable
         columns={COLUMNS}
         rows={pageRows}

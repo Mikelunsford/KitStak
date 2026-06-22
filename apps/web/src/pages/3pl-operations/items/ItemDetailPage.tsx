@@ -22,7 +22,6 @@ export function ItemDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Catalog / Items"
         title={data.name}
         actions={
           <Link to={`/catalog/items/${data.id}/edit`}>

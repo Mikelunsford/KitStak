@@ -144,7 +144,7 @@ function TeamsListToolbar() {
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Teams" title="Teams" />
+      <PageHeader title="Teams" />
 
       <TeamCreateForm />
 
@@ -205,7 +205,7 @@ function TeamsListLegacy() {
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="KitForce / Teams" title="Teams" meta={meta} />
+      <PageHeader title="Teams" meta={meta} />
 
       <TeamCreateForm />
 

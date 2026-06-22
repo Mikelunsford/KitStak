@@ -184,7 +184,7 @@ function ChannelsListToolbar() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Co-Pack and Ecom / Sales channels" title="Sales channels" />
+      <PageHeader title="Sales channels" />
       <p className="font-sans text-ink-dim text-sm max-w-2xl">
         Sales channels define where your orders come from. Channels are manual for
         now. Automated connectors such as Shopify and Amazon are not available yet.
@@ -335,7 +335,6 @@ function ChannelsListLegacy() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Co-Pack and Ecom / Sales channels"
         title="Sales channels"
         meta={meta}
       />

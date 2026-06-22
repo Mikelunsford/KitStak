@@ -35,7 +35,7 @@ export function SupplyPlanCreatePage() {
 
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="3PL Operations" title="New supply plan" />
+      <PageHeader title="New supply plan" />
 
       <form
         onSubmit={onSubmit}

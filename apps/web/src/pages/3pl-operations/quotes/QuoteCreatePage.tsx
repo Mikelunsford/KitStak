@@ -162,7 +162,7 @@ export function QuoteCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-4xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Quotes" title="New quote" />
+      <PageHeader title="New quote" />
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 max-w-xl">
         <CustomerPicker

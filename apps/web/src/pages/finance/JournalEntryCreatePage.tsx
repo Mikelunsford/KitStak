@@ -120,7 +120,7 @@ export function JournalEntryCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-3xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Finance / Journal entries" title="New journal entry" />
+      <PageHeader title="New journal entry" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <TextInput

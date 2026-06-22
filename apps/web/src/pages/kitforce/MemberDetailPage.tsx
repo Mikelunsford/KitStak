@@ -131,7 +131,6 @@ export function MemberDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="KitForce / Members"
         title={d.display_name}
         meta={<StatusBadge status={d.status} />}
         actions={

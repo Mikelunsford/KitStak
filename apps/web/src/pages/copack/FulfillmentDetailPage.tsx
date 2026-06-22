@@ -80,7 +80,6 @@ export function FulfillmentDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Co-Pack and Ecom / Fulfillments"
         title={`Fulfillment ${d.fulfillment_number ?? d.id.slice(0, 8)}`}
         meta={<StatusBadge status={d.status} />}
       />

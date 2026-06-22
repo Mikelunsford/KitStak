@@ -220,7 +220,7 @@ export function InvoiceCreatePage() {
 
   return (
     <section className="px-8 py-8 max-w-4xl flex flex-col gap-6">
-      <PageHeader eyebrow="Invoicing / Invoices" title="New invoice" />
+      <PageHeader title="New invoice" />
       {/* F-Wave9-AUDIT-V3-WAVE-F-01: two-column form grid. The customer
           / project / quote / currency / dates fan out side by side on
           md and up; notes and the submit row span the full width via

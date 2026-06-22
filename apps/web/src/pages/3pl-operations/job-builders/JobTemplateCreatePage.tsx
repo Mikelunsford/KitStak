@@ -75,7 +75,7 @@ export function JobTemplateCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="3PL Operations" title="New job builder" />
+      <PageHeader title="New job builder" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextInput
           label="Name"

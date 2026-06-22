@@ -65,7 +65,6 @@ export function ExchangeRatesPage() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Settings / Sales config / Exchange rates"
         title="Exchange rates"
         meta={meta}
         actions={

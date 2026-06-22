@@ -118,7 +118,6 @@ function ShipmentsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="3PL Operations / Shipments"
         title="Shipments"
         actions={
           <Link to="/3pl-operations/shipments/new">
@@ -235,7 +234,6 @@ function ShipmentsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="3PL Operations / Shipments"
         title="Shipments"
         meta={meta}
         actions={

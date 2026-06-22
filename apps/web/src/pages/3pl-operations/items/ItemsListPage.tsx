@@ -93,7 +93,6 @@ function ItemsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Catalog / Items"
         title="Items"
         actions={
           <Link to="/catalog/items/new">
@@ -189,7 +188,6 @@ function ItemsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Catalog / Items"
         title="Items"
         meta={meta}
         actions={

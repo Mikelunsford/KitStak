@@ -65,7 +65,7 @@ export function SalesOrderCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Co-Pack and Ecom / Sales orders" title="New sales order" />
+      <PageHeader title="New sales order" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create sales orders.

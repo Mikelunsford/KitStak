@@ -151,7 +151,6 @@ function ManufacturingRunsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Manufacturing / Runs"
         title="Manufacturing runs"
         actions={
           caps.can('manufacturing.run.create') ? (
@@ -323,7 +322,6 @@ function ManufacturingRunsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="Manufacturing / Runs"
         title="Manufacturing runs"
         meta={meta}
         actions={

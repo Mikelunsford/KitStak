@@ -14,13 +14,6 @@ import type { ReactNode } from 'react';
 export interface PageHeaderProps {
   /** The page title. Rendered uppercase in the brand display font. */
   title: string;
-  /**
-   * @deprecated No longer rendered. The "Category / Page" eyebrow was removed
-   * as noisy navigation chrome (the global Back button plus section dashboards
-   * cover wayfinding now). The prop is kept so existing call sites compile; the
-   * dead props can be swept in a follow-up.
-   */
-  eyebrow?: ReactNode;
   /** One-line summary under the title (counts, context). */
   meta?: ReactNode;
   /** Right-aligned actions (primary CTA, overflow). */

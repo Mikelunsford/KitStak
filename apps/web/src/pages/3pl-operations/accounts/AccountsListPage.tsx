@@ -92,7 +92,6 @@ function AccountsListToolbar() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="3PL Operations"
         title="Accounts"
         actions={
           caps.can('threepl.account.create') ? (
@@ -190,7 +189,6 @@ function AccountsListLegacy() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-12">
       <PageHeader
-        eyebrow="3PL Operations"
         title="Accounts"
         meta={meta}
         actions={

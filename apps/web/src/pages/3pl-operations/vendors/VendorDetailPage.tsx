@@ -211,7 +211,6 @@ export function VendorDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Purchasing / Vendors"
         title={data.display_name}
         actions={
           <Link to={`/purchasing/vendors/${data.id}/edit`}>

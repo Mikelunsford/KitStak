@@ -103,7 +103,7 @@ export function BomCreatePage() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-12">
-      <PageHeader eyebrow="Catalog / Bills of materials" title="New BOM" />
+      <PageHeader title="New BOM" />
       <p className="font-sans text-sm text-ink-dim">
         Pick the finished item, then add its components. You can add or edit
         components later from the BOM detail page.

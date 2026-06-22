@@ -71,7 +71,7 @@ export function KittingJobCreatePage() {
 
   return (
     <section className="px-8 py-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <PageHeader eyebrow="Co-Pack and Ecom / Kitting jobs" title="New kitting job" />
+      <PageHeader title="New kitting job" />
       {!canCreate ? (
         <p className="text-accent font-sans text-sm">
           You do not have permission to create kitting jobs.

@@ -69,12 +69,6 @@ export interface DetailHeaderProps {
   money?: DetailHeaderMoney | null;
   /** Quieter second row of related links (project, source quote, template). */
   links?: DetailHeaderLink[];
-  /**
-   * @deprecated No longer rendered. The section-label eyebrow was removed as
-   * noisy navigation chrome (the global Back button covers wayfinding now).
-   * Kept so existing call sites compile; safe to sweep in a follow-up.
-   */
-  eyebrow?: ReactNode;
   /** Right-aligned actions. */
   actions?: ReactNode;
 }

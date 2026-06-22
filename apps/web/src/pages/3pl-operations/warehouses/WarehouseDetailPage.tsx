@@ -19,7 +19,6 @@ export function WarehouseDetailPage() {
         ]}
       />
       <PageHeader
-        eyebrow="Inventory / Warehouses"
         title={data.display_name}
         actions={
           <Link to={`/inventory/warehouses/${data.id}/edit`}>
