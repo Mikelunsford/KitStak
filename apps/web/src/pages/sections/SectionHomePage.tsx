@@ -20,6 +20,8 @@ import {
 } from '@/components/shell/sidebarModes';
 import { SellPanel } from './SellPanel';
 import { MoneyPanel } from './MoneyPanel';
+import { InventoryPanel } from './InventoryPanel';
+import { ProductionPanel } from './ProductionPanel';
 
 function SectionHub({
   groups,
@@ -107,6 +109,8 @@ export function SectionHomePage() {
 
       {mode.key === 'sell' ? <SellPanel /> : null}
       {mode.key === 'money' ? <MoneyPanel /> : null}
+      {mode.key === 'inventory' ? <InventoryPanel /> : null}
+      {mode.key === 'production' ? <ProductionPanel /> : null}
 
       <SectionHub groups={groups} loading={!ready} />
     </section>

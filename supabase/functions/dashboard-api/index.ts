@@ -14,8 +14,10 @@ import { requireCaller } from '../_shared/tenant.ts';
 import { roundHalfEven } from '../_shared/money.ts';
 import type {
   DashboardSummary,
+  InventorySummary,
   KitCostSummary,
   MoneySummary,
+  ProductionSummary,
   SellSummary,
 } from '../_shared/types/cross_cutting.ts';
 
@@ -1038,10 +1040,296 @@ const moneySummary: Route = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Inventory section dashboard (Section Dashboards, Phase 2)
+//
+// Read-only aggregate gated on warehouses.warehouse.read (mirrors the INVENTORY
+// section gate). Below-reorder is computed by folding stock_levels by item and
+// comparing available quantity to items.reorder_point. Inbound receiving and
+// outbound shipments use the open-status sets; occupied bins counts distinct WMS
+// locations holding stock. The endpoint always computes the 3PL and WMS metrics;
+// the SPA surfaces them per entitlement. Org-scoped (Pattern A).
+// ---------------------------------------------------------------------------
+const RECEIVING_OPEN_STATUSES: ReadonlyArray<string> = ['created', 'in_progress'];
+const SHIPMENT_OPEN_STATUSES: ReadonlyArray<string> = ['created', 'picking'];
+
+const inventorySummary: Route = {
+  method: 'GET',
+  path: '/dashboard/inventory-summary',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'warehouses.warehouse.read');
+    const client = admin();
+    const orgId = caller.orgId;
+
+    const [stockRes, itemsRes, inboundCount, inboundListRes, outboundCount, binsRes] =
+      await Promise.all([
+        client
+          .from('stock_levels')
+          .select('item_id,quantity_on_hand,quantity_available')
+          .eq('org_id', orgId)
+          .then((r) => r),
+        client
+          .from('items')
+          .select('id,sku,name,reorder_point')
+          .eq('org_id', orgId)
+          .is('deleted_at', null)
+          .then((r) => r),
+        countByStates(client, 'receiving_orders', 'status', orgId, RECEIVING_OPEN_STATUSES).catch(
+          () => 0,
+        ),
+        client
+          .from('receiving_orders')
+          .select('id,receiving_number,status,expected_date')
+          .eq('org_id', orgId)
+          .in('status', RECEIVING_OPEN_STATUSES)
+          .is('deleted_at', null)
+          .order('expected_date', { ascending: true })
+          .limit(5)
+          .then((r) => r),
+        countByStates(client, 'shipments', 'status', orgId, SHIPMENT_OPEN_STATUSES).catch(
+          () => 0,
+        ),
+        client
+          .from('bin_stock_levels')
+          .select('location_id,quantity_on_hand')
+          .eq('org_id', orgId)
+          .then((r) => r),
+      ]);
+
+    // Fold stock_levels by item (an item can have a row per warehouse).
+    const stockRows = (stockRes.data ?? []) as Array<Record<string, unknown>>;
+    const onHandByItem = new Map<string, number>();
+    const availableByItem = new Map<string, number>();
+    for (const row of stockRows) {
+      const id = row.item_id as string | null;
+      if (!id) continue;
+      onHandByItem.set(id, (onHandByItem.get(id) ?? 0) + asNum(row.quantity_on_hand));
+      availableByItem.set(
+        id,
+        (availableByItem.get(id) ?? 0) + asNum(row.quantity_available),
+      );
+    }
+
+    let stockedSkus = 0;
+    for (const v of onHandByItem.values()) if (v > 0) stockedSkus += 1;
+
+    // Below reorder: reorder_point set and available below it. Sort by the
+    // largest shortfall so the most urgent items lead the widget.
+    const itemRows = (itemsRes.data ?? []) as Array<Record<string, unknown>>;
+    const belowList: Array<{
+      item_id: string;
+      sku: string;
+      name: string;
+      on_hand: number;
+      reorder_point: number;
+      shortfall: number;
+    }> = [];
+    for (const it of itemRows) {
+      const rp = it.reorder_point;
+      if (rp === null || rp === undefined) continue;
+      const reorder = asNum(rp);
+      if (reorder <= 0) continue;
+      const id = it.id as string;
+      const available = availableByItem.get(id) ?? 0;
+      if (available < reorder) {
+        belowList.push({
+          item_id: id,
+          sku: (it.sku as string | null) ?? '',
+          name: (it.name as string | null) ?? '',
+          on_hand: onHandByItem.get(id) ?? 0,
+          reorder_point: reorder,
+          shortfall: reorder - available,
+        });
+      }
+    }
+    belowList.sort((a, b) => b.shortfall - a.shortfall);
+    const below_reorder = belowList.slice(0, 5).map((b) => ({
+      item_id: b.item_id,
+      sku: b.sku,
+      name: b.name,
+      on_hand: b.on_hand,
+      reorder_point: b.reorder_point,
+    }));
+
+    // Occupied bins: distinct WMS locations holding stock.
+    const occupied = new Set<string>();
+    for (const b of (binsRes.data ?? []) as Array<Record<string, unknown>>) {
+      if (asNum(b.quantity_on_hand) > 0) {
+        const loc = b.location_id as string | null;
+        if (loc) occupied.add(loc);
+      }
+    }
+
+    const inbound_receiving = (
+      (inboundListRes.data ?? []) as Array<Record<string, unknown>>
+    ).map((r) => ({
+      id: r.id as string,
+      number: (r.receiving_number as string | null) ?? '',
+      status: (r.status as string | null) ?? '',
+      expected_date: (r.expected_date as string | null) ?? null,
+    }));
+
+    const out: InventorySummary = {
+      kpis: {
+        below_reorder_count: belowList.length,
+        stocked_skus_count: stockedSkus,
+        inbound_receiving_count: inboundCount,
+        outbound_shipments_count: outboundCount,
+        occupied_bins_count: occupied.size,
+      },
+      below_reorder,
+      inbound_receiving,
+    };
+    return ok(out);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Production section dashboard (Section Dashboards, Phase 2)
+//
+// Read-only aggregate gated on dashboard.summary.read (the PRODUCTION section
+// has no role gate; entitlement decides). KPIs span manufacturing, co-pack, and
+// 3PL; late jobs are manufacturing or kitting work whose planned_complete_at is
+// past. Per-add-on widget lists are folded by entitlement in the SPA; the
+// endpoint computes all (org-scoped reads yield zero for unused add-ons).
+// ---------------------------------------------------------------------------
+const MFG_OPEN_STATUSES: ReadonlyArray<string> = ['draft', 'started'];
+const KITTING_OPEN_STATUSES: ReadonlyArray<string> = ['draft', 'started'];
+const SALES_ORDER_OPEN_STATUSES: ReadonlyArray<string> = [
+  'confirmed',
+  'picking',
+  'packed',
+];
+const JOB_RUN_ACTIVE_STATUSES: ReadonlyArray<string> = ['planned', 'in_progress'];
+
+const productionSummary: Route = {
+  method: 'GET',
+  path: '/dashboard/production-summary',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'dashboard.summary.read');
+    const client = admin();
+    const orgId = caller.orgId;
+    const nowMs = new Date().getTime();
+
+    const [mfgRes, kittingRes, ordersToFulfill, salesListRes, jobRunsRes] =
+      await Promise.all([
+        client
+          .from('manufacturing_runs')
+          .select('id,run_number,status,planned_complete_at')
+          .eq('org_id', orgId)
+          .in('status', MFG_OPEN_STATUSES)
+          .is('deleted_at', null)
+          .order('planned_complete_at', { ascending: true })
+          .then((r) => r),
+        client
+          .from('kitting_jobs')
+          .select('status,planned_complete_at')
+          .eq('org_id', orgId)
+          .in('status', KITTING_OPEN_STATUSES)
+          .is('deleted_at', null)
+          .then((r) => r),
+        countByStates(client, 'sales_orders', 'status', orgId, SALES_ORDER_OPEN_STATUSES).catch(
+          () => 0,
+        ),
+        client
+          .from('sales_orders')
+          .select('id,order_number,status,customer_id')
+          .eq('org_id', orgId)
+          .in('status', SALES_ORDER_OPEN_STATUSES)
+          .is('deleted_at', null)
+          .order('ordered_at', { ascending: true })
+          .limit(5)
+          .then((r) => r),
+        client
+          .from('job_runs')
+          .select('id,run_number,status')
+          .eq('org_id', orgId)
+          .in('status', JOB_RUN_ACTIVE_STATUSES)
+          .is('deleted_at', null)
+          .order('started_at', { ascending: true })
+          .limit(5)
+          .then((r) => r),
+      ]);
+
+    const mfgRows = (mfgRes.data ?? []) as Array<Record<string, unknown>>;
+    const runsInProduction = mfgRows.filter((r) => r.status === 'started').length;
+
+    const kittingRows = (kittingRes.data ?? []) as Array<Record<string, unknown>>;
+    const kittingInProgress = kittingRows.filter((r) => r.status === 'started').length;
+
+    // Late jobs: manufacturing or kitting work whose planned_complete_at is past.
+    let lateJobs = 0;
+    for (const r of [...mfgRows, ...kittingRows]) {
+      const p = r.planned_complete_at as string | null;
+      if (!p) continue;
+      const t = Date.parse(p);
+      if (Number.isFinite(t) && t < nowMs) lateJobs += 1;
+    }
+
+    const manufacturing_runs = mfgRows.slice(0, 5).map((r) => ({
+      id: r.id as string,
+      number: (r.run_number as string | null) ?? '',
+      status: (r.status as string | null) ?? '',
+      planned_complete_at: (r.planned_complete_at as string | null) ?? null,
+    }));
+
+    const salesRows = (salesListRes.data ?? []) as Array<Record<string, unknown>>;
+    const soCustomerIds = Array.from(
+      new Set(salesRows.map((s) => s.customer_id as string).filter(Boolean)),
+    );
+    const soNames = await resolveCustomerNames(client, orgId, soCustomerIds);
+    const sales_orders = salesRows.map((s) => ({
+      id: s.id as string,
+      number: (s.order_number as string | null) ?? '',
+      status: (s.status as string | null) ?? '',
+      customer_name: soNames.get(s.customer_id as string) ?? '',
+    }));
+
+    const job_runs = ((jobRunsRes.data ?? []) as Array<Record<string, unknown>>).map(
+      (j) => ({
+        id: j.id as string,
+        number: (j.run_number as string | null) ?? '',
+        status: (j.status as string | null) ?? '',
+      }),
+    );
+
+    const out: ProductionSummary = {
+      kpis: {
+        runs_in_production_count: runsInProduction,
+        kitting_in_progress_count: kittingInProgress,
+        orders_to_fulfill_count: ordersToFulfill,
+        late_jobs_count: lateJobs,
+      },
+      manufacturing_runs,
+      sales_orders,
+      job_runs,
+    };
+    return ok(out);
+  },
+};
+
 Deno.serve((req) =>
-  route(req, [summary, kitcostSummary, sellSummary, moneySummary], {
-    bundle: BUNDLE,
-  }),
+  route(
+    req,
+    [
+      summary,
+      kitcostSummary,
+      sellSummary,
+      moneySummary,
+      inventorySummary,
+      productionSummary,
+    ],
+    { bundle: BUNDLE },
+  ),
 );
 
-export { summary, kitcostSummary, sellSummary, moneySummary };
+export {
+  summary,
+  kitcostSummary,
+  sellSummary,
+  moneySummary,
+  inventorySummary,
+  productionSummary,
+};
