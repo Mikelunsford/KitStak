@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useBrandingContext } from '@/whitelabel/BrandingProvider';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useDashboardSummary } from '@/lib/hooks/useCrossCutting';
 import { useMe } from '@/lib/hooks/useMe';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { WorkCard } from '@/components/shell/WorkCard';
 import { SetupChecklist } from '@/components/shell/SetupChecklist';
 import { SetupCompleteCelebration } from '@/components/shell/SetupCompleteCelebration';
-import { FEATURE_FLAGS } from '@/lib/constants';
 import {
-  PILLAR_TILES,
-  visiblePillarTiles,
-  type PillarTileSpec,
-} from './dashboardTiles';
+  SIDEBAR_MODES,
+  isModeVisible,
+  visibleRoutesForMode,
+} from '@/components/shell/sidebarModes';
+import type { Capability, RoleCode } from '@/lib/capabilities';
 import { buildWorkCards } from '@/pages/dashboardWorkCards';
 import {
   buildSetupSteps,
@@ -33,10 +34,11 @@ import { hasSeenPasswordPrompt } from '@/pages/firstSigninPromptState';
  * complete the work-card grid takes over with live actionable counts per
  * workflow stage.
  *
- * SMOKE-09: the five-pillar surface is gated by plugin flags. A pillar
- * card only appears when the org has that pillar's plugin enabled. The
- * server-side API gate (403 FEATURE_DISABLED) remains the authority; the
- * card hiding here is presentational only.
+ * Below the work cards, the SectionLauncher replaces the old descriptive
+ * PILLARS block with a role-aware launcher into the Section Dashboards: one
+ * card per visible section (role plus entitlement gated), each linking to its
+ * section home. The server-side API gates remain the authority; the hiding
+ * here is presentational only.
  *
  * Wraps in <AppShell> via the ProtectedRoute guard, not directly here.
  */
@@ -48,7 +50,7 @@ export function DashboardPage() {
   const me = useMe({ enabled: true });
   const navigate = useNavigate();
 
-  const tiles = visiblePillarTiles(PILLAR_TILES, orgFlags.data);
+  const { role, can } = useCapabilities();
   const activeOrgId = me.data?.active_org_id ?? '';
   const userId = me.data?.user_id ?? '';
 
@@ -117,7 +119,12 @@ export function DashboardPage() {
         errored={Boolean(dashboard.error)}
       />
 
-      <PillarGrid tiles={tiles} loading={orgFlags.isLoading} />
+      <SectionLauncher
+        flags={orgFlags.data}
+        loading={orgFlags.isLoading}
+        role={role}
+        can={can}
+      />
     </section>
   );
 }
@@ -210,66 +217,68 @@ function WorkCardGrid({ loading, errored, summary }: WorkCardGridProps) {
 }
 
 // ---------------------------------------------------------------------------
-// PillarGrid. SMOKE-09: renders only the pillar tiles whose plugin flag is
-// on for the org. Server is the authority; this component is presentational
-// hiding only. Handles three states: loading (skeleton), zero tiles (no
-// plugins enabled yet), and 1-5 tiles (responsive grid).
+// SectionLauncher. Replaces the descriptive PILLARS block (which taught the
+// add-ons once and then added nothing) with a role-aware launcher into the
+// Section Dashboards. Mirrors the sidebar's visibility: a section shows only
+// when the active role can see it (isModeVisible) and it has at least one
+// entitled route, so add-on sections appear only when their plugin is on. Each
+// card links to the section home (/sell, /money, ...). Presentational; the
+// server stays the authority on entitlement and capability.
 // ---------------------------------------------------------------------------
 
-interface PillarGridProps {
-  tiles: ReadonlyArray<PillarTileSpec>;
+interface SectionLauncherProps {
+  flags: Record<string, boolean>;
   loading: boolean;
+  role: RoleCode | null;
+  can: (cap: Capability) => boolean;
 }
 
-function PillarGrid({ tiles, loading }: PillarGridProps) {
+function SectionLauncher({ flags, loading, role, can }: SectionLauncherProps) {
+  const sections = SIDEBAR_MODES.filter((mode) =>
+    isModeVisible(mode, role, can),
+  ).filter((mode) => visibleRoutesForMode(mode, flags, can).length > 0);
+
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-display text-2xl tracking-wide text-ink-dim">
-        PILLARS
-      </h2>
+      <h2 className="font-display text-2xl tracking-wide text-ink-dim">SECTIONS</h2>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-bg-2 border border-line p-6 h-24 animate-pulse"
+              className="h-24 animate-pulse border border-line bg-bg-2 p-6"
             />
           ))}
         </div>
-      ) : tiles.length === 0 ? (
+      ) : sections.length === 0 ? (
         <p className="font-sans text-sm text-ink-dim">
-          No pillar plugins are enabled for this organization. Contact your
-          administrator to enable a plugin.
+          No sections are available for your role yet.
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tiles.map((tile) => (
-            <Card key={tile.key} title={tile.title} body={tile.body} />
-          ))}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {sections.map((mode) => {
+            const Icon = mode.icon;
+            return (
+              <Link
+                key={mode.key}
+                to={mode.homePath}
+                className="group flex flex-col gap-2 border border-line bg-bg-2 p-6 hover:border-accent"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon className="h-5 w-5 text-ink-dim group-hover:text-ink" />
+                  <span className="font-display text-xl uppercase tracking-wider text-ink">
+                    {mode.label}
+                  </span>
+                </span>
+                <span className="font-sans text-sm text-ink-dim">
+                  {mode.subtitle}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
     </section>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Card. Branded "what each pillar does" tile. Used by the gated pillar grid
-// (SMOKE-09) so pillar tiles are omitted when their plugin flag is off.
-// ---------------------------------------------------------------------------
-
-type CardProps = { title: string; body: string };
-
-function Card({ title, body }: CardProps) {
-  return (
-    <article className="bg-bg-2 border border-line p-6 flex flex-col gap-3">
-      <h3 className="text-xl font-display tracking-wider text-ink">{title}</h3>
-      <p className="font-sans text-ink-dim text-sm">{body}</p>
-    </article>
-  );
-}
-
-// Re-exported so consumers (and tests) can verify the wired tile set
-// without importing the page component itself.
-export { PILLAR_TILES, visiblePillarTiles, FEATURE_FLAGS };
-export type { PillarTileSpec };
