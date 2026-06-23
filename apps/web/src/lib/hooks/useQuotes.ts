@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { bucketCents, track } from '@/lib/analytics';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { quotesKeys } from '@/lib/queryKeys/quotes';
+import { applyQuoteActionResult } from './quoteActionCache';
 import {
   listQuotes, getQuote, createQuote, updateQuote, submitQuote, approveQuote,
   reviseQuote, cancelQuote, sendQuote, convertQuoteToProject,
@@ -12,7 +13,7 @@ import {
 } from '@/lib/services/quotesService';
 import type {
   CreateQuoteRequest, UpdateQuoteRequest, CreateQuoteLineRequest,
-  UpdateQuoteLineRequest,
+  UpdateQuoteLineRequest, Quote,
 } from '@/lib/types/sales';
 import { buildQuoteLinesFromTemplate } from '@/lib/quotes/applyJobTemplate';
 import type { JobTemplate, JobTemplateLine } from '@/lib/services/jobTemplatesService';
@@ -56,18 +57,21 @@ export function useUpdateQuote(id: string) {
   });
 }
 
-function useQuoteAction(action: (id: string) => Promise<unknown>) {
+function useQuoteAction(action: (id: string) => Promise<Quote>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => action(id),
-    onSuccess: (_data, id) => {
-      void qc.invalidateQueries({ queryKey: quotesKeys.byId(id) });
-      void qc.invalidateQueries({ queryKey: quotesKeys.all });
-      // F-Wave6-AUDIT-02: state-change mutations also write an audit_log row
-      // via the BEFORE UPDATE trg_audit_quotes_state trigger; the timeline
-      // query cache must be invalidated or the operator sees the pre-mutation
-      // snapshot (TanStack staleTime 30s, refetchOnWindowFocus false).
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', id) });
+    onSuccess: (quote, id) => {
+      // P0-1: the transition route returns the authoritative post-transition
+      // Quote. Write it into the byId detail cache synchronously so the
+      // StateStepper and the canTransition button cluster re-render against the
+      // new state with no reload, then sweep the list and the audit timeline.
+      // The detail key is deliberately not invalidated; see quoteActionCache.ts
+      // for why a lagged refetch there would clobber the fresh state. The
+      // audit_log row is written in-transaction by the BEFORE UPDATE
+      // trg_audit_quotes_state trigger (F-Wave6-AUDIT-02), so the timeline
+      // sweep still surfaces the new entry.
+      applyQuoteActionResult(qc, id, quote);
     },
   });
 }
@@ -87,9 +91,11 @@ export function useSendQuote() {
   return useMutation({
     mutationFn: (id: string) => sendQuote(id),
     onSuccess: (quote, id) => {
-      void qc.invalidateQueries({ queryKey: quotesKeys.byId(id) });
-      void qc.invalidateQueries({ queryKey: quotesKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('quote', id) });
+      // P0-1: same authoritative-write reconciliation as the other quote
+      // actions. Send marks sent_at, which also drives the post-approval Send
+      // button feedback (computeSendButtonFeedback reads quote.sent_at), so the
+      // synchronous write keeps that feedback in sync without a reload too.
+      applyQuoteActionResult(qc, id, quote);
       track('quote_sent', {
         quote_id: quote.id,
         customer_id: quote.customer_id ?? null,

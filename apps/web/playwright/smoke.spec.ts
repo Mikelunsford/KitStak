@@ -321,6 +321,14 @@ test.describe('@smoke pillar-1 flow', () => {
       // QUOTE_FSM order. Submit first, then Approve, then Send.
       await page.getByRole('button', { name: /^submit$/i }).click();
       await page.getByRole('button', { name: /^approve$/i }).click();
+      // P0-1: after Approve the detail view must advance with no reload. Once
+      // approved, QuoteDetailPage renders the "Convert to project" next-step
+      // CTA; a stale (pre-approve) view would not, so this gates the no-reload
+      // state refresh that P0-1 fixes. Runs once this skipped chain is wired
+      // under F-Wave5-TEST-02-CHAIN-01.
+      await expect(
+        page.getByRole('button', { name: /convert to project/i }),
+      ).toBeVisible({ timeout: 10_000 });
       await page.getByRole('button', { name: /^send$/i }).click();
     });
 
