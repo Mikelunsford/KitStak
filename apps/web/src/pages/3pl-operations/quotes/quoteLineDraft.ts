@@ -10,7 +10,7 @@
 // way `lineDraft.ts`, `applyItemSelection.ts`, and `sourceLinePrefill.ts`
 // already do. The repo has no jsdom / testing-library.
 
-import type { CreateQuoteLineRequest } from '@/lib/types/sales';
+import type { CreateQuoteLineRequest, BillingInterval } from '@/lib/types/sales';
 
 /**
  * In-memory draft for a quote line on the create form. Mirrors the
@@ -33,6 +33,8 @@ export interface QuoteLineDraft {
   discount_bps: number | null;
   tax_id: string;
   is_taxable: boolean;
+  /** ADR 0005: one_time (default) or monthly (recurring). */
+  billing_interval: BillingInterval;
 }
 
 let fallbackCounter = 0;
@@ -61,6 +63,7 @@ export function makeEmptyQuoteLineDraft(): QuoteLineDraft {
     discount_bps: 0,
     tax_id: '',
     is_taxable: true,
+    billing_interval: 'one_time',
   };
 }
 
@@ -93,6 +96,7 @@ export function quoteDraftToLineRequest(
     discount_bps: draft.discount_bps ?? 0,
     tax_id: draft.tax_id ? draft.tax_id : null,
     is_taxable: draft.is_taxable,
+    billing_interval: draft.billing_interval,
   };
 }
 

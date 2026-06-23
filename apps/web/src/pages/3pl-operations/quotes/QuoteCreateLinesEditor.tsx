@@ -53,6 +53,9 @@ export function QuoteCreateLinesEditor({
   const [discountBps, setDiscountBps] = useState<number | null>(0);
   const [taxId, setTaxId] = useState('');
   const [isTaxable, setIsTaxable] = useState(true);
+  // ADR 0005 Phase 1a: one_time (default) or monthly (recurring, e.g. storage).
+  const [billingInterval, setBillingInterval] =
+    useState<'one_time' | 'monthly'>('one_time');
 
   const reset = () => {
     setSelectedItemId(null);
@@ -63,6 +66,7 @@ export function QuoteCreateLinesEditor({
     setDiscountBps(0);
     setTaxId('');
     setIsTaxable(true);
+    setBillingInterval('one_time');
   };
 
   const onAdd = () => {
@@ -77,6 +81,7 @@ export function QuoteCreateLinesEditor({
       discount_bps: discountBps,
       tax_id: taxId,
       is_taxable: isTaxable,
+      billing_interval: billingInterval,
     };
     onChange([...lines, next]);
     reset();
@@ -115,6 +120,11 @@ export function QuoteCreateLinesEditor({
                   {l.item_id ? (
                     <span className="text-ink-dim text-xs block">
                       <EntityLabel kind="item" id={l.item_id} />
+                    </span>
+                  ) : null}
+                  {l.billing_interval === 'monthly' ? (
+                    <span className="text-ink-dim text-xs block uppercase tracking-wide">
+                      Monthly
                     </span>
                   ) : null}
                 </td>
@@ -210,6 +220,22 @@ export function QuoteCreateLinesEditor({
             <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
               Taxable
             </span>
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+              Billing
+            </span>
+            <select
+              value={billingInterval}
+              onChange={(e) =>
+                setBillingInterval(e.target.value as 'one_time' | 'monthly')
+              }
+              disabled={disabled}
+              className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+            >
+              <option value="one_time">One time</option>
+              <option value="monthly">Monthly</option>
+            </select>
           </label>
           <Button
             type="button"

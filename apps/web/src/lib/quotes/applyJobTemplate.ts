@@ -60,6 +60,8 @@ export function jobTemplateLineToQuoteLine(
     // defaults and keep every line untaxed until the operator edits it.
     discount_bps: 0,
     is_taxable: true,
+    // ADR 0005 Phase 1a: template lines default to one_time.
+    billing_interval: 'one_time',
   };
 }
 
