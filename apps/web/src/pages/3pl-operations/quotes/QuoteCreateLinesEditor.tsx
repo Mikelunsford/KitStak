@@ -19,6 +19,7 @@ import { DollarInput } from '@/components/forms/DollarInput';
 import { PercentInput } from '@/components/forms/PercentInput';
 import { QuantityInput } from '@/components/forms/QuantityInput';
 import { formatCents } from '@/lib/money';
+import { formatQuantity } from '@/lib/formatQuantity';
 
 import { applyItemSelection } from './applyItemSelection';
 import {
@@ -112,7 +113,7 @@ export function QuoteCreateLinesEditor({
                   ) : null}
                 </td>
                 <td className="px-4 py-2 tabular-nums text-sm">
-                  {((l.quantity_e3 ?? 0) / 1000).toFixed(3)}
+                  {formatQuantity((l.quantity_e3 ?? 0) / 1000)}
                 </td>
                 <td className="px-4 py-2 tabular-nums text-sm">
                   {formatCents(l.unit_price_cents ?? 0, currencyCode)}

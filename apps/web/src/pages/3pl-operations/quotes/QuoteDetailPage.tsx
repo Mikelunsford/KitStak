@@ -38,6 +38,7 @@ import {
   PDF_DRAFT_DISABLED_TOOLTIP,
 } from '@/lib/workflow/pdfGating';
 import { formatCents } from '@/lib/money';
+import { formatQuantity } from '@/lib/formatQuantity';
 import { displayTitle } from '@/lib/displayTitle';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { FEATURE_FLAGS } from '@/lib/constants';
@@ -292,7 +293,7 @@ export function QuoteDetailPage() {
       header: 'Qty',
       align: 'right',
       cellClassName: 'tabular-nums',
-      render: (l) => (Number(l.quantity_e3) / 1000).toFixed(3),
+      render: (l) => formatQuantity(Number(l.quantity_e3) / 1000),
     },
     {
       key: 'unit',
