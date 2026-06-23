@@ -62,6 +62,7 @@ import {
 } from '@/lib/workflow/sales';
 import { shouldShowProjectNextStepCTA } from '@/lib/workflow/nextStepCTA';
 import { formatCents, roundHalfEven } from '@/lib/money';
+import { formatQuantity } from '@/lib/formatQuantity';
 import { displayTitle } from '@/lib/displayTitle';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { FEATURE_FLAGS } from '@/lib/constants';
@@ -310,7 +311,7 @@ export function ProjectDetailPage() {
       header: 'Qty',
       align: 'right',
       cellClassName: 'tabular-nums',
-      render: (l) => Number(l.quantity).toFixed(2),
+      render: (l) => formatQuantity(Number(l.quantity)),
     },
     {
       key: 'unit',

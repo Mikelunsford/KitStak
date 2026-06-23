@@ -71,7 +71,11 @@ const COLUMNS: ReadonlyArray<DataColumn<Quote>> = [
     header: 'Customer',
     cellClassName: 'text-ink-dim',
     render: (q) =>
-      q.customer_id ? <EntityLabel kind="customer" id={q.customer_id} /> : '.',
+      q.customer_id ? (
+        <EntityLabel kind="customer" id={q.customer_id} />
+      ) : (
+        'Not set'
+      ),
   },
   {
     key: 'project',
@@ -81,7 +85,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Quote>> = [
       q.converted_to_project_id ? (
         <EntityLabel kind="project" id={q.converted_to_project_id} />
       ) : (
-        '.'
+        'Not converted'
       ),
   },
   {
