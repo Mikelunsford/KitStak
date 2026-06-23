@@ -358,12 +358,28 @@ export const QuoteLineItemSchema = z.object({
   tax_rate_snapshot: BpsSchema,
   is_taxable: z.boolean(),
   billing_interval: BillingIntervalSchema,
+  tier_id: UuidSchema.nullable(),
   line_subtotal_cents: CentsSchema,
   line_discount_cents: CentsSchema,
   line_tax_cents: CentsSchema,
   line_total_cents: CentsSchema,
 });
 export type QuoteLineItem = z.infer<typeof QuoteLineItemSchema>;
+
+// ADR 0004: a quantity-break tier of one quote. Each tier owns its lines
+// (quote_line_items.tier_id) and its per-tier totals.
+export const QuoteTierSchema = z.object({
+  id: UuidSchema,
+  quote_id: UuidSchema,
+  label: z.string(),
+  break_quantity_e3: QuantityE3Schema,
+  sort_order: z.number().int(),
+  subtotal_cents: CentsSchema,
+  discount_cents: CentsSchema,
+  tax_cents: CentsSchema,
+  total_cents: CentsSchema,
+});
+export type QuoteTier = z.infer<typeof QuoteTierSchema>;
 
 export const QuoteVersionSchema = z.object({
   id: UuidSchema,
