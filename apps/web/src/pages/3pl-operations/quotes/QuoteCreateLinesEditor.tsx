@@ -25,6 +25,11 @@ import {
   nextQuoteDraftId,
   type QuoteLineDraft,
 } from './quoteLineDraft';
+import {
+  estimateLineAmountCents,
+  estimateSubtotalCents,
+  ESTIMATED_SUBTOTAL_LABEL,
+} from './quoteLineEstimate';
 
 export interface QuoteCreateLinesEditorProps {
   lines: QuoteLineDraft[];
@@ -90,13 +95,14 @@ export function QuoteCreateLinesEditor({
             <th className="px-4 py-2">Qty</th>
             <th className="px-4 py-2">Unit price</th>
             <th className="px-4 py-2">Discount</th>
+            <th className="px-4 py-2">Amount</th>
             <th className="px-4 py-2"></th>
           </tr>
         </thead>
         <tbody>
           {lines.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-4 py-3 text-ink-dim text-sm">
+              <td colSpan={6} className="px-4 py-3 text-ink-dim text-sm">
                 No lines yet.
               </td>
             </tr>
@@ -120,6 +126,9 @@ export function QuoteCreateLinesEditor({
                 <td className="px-4 py-2 tabular-nums text-sm">
                   {((l.discount_bps ?? 0) / 100).toFixed(2)}%
                 </td>
+                <td className="px-4 py-2 tabular-nums text-sm text-ink">
+                  {formatCents(estimateLineAmountCents(l), currencyCode)}
+                </td>
                 <td className="px-4 py-2">
                   <Button
                     type="button"
@@ -134,6 +143,22 @@ export function QuoteCreateLinesEditor({
             ))
           )}
         </tbody>
+        {lines.length > 0 ? (
+          <tfoot>
+            <tr className="border-t border-line">
+              <td
+                colSpan={4}
+                className="px-4 py-2 text-right text-sm text-ink-dim"
+              >
+                {ESTIMATED_SUBTOTAL_LABEL}
+              </td>
+              <td className="px-4 py-2 tabular-nums text-sm text-ink">
+                {formatCents(estimateSubtotalCents(lines), currencyCode)}
+              </td>
+              <td className="px-4 py-2"></td>
+            </tr>
+          </tfoot>
+        ) : null}
       </table>
 
       <div className="flex flex-col gap-3 border border-line p-4 mt-4">
