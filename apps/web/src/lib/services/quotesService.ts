@@ -119,3 +119,11 @@ export async function convertQuoteToProject(
     method: 'POST', body: payload,
   });
 }
+
+// P1-3: clone a quote (header plus lines) into a new draft. The server runs the
+// duplicate_quote RPC in one atomic write and returns the new quote id.
+export async function duplicateQuote(id: string): Promise<{ id: string }> {
+  return apiRequest(`/quotes-api/quotes/${id}/duplicate`, {
+    method: 'POST', body: {},
+  });
+}

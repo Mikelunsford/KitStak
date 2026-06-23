@@ -7,7 +7,7 @@ import { quotesKeys } from '@/lib/queryKeys/quotes';
 import { applyQuoteActionResult } from './quoteActionCache';
 import {
   listQuotes, getQuote, createQuote, updateQuote, submitQuote, approveQuote,
-  reviseQuote, cancelQuote, sendQuote, convertQuoteToProject,
+  reviseQuote, cancelQuote, sendQuote, convertQuoteToProject, duplicateQuote,
   addLineItem, updateLineItem, removeLineItem,
   type ListQuotesFilters,
 } from '@/lib/services/quotesService';
@@ -134,6 +134,24 @@ export function useConvertQuoteToProject() {
       if (result?.project_id) {
         navigate(`/projects/${result.project_id}`);
       }
+    },
+  });
+}
+
+/**
+ * P1-3: duplicate a quote into a new draft. The server clones the header plus
+ * every line in one atomic RPC and returns the new quote id; we invalidate the
+ * list and land the operator on the new draft so the only edits left for the
+ * next tier are quantity and unit price.
+ */
+export function useDuplicateQuote() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: (id: string) => duplicateQuote(id),
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.all });
+      navigate(`/quotes/${result.id}`);
     },
   });
 }

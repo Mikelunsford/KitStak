@@ -22,7 +22,7 @@ import { QuantityInput } from '@/components/forms/QuantityInput';
 import { ItemPicker } from '@/components/ui/pickers';
 import {
   useQuote, useSubmitQuote, useApproveQuote, useReviseQuote,
-  useCancelQuote, useSendQuote, useConvertQuoteToProject,
+  useCancelQuote, useSendQuote, useConvertQuoteToProject, useDuplicateQuote,
   useAddLineItem, useUpdateLineItem, useRemoveLineItem, useUpdateQuote,
 } from '@/lib/hooks/useQuotes';
 import { useCustomer } from '@/lib/hooks/useCustomer';
@@ -89,6 +89,7 @@ export function QuoteDetailPage() {
   const cancel = useCancelQuote();
   const send = useSendQuote();
   const convert = useConvertQuoteToProject();
+  const duplicate = useDuplicateQuote();
   const updateQuote = useUpdateQuote(id ?? '');
   const jobTypes = useJobTypes();
   const orgFlags = useOrgFlags();
@@ -469,6 +470,18 @@ export function QuoteDetailPage() {
             }}
           >Cancel</Button>
         )}
+        {/* P1-3: Duplicate is available from any state. The highest-volume
+            account quotes in quantity-break tiers; cloning is the per-tier
+            shortcut (the new draft lands ready to edit qty and unit price). */}
+        {id && (
+          <Button
+            variant="secondary"
+            onClick={() => duplicate.mutate(id)}
+            disabled={duplicate.isPending}
+          >
+            {duplicate.isPending ? 'Duplicating.' : 'Duplicate'}
+          </Button>
+        )}
         {state === 'approved' && id && (() => {
           // F-Wave9-SEND-FEEDBACK-01: inline pending/success/error feedback
           // on the Send button. The 2026-05-21 prod smoke walk caught the
@@ -542,6 +555,13 @@ export function QuoteDetailPage() {
       {pdfError && (
         <p className="text-accent font-sans text-sm">
           {pdfError}
+        </p>
+      )}
+      {duplicate.isError && (
+        <p className="text-accent font-sans text-sm">
+          {duplicate.error instanceof Error
+            ? duplicate.error.message
+            : 'Duplicate failed.'}
         </p>
       )}
 
