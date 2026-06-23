@@ -5,7 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { CustomerPicker } from '@/components/ui/pickers';
+import {
+  CustomerPicker,
+  TaxPicker,
+  PaymentMethodPicker,
+  PricingTierPicker,
+} from '@/components/ui/pickers';
 import { useCreateQuote } from '@/lib/hooks/useQuotes';
 import { CurrencyField } from '@/components/ui/CurrencyField';
 import { useDefaultExpiration } from '@/lib/hooks/useDefaultExpiration';
@@ -29,7 +34,7 @@ import {
  * QuoteCreatePage. Captures the rich quote-header shape that
  * CreateQuoteRequestSchema accepts. Customer is the FK pivot; the rest are
  * optional headers (default_tax_id, payment_method_id, pricing_tier_id are
- * picker-driven once those pages ship; for 6.5 we accept raw UUID inputs).
+ * picker-driven via TaxPicker / PaymentMethodPicker / PricingTierPicker, P1-2).
  *
  * Closes G-QUOTE-FORM-01 (customer picker) and G-QUOTE-FORM-02 (other
  * optional fields).
@@ -176,19 +181,14 @@ export function QuoteCreatePage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        {/* F-Wave9-AUDIT-V3-WAVE-E-01 (item 1): hide the three optional
-            raw-UUID inputs from the default view. The audit called out
-            that asking the operator to paste a raw UUID for an optional
-            FK is template-y and reads as developer-facing scaffolding.
-            B2 already replaced the source-quote uuid input with a
-            QuotePicker; default_tax_id / payment_method_id /
-            pricing_tier_id don't yet have a picker, so we keep them
-            available under a disclosure for the rare operator who has
-            an id in hand (admin workflows, data migration), but the
-            common path is "skip — defaults apply". Data model is
-            untouched; CreateQuoteRequest still accepts these nullable
-            fields and the body builder above still sends null when the
-            inputs are empty. */}
+        {/* P1-2: the three optional reference FKs (default tax, payment method,
+            pricing tier) are named pickers now, not raw-UUID text inputs
+            (F-Wave9-AUDIT-V3-WAVE-E-01 item 1 flagged the raw UUIDs as
+            developer-facing scaffolding). They stay under the Advanced
+            disclosure and stay optional; CreateQuoteRequest still accepts
+            nullable id fields and the body builder sends null when none is
+            chosen. The tax / payment seeds below still pre-select the org
+            default, now shown by name instead of a UUID. */}
         <details className="border border-line bg-bg-2/40">
           <summary className="px-4 py-2 cursor-pointer text-sm text-ink-dim tracking-wide uppercase">
             Advanced (optional)
@@ -201,23 +201,17 @@ export function QuoteCreatePage() {
               value={expirationDate}
               onChange={(e) => setExpirationDate(e.target.value)}
             />
-            <TextInput
-              label="Default tax id"
-              value={defaultTaxId}
-              onChange={(e) => setDefaultTaxId(e.target.value)}
-              placeholder="leave blank to use the org default"
+            <TaxPicker
+              value={defaultTaxId || null}
+              onChange={(id) => setDefaultTaxId(id ?? '')}
             />
-            <TextInput
-              label="Payment method id"
-              value={paymentMethodId}
-              onChange={(e) => setPaymentMethodId(e.target.value)}
-              placeholder="leave blank to use the org default"
+            <PaymentMethodPicker
+              value={paymentMethodId || null}
+              onChange={(id) => setPaymentMethodId(id ?? '')}
             />
-            <TextInput
-              label="Pricing tier id"
-              value={pricingTierId}
-              onChange={(e) => setPricingTierId(e.target.value)}
-              placeholder="leave blank to use the org default"
+            <PricingTierPicker
+              value={pricingTierId || null}
+              onChange={(id) => setPricingTierId(id ?? '')}
             />
           </div>
         </details>
