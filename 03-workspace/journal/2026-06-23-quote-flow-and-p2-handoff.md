@@ -37,21 +37,43 @@ Prod verification (2026-06-23): max_migration 0131; `duplicate_quote` live; 36
 job types (6 orgs x 6) backfilled; `billing_interval` column live with default
 `one_time`.
 
-## Open, awaiting operator merge
+## Merged after this handoff was drafted
 
-- #374 ADR 0004 foundation (unit 1 of the tiering wave). migration 0132 creates
-  `quote_tiers` (child of quotes, Pattern B RLS) plus a nullable
-  `quote_line_items.tier_id` FK (ON DELETE CASCADE) and the canon
-  (`QuoteTierSchema`, `tier_id` on the quote-line read shape). Behaviour
-  preserving: nothing creates a tier yet, so every line stays `tier_id` null.
-  CI green, staging-validated (tier_id set, cascade delete works, zero trace).
-  Flagged halt-for-merge because it adds an RLS table and a column on the
-  load-bearing quote line table.
+- #374 ADR 0004 foundation (unit 1 of the tiering wave) MERGED to prod 2026-06-23
+  (operator confirmed "374"; the earlier "#347" was a typo for an old already-
+  merged PR). migration 0132 created `quote_tiers` (child of quotes, Pattern B
+  RLS) plus a nullable `quote_line_items.tier_id` FK (ON DELETE CASCADE) and the
+  canon (`QuoteTierSchema`, `tier_id` on the quote-line read shape). Prod
+  verified: max_migration 0132, quote_tiers live with 2 RLS policies, tier_id
+  live. Behaviour preserving: nothing creates a tier yet, so every line stays
+  `tier_id` null.
 
-Note on the merge instruction (2026-06-23): the operator asked to "merge #347",
-which is an old already-merged PR (the list-toolbar rollout). The intended PR is
-#374. The auto-merge classifier blocked a #374 merge under the #347 instruction;
-the merge is held for explicit operator confirmation of the correct number.
+## Open security follow-up (do this; deferred 2026-06-23)
+
+The Supabase security advisor flags two SECURITY DEFINER functions from this
+session as callable by the `authenticated` role via `/rest/v1/rpc/*`:
+`duplicate_quote` (migration 0129) and `seed_org_default_job_types` (0130). Both
+GRANT EXECUTE to authenticated (copied from the pre-sweep 0094 convert pattern).
+The 0111 / 0117 sweep made SECURITY DEFINER functions service-role-only, so the
+post-sweep baseline keeps authenticated EXECUTE only on current_org_id /
+current_user_role (which RLS policies call). WARN level: the functions are
+org-gated and take UUID arguments, so there is no data exfiltration, but a caller
+who knows the UUIDs could trigger unauthorized cross-org writes (duplicate a quote
+into, or seed job types into, an org they do not belong to).
+
+Fix: a tiny forward migration 0133 that revokes EXECUTE from authenticated on both
+(keep service_role). The edge calls them via the admin() service-role client, so
+revoking authenticated does not break the app.
+
+    revoke execute on function public.duplicate_quote(uuid, uuid, uuid)
+      from authenticated;
+    revoke execute on function public.seed_org_default_job_types(uuid)
+      from authenticated;
+
+The other advisor lines (current_org_id / current_user_role, the
+stripe_webhook_events no-policy INFO, citext in public) are the pre-existing
+deliberate baseline and are out of scope. See the `revoke-public-not-just-anon`
+memory for the REVOKE mechanics.
 
 ## Remaining work (not started)
 
