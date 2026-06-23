@@ -230,6 +230,10 @@ export function QuoteDetailPage() {
         discount_bps: lineDiscountBps ?? 0,
         tax_id: lineTaxId || null,
         is_taxable: lineIsTaxable,
+        // ADR 0005 Phase 1a: the detail-page add-line defaults to one_time; the
+        // billing-interval selector lives on the create-page editor (a follow-up
+        // adds it here too).
+        billing_interval: 'one_time',
       },
       {
         onSuccess: () => {

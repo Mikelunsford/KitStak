@@ -335,6 +335,12 @@ export type Quote = z.infer<typeof QuoteSchema>;
 export const QuoteLineKindSchema = z.enum(['item', 'vas', 'discount', 'note']);
 export type QuoteLineKind = z.infer<typeof QuoteLineKindSchema>;
 
+// ADR 0005: how a line is billed. one_time (the historical behaviour) or
+// monthly (recurring, e.g. storage). Forward-extensible without a model change.
+// Distinct from the org's own Stripe subscription_status.
+export const BillingIntervalSchema = z.enum(['one_time', 'monthly']);
+export type BillingInterval = z.infer<typeof BillingIntervalSchema>;
+
 export const QuoteLineItemSchema = z.object({
   id: UuidSchema,
   quote_id: UuidSchema,
@@ -351,6 +357,7 @@ export const QuoteLineItemSchema = z.object({
   tax_id: UuidSchema.nullable(),
   tax_rate_snapshot: BpsSchema,
   is_taxable: z.boolean(),
+  billing_interval: BillingIntervalSchema,
   line_subtotal_cents: CentsSchema,
   line_discount_cents: CentsSchema,
   line_tax_cents: CentsSchema,
@@ -548,6 +555,7 @@ export const CreateQuoteLineRequestSchema = z.object({
   discount_bps: BpsSchema.default(0),
   tax_id: UuidSchema.nullable().optional(),
   is_taxable: z.boolean().default(true),
+  billing_interval: BillingIntervalSchema.default('one_time'),
 });
 export type CreateQuoteLineRequest = z.infer<typeof CreateQuoteLineRequestSchema>;
 
@@ -581,6 +589,7 @@ export const UpdateQuoteLineRequestSchema = z.object({
   discount_bps: BpsSchema.optional(),
   tax_id: UuidSchema.nullable().optional(),
   is_taxable: z.boolean().optional(),
+  billing_interval: BillingIntervalSchema.optional(),
 });
 export type UpdateQuoteLineRequest = z.infer<typeof UpdateQuoteLineRequestSchema>;
 

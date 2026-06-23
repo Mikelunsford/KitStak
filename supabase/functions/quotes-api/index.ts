@@ -298,6 +298,8 @@ const addLineItem = async (ctx: RouteCtx) => {
         tax_id: body.tax_id ?? null,
         tax_rate_snapshot: taxRate,
         is_taxable: body.is_taxable,
+        // ADR 0005 Phase 1a: the request schema defaults this to 'one_time'.
+        billing_interval: body.billing_interval,
         ...math,
         created_by: caller.userId,
         updated_by: caller.userId,
@@ -363,6 +365,7 @@ const patchLineItem = async (ctx: RouteCtx) => {
         const k of [
           'position', 'item_id', 'vas_id', 'sku', 'name', 'description',
           'quantity_e3', 'unit_price_cents', 'discount_bps', 'is_taxable',
+          'billing_interval',
         ] as const
       ) {
         if (body[k] !== undefined) patch[k] = body[k];

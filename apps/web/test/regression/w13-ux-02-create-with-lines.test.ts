@@ -83,6 +83,7 @@ describe('R-W13-UX-02 quote create lines', () => {
       discount_bps: 500,
       tax_id: 'tax-1',
       is_taxable: true,
+      billing_interval: 'one_time',
     });
   });
 
