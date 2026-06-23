@@ -1,7 +1,7 @@
 # ADR 0005: Recurring billing interval for quote and invoice lines
 
 Date: 2026-06-23
-Status: Proposed
+Status: Accepted (operator sign-off 2026-06-23; line-level interval, Phase 1 first)
 
 ## Context
 

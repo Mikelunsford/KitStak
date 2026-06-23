@@ -1,7 +1,7 @@
 # ADR 0004: Native tiered quoting
 
 Date: 2026-06-23
-Status: Proposed
+Status: Accepted (operator sign-off 2026-06-23; Option A)
 
 ## Context
 
