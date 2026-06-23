@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
@@ -12,10 +12,12 @@ import { useDefaultExpiration } from '@/lib/hooks/useDefaultExpiration';
 import { addExpiration } from '@/lib/quoteExpiration';
 import { todayIsoDate } from '@/lib/dates';
 import { useTaxesList } from '@/lib/hooks/useTaxes';
+import { customersKeys } from '@/lib/queryKeys/customers';
 import { paymentMethodsKeys } from '@/lib/queryKeys/paymentMethods';
 import { listPaymentMethods } from '@/lib/services/paymentMethodsService';
 import { addLineItem } from '@/lib/services/quotesService';
 import type { CreateQuoteRequest } from '@/lib/types/sales';
+import type { Customer } from '@/lib/types/crm';
 
 import { nextStepToast } from '@/lib/nextStepToast';
 import { QuoteCreateLinesEditor } from './QuoteCreateLinesEditor';
@@ -45,6 +47,7 @@ export function QuoteCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const create = useCreateQuote();
+  const qc = useQueryClient();
   const defaultExpiration = useDefaultExpiration();
   const { data: taxes } = useTaxesList();
   const { data: paymentMethods } = useQuery({
@@ -126,6 +129,20 @@ export function QuoteCreatePage() {
     // and surfaced in the inline error renderer below.
     create.mutate(body, {
       onSuccess: async (result) => {
+        // P0-2: prime the customer detail cache from the record the
+        // CustomerPicker already loaded, so the detail page header shows the
+        // name immediately instead of flashing the raw id while useCustomer
+        // fetches. Best-effort: this form's picker uses customersKeys.list({})
+        // (no status filter); if the record is not cached (for example a
+        // quick-created customer) the QuoteDetailPage loading gate covers it.
+        if (result.customer_id) {
+          const picked = qc
+            .getQueryData<Customer[]>(customersKeys.list({}))
+            ?.find((c) => c.id === result.customer_id);
+          if (picked) {
+            qc.setQueryData(customersKeys.detail(result.customer_id), picked);
+          }
+        }
         // R-W13-UX-02: stage 2. Replay the staged line drafts over the
         // line-item POST endpoint (the create handler does not accept
         // lines inline). Stop on the first failure so the operator can

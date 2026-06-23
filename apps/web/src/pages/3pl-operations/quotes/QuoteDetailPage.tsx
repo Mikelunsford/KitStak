@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
-import { fallbackLabel } from '@/components/shell/breadcrumbFallback';
 import { NextStepCTA } from '@/components/shell/NextStepCTA';
 import { StateStepper } from '@/components/shell/StateStepper';
 import {
@@ -69,6 +68,9 @@ import { formatQuoteStateLabel } from './formatQuoteStateLabel';
 // for the same reason — pure function, unit-testable, fixes the async-stale
 // race in the previous synchronous handler.
 import { applyItemSelection } from './applyItemSelection';
+// P0-2: customer-chip label resolver. Gates the loading window so the header
+// never flashes the raw customer id before useCustomer resolves.
+import { resolveCustomerLabel } from './resolveCustomerLabel';
 // Wave 12 / A3: apply-template control extracted to its own component.
 import { ApplyTemplatePanel } from './ApplyTemplatePanel';
 
@@ -341,7 +343,7 @@ export function QuoteDetailPage() {
           ...(customerId
             ? [
                 {
-                  label: fallbackLabel(customer.data?.display_name, customerId),
+                  label: resolveCustomerLabel(customer.data?.display_name, customerId, customer.isLoading),
                   to: `/crm/customers/${customerId}`,
                 },
               ]
@@ -374,7 +376,7 @@ export function QuoteDetailPage() {
           customer={
             customerId
               ? {
-                  label: fallbackLabel(customer.data?.display_name, customerId),
+                  label: resolveCustomerLabel(customer.data?.display_name, customerId, customer.isLoading),
                   to: `/crm/customers/${customerId}`,
                 }
               : null
@@ -398,7 +400,7 @@ export function QuoteDetailPage() {
                       to={`/crm/customers/${customerId}`}
                       className="text-ink hover:text-accent"
                     >
-                      {fallbackLabel(customer.data?.display_name, customerId)}
+                      {resolveCustomerLabel(customer.data?.display_name, customerId, customer.isLoading)}
                     </Link>
                   </span>
                 ) : null}
