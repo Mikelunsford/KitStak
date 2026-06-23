@@ -722,6 +722,38 @@ const convertToProject = async (ctx: RouteCtx) => {
   );
 };
 
+// --- duplicate (P1-3) ---
+//
+// Clone a quote (header plus lines) into a new draft via the duplicate_quote
+// RPC. One atomic SECURITY DEFINER write, mirroring convert-to-project: the org
+// id is passed explicitly so a missing or cross-tenant source surfaces as
+// NOT_FOUND (404, never 403). Gated on quotes.quote.write because a duplicate is
+// a create. The source quote id rides the idempotency body so reusing one
+// Idempotency-Key across different sources conflicts (409) instead of returning
+// the wrong cached clone. Returns the new quote id.
+const duplicateQuote = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/quotes/:id/duplicate',
+    { source_quote_id: ctx.params.id },
+    async () => {
+      const client = admin();
+      const { data, error } = await client.rpc('duplicate_quote', {
+        p_source_quote_id: ctx.params.id,
+        p_actor: caller.userId,
+        p_caller_org_id: caller.orgId,
+      });
+      if (error) {
+        if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
+        throw internalError('quotes-api', error);
+      }
+      return created({ id: data as string });
+    },
+  );
+};
+
 // --- versions ---
 
 const listVersions = async (ctx: RouteCtx) => {
@@ -835,6 +867,7 @@ const ROUTES: Route[] = [
   { method: 'POST',   path: '/quotes/:id/cancel',                   handler: cancelQuote },
   { method: 'POST',   path: '/quotes/:id/send',                     handler: sendQuote },
   { method: 'POST',   path: '/quotes/:id/convert-to-project',       handler: convertToProject },
+  { method: 'POST',   path: '/quotes/:id/duplicate',                handler: duplicateQuote },
 
   { method: 'GET',    path: '/quotes/:id/versions',                 handler: listVersions },
   { method: 'GET',    path: '/quotes/:id/pdf',                      handler: getPdf },

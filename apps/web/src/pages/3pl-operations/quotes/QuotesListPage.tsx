@@ -22,7 +22,7 @@ import { DataTable, type DataColumn } from '@/components/ui/DataTable';
 import { Pagination, paginate } from '@/components/ui/Pagination';
 import { CursorPager } from '@/components/ui/CursorPager';
 import { StatusBadge, humaniseStatus } from '@/components/ui/StatusBadge';
-import { useQuotesList } from '@/lib/hooks/useQuotes';
+import { useQuotesList, useDuplicateQuote } from '@/lib/hooks/useQuotes';
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useServerList } from '@/lib/hooks/useServerList';
 import { listQuotesPage } from '@/lib/services/quotesService';
@@ -49,6 +49,24 @@ const ALLOWED_QUOTE_STATES = new Set<string>(QUOTE_STATES);
 function parseStateParam(raw: string | null): string | undefined {
   if (!raw) return undefined;
   return ALLOWED_QUOTE_STATES.has(raw) ? raw : undefined;
+}
+
+// P1-3: per-row Duplicate action. Each row owns its own mutation so the pending
+// state is scoped to the clicked row; on success the hook navigates to the new
+// draft. A row component keeps the module-level COLUMNS array static.
+function QuoteRowActions({ quote }: { quote: Quote }) {
+  const duplicate = useDuplicateQuote();
+  return (
+    <span className="flex justify-end">
+      <Button
+        variant="ghost"
+        onClick={() => duplicate.mutate(quote.id)}
+        disabled={duplicate.isPending}
+      >
+        {duplicate.isPending ? 'Duplicating.' : 'Duplicate'}
+      </Button>
+    </span>
+  );
 }
 
 // Shared columns. The title leads as the primary clickable, bold and
@@ -97,6 +115,12 @@ const COLUMNS: ReadonlyArray<DataColumn<Quote>> = [
     sortKey: 'total_cents',
     cellClassName: 'tabular-nums',
     render: (q) => formatCents(q.total_cents, q.currency_code),
+  },
+  {
+    key: 'actions',
+    header: '',
+    align: 'right',
+    render: (q) => <QuoteRowActions quote={q} />,
   },
 ];
 
