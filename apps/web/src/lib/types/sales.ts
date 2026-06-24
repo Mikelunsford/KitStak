@@ -572,6 +572,9 @@ export const CreateQuoteLineRequestSchema = z.object({
   tax_id: UuidSchema.nullable().optional(),
   is_taxable: z.boolean().default(true),
   billing_interval: BillingIntervalSchema.default('one_time'),
+  // ADR 0004: assign the line to one of the quote's tiers. Optional + nullable
+  // (no default) so existing line-request constructors are unaffected.
+  tier_id: UuidSchema.nullable().optional(),
 });
 export type CreateQuoteLineRequest = z.infer<typeof CreateQuoteLineRequestSchema>;
 
@@ -606,8 +609,37 @@ export const UpdateQuoteLineRequestSchema = z.object({
   tax_id: UuidSchema.nullable().optional(),
   is_taxable: z.boolean().optional(),
   billing_interval: BillingIntervalSchema.optional(),
+  // ADR 0004: reassign or clear (null) the line's tier on an inline edit.
+  tier_id: UuidSchema.nullable().optional(),
 });
 export type UpdateQuoteLineRequest = z.infer<typeof UpdateQuoteLineRequestSchema>;
+
+// ADR 0004 tier CRUD requests. The per-tier totals (subtotal/discount/tax/
+// total_cents) are server-derived by recompute_quote_totals from the tier's
+// lines and are never client-settable, so these shapes carry only the
+// operator-editable fields. break_quantity_e3 and sort_order are optional (no
+// default) so a constructor may omit them; the handler defaults them.
+export const CreateQuoteTierRequestSchema = z.object({
+  label: z.string().min(1),
+  break_quantity_e3: QuantityE3Schema.optional(),
+  sort_order: z.number().int().optional(),
+});
+export type CreateQuoteTierRequest = z.infer<typeof CreateQuoteTierRequestSchema>;
+
+export const UpdateQuoteTierRequestSchema = z.object({
+  label: z.string().min(1).optional(),
+  break_quantity_e3: QuantityE3Schema.optional(),
+  sort_order: z.number().int().optional(),
+});
+export type UpdateQuoteTierRequest = z.infer<typeof UpdateQuoteTierRequestSchema>;
+
+// Reorder a quote's tiers in one call: tier_ids is the new order and each tier's
+// sort_order becomes its index. The handler requires the list to name exactly
+// the quote's tiers.
+export const ReorderQuoteTiersRequestSchema = z.object({
+  tier_ids: z.array(UuidSchema).min(1),
+});
+export type ReorderQuoteTiersRequest = z.infer<typeof ReorderQuoteTiersRequestSchema>;
 
 export const ConvertQuoteToProjectRequestSchema = z.object({
   project_number: z.string().nullable().optional(),
