@@ -68,6 +68,17 @@ const InvoiceDataSchema = z.object({
   currency: z.string().default('USD'),
 });
 
+// ADR 0004: a tiered quote sends its tiers (each with its own lines and total);
+// renderQuote draws a section per tier instead of one flat line table. The flat
+// `lines` / header totals are still sent (empty for a tiered quote) so the schema
+// shape is stable; the renderer branches on a non-empty `tiers`.
+const QuoteTierPdfSchema = z.object({
+  label: z.string(),
+  break_quantity: z.union([z.number(), z.string()]).default(0),
+  total_cents: z.union([z.number(), z.string()]),
+  lines: z.array(LineItemSchema),
+});
+
 const QuoteDataSchema = z.object({
   customer_display_name: z.string(),
   quote_number: z.string(),
@@ -77,6 +88,7 @@ const QuoteDataSchema = z.object({
   tax_cents: z.union([z.number(), z.string()]),
   total_cents: z.union([z.number(), z.string()]),
   currency: z.string().default('USD'),
+  tiers: z.array(QuoteTierPdfSchema).optional(),
 });
 
 const PurchaseOrderDataSchema = z.object({
@@ -302,8 +314,14 @@ function renderInvoice(data: z.infer<typeof InvoiceDataSchema>): jsPDF {
 function renderQuote(data: z.infer<typeof QuoteDataSchema>): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   applyBrandFonts(doc);
-  const lines = data.lines.map(normaliseLine);
   const currency = data.currency;
+  // ADR 0004: a tiered quote renders a section per tier (its own lines + total),
+  // not a single flat table with one header total.
+  if (data.tiers && data.tiers.length > 0) {
+    renderTieredQuote(doc, data, data.tiers, currency);
+    return doc;
+  }
+  const lines = data.lines.map(normaliseLine);
   drawAllPages(doc, 'QUOTE', lines, currency, (cursorY) => {
     let y = cursorY;
     y = drawRecipientBlock(doc, y, [
@@ -325,6 +343,78 @@ function renderQuote(data: z.infer<typeof QuoteDataSchema>): jsPDF {
     ),
   );
   return doc;
+}
+
+// ADR 0004: per-tier sections for a tiered quote. Each tier draws its label (with
+// the break quantity when set), its own line table, and a per-tier total. There
+// is no single header total: a tiered quote carries totals at the tier grain.
+function renderTieredQuote(
+  doc: jsPDF,
+  data: z.infer<typeof QuoteDataSchema>,
+  tiers: z.infer<typeof QuoteTierPdfSchema>[],
+  currency: string,
+): void {
+  const MAX_PAGES = 10;
+  let pageNum = 1;
+  drawHeaderBand(doc, 'QUOTE');
+  let y = drawRecipientBlock(doc, HEADER_H + 28, [
+    ['Prepared for', data.customer_display_name],
+    ['Quote', data.quote_number],
+    ['Issue date', data.issue_date],
+  ]);
+  y += 12;
+
+  const newPage = (label: string): number => {
+    doc.addPage();
+    pageNum += 1;
+    drawHeaderBand(doc, label);
+    return HEADER_H + 28;
+  };
+
+  for (const tier of tiers) {
+    // Keep a tier label, its line header, and at least one row together.
+    if (y + 60 > PAGE_BOTTOM_LIMIT && pageNum < MAX_PAGES) {
+      y = newPage('QUOTE (cont.)');
+    }
+    setText(doc, TEXT);
+    doc.setFont(BRAND_DISPLAY_FONT, 'normal');
+    doc.setFontSize(14);
+    const breakQty = Number(tier.break_quantity);
+    const heading = breakQty > 0 ? `${tier.label} (from ${tier.break_quantity})` : tier.label;
+    doc.text(heading, MARGIN_X, y);
+    y += 18;
+    drawLineHeader(doc, y);
+    y += 18;
+
+    for (const line of tier.lines.map(normaliseLine)) {
+      if (y + LINE_ROW_H > PAGE_BOTTOM_LIMIT) {
+        if (pageNum >= MAX_PAGES) break;
+        y = newPage('QUOTE (cont.)');
+        drawLineHeader(doc, y);
+        y += 18;
+      }
+      drawLineRow(doc, y, line, currency);
+      y += LINE_ROW_H;
+    }
+
+    if (y + 24 > PAGE_BOTTOM_LIMIT && pageNum < MAX_PAGES) {
+      y = newPage('QUOTE (cont.)');
+    }
+    setText(doc, TEXT);
+    doc.setFont(BRAND_DISPLAY_FONT, 'normal');
+    doc.setFontSize(12);
+    doc.text('Tier total', PAGE_W - MARGIN_X - 140, y, { align: 'right' });
+    doc.text(formatCents(asCents(tier.total_cents), currency), PAGE_W - MARGIN_X, y, {
+      align: 'right',
+    });
+    y += 28;
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    drawFooter(doc, p, pageCount);
+  }
 }
 
 function renderPurchaseOrder(
