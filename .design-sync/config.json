@@ -1,0 +1,78 @@
+{
+  "projectId": "c34ea0f4-322f-4a01-a662-4099acb347af",
+  "shape": "package",
+  "pkg": "kitstak-ui",
+  "globalName": "KitstakUI",
+  "entry": ".design-sync/ds-entry.tsx",
+  "srcDir": "apps/web/src/components/ui",
+  "tsconfig": ".design-sync/ds-tsconfig.json",
+  "cssEntry": ".design-sync/.cache/ds-compiled.css",
+  "buildCmd": "node .design-sync/build-inputs.mjs",
+  "provider": {
+    "component": "DsPreviewProvider"
+  },
+  "componentSrcMap": {
+    "ActionTile": "apps/web/src/components/ui/ActionTile.tsx",
+    "BillableLineItemsEditor": "apps/web/src/components/ui/BillableLineItemsEditor.tsx",
+    "Button": "apps/web/src/components/ui/Button.tsx",
+    "ColorField": "apps/web/src/components/ui/ColorField.tsx",
+    "ConfirmDialogHost": "apps/web/src/components/ui/ConfirmDialogHost.tsx",
+    "CurrencyField": "apps/web/src/components/ui/CurrencyField.tsx",
+    "CursorPager": "apps/web/src/components/ui/CursorPager.tsx",
+    "DataTable": "apps/web/src/components/ui/DataTable.tsx",
+    "DetailHeader": "apps/web/src/components/ui/DetailHeader.tsx",
+    "DetailLayout": "apps/web/src/components/ui/DetailLayout.tsx",
+    "Disclosure": "apps/web/src/components/ui/Disclosure.tsx",
+    "EntityPicker": "apps/web/src/components/ui/EntityPicker.tsx",
+    "FilterBar": "apps/web/src/components/ui/FilterBar.tsx",
+    "FormGrid": "apps/web/src/components/ui/FormGrid.tsx",
+    "ImageUploadField": "apps/web/src/components/ui/ImageUploadField.tsx",
+    "ListToolbar": "apps/web/src/components/ui/ListToolbar.tsx",
+    "Logo": "apps/web/src/components/ui/Logo.tsx",
+    "Modal": "apps/web/src/components/ui/Modal.tsx",
+    "PageHeader": "apps/web/src/components/ui/PageHeader.tsx",
+    "Pagination": "apps/web/src/components/ui/Pagination.tsx",
+    "RelativeTime": "apps/web/src/components/ui/RelativeTime.tsx",
+    "SavedViewsBar": "apps/web/src/components/ui/SavedViewsBar.tsx",
+    "Select": "apps/web/src/components/ui/Select.tsx",
+    "StatCard": "apps/web/src/components/ui/StatCard.tsx",
+    "StatusBadge": "apps/web/src/components/ui/StatusBadge.tsx",
+    "Tabs": "apps/web/src/components/ui/Tabs.tsx",
+    "TextInput": "apps/web/src/components/ui/TextInput.tsx",
+    "ChannelPicker": "apps/web/src/components/ui/pickers/ChannelPicker.tsx",
+    "CustomerPicker": "apps/web/src/components/ui/pickers/CustomerPicker.tsx",
+    "InvoicePicker": "apps/web/src/components/ui/pickers/InvoicePicker.tsx",
+    "ItemPicker": "apps/web/src/components/ui/pickers/ItemPicker.tsx",
+    "PaymentMethodPicker": "apps/web/src/components/ui/pickers/PaymentMethodPicker.tsx",
+    "PricingTierPicker": "apps/web/src/components/ui/pickers/PricingTierPicker.tsx",
+    "ProjectPicker": "apps/web/src/components/ui/pickers/ProjectPicker.tsx",
+    "QuotePicker": "apps/web/src/components/ui/pickers/QuotePicker.tsx",
+    "TaxPicker": "apps/web/src/components/ui/pickers/TaxPicker.tsx",
+    "VendorPicker": "apps/web/src/components/ui/pickers/VendorPicker.tsx"
+  },
+  "overrides": {
+    "DataTable": {
+      "cardMode": "column"
+    },
+    "Modal": {
+      "cardMode": "single",
+      "primaryStory": "ConfirmDelete"
+    },
+    "DetailHeader": {
+      "cardMode": "column"
+    },
+    "DetailLayout": {
+      "cardMode": "column"
+    },
+    "BillableLineItemsEditor": {
+      "cardMode": "column"
+    },
+    "ColorField": {
+      "cardMode": "column"
+    },
+    "PageHeader": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

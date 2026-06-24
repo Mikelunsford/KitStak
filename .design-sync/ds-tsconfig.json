@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/lib/apiClient": [".design-sync/stubs/apiClient"],
+      "@/lib/apiClient.core": [".design-sync/stubs/apiClient"],
+      "@/lib/supabase": [".design-sync/stubs/supabase"],
+      "@/lib/analytics": [".design-sync/stubs/analytics"],
+      "@/lib/sentry": [".design-sync/stubs/sentry"],
+      "@/lib/hooks/useDefaultCurrency": [".design-sync/stubs/useDefaultCurrency"],
+      "@/lib/hooks/useCurrencies": [".design-sync/stubs/useCurrencies"]
+    }
+  }
+}

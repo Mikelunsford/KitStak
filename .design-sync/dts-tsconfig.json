@@ -1,0 +1,18 @@
+{
+  "//": "Emits real .d.ts for the UI components so design-sync extracts true prop interfaces (the .tsx sources have no shipped declarations). Output goes to .cache/dts (gitignored); the converter's ts-morph scan finds <Name>Props there. extends the app tsconfig so @/ paths and strictness match.",
+  "extends": "../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "../ds-dts",
+    "rootDir": "../apps/web/src",
+    "skipLibCheck": true,
+    "noEmitOnError": false,
+    "types": []
+  },
+  "include": [
+    "../apps/web/src/components/ui/**/*.ts",
+    "../apps/web/src/components/ui/**/*.tsx"
+  ]
+}
