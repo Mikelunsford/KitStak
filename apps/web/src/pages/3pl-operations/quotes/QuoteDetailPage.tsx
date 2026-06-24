@@ -74,6 +74,7 @@ import { applyItemSelection } from './applyItemSelection';
 import { resolveCustomerLabel } from './resolveCustomerLabel';
 // Wave 12 / A3: apply-template control extracted to its own component.
 import { ApplyTemplatePanel } from './ApplyTemplatePanel';
+import { QuoteTiersPanel } from './QuoteTiersPanel';
 
 export { formatQuoteStateLabel };
 
@@ -107,6 +108,10 @@ export function QuoteDetailPage() {
   // ADR 0005 Phase 1a.2: one_time (default) or monthly (recurring) on the add-line form.
   const [lineBillingInterval, setLineBillingInterval] =
     useState<'one_time' | 'monthly'>('one_time');
+  // ADR 0004: the tier a new line is added to (when tiered) and the accepted tier
+  // chosen on convert. Empty string falls back to the first tier.
+  const [lineTierId, setLineTierId] = useState('');
+  const [convertTierId, setConvertTierId] = useState('');
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -143,8 +148,14 @@ export function QuoteDetailPage() {
   if (isLoading) return <p className="p-8 text-ink-dim">Loading.</p>;
   if (error || !data) return <p className="p-8 text-accent">Quote not found.</p>;
 
-  const { quote, lineItems } = data;
+  const { quote, lineItems, tiers } = data;
   const state = quote.state as QuoteState;
+  // ADR 0004: a quote is tiered once it has at least one tier. The header total
+  // then lives at the tier grain (0 on the quote), so the flat lines table and
+  // header total are replaced by QuoteTiersPanel while editable.
+  const sortedTiers = [...tiers].sort((a, b) => a.sort_order - b.sort_order);
+  const isTiered = sortedTiers.length > 0;
+  const firstTierId = sortedTiers[0]?.id ?? null;
 
   // Workstream B: name-first detail header behind feature.detail_header.
   // No status pill here; the StateStepper above owns the current state.
@@ -171,7 +182,9 @@ export function QuoteDetailPage() {
     if (!id) return;
     if (toState === 'submitted') submit.mutate(id);
     else if (toState === 'approved') approve.mutate(id);
-    else if (toState === 'project_pending') convert.mutate(id);
+    else if (toState === 'project_pending') {
+      convert.mutate({ id, tierId: isTiered ? (convertTierId || firstTierId) : null });
+    }
   };
   const advancePending =
     submit.isPending || approve.isPending || convert.isPending;
@@ -237,6 +250,9 @@ export function QuoteDetailPage() {
         is_taxable: lineIsTaxable,
         // ADR 0005 Phase 1a.2: the add-line billing-interval selector.
         billing_interval: lineBillingInterval,
+        // ADR 0004: a tiered quote adds the line to the chosen tier (default the
+        // first) so it is never an orphan; a non-tiered quote adds it untiered.
+        tier_id: isTiered ? (lineTierId || firstTierId) : null,
       },
       {
         onSuccess: () => {
@@ -249,6 +265,7 @@ export function QuoteDetailPage() {
           setLineTaxId('');
           setLineIsTaxable(true);
           setLineBillingInterval('one_time');
+          setLineTierId('');
         },
       },
     );
@@ -436,18 +453,38 @@ export function QuoteDetailPage() {
           Predicate lives in `@/lib/workflow/nextStepCTA` so the regression
           test can lock the trigger state. */}
       {shouldShowQuoteNextStepCTA(state) && id && (
-        <NextStepCTA
-          label="Convert to project"
-          onClick={() => convert.mutate(id)}
-          pending={convert.isPending}
-          error={
-            convert.isError
-              ? convert.error instanceof Error
-                ? convert.error.message
-                : 'Convert failed.'
-              : null
-          }
-        />
+        <div className="flex flex-col gap-2">
+          {isTiered ? (
+            <label className="flex items-center gap-2">
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Accept tier
+              </span>
+              <select
+                value={convertTierId || (firstTierId ?? '')}
+                onChange={(e) => setConvertTierId(e.target.value)}
+                className="bg-bg-2 border border-line text-ink px-3 py-2 text-sm font-sans focus:outline-none focus:border-accent"
+              >
+                {sortedTiers.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <NextStepCTA
+            label="Convert to project"
+            onClick={() =>
+              convert.mutate({ id, tierId: isTiered ? (convertTierId || firstTierId) : null })
+            }
+            pending={convert.isPending}
+            error={
+              convert.isError
+                ? convert.error instanceof Error
+                  ? convert.error.message
+                  : 'Convert failed.'
+                : null
+            }
+          />
+        </div>
       )}
 
       {/* Secondary cluster. Cancel / revise / sideways transitions stay
@@ -611,19 +648,36 @@ export function QuoteDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <DataTable
-          columns={lineColumns}
-          rows={lineItems}
-          getRowKey={(l) => l.id}
-          empty="No line items yet."
-        />
-        <div className="flex items-center justify-end gap-6 px-4 text-sm">
-          <span className="text-ink-dim">Total</span>
-          <span className="tabular-nums text-ink">
-            {formatCents(quote.total_cents, quote.currency_code)}
-          </span>
-        </div>
+        {/* ADR 0004: a tiered, editable quote shows its lines grouped per tier in
+            QuoteTiersPanel below; the flat table stays for non-tiered quotes and
+            for read-only (non-editable) quotes of any shape. */}
+        {!isTiered || !['draft', 'revise_requested'].includes(state) ? (
+          <DataTable
+            columns={lineColumns}
+            rows={lineItems}
+            getRowKey={(l) => l.id}
+            empty="No line items yet."
+          />
+        ) : null}
+        {!isTiered ? (
+          <div className="flex items-center justify-end gap-6 px-4 text-sm">
+            <span className="text-ink-dim">Total</span>
+            <span className="tabular-nums text-ink">
+              {formatCents(quote.total_cents, quote.currency_code)}
+            </span>
+          </div>
+        ) : null}
       </div>
+
+      {['draft', 'revise_requested'].includes(state) && id ? (
+        <QuoteTiersPanel
+          quoteId={id}
+          tiers={tiers}
+          lineItems={lineItems}
+          currencyCode={quote.currency_code}
+          onEditLine={beginEditLine}
+        />
+      ) : null}
 
       {['draft', 'revise_requested'].includes(state) && editLineId && (
         <form
@@ -785,6 +839,22 @@ export function QuoteDetailPage() {
                 <option value="monthly">Monthly</option>
               </select>
             </label>
+            {isTiered ? (
+              <label className="flex flex-col gap-2">
+                <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                  Tier
+                </span>
+                <select
+                  value={lineTierId || (firstTierId ?? '')}
+                  onChange={(e) => setLineTierId(e.target.value)}
+                  className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+                >
+                  {sortedTiers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <Button type="submit" disabled={addLine.isPending}>
               {addLine.isPending ? 'Adding.' : 'Add line'}
             </Button>

@@ -9,11 +9,13 @@ import {
   listQuotes, getQuote, createQuote, updateQuote, submitQuote, approveQuote,
   reviseQuote, cancelQuote, sendQuote, convertQuoteToProject, duplicateQuote,
   addLineItem, updateLineItem, removeLineItem,
+  createTier, updateTier, deleteTier, reorderTiers,
   type ListQuotesFilters,
 } from '@/lib/services/quotesService';
 import type {
   CreateQuoteRequest, UpdateQuoteRequest, CreateQuoteLineRequest,
   UpdateQuoteLineRequest, Quote,
+  CreateQuoteTierRequest, UpdateQuoteTierRequest,
 } from '@/lib/types/sales';
 import { buildQuoteLinesFromTemplate } from '@/lib/quotes/applyJobTemplate';
 import type { JobTemplate, JobTemplateLine } from '@/lib/services/jobTemplatesService';
@@ -109,8 +111,12 @@ export function useConvertQuoteToProject() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   return useMutation({
-    mutationFn: (id: string) => convertQuoteToProject(id),
-    onSuccess: (result, id) => {
+    // ADR 0004: a tiered quote passes the accepted tierId so only that tier's
+    // lines become the project. A non-tiered quote passes no tierId (converts as
+    // before). Call sites pass { id } or { id, tierId }.
+    mutationFn: ({ id, tierId }: { id: string; tierId?: string | null }) =>
+      convertQuoteToProject(id, tierId ? { tier_id: tierId } : {}),
+    onSuccess: (result, { id }) => {
       void qc.invalidateQueries({ queryKey: quotesKeys.all });
       void qc.invalidateQueries({ queryKey: ['sales', 'projects'] });
       // F-Wave6-AUDIT-02: convert RPC drives a quote.state approved ->
@@ -181,6 +187,49 @@ export function useRemoveLineItem(quoteId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (lineId: string) => removeLineItem(quoteId, lineId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+    },
+  });
+}
+
+// ADR 0004 tier CRUD hooks. Each invalidates the quote detail so the tiers, the
+// per-tier totals, and the (recomputed) header refresh in one round trip.
+export function useCreateTier(quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateQuoteTierRequest) => createTier(quoteId, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+    },
+  });
+}
+
+export function useUpdateTier(quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tierId, payload }: { tierId: string; payload: UpdateQuoteTierRequest }) =>
+      updateTier(quoteId, tierId, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+    },
+  });
+}
+
+export function useDeleteTier(quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tierId: string) => deleteTier(quoteId, tierId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
+    },
+  });
+}
+
+export function useReorderTiers(quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tierIds: string[]) => reorderTiers(quoteId, tierIds),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: quotesKeys.byId(quoteId) });
     },
