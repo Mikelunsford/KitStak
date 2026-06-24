@@ -688,7 +688,6 @@ export function QuoteDetailPage() {
           tiers={tiers}
           lineItems={lineItems}
           currencyCode={quote.currency_code}
-          onEditLine={beginEditLine}
         />
       ) : null}
 
