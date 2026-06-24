@@ -164,4 +164,55 @@ describe('pdf-worker — POST /pdf/render (F-Wave2-CO-01)', () => {
     const body = await readJson(res);
     expect(body.error?.code).toBe('VALIDATION_ERROR');
   });
+
+  it('renders a tiered quote (per-tier sections) into a real PDF (ADR 0004)', async () => {
+    setActiveMockState(makeState({}));
+
+    const req = new Request('https://example.test/pdf/render', {
+      method: 'POST',
+      headers: {
+        authorization: bearer(OWNER),
+        'content-type': 'application/json',
+        'idempotency-key': crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        template: 'quote',
+        data: {
+          customer_display_name: 'Sams Club',
+          quote_number: 'Q-2026-00042',
+          issue_date: '2026-06-24',
+          // A tiered quote sends empty flat lines + the per-tier sections.
+          lines: [],
+          subtotal_cents: '0',
+          tax_cents: '0',
+          total_cents: '0',
+          currency: 'USD',
+          tiers: [
+            {
+              label: 'Tier A',
+              break_quantity: 10,
+              total_cents: '5000',
+              lines: [
+                { description: 'Pick and pack', quantity: '10', unit_price_cents: '500', line_total_cents: '5000' },
+              ],
+            },
+            {
+              label: 'Tier B',
+              break_quantity: 100,
+              total_cents: '40000',
+              lines: [
+                { description: 'Pick and pack', quantity: '100', unit_price_cents: '400', line_total_cents: '40000' },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+
+    const res = await handler(req);
+    expect(res.status).toBe(200);
+    const body = await readJson(res);
+    expect(body.data?.url).toMatch(/^data:application\/pdf;base64,/);
+    expect(decodeBase64Prefix(body.data!.url!)).toBe('%PDF-');
+  });
 });

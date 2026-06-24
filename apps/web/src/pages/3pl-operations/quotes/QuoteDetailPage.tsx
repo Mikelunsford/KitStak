@@ -199,20 +199,33 @@ export function QuoteDetailPage() {
       // QuoteLineItem stores quantity_e3 (thousandths). Convert to a decimal
       // string before handing to the worker so the rendered PDF reads as a
       // normal quantity rather than a thousandths integer.
+      const lineToPdf = (l: QuoteLineItem) => ({
+        description: l.name,
+        quantity: (Number(l.quantity_e3) / 1000).toFixed(3),
+        unit_price_cents: String(l.unit_price_cents),
+        line_total_cents: String(l.line_total_cents),
+      });
       const result = await renderPdf('quote', {
         customer_display_name: customer.data?.display_name ?? '',
         quote_number: quote.number,
         issue_date: quote.submitted_at ?? quote.sent_at ?? '',
-        lines: lineItems.map((l) => ({
-          description: l.name,
-          quantity: (Number(l.quantity_e3) / 1000).toFixed(3),
-          unit_price_cents: String(l.unit_price_cents),
-          line_total_cents: String(l.line_total_cents),
-        })),
+        // ADR 0004: a tiered quote renders per-tier sections (flat lines empty);
+        // a non-tiered quote renders the flat lines and header totals.
+        lines: isTiered ? [] : lineItems.map(lineToPdf),
         subtotal_cents: String(quote.subtotal_cents),
         tax_cents: String(quote.tax_cents),
         total_cents: String(quote.total_cents),
         currency: quote.currency_code,
+        ...(isTiered
+          ? {
+              tiers: sortedTiers.map((t) => ({
+                label: t.label,
+                break_quantity: Number(t.break_quantity_e3) / 1000,
+                total_cents: String(t.total_cents),
+                lines: lineItems.filter((l) => l.tier_id === t.id).map(lineToPdf),
+              })),
+            }
+          : {}),
       });
       if ('not_available' in result) {
         setPdfError(result.message);
