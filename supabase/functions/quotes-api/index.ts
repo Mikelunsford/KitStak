@@ -32,6 +32,8 @@ import {
   CreateQuoteRequestSchema, UpdateQuoteRequestSchema,
   CreateQuoteLineRequestSchema, UpdateQuoteLineRequestSchema,
   ConvertQuoteToProjectRequestSchema,
+  CreateQuoteTierRequestSchema, UpdateQuoteTierRequestSchema,
+  ReorderQuoteTiersRequestSchema,
   QuoteStateSchema,
 } from '../_shared/types/sales.ts';
 import { QUOTE_FSM, canTransition, type QuoteState } from '../_shared/workflow/sales.ts';
@@ -96,7 +98,15 @@ const getQuote = async (ctx: RouteCtx) => {
     .eq('quote_id', ctx.params.id)
     .order('position', { ascending: true });
   if (lErr) throw internalError('quotes-api', lErr);
-  return ok({ quote, line_items: lines ?? [] });
+  // ADR 0004: a tiered quote's tiers ride alongside its lines so the detail
+  // surface renders the per-tier sections in one load. Empty for a non-tiered
+  // quote (no tier rows), in which case the header total stands as today.
+  const { data: tiers, error: tErr } = await client
+    .from('quote_tiers').select('*')
+    .eq('quote_id', ctx.params.id)
+    .order('sort_order', { ascending: true });
+  if (tErr) throw internalError('quotes-api', tErr);
+  return ok({ quote, line_items: lines ?? [], tiers: tiers ?? [] });
 };
 
 // --- create / update / delete ---
@@ -265,6 +275,17 @@ const addLineItem = async (ctx: RouteCtx) => {
       if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
       if (body.vas_id) { await assertRefInOrg('value_added_services', caller, body.vas_id); }
       if (body.tax_id) { await assertRefInOrg('taxes', caller, body.tax_id); }
+      // ADR 0004: a line may belong to one of the quote's tiers. Verify the tier
+      // is a tier OF THIS quote (quote-scoped, so a foreign or cross-quote tier
+      // surfaces as 404). assertRefInOrg cannot be used: quote_tiers is Pattern B
+      // (org-scoped through the parent quote, no org_id column of its own).
+      if (body.tier_id) {
+        const { data: tier, error: tierErr } = await client
+          .from('quote_tiers').select('id')
+          .eq('id', body.tier_id).eq('quote_id', ctx.params.id).maybeSingle();
+        if (tierErr) throw internalError('quotes-api', tierErr);
+        if (!tier) throw new ApiError('NOT_FOUND', 404, 'referenced tier not found on this quote');
+      }
 
       // Snapshot the tax rate now if tax_id is provided; the DB trigger
       // also enforces this, but we precompute math here.
@@ -300,6 +321,8 @@ const addLineItem = async (ctx: RouteCtx) => {
         is_taxable: body.is_taxable,
         // ADR 0005 Phase 1a: the request schema defaults this to 'one_time'.
         billing_interval: body.billing_interval,
+        // ADR 0004: the tier this line belongs to (null for a non-tiered quote).
+        tier_id: body.tier_id ?? null,
         ...math,
         created_by: caller.userId,
         updated_by: caller.userId,
@@ -357,6 +380,15 @@ const patchLineItem = async (ctx: RouteCtx) => {
       if (body.item_id) { await assertRefInOrg('items', caller, body.item_id); }
       if (body.vas_id) { await assertRefInOrg('value_added_services', caller, body.vas_id); }
       if (body.tax_id) { await assertRefInOrg('taxes', caller, body.tax_id); }
+      // ADR 0004: validate a reassigned tier belongs to this quote (404 on a
+      // foreign tier). A null clears the line's tier; undefined leaves it as is.
+      if (body.tier_id) {
+        const { data: tier, error: tierErr } = await client
+          .from('quote_tiers').select('id')
+          .eq('id', body.tier_id).eq('quote_id', ctx.params.id).maybeSingle();
+        if (tierErr) throw internalError('quotes-api', tierErr);
+        if (!tier) throw new ApiError('NOT_FOUND', 404, 'referenced tier not found on this quote');
+      }
 
       // Overlay only the sent input fields onto the existing row. kind is frozen
       // (not in the schema). line_*_cents are never copied from the body.
@@ -365,7 +397,7 @@ const patchLineItem = async (ctx: RouteCtx) => {
         const k of [
           'position', 'item_id', 'vas_id', 'sku', 'name', 'description',
           'quantity_e3', 'unit_price_cents', 'discount_bps', 'is_taxable',
-          'billing_interval',
+          'billing_interval', 'tier_id',
         ] as const
       ) {
         if (body[k] !== undefined) patch[k] = body[k];
@@ -445,6 +477,201 @@ const removeLineItem = async (ctx: RouteCtx) => {
       });
       if (rpcErr) throw internalError('quotes-api', rpcErr);
       return ok({ id: ctx.params.lineId, deleted: true });
+    },
+  );
+};
+
+// --- tiers (ADR 0004 native tiered quoting) ---
+//
+// CRUD for a quote's quantity-break tiers. Gated on quotes.quote.write (a tier is
+// part of editing a quote, so no new capability). Every mutation guards that the
+// parent quote is in the caller's org and still editable (draft /
+// revise_requested), exactly like the line-item handlers. quote_tiers is Pattern
+// B (org-scoped through the parent quote, no org_id column of its own), so the
+// org gate IS the parent check, not assertRefInOrg. Creating or deleting a tier
+// changes whether the quote is tiered, so those two recompute the totals
+// (recompute_quote_totals zeroes the header when tiers are present and re-sums
+// the lines when the last tier goes); updating a tier's label / break / order and
+// reordering do not touch any line sum, so they skip the recompute.
+
+const EDITABLE_QUOTE_STATES = ['draft', 'revise_requested'];
+
+// Load the parent quote, org-scoped, and assert it is editable. Throws NOT_FOUND
+// (cross-tenant or missing, never 403) or STATE_CONFLICT (locked state). Mirrors
+// the inline guard the line-item handlers use.
+const assertEditableParentQuote = async (
+  caller: ReturnType<typeof requireCaller>,
+  quoteId: string,
+): Promise<void> => {
+  const { data: parent, error } = await admin()
+    .from('quotes').select('id, org_id, state')
+    .eq('id', quoteId).eq('org_id', caller.orgId).maybeSingle();
+  if (error) throw internalError('quotes-api', error);
+  if (!parent) throw new ApiError('NOT_FOUND', 404);
+  if (!EDITABLE_QUOTE_STATES.includes((parent as { state: string }).state)) {
+    throw new ApiError('STATE_CONFLICT', 409, 'quote is not editable in current state');
+  }
+};
+
+const createTier = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  const body = await parseBody(ctx.req, CreateQuoteTierRequestSchema);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/quotes/:id/tiers', body,
+    async () => {
+      await assertEditableParentQuote(caller, ctx.params.id);
+      const client = admin();
+
+      // Default sort_order to append after the existing tiers so a new tier
+      // lands last rather than colliding at 0.
+      let sortOrder = body.sort_order;
+      if (sortOrder === undefined) {
+        const { data: last, error: maxErr } = await client
+          .from('quote_tiers').select('sort_order')
+          .eq('quote_id', ctx.params.id)
+          .order('sort_order', { ascending: false }).limit(1).maybeSingle();
+        if (maxErr) throw internalError('quotes-api', maxErr);
+        sortOrder = last
+          ? Number((last as { sort_order: number }).sort_order) + 1
+          : 0;
+      }
+
+      const { data, error } = await client
+        .from('quote_tiers')
+        .insert({
+          quote_id: ctx.params.id,
+          label: body.label,
+          break_quantity_e3: body.break_quantity_e3 ?? 0,
+          sort_order: sortOrder,
+          created_by: caller.userId,
+          updated_by: caller.userId,
+        })
+        .select('*').maybeSingle();
+      if (error) throw internalError('quotes-api', error);
+
+      // The first tier flips the quote to tiered, so the header total moves to
+      // the tier grain (recompute zeroes the header).
+      const { error: rpcErr } = await client.rpc('recompute_quote_totals', {
+        p_quote_id: ctx.params.id,
+      });
+      if (rpcErr) throw internalError('quotes-api', rpcErr);
+      return created(data);
+    },
+  );
+};
+
+const updateTier = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.tierId, 'tierId');
+  const body = await parseBody(ctx.req, UpdateQuoteTierRequestSchema);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/quotes/:id/tiers/:tierId-patch', body,
+    async () => {
+      await assertEditableParentQuote(caller, ctx.params.id);
+      const client = admin();
+
+      const patch: Record<string, unknown> = { updated_by: caller.userId };
+      for (const k of ['label', 'break_quantity_e3', 'sort_order'] as const) {
+        if (body[k] !== undefined) patch[k] = body[k];
+      }
+
+      // Tier-scoped to the parent quote so a foreign tierId resolves to
+      // NOT_FOUND, never a cross-quote edit. Metadata only: the per-tier totals
+      // are derived from the tier's lines, so no recompute is needed.
+      const { data, error } = await client
+        .from('quote_tiers').update(patch)
+        .eq('id', ctx.params.tierId).eq('quote_id', ctx.params.id)
+        .select('*').maybeSingle();
+      if (error) throw internalError('quotes-api', error);
+      if (!data) throw new ApiError('NOT_FOUND', 404);
+      return ok(data);
+    },
+  );
+};
+
+const deleteTier = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  parseUuidParam(ctx.params.tierId, 'tierId');
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/quotes/:id/tiers/:tierId', null,
+    async () => {
+      await assertEditableParentQuote(caller, ctx.params.id);
+      const client = admin();
+
+      // Delete the tier; ON DELETE CASCADE (0132) removes its lines. Scoped to
+      // the parent quote, mirroring removeLineItem (no select-after-delete:
+      // delete is idempotent and the parent org gate is the tenant guard).
+      const { error } = await client
+        .from('quote_tiers').delete()
+        .eq('id', ctx.params.tierId).eq('quote_id', ctx.params.id);
+      if (error) throw internalError('quotes-api', error);
+
+      // Removing a tier (and its lines via cascade) changes the totals; if it was
+      // the last tier the quote becomes non-tiered and the header re-sums its
+      // remaining lines.
+      const { error: rpcErr } = await client.rpc('recompute_quote_totals', {
+        p_quote_id: ctx.params.id,
+      });
+      if (rpcErr) throw internalError('quotes-api', rpcErr);
+      return ok({ id: ctx.params.tierId, deleted: true });
+    },
+  );
+};
+
+const reorderTiers = async (ctx: RouteCtx) => {
+  const caller = requireCaller(ctx.req);
+  requireCap(caller, 'quotes.quote.write');
+  parseUuidParam(ctx.params.id);
+  const body = await parseBody(ctx.req, ReorderQuoteTiersRequestSchema);
+  return respondWithIdempotency(
+    ctx.req, caller, BUNDLE, '/quotes/:id/tiers/reorder', body,
+    async () => {
+      await assertEditableParentQuote(caller, ctx.params.id);
+      const client = admin();
+
+      // The reorder must name exactly the quote's tiers, with no duplicates, so
+      // no tier is left unordered and no foreign id slips in.
+      const { data: existing, error: exErr } = await client
+        .from('quote_tiers').select('id').eq('quote_id', ctx.params.id);
+      if (exErr) throw internalError('quotes-api', exErr);
+      const existingIds = new Set(
+        (existing ?? []).map((r) => (r as { id: string }).id),
+      );
+      const requested = body.tier_ids;
+      const uniqueRequested = new Set(requested);
+      if (
+        uniqueRequested.size !== requested.length ||
+        requested.length !== existingIds.size ||
+        !requested.every((id) => existingIds.has(id))
+      ) {
+        throw new ApiError(
+          'VALIDATION_ERROR', 422,
+          'tier_ids must list exactly the tiers of this quote, with no duplicates',
+        );
+      }
+
+      // Each tier's sort_order becomes its index in the requested order. Order
+      // does not change any line sum, so no recompute.
+      for (let i = 0; i < requested.length; i++) {
+        const { error } = await client
+          .from('quote_tiers')
+          .update({ sort_order: i, updated_by: caller.userId })
+          .eq('id', requested[i]).eq('quote_id', ctx.params.id);
+        if (error) throw internalError('quotes-api', error);
+      }
+
+      const { data, error } = await client
+        .from('quote_tiers').select('*')
+        .eq('quote_id', ctx.params.id)
+        .order('sort_order', { ascending: true });
+      if (error) throw internalError('quotes-api', error);
+      return ok(data ?? []);
     },
   );
 };
@@ -863,6 +1090,11 @@ const ROUTES: Route[] = [
   { method: 'POST',   path: '/quotes/:id/line-items',               handler: addLineItem },
   { method: 'PATCH',  path: '/quotes/:id/line-items/:lineId',       handler: patchLineItem },
   { method: 'DELETE', path: '/quotes/:id/line-items/:lineId',       handler: removeLineItem },
+
+  { method: 'POST',   path: '/quotes/:id/tiers',                    handler: createTier },
+  { method: 'POST',   path: '/quotes/:id/tiers/reorder',            handler: reorderTiers },
+  { method: 'PATCH',  path: '/quotes/:id/tiers/:tierId',            handler: updateTier },
+  { method: 'DELETE', path: '/quotes/:id/tiers/:tierId',            handler: deleteTier },
 
   { method: 'POST',   path: '/quotes/:id/submit',                   handler: submitQuote },
   { method: 'POST',   path: '/quotes/:id/approve',                  handler: approveQuote },
