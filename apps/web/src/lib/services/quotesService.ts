@@ -1,11 +1,12 @@
 import { apiRequest } from '@/lib/apiClient';
 import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs';
 import {
-  QuoteSchema, QuoteLineItemSchema,
-  type Quote, type QuoteLineItem,
+  QuoteSchema, QuoteLineItemSchema, QuoteTierSchema,
+  type Quote, type QuoteLineItem, type QuoteTier,
   type CreateQuoteRequest, type UpdateQuoteRequest, type CreateQuoteLineRequest,
   type UpdateQuoteLineRequest,
   type ConvertQuoteToProjectRequest,
+  type CreateQuoteTierRequest, type UpdateQuoteTierRequest,
 } from '@/lib/types/sales';
 import { z } from 'zod';
 
@@ -17,6 +18,9 @@ const ListEnvelope = z.object({
 const DetailEnvelope = z.object({
   quote: QuoteSchema,
   line_items: z.array(QuoteLineItemSchema),
+  // ADR 0004: the quote's tiers ride alongside its lines. Optional + defaulted
+  // for backward compatibility with any cached pre-tier response shape.
+  tiers: z.array(QuoteTierSchema).optional().default([]),
 });
 
 export type ListQuotesFilters = {
@@ -47,10 +51,12 @@ export async function listQuotesPage(
   return { items: parsed.items, next_cursor: parsed.next_cursor ?? null };
 }
 
-export async function getQuote(id: string): Promise<{ quote: Quote; lineItems: QuoteLineItem[] }> {
+export async function getQuote(
+  id: string,
+): Promise<{ quote: Quote; lineItems: QuoteLineItem[]; tiers: QuoteTier[] }> {
   const raw = await apiRequest<unknown>(`/quotes-api/quotes/${id}`, { method: 'GET' });
   const parsed = DetailEnvelope.parse(raw);
-  return { quote: parsed.quote, lineItems: parsed.line_items };
+  return { quote: parsed.quote, lineItems: parsed.line_items, tiers: parsed.tiers };
 }
 
 export async function createQuote(payload: CreateQuoteRequest): Promise<Quote> {
@@ -96,6 +102,41 @@ export async function removeLineItem(
   quoteId: string, lineId: string,
 ): Promise<{ id: string; deleted: boolean }> {
   return apiRequest(`/quotes-api/quotes/${quoteId}/line-items/${lineId}`, { method: 'DELETE' });
+}
+
+// ADR 0004 tier CRUD. The per-tier totals are server-derived by
+// recompute_quote_totals, so these calls carry only the operator-editable fields.
+export async function createTier(
+  quoteId: string, payload: CreateQuoteTierRequest,
+): Promise<QuoteTier> {
+  const raw = await apiRequest<unknown>(`/quotes-api/quotes/${quoteId}/tiers`, {
+    method: 'POST', body: payload,
+  });
+  return QuoteTierSchema.parse(raw);
+}
+
+export async function updateTier(
+  quoteId: string, tierId: string, payload: UpdateQuoteTierRequest,
+): Promise<QuoteTier> {
+  const raw = await apiRequest<unknown>(`/quotes-api/quotes/${quoteId}/tiers/${tierId}`, {
+    method: 'PATCH', body: payload,
+  });
+  return QuoteTierSchema.parse(raw);
+}
+
+export async function deleteTier(
+  quoteId: string, tierId: string,
+): Promise<{ id: string; deleted: boolean }> {
+  return apiRequest(`/quotes-api/quotes/${quoteId}/tiers/${tierId}`, { method: 'DELETE' });
+}
+
+export async function reorderTiers(
+  quoteId: string, tierIds: string[],
+): Promise<QuoteTier[]> {
+  const raw = await apiRequest<unknown>(`/quotes-api/quotes/${quoteId}/tiers/reorder`, {
+    method: 'POST', body: { tier_ids: tierIds },
+  });
+  return z.array(QuoteTierSchema).parse(raw);
 }
 
 async function quoteAction(quoteId: string, action: string): Promise<Quote> {
