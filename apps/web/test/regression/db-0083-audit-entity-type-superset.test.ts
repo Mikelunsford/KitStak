@@ -83,7 +83,7 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('finds every migration that redefines the constraint', () => {
     // Sanity: the known redefiners through 0110 must all be discovered.
     const nums = migrations.map((m) => m.num);
-    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109, 110]) {
+    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109, 110, 139]) {
       expect(nums).toContain(n);
     }
   });
@@ -119,14 +119,21 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0110 is the current authoritative redefinition', () => {
+  it('0139 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
-    // 0106 (WMS Body B Locations) added warehouse_location; 0109 (WMS Body B
-    // Directed putaway) added putaway_task; 0110 (WMS Body B Lots) adds lot on
-    // top of the full 0109 list, so 0110 is latest.
+    // 0110 (WMS Body B Lots) added lot; 0139 (audit created-symmetry extend)
+    // adds recurring_schedule (ADR 0005 Phase 2) and quote_tier (ADR 0004) on
+    // top of the full 0110 list, so 0139 is latest.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(110);
-    expect(latest.file).toBe('0110_lots.sql');
+    expect(latest.num).toBe(139);
+    expect(latest.file).toBe('0139_audit_created_symmetry_extend.sql');
+  });
+
+  it('the latest redefinition includes the spine types added after 0070 (0139)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    for (const t of ['recurring_schedule', 'quote_tier']) {
+      expect(latest.types.has(t)).toBe(true);
+    }
   });
 
   it('the latest redefinition includes the 3PL commercial layer types (0089)', () => {
