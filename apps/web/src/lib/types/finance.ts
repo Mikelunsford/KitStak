@@ -72,6 +72,8 @@ export const InvoiceLineItemSchema = z.object({
   discount_cents: FinanceCentsSchema,
   line_total_cents: FinanceCentsSchema,
   sort_order: z.number().int(),
+  // ADR 0005 Phase 1b: carried from the source project line on conversion.
+  billing_interval: z.enum(['one_time', 'monthly']),
 });
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItemSchema>;
 
