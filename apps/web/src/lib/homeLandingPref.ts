@@ -29,6 +29,9 @@ const SECTION_HOME_PATHS: ReadonlyArray<string> = [
   '/money',
   '/workforce',
   '/insights',
+  // FEEDBACK homes on the tester's own ticket list, not a /<key> hub
+  // (migration 0140). Kept in sync with SIDEBAR_MODES order.
+  '/feedback/tickets',
   '/settings',
 ];
 

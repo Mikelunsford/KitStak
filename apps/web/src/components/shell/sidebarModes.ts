@@ -67,6 +67,7 @@ import {
   Layers,
   Lock,
   MapPin,
+  MessageSquare,
   Package,
   PackageCheck,
   PackageOpen,
@@ -103,6 +104,7 @@ export type ModeKey =
   | 'money'
   | 'workforce'
   | 'insights'
+  | 'feedback'
   | 'settings';
 
 export interface ModeRoute {
@@ -445,6 +447,26 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
     ],
   },
   {
+    key: 'feedback',
+    homePath: '/feedback/tickets',
+    label: 'FEEDBACK',
+    subtitle: 'Send feedback and track your tickets.',
+    icon: MessageSquare,
+    // support.ticket.create is held by every internal role (and customer
+    // portal), so FEEDBACK shows for everyone who can file. The staff inbox
+    // route below is additionally gated by the platform-staff probe in
+    // Sidebar.tsx.
+    requiresAnyCap: ['support.ticket.create'],
+    routes: [
+      {
+        path: '/feedback/tickets',
+        label: 'My feedback',
+        icon: MessageSquare,
+        requiresCap: 'support.ticket.create',
+      },
+    ],
+  },
+  {
     key: 'settings',
     homePath: '/settings',
     label: 'SETTINGS',
@@ -508,6 +530,7 @@ export function isRouteCapVisible(
  * per-route role-scope gating. The `can` parameter is optional so callers that
  * gate only by entitlement (and the flag-only unit tests) keep flag-only
  * behavior; pass it to also drop links the active role cannot read.
+ *
  */
 export function visibleRoutesForMode(
   mode: ModeSpec,

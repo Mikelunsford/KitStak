@@ -94,6 +94,14 @@ const BESPOKE_PAIRS: ReadonlyArray<Pair> = [
     spa: 'src/lib/types/wms.ts',
     shared: '../../supabase/functions/_shared/types/wms.ts',
   },
+  // Internal feedback / support ticketing (operator beta channel; migration
+  // 0140). Types-only side-car; the feedback-api and feedback-admin-api
+  // handlers keep transition rules, not a workflow canon, matching the others.
+  {
+    name: 'types/feedback',
+    spa: 'src/lib/types/feedback.ts',
+    shared: '../../supabase/functions/_shared/types/feedback.ts',
+  },
 ];
 
 const here = dirname(fileURLToPath(import.meta.url));

@@ -40,7 +40,8 @@ export type DocType =
   | 'job_template'
   | 'supply_plan'
   | 'job_run'
-  | 'billing_review';
+  | 'billing_review'
+  | 'feedback';
 
 /**
  * Allocate the next document number for (org, docType). Returns the
