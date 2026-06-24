@@ -104,6 +104,9 @@ export function QuoteDetailPage() {
   const [lineDiscountBps, setLineDiscountBps] = useState<number | null>(0);
   const [lineTaxId, setLineTaxId] = useState('');
   const [lineIsTaxable, setLineIsTaxable] = useState(true);
+  // ADR 0005 Phase 1a.2: one_time (default) or monthly (recurring) on the add-line form.
+  const [lineBillingInterval, setLineBillingInterval] =
+    useState<'one_time' | 'monthly'>('one_time');
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -120,6 +123,8 @@ export function QuoteDetailPage() {
   const [editDiscountBps, setEditDiscountBps] = useState<number | null>(0);
   const [editTaxId, setEditTaxId] = useState('');
   const [editIsTaxable, setEditIsTaxable] = useState(true);
+  const [editBillingInterval, setEditBillingInterval] =
+    useState<'one_time' | 'monthly'>('one_time');
 
   const customerId = data?.quote.customer_id ?? null;
   const customer = useCustomer(customerId ?? undefined);
@@ -230,10 +235,8 @@ export function QuoteDetailPage() {
         discount_bps: lineDiscountBps ?? 0,
         tax_id: lineTaxId || null,
         is_taxable: lineIsTaxable,
-        // ADR 0005 Phase 1a: the detail-page add-line defaults to one_time; the
-        // billing-interval selector lives on the create-page editor (a follow-up
-        // adds it here too).
-        billing_interval: 'one_time',
+        // ADR 0005 Phase 1a.2: the add-line billing-interval selector.
+        billing_interval: lineBillingInterval,
       },
       {
         onSuccess: () => {
@@ -245,6 +248,7 @@ export function QuoteDetailPage() {
           setLineDiscountBps(0);
           setLineTaxId('');
           setLineIsTaxable(true);
+          setLineBillingInterval('one_time');
         },
       },
     );
@@ -259,6 +263,7 @@ export function QuoteDetailPage() {
     setEditDiscountBps(l.discount_bps);
     setEditTaxId(l.tax_id ?? '');
     setEditIsTaxable(l.is_taxable);
+    setEditBillingInterval(l.billing_interval);
   };
 
   const cancelEditLine = () => {
@@ -283,6 +288,7 @@ export function QuoteDetailPage() {
           discount_bps: editDiscountBps ?? 0,
           tax_id: editTaxId || null,
           is_taxable: editIsTaxable,
+          billing_interval: editBillingInterval,
         },
       },
       {
@@ -667,6 +673,21 @@ export function QuoteDetailPage() {
                 Taxable
               </span>
             </label>
+            <label className="flex flex-col gap-2">
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Billing
+              </span>
+              <select
+                value={editBillingInterval}
+                onChange={(e) =>
+                  setEditBillingInterval(e.target.value as 'one_time' | 'monthly')
+                }
+                className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+              >
+                <option value="one_time">One time</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
             <Button type="submit" disabled={updateLine.isPending}>
               {updateLine.isPending ? 'Saving.' : 'Save line'}
             </Button>
@@ -748,6 +769,21 @@ export function QuoteDetailPage() {
               <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
                 Taxable
               </span>
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                Billing
+              </span>
+              <select
+                value={lineBillingInterval}
+                onChange={(e) =>
+                  setLineBillingInterval(e.target.value as 'one_time' | 'monthly')
+                }
+                className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+              >
+                <option value="one_time">One time</option>
+                <option value="monthly">Monthly</option>
+              </select>
             </label>
             <Button type="submit" disabled={addLine.isPending}>
               {addLine.isPending ? 'Adding.' : 'Add line'}
