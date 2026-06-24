@@ -1,5 +1,45 @@
 # Kitstak Status
 
+## 2026-06-24 Native tiered quoting (ADR 0004) and recurring billing (ADR 0005) (PRs #376 to #385)
+
+Eleven PRs, migrations 0133 to 0138, continuing the 2026-06-23 quote-flow and P2
+handoff. Both accepted P2 ADRs taken from foundation to end-to-end.
+
+ADR 0004 native tiered quoting is complete: tier-grain recompute_quote_totals
+(0134) rolls per-tier totals into quote_tiers and zeroes the tiered header; tier
+CRUD on quotes-api (#378, create / update / delete / reorder plus tier_id on line
+requests, with a quote-scoped 404 guard); duplicate_quote clones tiers and remaps
+line tier_ids (0135, and a latent billing_interval drop fixed in passing);
+convert_quote_to_project takes an accepted-tier argument so only that tier's lines
+become the project (0136); a tier-building SPA (QuoteTiersPanel, #383) with
+stacked per-tier sections, a first-tier line-move, reorder, and a convert tier
+picker; and a multi-tier quote PDF that renders a section per tier (#384).
+
+ADR 0005 recurring billing is complete: the billing_interval toggle on the quote
+detail add and edit forms (#382, completing Phase 1a); the carry-through quote ->
+project -> invoice (0136 adds project_line_items.billing_interval and carries it
+on convert; 0137 adds invoice_line_items.billing_interval and carries it on
+convert_project_to_invoice); and the Phase 2 recurring-invoice generator (0138):
+a recurring_schedules table (RLS Pattern A) plus a daily pg_cron job that drafts
+an invoice from each due project's monthly lines and advances the schedule one
+month, idempotent per period.
+
+The deferred 0133 security hardening (revoke authenticated EXECUTE on the two
+quote-flow SECURITY DEFINER RPCs) shipped first and is prod-verified.
+
+Gates green on every PR: typecheck, lint, regression (to 995 passing plus 2
+skipped), contract and parity (47), build, and CI green on the first run
+including RLS and e2e against staging. Every migration was validated on staging
+in an aborting transaction and verified on prod after the migrate workflow. SPA
+and worker PRs (#378, #382, #383, #384) carried no stop-list item and merged on
+green; migration PRs were held for operator sign-off. PR #385 (0138) is open and
+CI-green, awaiting the operator's merge; prod is at 0137. Journal
+`03-workspace/journal/2026-06-24-tiered-quoting-recurring-billing-closeout.md`.
+
+Follow-ups: a schedule-CRUD edge endpoint plus SPA to create / pause / list
+recurring schedules (the generator no-ops until a schedule exists); a per-tier
+inline line-field editor; and the pre-existing app-wide created-audit symmetry.
+
 ## 2026-06-22 Section dashboards, navigation redesign, and dashboard personalization (PRs #352 to #362)
 
 Eleven PRs, all merged to main and verified on prod, across three threads.

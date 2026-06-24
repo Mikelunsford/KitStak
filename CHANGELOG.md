@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Native tiered quoting and recurring billing** (PRs #376 to #385, migrations
+  0133 to 0138). ADR 0004: a quote splits into quantity-break tiers under one
+  number, each tier owning its lines and per-tier total, with tier-grain
+  recompute, tier CRUD on quotes-api, tier-aware duplicate and convert, a
+  tier-building SPA, and a multi-tier quote PDF. ADR 0005: a line billing_interval
+  (one_time / monthly) flows quote to project to invoice, with a toggle on both
+  quote screens, plus a pg_cron recurring-invoice generator that drafts monthly
+  invoices from a recurring_schedules table (idempotent per period). The deferred
+  0133 RPC-grant security hardening shipped alongside. Banker's-rounded BIGINT
+  cents throughout, byte-mirrored canon (parity 47), every SECURITY DEFINER
+  function service_role only, every migration staging-validated and prod-verified.
+
 - **Section dashboards and a navigation redesign** (PRs #353 to #357). Every
   task-section header now opens a real destination. A single generic
   SectionHomePage serves all eight sections (Sell, Buy, Inventory, Production,
