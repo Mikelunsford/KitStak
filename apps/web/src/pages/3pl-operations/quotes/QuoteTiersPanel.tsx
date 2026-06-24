@@ -8,22 +8,25 @@
 // existing untiered line into it, and any later orphan line is surfaced in an
 // UNASSIGNED section with a one-click reassign.
 //
-// Lines are added and field-edited through the page's existing ADD LINE / EDIT
-// LINE forms (which carry a Tier selector); this panel owns tier CRUD, the
-// grouped per-tier display, per-line remove, quick reassign, and reorder.
+// Lines are added through the page's ADD LINE form (which carries a Tier
+// selector); this panel owns tier CRUD, the grouped per-tier display, per-line
+// remove, quick reassign, reorder, and a dedicated inline editor so a line's
+// fields are edited in place without leaving the tier view.
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { QuantityInput } from '@/components/forms/QuantityInput';
+import { DollarInput } from '@/components/forms/DollarInput';
+import { PercentInput } from '@/components/forms/PercentInput';
 import { formatCents } from '@/lib/money';
 import { formatQuantity } from '@/lib/formatQuantity';
 import {
   useCreateTier, useUpdateTier, useDeleteTier, useReorderTiers,
   useUpdateLineItem, useRemoveLineItem,
 } from '@/lib/hooks/useQuotes';
-import type { QuoteLineItem, QuoteTier } from '@/lib/types/sales';
+import type { BillingInterval, QuoteLineItem, QuoteTier } from '@/lib/types/sales';
 
 import { moveTierOrder } from './quoteTierOrder';
 
@@ -32,74 +35,193 @@ export interface QuoteTiersPanelProps {
   tiers: QuoteTier[];
   lineItems: QuoteLineItem[];
   currencyCode: string;
-  onEditLine: (line: QuoteLineItem) => void;
 }
 
-// A compact row for one line inside a tier (or the unassigned group): name, qty,
-// line total, plus reassign / edit / remove. Field edits go through the page's
-// EDIT LINE form (onEditLine); this only moves or removes the line.
+// A row for one line inside a tier (or the unassigned group). Collapsed, it shows
+// name, qty, line total, a quick move-to-tier select, and Edit / Remove. Edit
+// expands a dedicated inline editor (name, sku, quantity, unit price, discount,
+// tax, billing interval) so a line is edited in place without leaving the tier
+// view. The server re-snapshots tax and recomputes every line_*_cents from these
+// trusted inputs; the panel never sends totals.
 function TierLineRow({
-  quoteId, line, tiers, currencyCode, onEditLine,
+  quoteId, line, tiers, currencyCode,
 }: {
   quoteId: string;
   line: QuoteLineItem;
   tiers: QuoteTier[];
   currencyCode: string;
-  onEditLine: (line: QuoteLineItem) => void;
 }) {
   const reassign = useUpdateLineItem(quoteId);
+  const update = useUpdateLineItem(quoteId);
   const remove = useRemoveLineItem(quoteId);
+
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(line.name);
+  const [sku, setSku] = useState(line.sku ?? '');
+  const [qty, setQty] = useState<number | null>(Number(line.quantity_e3));
+  const [price, setPrice] = useState<number | null>(Number(line.unit_price_cents));
+  const [discountBps, setDiscountBps] = useState<number | null>(line.discount_bps);
+  const [taxId, setTaxId] = useState(line.tax_id ?? '');
+  const [isTaxable, setIsTaxable] = useState(line.is_taxable);
+  const [billing, setBilling] = useState<BillingInterval>(line.billing_interval);
+
+  // Reseed the drafts from the current line each time the editor opens so a row
+  // that changed underneath (e.g. a reassign) edits the latest values.
+  const beginEdit = () => {
+    setName(line.name);
+    setSku(line.sku ?? '');
+    setQty(Number(line.quantity_e3));
+    setPrice(Number(line.unit_price_cents));
+    setDiscountBps(line.discount_bps);
+    setTaxId(line.tax_id ?? '');
+    setIsTaxable(line.is_taxable);
+    setBilling(line.billing_interval);
+    update.reset();
+    setEditing(true);
+  };
+
+  const onSave = (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    update.mutate(
+      {
+        lineId: line.id,
+        payload: {
+          name,
+          sku: sku || null,
+          quantity_e3: qty ?? 0,
+          unit_price_cents: price ?? 0,
+          discount_bps: discountBps ?? 0,
+          tax_id: taxId || null,
+          is_taxable: isTaxable,
+          billing_interval: billing,
+        },
+      },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
+
   return (
-    <tr className="border-t border-line">
-      <td className="px-3 py-2 text-sm">
-        {line.name}
-        {line.billing_interval === 'monthly' ? (
-          <span className="text-ink-dim text-xs block uppercase tracking-wide">
-            Monthly
-          </span>
-        ) : null}
-      </td>
-      <td className="px-3 py-2 tabular-nums text-sm">
-        {formatQuantity(Number(line.quantity_e3) / 1000)}
-      </td>
-      <td className="px-3 py-2 tabular-nums text-sm text-ink">
-        {formatCents(Number(line.line_total_cents), currencyCode)}
-      </td>
-      <td className="px-3 py-2">
-        <select
-          aria-label="Move line to tier"
-          value={line.tier_id ?? ''}
-          onChange={(e) =>
-            reassign.mutate({
-              lineId: line.id,
-              payload: { tier_id: e.target.value === '' ? null : e.target.value },
-            })
-          }
-          disabled={reassign.isPending}
-          className="bg-bg-2 border border-line text-ink px-2 py-1 text-sm font-sans focus:outline-none focus:border-accent disabled:opacity-50"
-        >
-          <option value="">Unassigned</option>
-          {tiers.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className="px-3 py-2 text-right">
-        <Button type="button" variant="ghost" onClick={() => onEditLine(line)}>
-          Edit
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => remove.mutate(line.id)}
-          disabled={remove.isPending}
-        >
-          Remove
-        </Button>
-      </td>
-    </tr>
+    <>
+      <tr className="border-t border-line">
+        <td className="px-3 py-2 text-sm">
+          {line.name}
+          {line.billing_interval === 'monthly' ? (
+            <span className="text-ink-dim text-xs block uppercase tracking-wide">
+              Monthly
+            </span>
+          ) : null}
+        </td>
+        <td className="px-3 py-2 tabular-nums text-sm">
+          {formatQuantity(Number(line.quantity_e3) / 1000)}
+        </td>
+        <td className="px-3 py-2 tabular-nums text-sm text-ink">
+          {formatCents(Number(line.line_total_cents), currencyCode)}
+        </td>
+        <td className="px-3 py-2">
+          <select
+            aria-label="Move line to tier"
+            value={line.tier_id ?? ''}
+            onChange={(e) =>
+              reassign.mutate({
+                lineId: line.id,
+                payload: { tier_id: e.target.value === '' ? null : e.target.value },
+              })
+            }
+            disabled={reassign.isPending}
+            className="bg-bg-2 border border-line text-ink px-2 py-1 text-sm font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+          >
+            <option value="">Unassigned</option>
+            {tiers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td className="px-3 py-2 text-right">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => (editing ? setEditing(false) : beginEdit())}
+            aria-expanded={editing}
+          >
+            {editing ? 'Close' : 'Edit'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => remove.mutate(line.id)}
+            disabled={remove.isPending}
+          >
+            Remove
+          </Button>
+        </td>
+      </tr>
+      {editing ? (
+        <tr className="bg-bg-2">
+          <td colSpan={5} className="px-3 py-3">
+            <form onSubmit={onSave} className="flex flex-wrap items-end gap-3">
+              <TextInput
+                label="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <TextInput
+                label="SKU"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+              />
+              <QuantityInput label="Quantity" value={qty} onChange={setQty} />
+              <DollarInput label="Unit price" value={price} onChange={setPrice} />
+              <PercentInput label="Discount" value={discountBps} onChange={setDiscountBps} />
+              <TextInput
+                label="Tax id (optional)"
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+              />
+              <label className="flex items-center gap-2 mt-6">
+                <input
+                  type="checkbox"
+                  checked={isTaxable}
+                  onChange={(e) => setIsTaxable(e.target.checked)}
+                />
+                <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                  Taxable
+                </span>
+              </label>
+              <label className="flex flex-col gap-2">
+                <span className="font-sans text-sm text-ink-dim tracking-wide uppercase">
+                  Billing
+                </span>
+                <select
+                  value={billing}
+                  onChange={(e) => setBilling(e.target.value as BillingInterval)}
+                  className="bg-bg-2 border border-line text-ink px-4 py-3 font-sans focus:outline-none focus:border-accent disabled:opacity-50"
+                >
+                  <option value="one_time">One time</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </label>
+              <Button type="submit" disabled={update.isPending || !name.trim()}>
+                {update.isPending ? 'Saving.' : 'Save line'}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              {update.error ? (
+                <p className="font-sans text-sm text-accent w-full">
+                  {update.error instanceof Error
+                    ? update.error.message
+                    : 'Save line failed.'}
+                </p>
+              ) : null}
+            </form>
+          </td>
+        </tr>
+      ) : null}
+    </>
   );
 }
 
@@ -107,7 +229,7 @@ function TierLineRow({
 // remove) over the tier's lines. Owns its own label / break draft state so each
 // tier instance edits independently.
 function TierRow({
-  quoteId, tier, tiers, lines, currencyCode, isFirst, isLast, onMove, onEditLine,
+  quoteId, tier, tiers, lines, currencyCode, isFirst, isLast, onMove,
 }: {
   quoteId: string;
   tier: QuoteTier;
@@ -117,7 +239,6 @@ function TierRow({
   isFirst: boolean;
   isLast: boolean;
   onMove: (tierId: string, dir: -1 | 1) => void;
-  onEditLine: (line: QuoteLineItem) => void;
 }) {
   const update = useUpdateTier(quoteId);
   const remove = useDeleteTier(quoteId);
@@ -198,7 +319,6 @@ function TierRow({
                 line={l}
                 tiers={tiers}
                 currencyCode={currencyCode}
-                onEditLine={onEditLine}
               />
             ))
           )}
@@ -209,7 +329,7 @@ function TierRow({
 }
 
 export function QuoteTiersPanel({
-  quoteId, tiers, lineItems, currencyCode, onEditLine,
+  quoteId, tiers, lineItems, currencyCode,
 }: QuoteTiersPanelProps) {
   const createTier = useCreateTier(quoteId);
   const reorder = useReorderTiers(quoteId);
@@ -271,7 +391,6 @@ export function QuoteTiersPanel({
               isFirst={i === 0}
               isLast={i === sorted.length - 1}
               onMove={onMove}
-              onEditLine={onEditLine}
             />
           ))}
 
@@ -293,7 +412,6 @@ export function QuoteTiersPanel({
                       line={l}
                       tiers={sorted}
                       currencyCode={currencyCode}
-                      onEditLine={onEditLine}
                     />
                   ))}
                 </tbody>
