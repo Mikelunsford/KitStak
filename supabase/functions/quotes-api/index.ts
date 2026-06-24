@@ -926,6 +926,9 @@ const convertToProject = async (ctx: RouteCtx) => {
         p_actor: caller.userId,
         p_caller_org_id: caller.orgId,
         p_project_number: body.project_number ?? null,
+        // ADR 0004: the accepted tier whose lines become the project (null for a
+        // non-tiered quote).
+        p_tier_id: body.tier_id ?? null,
       });
       if (error) {
         if (/NOT_FOUND/.test(error.message)) throw new ApiError('NOT_FOUND', 404);
