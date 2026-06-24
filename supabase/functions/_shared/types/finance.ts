@@ -267,3 +267,50 @@ export const PeriodCloseSchema = z.object({
   updated_at: FinanceTimestampSchema,
 });
 export type PeriodClose = z.infer<typeof PeriodCloseSchema>;
+
+// ---------------------------------------------------------------------------
+// Recurring schedule (ADR 0005 Phase 2). One monthly billing schedule per
+// project, created by migration 0138. The pg_cron generator drafts an invoice
+// from the project's monthly lines on next_run_on, then advances next_run_on
+// one month. The schedule-CRUD edge endpoint (invoicing-api) creates / pauses /
+// resumes / ends / lists schedules; it gates on the invoicing read/write caps
+// and the table carries Pattern A RLS on org_id. created_by / updated_by /
+// metadata are intentionally omitted from the wire shape.
+// ---------------------------------------------------------------------------
+
+export const RecurringScheduleStatusSchema = z.enum([
+  'active',
+  'paused',
+  'ended',
+]);
+export type RecurringScheduleStatus = z.infer<typeof RecurringScheduleStatusSchema>;
+
+export const RecurringScheduleCadenceSchema = z.enum(['monthly']);
+export type RecurringScheduleCadence = z.infer<
+  typeof RecurringScheduleCadenceSchema
+>;
+
+export const RecurringScheduleSchema = z.object({
+  id: FinanceUuidSchema,
+  org_id: FinanceUuidSchema,
+  project_id: FinanceUuidSchema,
+  cadence: RecurringScheduleCadenceSchema,
+  next_run_on: z.string(),
+  status: RecurringScheduleStatusSchema,
+  last_run_on: z.string().nullable(),
+  last_invoice_id: FinanceUuidSchema.nullable(),
+  created_at: FinanceTimestampSchema,
+  updated_at: FinanceTimestampSchema,
+});
+export type RecurringSchedule = z.infer<typeof RecurringScheduleSchema>;
+
+// Create request. The handler mints org_id from the caller, defaults cadence to
+// monthly and next_run_on to today when absent, and stamps status active.
+export const CreateRecurringScheduleRequestSchema = z.object({
+  project_id: FinanceUuidSchema,
+  next_run_on: z.string().optional(),
+  cadence: RecurringScheduleCadenceSchema.optional(),
+});
+export type CreateRecurringScheduleRequest = z.infer<
+  typeof CreateRecurringScheduleRequestSchema
+>;

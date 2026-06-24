@@ -56,6 +56,7 @@ import {
   buildNewShipmentUrl,
   buildShipmentDetailUrl,
 } from './projectChildLinks';
+import { RecurringBillingControl } from './RecurringBillingControl';
 import {
   PROJECT_FSM, PROJECT_PHASE_FSM, canTransition,
   type ProjectState, type ProjectPhaseState,
@@ -264,6 +265,13 @@ export function ProjectDetailPage() {
 
   const projectInvoices = (invoices.data ?? []).filter(
     (inv) => inv.project_id === projectId,
+  );
+
+  // ADR 0005 Phase 2: the recurring generator only bills monthly project lines.
+  // Surfaced to the recurring-billing control so it can warn when a schedule
+  // would draft an empty invoice.
+  const hasMonthlyLines = (lineItems.data ?? []).some(
+    (l) => l.billing_interval === 'monthly',
   );
 
   // UX-Q6: ReceivingOrderSchema now carries `project_id` natively. The
@@ -834,6 +842,10 @@ export function ProjectDetailPage() {
               </Button>
             )}
           </div>
+          <RecurringBillingControl
+            projectId={projectId}
+            hasMonthlyLines={hasMonthlyLines}
+          />
           {convertToInvoice.error && (
             <p className="font-sans text-sm text-accent mb-3">
               {convertToInvoice.error instanceof Error
