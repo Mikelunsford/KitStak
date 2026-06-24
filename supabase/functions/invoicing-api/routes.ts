@@ -40,6 +40,13 @@ import {
   patchCreditNote,
   voidCreditNote,
 } from './handlers/credit_notes.ts';
+import {
+  createRecurringSchedule,
+  endRecurringSchedule,
+  listRecurringSchedules,
+  pauseRecurringSchedule,
+  resumeRecurringSchedule,
+} from './handlers/recurring_schedules.ts';
 
 export const routes: Route[] = [
   { method: 'GET', path: '/', handler: () => ok({ ok: true, bundle: 'invoicing-api' }) },
@@ -78,4 +85,12 @@ export const routes: Route[] = [
   { method: 'POST',   path: '/credit-notes/:id/apply', handler: applyCreditNote },
   { method: 'POST',   path: '/credit-notes/:id/issue', handler: issueCreditNote },
   { method: 'POST',   path: '/credit-notes/:id/void',  handler: voidCreditNote },
+
+  // Recurring schedules (ADR 0005 Phase 2). Operationalise the migration 0138
+  // generator: create / pause / resume / end / list a project's monthly schedule.
+  { method: 'GET',    path: '/recurring-schedules',            handler: listRecurringSchedules },
+  { method: 'POST',   path: '/recurring-schedules',            handler: createRecurringSchedule },
+  { method: 'POST',   path: '/recurring-schedules/:id/pause',  handler: pauseRecurringSchedule },
+  { method: 'POST',   path: '/recurring-schedules/:id/resume', handler: resumeRecurringSchedule },
+  { method: 'POST',   path: '/recurring-schedules/:id/end',    handler: endRecurringSchedule },
 ];
