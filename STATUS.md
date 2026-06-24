@@ -1,5 +1,42 @@
 # Kitstak Status
 
+## 2026-06-24 Recurring-billing operationalization, tier-editor polish, audit symmetry (PRs #387 to #389)
+
+Three follow-ups from the same-day tiered-quoting and recurring-billing closeout.
+
+Recurring billing is now operable (PR #387, no migration). invoicing-api gains a
+recurring-schedule endpoint set (create / pause / resume / end / list), reusing
+the invoicing read/write caps with no new capability, idempotency-keyed and
+org-scoped, with one live schedule per project (a second create returns 409) and
+the same compare-and-set lost-write guard the invoice transitions use. A
+RecurringBillingControl on the project-detail Invoices tab turns billing on,
+gated on invoices.write. The RecurringSchedule read shape and create request were
+added byte-identical to both finance.ts mirrors (parity 47). The 0138 generator
+stays a no-op until a schedule exists.
+
+The tier-building panel now edits a line in place (PR #388, SPA only): each tier
+line's Edit expands an inline editor (name, SKU, quantity, unit price, discount,
+tax, billing interval) instead of jumping to the page EDIT LINE form, which stays
+for the non-tiered flat table.
+
+Created-audit symmetry is extended (PR #389, migration 0139). The investigation
+found 0070 and 0061 already cover 18 core entities (prod confirmed created rows
+for quote, invoice, customer, project, and more), so the real gap was the
+entities shipped after 0070: the 3PL, Co-Pack, KitForce, and WMS pillars plus
+quote_tiers and recurring_schedules. 0139 adds AFTER INSERT triggers for 19 such
+entities, reusing the 0070 kitstak_audit_created helper. The staging dry-run
+caught a regression the static tests could not: audit_log_entity_type_check did
+not admit recurring_schedule or quote_tier, so the trigger would have aborted the
+parent insert; 0139 extends the CHECK as a strict superset and the 0083 superset
+guard pin moves 0110 to 0139. Forward-only, no backfill.
+
+Gates green on every PR: typecheck, lint, regression, contract parity (47),
+build, and CI including RLS and e2e against staging. #389 was staging-validated
+in an aborting transaction and prod-verified after the migrate workflow
+(max_migration 0139, 19 triggers live, CHECK extended). #388 merged on green;
+#387 and #389 were held for operator sign-off. Journal
+`03-workspace/journal/2026-06-24-recurring-billing-ops-and-audit-symmetry.md`.
+
 ## 2026-06-24 Native tiered quoting (ADR 0004) and recurring billing (ADR 0005) (PRs #376 to #385)
 
 Eleven PRs, migrations 0133 to 0138, continuing the 2026-06-23 quote-flow and P2

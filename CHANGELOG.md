@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Recurring-billing operationalization and audit symmetry** (PRs #387 to #389,
+  migration 0139). The ADR 0005 Phase 2 generator is now operable: invoicing-api
+  gains a recurring-schedule endpoint set (create / pause / resume / end / list),
+  reusing the invoicing read/write caps with no new capability, idempotency-keyed
+  and org-scoped, one live schedule per project, plus a RecurringBillingControl on
+  the project-detail Invoices tab. The tier-building panel gains a per-tier inline
+  line-field editor. Created-audit symmetry is extended to the entities added
+  after migration 0070 (the 3PL, Co-Pack, KitForce, and WMS pillars plus
+  quote_tiers and recurring_schedules): 19 AFTER INSERT triggers reusing the 0070
+  hash-chain helper, with audit_log_entity_type_check extended as a strict
+  superset. Byte-mirrored canon (parity 47), forward-only migration,
+  staging-validated and prod-verified.
+
 - **Native tiered quoting and recurring billing** (PRs #376 to #385, migrations
   0133 to 0138). ADR 0004: a quote splits into quantity-break tiers under one
   number, each tier owning its lines and per-tier total, with tier-grain
