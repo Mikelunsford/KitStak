@@ -643,6 +643,9 @@ export type ReorderQuoteTiersRequest = z.infer<typeof ReorderQuoteTiersRequestSc
 
 export const ConvertQuoteToProjectRequestSchema = z.object({
   project_number: z.string().nullable().optional(),
+  // ADR 0004: the accepted tier whose lines become the project. Null (or absent)
+  // converts a non-tiered quote's lines as before.
+  tier_id: UuidSchema.nullable().optional(),
 });
 export type ConvertQuoteToProjectRequest = z.infer<
   typeof ConvertQuoteToProjectRequestSchema
@@ -692,6 +695,8 @@ export const ProjectLineItemSchema = z.object({
   tax_rate_id: UuidSchema.nullable(),
   discount_percent: z.union([z.number(), z.string()]),
   position: z.number().int(),
+  // ADR 0005 Phase 1b: carried from the source quote line on conversion.
+  billing_interval: BillingIntervalSchema,
 });
 export type ProjectLineItem = z.infer<typeof ProjectLineItemSchema>;
 
