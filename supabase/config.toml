@@ -92,3 +92,19 @@ verify_jwt = true
 # event_id, persisted in public.stripe_webhook_events. Stripe wiring block.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# audit-chain-verify is a scheduled integrity walker invoked by a GitHub Actions
+# cron with Authorization: Bearer AUDIT_VERIFY_SECRET (a static shared secret),
+# not a Supabase JWT. verify_jwt = false so the gateway lets the cron request
+# reach the function's own secret check; with the default verify_jwt = true the
+# gateway 401s the non-JWT bearer before the handler runs (the long-standing
+# nightly red). Same posture as notifications-worker and stripe-webhook.
+[functions.audit-chain-verify]
+verify_jwt = false
+
+# idempotency-gc is a scheduled cleanup invoked by a GitHub Actions cron with
+# Authorization: Bearer GC_TRIGGER_SECRET, not a Supabase JWT. verify_jwt = false
+# for the same reason as audit-chain-verify above, so the nightly GC sweep can
+# reach the function's secret check instead of being 401'd at the gateway.
+[functions.idempotency-gc]
+verify_jwt = false
