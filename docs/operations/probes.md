@@ -43,6 +43,17 @@ the Postgres `verify_audit_chain(org_id)` helper across every active org
 and returns a JSON envelope with `broken_count` plus per-org details.
 Anything other than `broken_count: 0` is an alert.
 
+Two pre-0085 residue breaks are baselined out of `broken_count` and
+reported separately under `baselined` (see `BASELINED_BROKEN_IDS` in the
+edge function): one in the internal "Kitstak" org (2026-05-22) and one in
+"Cowork Smoke Test Co." (2026-05-27). Both predate migration 0085 (audit
+chain same-transaction ordering), live in internal and smoke orgs not a
+customer org, and cannot be repaired without rewriting append-only
+audit_log history. Baselining keeps the alert meaningful: a new break is
+an id not in that set, so `broken_count` goes above zero and the job
+fails. If you ever need a clean slate, retire the two source orgs rather
+than mutating audit_log.
+
 ### idempotency-gc
 
 Hits the `idempotency-gc` edge function nightly. The function deletes
@@ -75,7 +86,9 @@ exit code).
 ### audit-chain-verify failed
 
 1. The workflow logs the JSON envelope. `broken_count > 0` means one or
-   more orgs have a hash-chain break. The envelope lists which.
+   more orgs have a hash-chain break NOT in the baseline. The envelope
+   lists which under `broken` (the two known residue rows appear under
+   `baselined` and never count toward `broken_count`).
 2. A break means an `audit_log` row was tampered with, deleted, or
    inserted out of band of the trigger. This is a constitutional
    emergency: the audit log is append-only via RLS, so the most likely
