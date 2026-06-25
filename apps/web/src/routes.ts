@@ -126,6 +126,33 @@ const SsoConnectionsPage = lazy(() =>
 );
 // === End Agent A ===
 
+// === Feedback / support ticketing (migration 0140) ===
+// Tester surfaces (/feedback/*) are protected-shell, open to any authenticated
+// tenant user. Staff surfaces (/admin/feedback*) are also protected-shell, not
+// admin-guarded: gating is by platform_staff via useIsPlatformStaff() inside
+// the page, not a tenant role cap. lazy() so each lands in its own chunk.
+const MyFeedbackListPage = lazy(() =>
+  import('./pages/feedback/MyFeedbackListPage').then((m) => ({
+    default: m.MyFeedbackListPage,
+  })),
+);
+const MyFeedbackDetailPage = lazy(() =>
+  import('./pages/feedback/MyFeedbackDetailPage').then((m) => ({
+    default: m.MyFeedbackDetailPage,
+  })),
+);
+const AdminFeedbackInboxPage = lazy(() =>
+  import('./pages/admin/AdminFeedbackInboxPage').then((m) => ({
+    default: m.AdminFeedbackInboxPage,
+  })),
+);
+const AdminFeedbackTicketPage = lazy(() =>
+  import('./pages/admin/AdminFeedbackTicketPage').then((m) => ({
+    default: m.AdminFeedbackTicketPage,
+  })),
+);
+// === End Feedback ===
+
 // === Agent B: CRM lazy imports ===
 const CustomersListPage = lazy(() =>
   import('./pages/crm/customers/CustomersListPage').then((m) => ({
@@ -1036,6 +1063,35 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     layout: 'shell',
   },
   // === End Agent A ===
+  // === Feedback / support ticketing (migration 0140) ===
+  // Tester surfaces: any authenticated tenant user. Staff surfaces: also
+  // protected (not admin), gated by platform_staff inside the page via
+  // useIsPlatformStaff(). The server stays the authority on every data call.
+  {
+    path: '/feedback/tickets',
+    element: MyFeedbackListPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/feedback/tickets/:id',
+    element: MyFeedbackDetailPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/admin/feedback',
+    element: AdminFeedbackInboxPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/admin/feedback/:id',
+    element: AdminFeedbackTicketPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  // === End Feedback ===
   // === Agent B: CRM routes ===
   {
     path: '/crm/customers',

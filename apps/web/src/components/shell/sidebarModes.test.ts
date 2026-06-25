@@ -45,11 +45,13 @@ function canFor(role: RoleCode): (cap: Capability) => boolean {
 }
 
 describe('SIDEBAR_MODES shape (task-based IA)', () => {
-  it('contains exactly eight task sections', () => {
-    expect(SIDEBAR_MODES).toHaveLength(8);
+  it('contains exactly nine task sections', () => {
+    // Eight task groups plus FEEDBACK (migration 0140), which sits between
+    // INSIGHTS and SETTINGS so it reads near the bottom of the rail.
+    expect(SIDEBAR_MODES).toHaveLength(9);
   });
 
-  it('sections are the eight task groups, in order', () => {
+  it('sections are the task groups, in order', () => {
     const keys = SIDEBAR_MODES.map((m) => m.key);
     expect(keys).toEqual<ModeKey[]>([
       'sell',
@@ -59,6 +61,7 @@ describe('SIDEBAR_MODES shape (task-based IA)', () => {
       'money',
       'workforce',
       'insights',
+      'feedback',
       'settings',
     ]);
   });
@@ -659,7 +662,10 @@ describe('filterRoutesByQuery (sidebar type-to-filter)', () => {
 });
 
 describe('section home routes (Section Dashboards, Phase 1)', () => {
-  it('every section declares its /<key> home path', () => {
+  it('every section declares its home path', () => {
+    // Most sections home on /<key>, the SectionHomePage hub. FEEDBACK is the
+    // exception: its "home" is the tester's own ticket list page, not a hub,
+    // so it links straight to /feedback/tickets (migration 0140).
     const expected: Record<ModeKey, string> = {
       sell: '/sell',
       buy: '/buy',
@@ -668,6 +674,7 @@ describe('section home routes (Section Dashboards, Phase 1)', () => {
       money: '/money',
       workforce: '/workforce',
       insights: '/insights',
+      feedback: '/feedback/tickets',
       settings: '/settings',
     };
     for (const mode of SIDEBAR_MODES) {
@@ -688,8 +695,13 @@ describe('section home routes (Section Dashboards, Phase 1)', () => {
   });
 
   it('no section home path collides with a sub-route path', () => {
-    const homes = new Set(SIDEBAR_MODES.map((m) => m.homePath));
-    const subRoutes = SIDEBAR_MODES.flatMap((m) => m.routes.map((r) => r.path));
+    // FEEDBACK is exempt: it homes directly on its only sub-route
+    // (/feedback/tickets) because it has no SectionHomePage hub, so its home
+    // and its route intentionally coincide (migration 0140). Every hub-backed
+    // section still keeps its /<key> home distinct from all sub-routes.
+    const hubSections = SIDEBAR_MODES.filter((m) => m.key !== 'feedback');
+    const homes = new Set(hubSections.map((m) => m.homePath));
+    const subRoutes = hubSections.flatMap((m) => m.routes.map((r) => r.path));
     for (const p of subRoutes) {
       expect(homes.has(p), `sub-route ${p} must not equal a section home`).toBe(
         false,

@@ -83,7 +83,7 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
   it('finds every migration that redefines the constraint', () => {
     // Sanity: the known redefiners through 0110 must all be discovered.
     const nums = migrations.map((m) => m.num);
-    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109, 110, 139]) {
+    for (const n of [36, 73, 74, 76, 78, 79, 80, 81, 83, 89, 91, 96, 98, 99, 102, 106, 109, 110, 139, 140]) {
       expect(nums).toContain(n);
     }
   });
@@ -119,14 +119,19 @@ describe('audit_log entity_type constraint — superset invariant (R-W10-AUDIT-0
     }
   });
 
-  it('0139 is the current authoritative redefinition', () => {
+  it('0140 is the current authoritative redefinition', () => {
     // This pin moves forward each time a migration redefines the constraint.
-    // 0110 (WMS Body B Lots) added lot; 0139 (audit created-symmetry extend)
-    // adds recurring_schedule (ADR 0005 Phase 2) and quote_tier (ADR 0004) on
-    // top of the full 0110 list, so 0139 is latest.
+    // 0139 (audit created-symmetry extend) added recurring_schedule and
+    // quote_tier; 0140 (support tickets) adds support_ticket on top of the
+    // full 0139 list, so 0140 is latest.
     const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
-    expect(latest.num).toBe(139);
-    expect(latest.file).toBe('0139_audit_created_symmetry_extend.sql');
+    expect(latest.num).toBe(140);
+    expect(latest.file).toBe('0140_support_tickets.sql');
+  });
+
+  it('the latest redefinition includes the support ticket type (0140)', () => {
+    const latest = migrations.reduce((a, b) => (b.num > a.num ? b : a));
+    expect(latest.types.has('support_ticket')).toBe(true);
   });
 
   it('the latest redefinition includes the spine types added after 0070 (0139)', () => {

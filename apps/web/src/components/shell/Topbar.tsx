@@ -5,6 +5,7 @@ import {
   KeyRound,
   LogOut,
   Menu,
+  MessageSquarePlus,
   Moon,
   Search,
   Sun,
@@ -27,6 +28,15 @@ import { lazyWithReload } from '@/lib/lazyWithReload';
 // paints.
 const CreateMenu = lazyWithReload(() =>
   import('./CreateMenu').then((m) => ({ default: m.CreateMenu })),
+);
+
+// SendFeedbackModal is lazy-split so its form, Zod parse, and useMe context
+// capture stay out of the eager SPA index chunk (same discipline as CreateMenu
+// and the Sidebar). It mounts only once the tester opens the modal.
+const SendFeedbackModal = lazyWithReload(() =>
+  import('@/pages/feedback/SendFeedbackModal').then((m) => ({
+    default: m.SendFeedbackModal,
+  })),
 );
 
 /**
@@ -61,6 +71,7 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
 
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const orgMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -73,6 +84,7 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
   useEffect(() => {
     setOrgMenuOpen(false);
     setProfileMenuOpen(false);
+    setFeedbackOpen(false);
   }, [pathname]);
 
   // Dismiss on outside pointer-down and on Escape, scoped to whichever menu the
@@ -167,6 +179,31 @@ export function Topbar({ onMenuClick, onOpenCommandBar }: TopbarProps = {}) {
         <Suspense fallback={null}>
           <CreateMenu />
         </Suspense>
+
+        {/* Send feedback. Persistent affordance for any authenticated tenant
+            user (migration 0140). Opens the lazy SendFeedbackModal, which
+            captures route/version/commit context silently on submit. */}
+        {isAuthed ? (
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className="flex items-center gap-2 border border-line px-2 py-1 text-sm text-ink-dim hover:bg-bg-2 hover:text-ink"
+            aria-label="Send feedback"
+            data-testid="topbar-send-feedback"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+            <span className="hidden font-sans lg:inline">Feedback</span>
+          </button>
+        ) : null}
+
+        {feedbackOpen ? (
+          <Suspense fallback={null}>
+            <SendFeedbackModal
+              open={feedbackOpen}
+              onClose={() => setFeedbackOpen(false)}
+            />
+          </Suspense>
+        ) : null}
 
         {/* Workspace switcher */}
         <div className="relative" ref={orgMenuRef}>

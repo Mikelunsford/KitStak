@@ -27,3 +27,18 @@ export { useCustomers } from './useCustomers';
 export { useCustomer } from './useCustomer';
 export { useLeads } from './useLeads';
 export { useConvertLead } from './useConvertLead';
+
+// Feedback / support ticketing (migration 0140)
+export {
+  useMyTickets,
+  useTicket,
+  useTicketComments,
+  useCreateTicket,
+  useAddComment,
+  useIsPlatformStaff,
+  useStaffTickets,
+  useStaffTicket,
+  useStaffTicketComments,
+  useUpdateTicketStaff,
+  useAddStaffComment,
+} from './useFeedback';

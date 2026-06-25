@@ -360,7 +360,15 @@ export type Capability =
   | 'wms.lot.read'
   | 'wms.lot.create'
   | 'wms.lot.update'
-  | 'wms.lot.quarantine';
+  | 'wms.lot.quarantine'
+  // support.* (3) Internal feedback / support ticketing (operator beta channel;
+  // migration 0140). create/comment are granted to every internal and customer
+  // portal role so any field tester can file and reply. manage is a platform
+  // staff sentinel: granted to NO tenant role. The feedback-admin-api gates it
+  // via is_platform_staff() plus the service role, outside this matrix.
+  | 'support.ticket.create'
+  | 'support.ticket.comment'
+  | 'support.ticket.manage';
 
 // ---------------------------------------------------------------------------
 // Role policy. Each role is the union of caps the prior side-car canons
@@ -702,6 +710,10 @@ const OWNER_CAPS: ReadonlyArray<Capability> = [
   'wms.lot.create',
   'wms.lot.update',
   'wms.lot.quarantine',
+  // support.* (operator beta feedback; migration 0140). Any role that can use
+  // the app can file and reply; lifecycle is staff-driven.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const ADMIN_CAPS: ReadonlyArray<Capability> = [
@@ -1028,6 +1040,10 @@ const ADMIN_CAPS: ReadonlyArray<Capability> = [
   'wms.lot.create',
   'wms.lot.update',
   'wms.lot.quarantine',
+  // support.* (operator beta feedback; migration 0140). Any role that can use
+  // the app can file and reply; lifecycle is staff-driven.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const SALES_CAPS: ReadonlyArray<Capability> = [
@@ -1186,6 +1202,10 @@ const SALES_CAPS: ReadonlyArray<Capability> = [
   'threepl.billing_review.approve',
   'threepl.billing_review.cancel',
   'threepl.profitability.read',
+  // support.* (operator beta feedback; migration 0140). Any role that can use
+  // the app can file and reply; lifecycle is staff-driven.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const OPS_CAPS: ReadonlyArray<Capability> = [
@@ -1410,6 +1430,10 @@ const OPS_CAPS: ReadonlyArray<Capability> = [
   'wms.lot.create',
   'wms.lot.update',
   'wms.lot.quarantine',
+  // support.* (operator beta feedback; migration 0140). Any role that can use
+  // the app can file and reply; lifecycle is staff-driven.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
@@ -1550,6 +1574,10 @@ const ACCOUNTING_CAPS: ReadonlyArray<Capability> = [
   'threepl.billing_review.approve',
   'threepl.billing_review.cancel',
   'threepl.profitability.read',
+  // support.* (operator beta feedback; migration 0140). Any role that can use
+  // the app can file and reply; lifecycle is staff-driven.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const VIEWER_CAPS: ReadonlyArray<Capability> = [
@@ -1628,6 +1656,10 @@ const VIEWER_CAPS: ReadonlyArray<Capability> = [
   'shipment.line_item.read',
   // threepl.profitability (Phase A7). Viewer gets the read only (write set plus viewer).
   'threepl.profitability.read',
+  // support.* (operator beta feedback; migration 0140). Viewer can still file
+  // and reply to feedback even though it is otherwise read-only.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const CUSTOMER_PORTAL_CAPS: ReadonlyArray<Capability> = [
@@ -1653,6 +1685,10 @@ const CUSTOMER_PORTAL_CAPS: ReadonlyArray<Capability> = [
   'quotes.pdf.read',
   'projects.project.read',
   'projects.phase.read',
+  // support.* (operator beta feedback; migration 0140). Customer portal users
+  // can file and reply too.
+  'support.ticket.create',
+  'support.ticket.comment',
 ];
 
 const VENDOR_PORTAL_CAPS: ReadonlyArray<Capability> = [

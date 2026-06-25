@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import path from 'path';
 
+import { version as pkgVersion } from './package.json';
+
 // F-Wave9-SENTRY-SOURCEMAPS-01: production source-map upload.
 //
 //   1. `build.sourcemap: 'hidden'` emits `.map` files to `dist/` but
@@ -34,7 +36,22 @@ const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
 const release = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local-dev';
 
+// Build-time constants for the support-ticketing context capture (migration
+// 0140). SendFeedbackModal silently records which app version and commit a
+// tester was on when they filed, so an operator triaging the staff inbox knows
+// exactly what build a bug came from. The version reads from this package's
+// `version` field; the commit reads from the CI build SHA (GitHub Actions or
+// Vercel), falling back to 'dev' for local builds where no SHA is injected.
+// Declared as ambient globals in src/vite-env.d.ts.
+const appVersion = process.env.npm_package_version ?? pkgVersion;
+const buildCommit =
+  process.env.GITHUB_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev';
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __BUILD_COMMIT__: JSON.stringify(buildCommit),
+  },
   plugins: [
     react(),
     sentryVitePlugin({

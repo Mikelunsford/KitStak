@@ -24,3 +24,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Build-time constants injected by vite.config.ts `define`. Used by the
+// support-ticketing context capture (SendFeedbackModal) to record which app
+// build a tester filed from. __APP_VERSION__ is this package's version;
+// __BUILD_COMMIT__ is the CI commit SHA, or 'dev' for local builds.
+declare const __APP_VERSION__: string;
+declare const __BUILD_COMMIT__: string;

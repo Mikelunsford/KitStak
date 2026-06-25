@@ -59,6 +59,8 @@ env:
     search-api
     customer-portal-api
     dashboard-api
+    feedback-api
+    feedback-admin-api
     exports-api
     imports-api
     notifications-worker

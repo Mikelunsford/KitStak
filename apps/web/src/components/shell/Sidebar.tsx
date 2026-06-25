@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, X } from 'lucide-react';
+import { Home, Inbox, X } from 'lucide-react';
 
 import { useOrgFlags } from '@/lib/hooks/useOrgFlags';
 import { useCapabilities } from '@/lib/hooks/useCapabilities';
+import { useIsPlatformStaff } from '@/lib/hooks/useFeedback';
 import {
   SIDEBAR_MODES,
   findActiveMode,
@@ -44,6 +45,9 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   const flags = orgFlags.data;
   const { pathname } = useLocation();
   const { role, can } = useCapabilities();
+  // Platform-staff probe gates the dedicated staff "Feedback inbox" rail link
+  // below (fail-closed while the probe loads). Never 403s; pure render gate.
+  const isStaff = useIsPlatformStaff().data ?? false;
   const activeMode = useMemo(() => findActiveMode(pathname), [pathname]);
 
   const sections = SIDEBAR_MODES.filter((mode) =>
@@ -55,6 +59,9 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   };
 
   const dashboardActive = pathname === '/dashboard';
+  const feedbackInboxActive =
+    pathname === '/admin/feedback' ||
+    pathname.startsWith('/admin/feedback/');
 
   const navContent = (
     <>
@@ -94,6 +101,23 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
           </Link>
         );
       })}
+
+      {isStaff ? (
+        <Link
+          to="/admin/feedback"
+          onClick={onNavClick}
+          aria-current={feedbackInboxActive ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-2 border-l-2 px-3 py-2 font-display text-base uppercase tracking-wider',
+            feedbackInboxActive
+              ? 'border-accent bg-bg-2 text-ink'
+              : 'border-transparent text-ink hover:bg-bg-2',
+          )}
+        >
+          <Inbox className="h-4 w-4" />
+          FEEDBACK INBOX
+        </Link>
+      ) : null}
     </>
   );
 
