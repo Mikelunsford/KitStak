@@ -7,8 +7,9 @@
 // Payments have no state machine surfaced here, so there is no status facet and
 // no enum filter (mirroring the legacy view, which never had a FilterBar). The
 // toolbar offers free-text search on the payment number plus sortable headers.
-// Behavior preserved: the number cell still deep-links to the invoicing apply
-// route, and the create CTA still targets /invoicing/payments/new.
+// Behavior: the number cell deep-links to the read-only payment detail page
+// (/invoicing/payments/:id), and the create CTA still targets
+// /invoicing/payments/new.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -40,7 +41,7 @@ const COLUMNS: ReadonlyArray<DataColumn<Payment>> = [
     sortKey: 'payment_number',
     cellClassName: 'tabular-nums',
     render: (p) => (
-      <Link to={`/invoicing/payments/${p.id}/apply`} className={LINK_CLASS}>
+      <Link to={`/invoicing/payments/${p.id}`} className={LINK_CLASS}>
         {p.payment_number}
       </Link>
     ),

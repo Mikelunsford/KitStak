@@ -45,6 +45,7 @@ import {
   useConvertProjectToInvoice,
 } from '@/lib/hooks/useProjects';
 import { useCustomer } from '@/lib/hooks/useCustomer';
+import { useCapabilities } from '@/lib/hooks/useCapabilities';
 import { useItem } from '@/lib/hooks/useItems';
 import { useQuote } from '@/lib/hooks/useQuotes';
 import { useInvoices } from '@/lib/hooks/useInvoices';
@@ -116,6 +117,7 @@ export function ProjectDetailPage() {
   const removeLine = useRemoveProjectLineItem(projectId);
   const convertToInvoice = useConvertProjectToInvoice(projectId);
   const orgFlags = useOrgFlags();
+  const { can } = useCapabilities();
 
   const customerId = data?.project.customer_id ?? null;
   const sourceQuoteId = data?.project.source_quote_id ?? null;
@@ -504,6 +506,11 @@ export function ProjectDetailPage() {
 
         {/* Secondary cluster of FSM transitions. */}
         <div className="flex flex-wrap gap-2">
+          {can('projects.project.write') && (
+            <Link to={`/projects/${projectId}/edit`}>
+              <Button variant="secondary">Edit</Button>
+            </Link>
+          )}
           {PROJECT_TARGETS
             .filter((to) => to !== state && canTransition(PROJECT_FSM, state, to))
             .map((to) => (

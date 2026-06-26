@@ -5,7 +5,7 @@
 // set and there is no StateStepper. Status moves via the deactivate /
 // reactivate actions, gated on threepl.account.deactivate.
 
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -46,6 +46,7 @@ export function AccountDetailPage() {
   }
   const d = account.data;
   const canToggleStatus = caps.can('threepl.account.deactivate');
+  const canEdit = caps.can('threepl.account.update');
   const togglePending = deactivate.isPending || reactivate.isPending;
   const toggleError = deactivate.error || reactivate.error;
 
@@ -83,7 +84,19 @@ export function AccountDetailPage() {
           { label: d.name },
         ]}
       />
-      <PageHeader title={d.name} actions={statusAction} />
+      <PageHeader
+        title={d.name}
+        actions={
+          <div className="flex gap-2">
+            {canEdit && (
+              <Link to={`/3pl-operations/accounts/${accountId}/edit`}>
+                <Button variant="secondary">Edit</Button>
+              </Link>
+            )}
+            {statusAction}
+          </div>
+        }
+      />
 
       {toggleError && (
         <p className="font-sans text-sm text-accent">

@@ -3,7 +3,7 @@ import { serverListQs, type ServerListParams } from '@/lib/services/serverListQs
 import {
   ProjectSchema, ProjectPhaseSchema,
   type Project, type ProjectPhase,
-  type CreateProjectRequest, type TransitionRequest,
+  type CreateProjectRequest, type UpdateProjectRequest, type TransitionRequest,
   type ReorderPhasesRequest,
 } from '@/lib/types/sales';
 import { z } from 'zod';
@@ -58,6 +58,15 @@ export async function getProject(
 export async function createProject(payload: CreateProjectRequest): Promise<Project> {
   const raw = await apiRequest<unknown>('/projects-api/projects', {
     method: 'POST', body: payload,
+  });
+  return ProjectSchema.parse(raw);
+}
+
+export async function updateProject(
+  id: string, payload: UpdateProjectRequest,
+): Promise<Project> {
+  const raw = await apiRequest<unknown>(`/projects-api/projects/${id}`, {
+    method: 'PATCH', body: payload,
   });
   return ProjectSchema.parse(raw);
 }
