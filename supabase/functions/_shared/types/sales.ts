@@ -664,6 +664,9 @@ export const CreateProjectRequestSchema = z.object({
 });
 export type CreateProjectRequest = z.infer<typeof CreateProjectRequestSchema>;
 
+export const UpdateProjectRequestSchema = CreateProjectRequestSchema.partial();
+export type UpdateProjectRequest = z.infer<typeof UpdateProjectRequestSchema>;
+
 export const TransitionRequestSchema = z.object({
   to: z.string(),
   reason: z.string().nullable().optional(),

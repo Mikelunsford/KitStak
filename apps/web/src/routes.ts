@@ -420,6 +420,11 @@ const ProjectCreatePage = lazy(() =>
     default: m.ProjectCreatePage,
   })),
 );
+const ProjectEditPage = lazy(() =>
+  import('./pages/3pl-operations/projects/ProjectEditPage').then((m) => ({
+    default: m.ProjectEditPage,
+  })),
+);
 // === End Agent C: Sales lazy imports ===
 
 // === Agent E: Vendors/Inventory/Ops routes ===
@@ -542,6 +547,9 @@ const AccountDetailPage = lazy(() =>
 const AccountCreatePage = lazy(() =>
   import('./pages/3pl-operations/accounts/AccountCreatePage').then((m) => ({ default: m.AccountCreatePage })),
 );
+const AccountEditPage = lazy(() =>
+  import('./pages/3pl-operations/accounts/AccountEditPage').then((m) => ({ default: m.AccountEditPage })),
+);
 // Wave 12 Phase A2: 3PL Job Builder.
 const JobTemplatesListPage = lazy(() =>
   import('./pages/3pl-operations/job-builders/JobTemplatesListPage').then((m) => ({ default: m.JobTemplatesListPage })),
@@ -606,6 +614,11 @@ const InvoiceCreatePage = lazy(() =>
 const InvoiceSendPage = lazy(() =>
   import('./pages/3pl-operations/invoicing/InvoiceSendPage').then((m) => ({
     default: m.InvoiceSendPage,
+  })),
+);
+const PaymentDetailPage = lazy(() =>
+  import('./pages/3pl-operations/payments/PaymentDetailPage').then((m) => ({
+    default: m.PaymentDetailPage,
   })),
 );
 const PaymentsListPage = lazy(() =>
@@ -1414,6 +1427,12 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     guard: 'protected',
     layout: 'shell',
   },
+  {
+    path: '/projects/:id/edit',
+    element: ProjectEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
   // === End Agent C ===
   // === Agent E: Vendors/Inventory/Ops routes ===
   { path: '/purchasing/vendors',                element: VendorsListPage,           guard: 'protected', layout: 'shell' },
@@ -1455,6 +1474,7 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/accounts',               element: AccountsListPage,          guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/accounts/new',           element: AccountCreatePage,         guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/accounts/:id',           element: AccountDetailPage,         guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/accounts/:id/edit',      element: AccountEditPage,           guard: 'protected', layout: 'shell' },
   // Wave 12 Phase A2: 3PL Job Builder. /new precedes /:id (a literal beats a
   // param in react-router v6, but the order keeps it honest). Gated on
   // plugins.three_pl via inferPluginForPath (the /3pl-operations prefix), so no
@@ -1483,6 +1503,7 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/invoicing/invoices/:id',           element: InvoiceDetailPage,       guard: 'protected', layout: 'shell' },
   { path: '/invoicing/invoices/:id/send',      element: InvoiceSendPage,         guard: 'protected', layout: 'shell' },
   { path: '/invoicing/payments',               element: PaymentsListPage,        guard: 'protected', layout: 'shell' },
+  { path: '/invoicing/payments/:id',           element: PaymentDetailPage,       guard: 'protected', layout: 'shell' },
   { path: '/invoicing/payments/:id/apply',     element: PaymentApplyPage,        guard: 'protected', layout: 'shell' },
   { path: '/invoicing/credit-notes',           element: CreditNotesListPage,     guard: 'protected', layout: 'shell' },
   { path: '/invoicing/credit-notes/:id',       element: CreditNoteDetailPage,    guard: 'protected', layout: 'shell' },

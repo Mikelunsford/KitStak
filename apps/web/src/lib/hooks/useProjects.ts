@@ -4,12 +4,12 @@ import { apiRequest } from '@/lib/apiClient';
 import { auditLogKeys } from '@/lib/queryKeys/auditLog';
 import { projectsKeys } from '@/lib/queryKeys/projects';
 import {
-  listProjects, getProject, createProject, transitionProject,
+  listProjects, getProject, createProject, updateProject, transitionProject,
   createPhase, transitionPhase, reorderPhases,
   type ListProjectsFilters,
 } from '@/lib/services/projectsService';
 import type {
-  CreateProjectRequest, TransitionRequest, ReorderPhasesRequest,
+  CreateProjectRequest, UpdateProjectRequest, TransitionRequest, ReorderPhasesRequest,
   ProjectLineItem, CreateProjectLineItemRequest,
 } from '@/lib/types/sales';
 
@@ -39,6 +39,22 @@ export function useCreateProject() {
     mutationFn: (payload: CreateProjectRequest) => createProject(payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectsKeys.all });
+    },
+  });
+}
+
+export function useUpdateProject(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateProjectRequest) => updateProject(id, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectsKeys.byId(id) });
+      void qc.invalidateQueries({ queryKey: projectsKeys.all });
+      // Defensive timeline refresh: a header edit is not a state transition, so
+      // the *_state audit trigger may not fire, but invalidating is harmless
+      // (at worst one extra fetch) and keeps the detail timeline fresh if the
+      // server records the change.
+      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('project', id) });
     },
   });
 }
