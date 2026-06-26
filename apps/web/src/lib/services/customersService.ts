@@ -83,10 +83,6 @@ export async function updateCustomer(
   return CustomerSchema.parse(data);
 }
 
-export async function deleteCustomer(id: string): Promise<void> {
-  await apiRequest<unknown>(`/crm-api/customers/${id}`, { method: 'DELETE' });
-}
-
 export interface InviteToPortalResult {
   membership_id: string;
   user_id: string;

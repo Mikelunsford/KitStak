@@ -40,7 +40,6 @@ export {
   getCustomer,
   createCustomer,
   updateCustomer,
-  deleteCustomer,
 } from './customersService';
 export type { ListCustomersFilters } from './customersService';
 export {
@@ -48,14 +47,11 @@ export {
   getContact,
   createContact,
   updateContact,
-  deleteContact,
 } from './contactsService';
 export type { ListContactsFilters } from './contactsService';
 export {
   listActivities,
-  getActivity,
   createActivity,
-  updateActivity,
 } from './activitiesService';
 export type { ListActivitiesFilters } from './activitiesService';
 export {

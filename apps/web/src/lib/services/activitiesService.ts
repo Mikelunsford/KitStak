@@ -9,7 +9,6 @@ import {
   ActivitySchema,
   type Activity,
   type ActivityCreate,
-  type ActivityPatch,
 } from '@/lib/types/crm';
 import { z } from 'zod';
 
@@ -56,27 +55,9 @@ export async function listActivitiesPage(
   return { items: ActivityListSchema.parse(env.data), next_cursor: metaCursor(env.meta) };
 }
 
-export async function getActivity(id: string): Promise<Activity> {
-  const data = await apiRequest<unknown>(`/crm-api/activities/${id}`, {
-    method: 'GET',
-  });
-  return ActivitySchema.parse(data);
-}
-
 export async function createActivity(body: ActivityCreate): Promise<Activity> {
   const data = await apiRequest<unknown>(`/crm-api/activities`, {
     method: 'POST',
-    body,
-  });
-  return ActivitySchema.parse(data);
-}
-
-export async function updateActivity(
-  id: string,
-  body: ActivityPatch,
-): Promise<Activity> {
-  const data = await apiRequest<unknown>(`/crm-api/activities/${id}`, {
-    method: 'PATCH',
     body,
   });
   return ActivitySchema.parse(data);

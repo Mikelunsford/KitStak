@@ -36,7 +36,6 @@ import {
   listAssignments, getAssignment, createAssignment, updateAssignment,
   assignAssignment, startAssignment, completeAssignment, cancelAssignment,
   listTimeEntries, clockInTimeEntry, clockOutTimeEntry, updateTimeEntry,
-  deleteTimeEntry,
   type ListMembersFilters,
   type WorkforceMemberCreate,
   type WorkforceMemberPatch,
@@ -406,17 +405,6 @@ export function useUpdateTimeEntry(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: TimeEntryPatch) => updateTimeEntry(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: timeEntriesKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('time_entry', id) });
-    },
-  });
-}
-
-export function useDeleteTimeEntry(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => deleteTimeEntry(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: timeEntriesKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('time_entry', id) });

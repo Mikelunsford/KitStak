@@ -41,7 +41,3 @@ export async function updateItem(id: string, payload: Partial<Item>): Promise<It
   });
   return ItemSchema.parse(raw);
 }
-
-export async function deleteItem(id: string): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest(`/sales-config-api/items/${id}`, { method: 'DELETE' });
-}
