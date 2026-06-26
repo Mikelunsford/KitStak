@@ -12,21 +12,16 @@ import {
   listSupplyPlans,
   getSupplyPlan,
   createSupplyPlan,
-  updateSupplyPlan,
-  softDeleteSupplyPlan,
   releaseSupplyPlan,
   cancelSupplyPlan,
   fulfillSupplyPlan,
   listSupplyPlanLines,
   createSupplyPlanLine,
-  updateSupplyPlanLine,
   deleteSupplyPlanLine,
   type SupplyPlan,
   type SupplyPlanCreate,
-  type SupplyPlanPatch,
   type ListSupplyPlansFilters,
   type SupplyPlanLineCreate,
-  type SupplyPlanLineUpdate,
 } from '@/lib/services/supplyPlansService';
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
@@ -64,28 +59,6 @@ export function useCreateSupplyPlan() {
     mutationFn: (input: SupplyPlanCreate) => createSupplyPlan(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: supplyPlansKeys.all });
-    },
-  });
-}
-
-export function useUpdateSupplyPlan(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: SupplyPlanPatch) => updateSupplyPlan(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: supplyPlansKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(SUPPLY_PLAN_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteSupplyPlan(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteSupplyPlan(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: supplyPlansKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(SUPPLY_PLAN_ENTITY, id) });
     },
   });
 }
@@ -150,17 +123,6 @@ export function useCreateSupplyPlanLine(planId: string) {
   return useMutation({
     mutationFn: (input: SupplyPlanLineCreate) =>
       createSupplyPlanLine(planId, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: supplyPlanLinesKeys.byPlan(planId) });
-    },
-  });
-}
-
-export function useUpdateSupplyPlanLine(planId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: SupplyPlanLineUpdate }) =>
-      updateSupplyPlanLine(planId, args.lineId, args.body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: supplyPlanLinesKeys.byPlan(planId) });
     },

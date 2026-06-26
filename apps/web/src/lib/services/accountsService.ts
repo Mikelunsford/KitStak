@@ -118,14 +118,6 @@ export async function reactivateAccount(id: string): Promise<ThreePlAccount> {
   return ThreePlAccountSchema.parse(data);
 }
 
-export async function softDeleteAccount(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
-}
-
 // ---------------------------------------------------------------------------
 // account_service_definitions (per-account Rate Card overlay)
 // ---------------------------------------------------------------------------

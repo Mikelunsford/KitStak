@@ -21,7 +21,6 @@ import {
   type JobTemplateStatus,
   type JobTemplateVariant,
   type JobTemplateCreate,
-  type JobTemplatePatch,
   type JobTemplateLine,
   type JobTemplateLineKind,
   type JobTemplateLineCreate,
@@ -33,7 +32,6 @@ export type {
   JobTemplateStatus,
   JobTemplateVariant,
   JobTemplateCreate,
-  JobTemplatePatch,
   JobTemplateLine,
   JobTemplateLineKind,
   JobTemplateLineCreate,
@@ -98,17 +96,6 @@ export async function createJobTemplate(
   return JobTemplateSchema.parse(data);
 }
 
-export async function updateJobTemplate(
-  id: string,
-  input: JobTemplatePatch,
-): Promise<JobTemplate> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return JobTemplateSchema.parse(data);
-}
-
 export async function deactivateJobTemplate(id: string): Promise<JobTemplate> {
   const data = await apiRequest<unknown>(`${BASE}/${id}/deactivate`, {
     method: 'POST',
@@ -121,14 +108,6 @@ export async function reactivateJobTemplate(id: string): Promise<JobTemplate> {
     method: 'POST',
   });
   return JobTemplateSchema.parse(data);
-}
-
-export async function softDeleteJobTemplate(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
 }
 
 // ---------------------------------------------------------------------------

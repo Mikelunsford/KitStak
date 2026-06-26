@@ -18,35 +18,26 @@ import {
   listJobRuns,
   getJobRun,
   createJobRun,
-  updateJobRun,
-  softDeleteJobRun,
   startJobRun,
   completeJobRun,
   closeJobRun,
   cancelJobRun,
   listJobRunDailyLogs,
   createJobRunDailyLog,
-  updateJobRunDailyLog,
   deleteJobRunDailyLog,
   postJobRunDailyLog,
   listJobRunDailyLogConsumedLines,
   createJobRunDailyLogConsumedLine,
-  updateJobRunDailyLogConsumedLine,
   deleteJobRunDailyLogConsumedLine,
   listJobRunDailyLogProducedLines,
   createJobRunDailyLogProducedLine,
-  updateJobRunDailyLogProducedLine,
   deleteJobRunDailyLogProducedLine,
   type JobRun,
   type JobRunCreate,
-  type JobRunPatch,
   type ListJobRunsFilters,
   type JobRunDailyLogCreate,
-  type JobRunDailyLogPatch,
   type JobRunDailyLogConsumedLineCreate,
-  type JobRunDailyLogConsumedLineUpdate,
   type JobRunDailyLogProducedLineCreate,
-  type JobRunDailyLogProducedLineUpdate,
 } from '@/lib/services/jobRunsService';
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
@@ -83,28 +74,6 @@ export function useCreateJobRun() {
     mutationFn: (input: JobRunCreate) => createJobRun(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: jobRunsKeys.all });
-    },
-  });
-}
-
-export function useUpdateJobRun(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: JobRunPatch) => updateJobRun(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobRunsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(JOB_RUN_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteJobRun(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteJobRun(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobRunsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(JOB_RUN_ENTITY, id) });
     },
   });
 }
@@ -157,17 +126,6 @@ export function useCreateJobRunDailyLog(runId: string) {
   return useMutation({
     mutationFn: (input: JobRunDailyLogCreate) =>
       createJobRunDailyLog(runId, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobRunDailyLogsKeys.byRun(runId) });
-    },
-  });
-}
-
-export function useUpdateJobRunDailyLog(runId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { logId: string; body: JobRunDailyLogPatch }) =>
-      updateJobRunDailyLog(runId, args.logId, args.body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: jobRunDailyLogsKeys.byRun(runId) });
     },
@@ -246,17 +204,6 @@ export function useCreateJobRunDailyLogConsumedLine(runId: string, logId: string
   });
 }
 
-export function useUpdateJobRunDailyLogConsumedLine(runId: string, logId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: JobRunDailyLogConsumedLineUpdate }) =>
-      updateJobRunDailyLogConsumedLine(runId, logId, args.lineId, args.body),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobRunDailyLogLinesKeys.byLog(runId, logId) });
-    },
-  });
-}
-
 export function useDeleteJobRunDailyLogConsumedLine(runId: string, logId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -273,17 +220,6 @@ export function useCreateJobRunDailyLogProducedLine(runId: string, logId: string
   return useMutation({
     mutationFn: (input: JobRunDailyLogProducedLineCreate) =>
       createJobRunDailyLogProducedLine(runId, logId, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobRunDailyLogLinesKeys.byLog(runId, logId) });
-    },
-  });
-}
-
-export function useUpdateJobRunDailyLogProducedLine(runId: string, logId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: JobRunDailyLogProducedLineUpdate }) =>
-      updateJobRunDailyLogProducedLine(runId, logId, args.lineId, args.body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: jobRunDailyLogLinesKeys.byLog(runId, logId) });
     },

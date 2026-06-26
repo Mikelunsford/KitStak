@@ -13,13 +13,10 @@ import {
   listBillingReviews,
   getBillingReview,
   createBillingReview,
-  updateBillingReview,
-  softDeleteBillingReview,
   approveBillingReview,
   cancelBillingReview,
   type BillingReview,
   type BillingReviewCreate,
-  type BillingReviewPatch,
   type ListBillingReviewsFilters,
 } from '@/lib/services/billingReviewsService';
 import {
@@ -62,32 +59,6 @@ export function useCreateBillingReview() {
     mutationFn: (input: BillingReviewCreate) => createBillingReview(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: billingReviewsKeys.all });
-    },
-  });
-}
-
-export function useUpdateBillingReview(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: BillingReviewPatch) => updateBillingReview(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: billingReviewsKeys.all });
-      void qc.invalidateQueries({
-        queryKey: auditLogKeys.byEntity(BILLING_REVIEW_ENTITY, id),
-      });
-    },
-  });
-}
-
-export function useSoftDeleteBillingReview(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteBillingReview(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: billingReviewsKeys.all });
-      void qc.invalidateQueries({
-        queryKey: auditLogKeys.byEntity(BILLING_REVIEW_ENTITY, id),
-      });
     },
   });
 }

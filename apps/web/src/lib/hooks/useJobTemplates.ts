@@ -11,17 +11,14 @@ import {
   listJobTemplates,
   getJobTemplate,
   createJobTemplate,
-  updateJobTemplate,
   deactivateJobTemplate,
   reactivateJobTemplate,
-  softDeleteJobTemplate,
   listJobTemplateLines,
   createJobTemplateLine,
   updateJobTemplateLine,
   deleteJobTemplateLine,
   type JobTemplate,
   type JobTemplateCreate,
-  type JobTemplatePatch,
   type ListJobTemplatesFilters,
   type JobTemplateLineCreate,
   type JobTemplateLineUpdate,
@@ -66,19 +63,6 @@ export function useCreateJobTemplate() {
   });
 }
 
-export function useUpdateJobTemplate(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: JobTemplatePatch) => updateJobTemplate(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobTemplatesKeys.all });
-      // The template UPDATE writes an audit_log row via the 0091 trigger;
-      // refresh the detail timeline so the operator sees the latest entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(JOB_TEMPLATE_ENTITY, id) });
-    },
-  });
-}
-
 export function useDeactivateJobTemplate(id: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -94,17 +78,6 @@ export function useReactivateJobTemplate(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => reactivateJobTemplate(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: jobTemplatesKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(JOB_TEMPLATE_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteJobTemplate(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteJobTemplate(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: jobTemplatesKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(JOB_TEMPLATE_ENTITY, id) });

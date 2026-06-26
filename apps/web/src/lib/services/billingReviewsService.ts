@@ -18,14 +18,12 @@ import {
   type BillingReview,
   type BillingReviewStatus,
   type BillingReviewCreate,
-  type BillingReviewPatch,
 } from '@/lib/types/threepl';
 
 export type {
   BillingReview,
   BillingReviewStatus,
   BillingReviewCreate,
-  BillingReviewPatch,
 };
 
 const BASE = '/three-pl-api/billing-reviews';
@@ -84,25 +82,6 @@ export async function createBillingReview(
 ): Promise<BillingReview> {
   const data = await apiRequest<unknown>(BASE, { method: 'POST', body: input });
   return BillingReviewSchema.parse(data);
-}
-
-export async function updateBillingReview(
-  id: string,
-  input: BillingReviewPatch,
-): Promise<BillingReview> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return BillingReviewSchema.parse(data);
-}
-
-export async function softDeleteBillingReview(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
 }
 
 // FSM transitions. Each is a server RPC; the response is the updated review.
