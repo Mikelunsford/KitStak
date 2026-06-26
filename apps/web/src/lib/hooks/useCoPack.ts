@@ -25,15 +25,15 @@ import {
 } from '@/lib/queryKeys/copack';
 import {
   listSalesChannels, createSalesChannel, updateSalesChannel,
-  listSalesOrders, getSalesOrder, createSalesOrder, updateSalesOrder,
+  listSalesOrders, getSalesOrder, createSalesOrder,
   deleteSalesOrder, confirmSalesOrder, cancelSalesOrder,
   listSalesOrderLines, createSalesOrderLine, updateSalesOrderLine,
   deleteSalesOrderLine,
-  listKittingJobs, getKittingJob, createKittingJob, updateKittingJob,
+  listKittingJobs, getKittingJob, createKittingJob,
   deleteKittingJob, startKittingJob, completeKittingJob, cancelKittingJob,
-  listKittingConsumedLines, createKittingConsumedLine, updateKittingConsumedLine,
+  listKittingConsumedLines, createKittingConsumedLine,
   deleteKittingConsumedLine,
-  listKittingProducedLines, createKittingProducedLine, updateKittingProducedLine,
+  listKittingProducedLines, createKittingProducedLine,
   deleteKittingProducedLine,
   listFulfillments, getFulfillment, createFulfillment,
   pickFulfillment, packFulfillment, shipFulfillment, cancelFulfillment,
@@ -42,16 +42,12 @@ import {
   type SalesChannelCreate,
   type SalesChannelPatch,
   type SalesOrderCreate,
-  type SalesOrderPatch,
   type SalesOrderLineItemCreate,
   type SalesOrderLineItemUpdate,
   type ListKittingJobsFilters,
   type KittingJobCreate,
-  type KittingJobPatch,
   type KittingJobConsumedLineItemCreate,
-  type KittingJobConsumedLineItemUpdate,
   type KittingJobProducedLineItemCreate,
-  type KittingJobProducedLineItemUpdate,
   type ListFulfillmentsFilters,
   type FulfillmentCreate,
 } from '@/lib/services/copackService';
@@ -134,17 +130,6 @@ export function useCreateSalesOrder() {
     mutationFn: (input: SalesOrderCreate) => createSalesOrder(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: salesOrdersKeys.all });
-    },
-  });
-}
-
-export function useUpdateSalesOrder(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: SalesOrderPatch) => updateSalesOrder(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: salesOrdersKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('sales_order', id) });
     },
   });
 }
@@ -265,17 +250,6 @@ export function useCreateKittingJob() {
   });
 }
 
-export function useUpdateKittingJob(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: KittingJobPatch) => updateKittingJob(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: kittingJobsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('kitting_job', id) });
-    },
-  });
-}
-
 export function useDeleteKittingJob(id: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -346,19 +320,6 @@ export function useAddKittingConsumedLine(jobId: string) {
   });
 }
 
-export function useUpdateKittingConsumedLine(jobId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: KittingJobConsumedLineItemUpdate }) =>
-      updateKittingConsumedLine(jobId, args.lineId, args.body),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: kittingJobsKeys.consumed(jobId) });
-      void qc.invalidateQueries({ queryKey: kittingJobsKeys.detail(jobId) });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('kitting_job', jobId) });
-    },
-  });
-}
-
 export function useDeleteKittingConsumedLine(jobId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -389,19 +350,6 @@ export function useAddKittingProducedLine(jobId: string) {
   return useMutation({
     mutationFn: (input: KittingJobProducedLineItemCreate) =>
       createKittingProducedLine(jobId, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: kittingJobsKeys.produced(jobId) });
-      void qc.invalidateQueries({ queryKey: kittingJobsKeys.detail(jobId) });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('kitting_job', jobId) });
-    },
-  });
-}
-
-export function useUpdateKittingProducedLine(jobId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: KittingJobProducedLineItemUpdate }) =>
-      updateKittingProducedLine(jobId, args.lineId, args.body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: kittingJobsKeys.produced(jobId) });
       void qc.invalidateQueries({ queryKey: kittingJobsKeys.detail(jobId) });

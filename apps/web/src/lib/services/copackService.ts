@@ -25,20 +25,16 @@ import {
   type SalesOrder,
   type SalesOrderStatus,
   type SalesOrderCreate,
-  type SalesOrderPatch,
   type SalesOrderLineItem,
   type SalesOrderLineItemCreate,
   type SalesOrderLineItemUpdate,
   type KittingJob,
   type KittingJobStatus,
   type KittingJobCreate,
-  type KittingJobPatch,
   type KittingJobConsumedLineItem,
   type KittingJobConsumedLineItemCreate,
-  type KittingJobConsumedLineItemUpdate,
   type KittingJobProducedLineItem,
   type KittingJobProducedLineItemCreate,
-  type KittingJobProducedLineItemUpdate,
   type Fulfillment,
   type FulfillmentStatus,
   type FulfillmentCreate,
@@ -52,20 +48,16 @@ export type {
   SalesOrder,
   SalesOrderStatus,
   SalesOrderCreate,
-  SalesOrderPatch,
   SalesOrderLineItem,
   SalesOrderLineItemCreate,
   SalesOrderLineItemUpdate,
   KittingJob,
   KittingJobStatus,
   KittingJobCreate,
-  KittingJobPatch,
   KittingJobConsumedLineItem,
   KittingJobConsumedLineItemCreate,
-  KittingJobConsumedLineItemUpdate,
   KittingJobProducedLineItem,
   KittingJobProducedLineItemCreate,
-  KittingJobProducedLineItemUpdate,
   Fulfillment,
   FulfillmentStatus,
   FulfillmentCreate,
@@ -183,11 +175,6 @@ export async function createSalesOrder(input: SalesOrderCreate): Promise<SalesOr
   return SalesOrderSchema.parse(data);
 }
 
-export async function updateSalesOrder(id: string, input: SalesOrderPatch): Promise<SalesOrder> {
-  const data = await apiRequest<unknown>(`${BASE}/sales-orders/${id}`, { method: 'PATCH', body: input });
-  return SalesOrderSchema.parse(data);
-}
-
 export async function deleteSalesOrder(id: string): Promise<{ id: string; deleted: boolean }> {
   return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/sales-orders/${id}`, { method: 'DELETE' });
 }
@@ -273,11 +260,6 @@ export async function createKittingJob(input: KittingJobCreate): Promise<Kitting
   return KittingJobSchema.parse(data);
 }
 
-export async function updateKittingJob(id: string, input: KittingJobPatch): Promise<KittingJob> {
-  const data = await apiRequest<unknown>(`${BASE}/kitting-jobs/${id}`, { method: 'PATCH', body: input });
-  return KittingJobSchema.parse(data);
-}
-
 export async function deleteKittingJob(id: string): Promise<{ id: string; deleted: boolean }> {
   return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/kitting-jobs/${id}`, { method: 'DELETE' });
 }
@@ -311,13 +293,6 @@ export async function createKittingConsumedLine(
   return KittingJobConsumedLineItemSchema.parse(data);
 }
 
-export async function updateKittingConsumedLine(
-  jobId: string, lineId: string, input: KittingJobConsumedLineItemUpdate,
-): Promise<KittingJobConsumedLineItem> {
-  const data = await apiRequest<unknown>(`${BASE}/kitting-jobs/${jobId}/consumed/${lineId}`, { method: 'PATCH', body: input });
-  return KittingJobConsumedLineItemSchema.parse(data);
-}
-
 export async function deleteKittingConsumedLine(
   jobId: string, lineId: string,
 ): Promise<{ id: string; deleted: boolean }> {
@@ -335,13 +310,6 @@ export async function createKittingProducedLine(
   jobId: string, input: KittingJobProducedLineItemCreate,
 ): Promise<KittingJobProducedLineItem> {
   const data = await apiRequest<unknown>(`${BASE}/kitting-jobs/${jobId}/produced`, { method: 'POST', body: input });
-  return KittingJobProducedLineItemSchema.parse(data);
-}
-
-export async function updateKittingProducedLine(
-  jobId: string, lineId: string, input: KittingJobProducedLineItemUpdate,
-): Promise<KittingJobProducedLineItem> {
-  const data = await apiRequest<unknown>(`${BASE}/kitting-jobs/${jobId}/produced/${lineId}`, { method: 'PATCH', body: input });
   return KittingJobProducedLineItemSchema.parse(data);
 }
 
