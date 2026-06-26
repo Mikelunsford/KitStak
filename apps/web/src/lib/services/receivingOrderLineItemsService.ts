@@ -6,13 +6,11 @@ import {
   ReceivingOrderLineItemSchema,
   type ReceivingOrderLineItem,
   type ReceivingOrderLineItemCreate,
-  type ReceivingOrderLineItemUpdate,
 } from '@/lib/types/vendors_inventory_ops';
 
 export type {
   ReceivingOrderLineItem,
   ReceivingOrderLineItemCreate,
-  ReceivingOrderLineItemUpdate,
 };
 
 export async function listReceivingOrderLineItems(
@@ -34,18 +32,6 @@ export async function createReceivingOrderLineItem(
   const data = await apiRequest<unknown>(
     `/ops-api/receiving-orders/${receivingOrderId}/line-items`,
     { method: 'POST', body: input },
-  );
-  return ReceivingOrderLineItemSchema.parse(data);
-}
-
-export async function updateReceivingOrderLineItem(
-  receivingOrderId: string,
-  lineId: string,
-  input: ReceivingOrderLineItemUpdate,
-): Promise<ReceivingOrderLineItem> {
-  const data = await apiRequest<unknown>(
-    `/ops-api/receiving-orders/${receivingOrderId}/line-items/${lineId}`,
-    { method: 'PATCH', body: input },
   );
   return ReceivingOrderLineItemSchema.parse(data);
 }

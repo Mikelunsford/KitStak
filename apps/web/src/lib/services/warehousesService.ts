@@ -45,7 +45,3 @@ export async function updateWarehouse(id: string, input: Partial<Warehouse>): Pr
   const data = await apiRequest<unknown>(`/inventory-api/warehouses/${id}`, { method: 'PATCH', body: input });
   return WarehouseSchema.parse(data);
 }
-
-export async function deleteWarehouse(id: string): Promise<void> {
-  await apiRequest<unknown>(`/inventory-api/warehouses/${id}`, { method: 'DELETE' });
-}
