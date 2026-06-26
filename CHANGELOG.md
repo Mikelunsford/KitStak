@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Build-or-delete epic: edit surfaces and an expense-category seed** (PRs #397,
+  #398, #400, migration 0142). A review of the codebase for dead code, unwired
+  elements, and incomplete features drove a build-or-delete pass over a large
+  built-but-unwired mutation surface. Built the three v1-relevant edit surfaces:
+  account edit, project header edit, and a read-only payment detail page with a
+  guarded soft-delete (the sole mis-keyed-payment remedy, since payments have no
+  FSM cancel), each over an already-live cap-gated idempotent edge route, SPA-only.
+  UpdateProjectRequestSchema added byte-identical to both sales.ts mirrors (parity
+  held, SHA256-verified). Migration 0142 seeds eight default expense categories per
+  org and wires the seed into provision_organization, mirroring 0130, fixing the
+  one permanently-empty dropdown (all 6 prod orgs now carry 8 categories). Staging
+  validated and prod verified. The lead-conversion and Exports CSV review P1s are
+  outside this scope and carried.
+
 - **Recurring-billing operationalization and audit symmetry** (PRs #387 to #389,
   migration 0139). The ADR 0005 Phase 2 generator is now operable: invoicing-api
   gains a recurring-schedule endpoint set (create / pause / resume / end / list),
@@ -77,6 +91,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   not fit keyset paging. Read-path only. No schema, RLS, money-helper,
   idempotency, `audit_log`, capability, or dependency change; byte-mirror canon
   parity intact. Merged via PR #347.
+
+### Removed
+
+- **Dead-code sweep of the unwired mutation surface** (PR #400). About 1,621 lines
+  across 53 files, 8 whole files deleted, in 6 domain batches: the edit and
+  soft-delete hooks and services with no UI caller across 3PL commercial, inventory
+  and ops, Co-Pack, WMS, purchasing, AR, KitForce, catalog, and CRM; the two
+  unrouted legacy production pages (F-Wave9-LEGACY-PRODUCTION-ROUTE-RETIRE-01); and
+  the orphan shell components and stranded routes (the never-mounted
+  NotificationsBell, the dead fail-open RequireFlag guard, the CommandBar-superseded
+  GlobalSearchBar, DashboardSummaryPage, QuoteSendPage, notificationsService, and
+  the dead portal-attachments path). Byte-mirror Zod canon types kept (only the
+  SPA-local re-exports were removed); all cap-gated edge routes left dormant; the
+  three symbols the new edit surfaces made live were excluded. typecheck, the full
+  suite, build, and bundle-budget green; the index chunk shaved to 38.45 kB gzip.
 
 ### Fixed
 
