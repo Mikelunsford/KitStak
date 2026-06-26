@@ -237,11 +237,6 @@ const ContactEditPage = lazy(() =>
 // === End Agent B: CRM lazy imports ===
 
 // === Agent F: Cross-cutting lazy imports ===
-const DashboardSummaryPage = lazy(() =>
-  import('./pages/dashboard/DashboardSummaryPage').then((m) => ({
-    default: m.DashboardSummaryPage,
-  })),
-);
 const GlobalSearchResultsPage = lazy(() =>
   import('./pages/search/GlobalSearchResultsPage').then((m) => ({
     default: m.GlobalSearchResultsPage,
@@ -398,11 +393,6 @@ const QuoteDetailPage = lazy(() =>
 const QuoteCreatePage = lazy(() =>
   import('./pages/3pl-operations/quotes/QuoteCreatePage').then((m) => ({
     default: m.QuoteCreatePage,
-  })),
-);
-const QuoteSendPage = lazy(() =>
-  import('./pages/3pl-operations/quotes/QuoteSendPage').then((m) => ({
-    default: m.QuoteSendPage,
   })),
 );
 const ProjectsListPage = lazy(() =>
@@ -1205,12 +1195,6 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   // === End Agent B ===
   // === Agent F: Cross-cutting routes ===
   {
-    path: '/dashboard/summary',
-    element: DashboardSummaryPage,
-    guard: 'protected',
-    layout: 'shell',
-  },
-  {
     path: '/search',
     element: GlobalSearchResultsPage,
     guard: 'protected',
@@ -1400,12 +1384,6 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/quotes/:id',
     element: QuoteDetailPage,
-    guard: 'protected',
-    layout: 'shell',
-  },
-  {
-    path: '/quotes/:id/send',
-    element: QuoteSendPage,
     guard: 'protected',
     layout: 'shell',
   },
@@ -1666,7 +1644,6 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/quotes',              element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/quotes/new',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/quotes/:id',          element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
-  { path: '/3pl-operations/quotes/:id/send',     element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/projects',            element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/projects/new',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },
   { path: '/3pl-operations/projects/:id',        element: SpineMoveRedirect, guard: 'protected', layout: 'shell', isRedirect: true },

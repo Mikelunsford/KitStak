@@ -14,10 +14,6 @@ import {
   deleteComment,
 } from '@/lib/services/commentsService';
 import {
-  listNotifications,
-  markNotificationRead,
-} from '@/lib/services/notificationsService';
-import {
   listSavedViews,
   createSavedView,
   deleteSavedView,
@@ -44,7 +40,6 @@ import { listPdfTemplates } from '@/lib/services/pdfService';
 import {
   attachmentsKeys,
   commentsKeys,
-  notificationsKeys,
   savedViewsKeys,
   searchKeys,
   dashboardKeys,
@@ -109,23 +104,6 @@ export function useDeleteComment(entityType: string, entityId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: commentsKeys.list(entityType, entityId) });
     },
-  });
-}
-
-export function useNotifications(opts: { enabled?: boolean } = {}) {
-  return useQuery({
-    queryKey: notificationsKeys.list(),
-    queryFn: listNotifications,
-    enabled: opts.enabled ?? true,
-    staleTime: 30_000,
-  });
-}
-
-export function useMarkNotificationRead() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: markNotificationRead,
-    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKeys.list() }),
   });
 }
 

@@ -61,28 +61,6 @@ export async function listPortalProjects(): Promise<PortalProject[]> {
   return PortalProjectsSchema.parse(data);
 }
 
-const PortalAttachmentSchema = z.object({
-  id: z.string().uuid(),
-  file_name: z.string(),
-  content_type: z.string().nullable(),
-  size_bytes: z.union([z.number().int(), z.string().regex(/^-?\d+$/)]),
-  created_at: z.string(),
-  storage_path: z.string(),
-});
-export type PortalAttachment = z.infer<typeof PortalAttachmentSchema>;
-const PortalAttachmentsSchema = z.array(PortalAttachmentSchema);
-
-export async function listPortalAttachments(
-  entityType: string,
-  entityId: string,
-): Promise<PortalAttachment[]> {
-  const data = await apiRequest<unknown>(
-    `/customer-portal-api/portal/attachments?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId)}`,
-    { method: 'GET' },
-  );
-  return PortalAttachmentsSchema.parse(data);
-}
-
 // ---------------------------------------------------------------------------
 // F-Wave9-PORTAL-NO-ACTION-WIRING-01: detail fetch for the Download PDF
 // action. The portal-api /portal/invoices/:id and /portal/quotes/:id
