@@ -78,7 +78,3 @@ export async function updateContact(
   });
   return ContactSchema.parse(data);
 }
-
-export async function deleteContact(id: string): Promise<void> {
-  await apiRequest<unknown>(`/crm-api/contacts/${id}`, { method: 'DELETE' });
-}

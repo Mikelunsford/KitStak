@@ -36,7 +36,3 @@ export async function updateTax(id: string, payload: TaxPatch): Promise<Tax> {
 export async function setDefaultTax(id: string): Promise<{ id: string }> {
   return apiRequest(`/sales-config-api/taxes/${id}/set-default`, { method: 'POST' });
 }
-
-export async function deleteTax(id: string): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest(`/sales-config-api/taxes/${id}`, { method: 'DELETE' });
-}
