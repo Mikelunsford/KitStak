@@ -55,8 +55,3 @@ export async function listWmsBinStockPage(
     next_cursor: metaCursor(env.meta),
   };
 }
-
-export async function getWmsBinStock(id: string): Promise<BinStockLevel> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, { method: 'GET' });
-  return BinStockLevelSchema.parse(data);
-}

@@ -16,15 +16,12 @@ import {
   listWmsPutaway,
   getWmsPutaway,
   createWmsPutaway,
-  updateWmsPutaway,
-  softDeleteWmsPutaway,
   setWmsPutawayDestination,
   startWmsPutaway,
   completeWmsPutaway,
   cancelWmsPutaway,
   type PutawayTask,
   type PutawayTaskCreate,
-  type PutawayTaskPatch,
   type ListWmsPutawayFilters,
 } from '@/lib/services/wmsPutawayService';
 
@@ -59,28 +56,6 @@ export function useCreateWmsPutaway() {
     mutationFn: (input: PutawayTaskCreate) => createWmsPutaway(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
-    },
-  });
-}
-
-export function useUpdateWmsPutaway(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: PutawayTaskPatch) => updateWmsPutaway(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteWmsPutaway(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteWmsPutaway(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsPutawayKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(PUTAWAY_ENTITY, id) });
     },
   });
 }

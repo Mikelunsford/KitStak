@@ -12,14 +12,12 @@ import {
   type Lot,
   type LotStatus,
   type LotCreate,
-  type LotPatch,
 } from '@/lib/types/wms';
 
 export type {
   Lot,
   LotStatus,
   LotCreate,
-  LotPatch,
 };
 
 const BASE = '/wms-api/lots';
@@ -69,22 +67,6 @@ export async function getWmsLot(id: string): Promise<Lot> {
 export async function createWmsLot(input: LotCreate): Promise<Lot> {
   const data = await apiRequest<unknown>(BASE, { method: 'POST', body: input });
   return LotSchema.parse(data);
-}
-
-export async function updateWmsLot(id: string, input: LotPatch): Promise<Lot> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return LotSchema.parse(data);
-}
-
-export async function softDeleteWmsLot(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
 }
 
 // Quarantine is a server RPC (active -> quarantined); the response is the
