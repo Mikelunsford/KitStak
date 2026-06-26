@@ -13,11 +13,6 @@ export const commentsKeys = {
     ['comments', entityType, entityId] as const,
 };
 
-export const notificationsKeys = {
-  all: ['notifications'] as const,
-  list: () => ['notifications', 'list'] as const,
-};
-
 export const savedViewsKeys = {
   all: ['saved_views'] as const,
   list: (entityType: string) => ['saved_views', entityType] as const,
@@ -44,8 +39,6 @@ export const portalKeys = {
   invoices: () => ['portal', 'invoices'] as const,
   quotes: () => ['portal', 'quotes'] as const,
   projects: () => ['portal', 'projects'] as const,
-  attachments: (entityType: string, entityId: string) =>
-    ['portal', 'attachments', entityType, entityId] as const,
 };
 
 export const pdfKeys = {

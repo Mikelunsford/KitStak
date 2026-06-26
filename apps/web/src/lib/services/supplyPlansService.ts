@@ -17,22 +17,18 @@ import {
   type SupplyPlan,
   type SupplyPlanStatus,
   type SupplyPlanCreate,
-  type SupplyPlanPatch,
   type SupplyPlanLine,
   type SupplyPlanResolution,
   type SupplyPlanLineCreate,
-  type SupplyPlanLineUpdate,
 } from '@/lib/types/threepl';
 
 export type {
   SupplyPlan,
   SupplyPlanStatus,
   SupplyPlanCreate,
-  SupplyPlanPatch,
   SupplyPlanLine,
   SupplyPlanResolution,
   SupplyPlanLineCreate,
-  SupplyPlanLineUpdate,
 };
 
 const BASE = '/three-pl-api/supply-plans';
@@ -93,25 +89,6 @@ export async function createSupplyPlan(
   return SupplyPlanSchema.parse(data);
 }
 
-export async function updateSupplyPlan(
-  id: string,
-  input: SupplyPlanPatch,
-): Promise<SupplyPlan> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return SupplyPlanSchema.parse(data);
-}
-
-export async function softDeleteSupplyPlan(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
-}
-
 // release: reserve available stock per line, record the shortage; draft -> released.
 export async function releaseSupplyPlan(id: string): Promise<SupplyPlan> {
   const data = await apiRequest<unknown>(`${BASE}/${id}/release`, {
@@ -159,18 +136,6 @@ export async function createSupplyPlanLine(
     method: 'POST',
     body: input,
   });
-  return SupplyPlanLineSchema.parse(data);
-}
-
-export async function updateSupplyPlanLine(
-  planId: string,
-  lineId: string,
-  input: SupplyPlanLineUpdate,
-): Promise<SupplyPlanLine> {
-  const data = await apiRequest<unknown>(
-    `${BASE}/${planId}/lines/${lineId}`,
-    { method: 'PATCH', body: input },
-  );
   return SupplyPlanLineSchema.parse(data);
 }
 

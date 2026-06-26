@@ -14,14 +14,12 @@ import {
   type PutawayTask,
   type PutawayTaskStatus,
   type PutawayTaskCreate,
-  type PutawayTaskPatch,
 } from '@/lib/types/wms';
 
 export type {
   PutawayTask,
   PutawayTaskStatus,
   PutawayTaskCreate,
-  PutawayTaskPatch,
 };
 
 const BASE = '/wms-api/putaway';
@@ -74,25 +72,6 @@ export async function createWmsPutaway(
 ): Promise<PutawayTask> {
   const data = await apiRequest<unknown>(BASE, { method: 'POST', body: input });
   return PutawayTaskSchema.parse(data);
-}
-
-export async function updateWmsPutaway(
-  id: string,
-  input: PutawayTaskPatch,
-): Promise<PutawayTask> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return PutawayTaskSchema.parse(data);
-}
-
-export async function softDeleteWmsPutaway(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
 }
 
 // Set the destination bin on a still-open task (Wave 13 / R-W13-WMS-01). A

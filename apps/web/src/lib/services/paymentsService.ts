@@ -32,8 +32,6 @@ export type PaymentCreate = {
   notes?: string;
 };
 
-export type PaymentPatch = Partial<PaymentCreate>;
-
 export type PaymentApplyBody = {
   allocations: Array<{ invoice_id: string; amount_cents: number | string }>;
 };
@@ -93,17 +91,6 @@ export async function getPayment(id: string): Promise<Payment> {
 export async function createPayment(body: PaymentCreate): Promise<Payment> {
   const data = await apiRequest<unknown>(`/invoicing-api/payments`, {
     method: 'POST',
-    body,
-  });
-  return PaymentSchema.parse(data);
-}
-
-export async function updatePayment(
-  id: string,
-  body: PaymentPatch,
-): Promise<Payment> {
-  const data = await apiRequest<unknown>(`/invoicing-api/payments/${id}`, {
-    method: 'PATCH',
     body,
   });
   return PaymentSchema.parse(data);

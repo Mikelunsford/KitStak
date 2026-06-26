@@ -19,18 +19,3 @@ export async function createPoLineItem(poId: string, input: Partial<PoLineItem>)
   );
   return PoLineItemSchema.parse(data);
 }
-
-export async function updatePoLineItem(poId: string, lineId: string, input: Partial<PoLineItem>): Promise<PoLineItem> {
-  const data = await apiRequest<unknown>(
-    `/vendors-api/purchase-orders/${poId}/line-items/${lineId}`,
-    { method: 'PATCH', body: input },
-  );
-  return PoLineItemSchema.parse(data);
-}
-
-export async function deletePoLineItem(poId: string, lineId: string): Promise<void> {
-  await apiRequest<unknown>(
-    `/vendors-api/purchase-orders/${poId}/line-items/${lineId}`,
-    { method: 'DELETE' },
-  );
-}

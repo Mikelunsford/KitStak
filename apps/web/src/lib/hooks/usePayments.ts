@@ -9,11 +9,9 @@ import {
   deletePayment,
   getPayment,
   listPayments,
-  updatePayment,
   type ListPaymentsFilters,
   type PaymentApplyBody,
   type PaymentCreate,
-  type PaymentPatch,
 } from '@/lib/services/paymentsService';
 
 import { applyPaymentInvalidationKeys } from './paymentInvalidation';
@@ -63,17 +61,6 @@ export function useCreatePayment() {
         customer_id: payment.customer_id ?? null,
         amount_cents_bucket: bucketCents(payment.amount_cents),
       });
-    },
-  });
-}
-
-export function useUpdatePayment(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: PaymentPatch) => updatePayment(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: paymentKeys.detail(id) });
-      qc.invalidateQueries({ queryKey: paymentKeys.all });
     },
   });
 }

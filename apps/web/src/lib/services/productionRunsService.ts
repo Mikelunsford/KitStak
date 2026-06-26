@@ -7,18 +7,8 @@ import {
 
 export type { ProductionRun, ProductionRunStatus };
 
-export async function listProductionRuns(): Promise<ProductionRun[]> {
-  const data = await apiRequest<unknown>('/ops-api/production-runs', { method: 'GET' });
-  return (data as ProductionRun[]).map((r) => ProductionRunSchema.parse(r));
-}
-
 export async function getProductionRun(id: string): Promise<ProductionRun> {
   const data = await apiRequest<unknown>(`/ops-api/production-runs/${id}`, { method: 'GET' });
-  return ProductionRunSchema.parse(data);
-}
-
-export async function createProductionRun(input: Partial<ProductionRun>): Promise<ProductionRun> {
-  const data = await apiRequest<unknown>('/ops-api/production-runs', { method: 'POST', body: input });
   return ProductionRunSchema.parse(data);
 }
 

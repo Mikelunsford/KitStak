@@ -11,14 +11,12 @@ import {
   type WarehouseLocation,
   type WarehouseLocationType,
   type WarehouseLocationCreate,
-  type WarehouseLocationPatch,
 } from '@/lib/types/wms';
 
 export type {
   WarehouseLocation,
   WarehouseLocationType,
   WarehouseLocationCreate,
-  WarehouseLocationPatch,
 };
 
 const BASE = '/wms-api/locations';
@@ -76,17 +74,6 @@ export async function createWmsLocation(
   return WarehouseLocationSchema.parse(data);
 }
 
-export async function updateWmsLocation(
-  id: string,
-  input: WarehouseLocationPatch,
-): Promise<WarehouseLocation> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return WarehouseLocationSchema.parse(data);
-}
-
 export async function deactivateWmsLocation(
   id: string,
 ): Promise<WarehouseLocation> {
@@ -94,12 +81,4 @@ export async function deactivateWmsLocation(
     method: 'POST',
   });
   return WarehouseLocationSchema.parse(data);
-}
-
-export async function softDeleteWmsLocation(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
 }

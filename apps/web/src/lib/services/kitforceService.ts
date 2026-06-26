@@ -384,7 +384,3 @@ export async function updateTimeEntry(id: string, input: TimeEntryPatch): Promis
   const data = await apiRequest<unknown>(`${BASE}/time-entries/${id}`, { method: 'PATCH', body: input });
   return TimeEntrySchema.parse(data);
 }
-
-export async function deleteTimeEntry(id: string): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/time-entries/${id}`, { method: 'DELETE' });
-}

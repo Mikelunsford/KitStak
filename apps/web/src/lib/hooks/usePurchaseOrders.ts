@@ -8,7 +8,7 @@ import {
   type ListPurchaseOrdersFilters,
 } from '@/lib/services/purchaseOrdersService';
 import {
-  listPoLineItems, createPoLineItem, updatePoLineItem, deletePoLineItem,
+  listPoLineItems, createPoLineItem,
   type PoLineItem,
 } from '@/lib/services/poLineItemsService';
 
@@ -80,29 +80,6 @@ export function useCreatePoLineItem(poId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<PoLineItem>) => createPoLineItem(poId, input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: purchaseOrdersKeys.lines(poId) });
-      qc.invalidateQueries({ queryKey: purchaseOrdersKeys.detail(poId) });
-    },
-  });
-}
-
-export function useUpdatePoLineItem(poId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: { lineId: string; input: Partial<PoLineItem> }) =>
-      updatePoLineItem(poId, vars.lineId, vars.input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: purchaseOrdersKeys.lines(poId) });
-      qc.invalidateQueries({ queryKey: purchaseOrdersKeys.detail(poId) });
-    },
-  });
-}
-
-export function useDeletePoLineItem(poId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (lineId: string) => deletePoLineItem(poId, lineId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: purchaseOrdersKeys.lines(poId) });
       qc.invalidateQueries({ queryKey: purchaseOrdersKeys.detail(poId) });

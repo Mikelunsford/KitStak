@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import { wmsBinStockKeys } from '@/lib/queryKeys/wms';
 import {
   listWmsBinStock,
-  getWmsBinStock,
   type ListWmsBinStockFilters,
   type BinStockLevel,
 } from '@/lib/services/wmsBinStockService';
@@ -19,17 +18,6 @@ export function useWmsBinStockList(filters: ListWmsBinStockFilters = {}) {
   return useQuery({
     queryKey: wmsBinStockKeys.list(filters),
     queryFn: () => listWmsBinStock(filters),
-    ...C,
-  });
-}
-
-export function useWmsBinStock(id: string | undefined) {
-  return useQuery({
-    queryKey: id
-      ? wmsBinStockKeys.detail(id)
-      : ['wms', 'bin_stock_levels', 'detail', 'noop'],
-    queryFn: () => getWmsBinStock(id as string),
-    enabled: !!id,
     ...C,
   });
 }

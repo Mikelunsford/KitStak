@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { itemsKeys } from '@/lib/queryKeys/items';
 import {
-  listItems, getItem, createItem, updateItem, deleteItem,
+  listItems, getItem, createItem, updateItem,
 } from '@/lib/services/itemsService';
 import type { Item } from '@/lib/types/sales';
 
@@ -34,16 +34,6 @@ export function useUpdateItem(id: string) {
     mutationFn: (payload: Partial<Item>) => updateItem(id, payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: itemsKeys.byId(id) });
-      void qc.invalidateQueries({ queryKey: itemsKeys.all });
-    },
-  });
-}
-
-export function useDeleteItem() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteItem(id),
-    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: itemsKeys.all });
     },
   });
