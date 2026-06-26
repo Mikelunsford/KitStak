@@ -6,13 +6,11 @@ import {
   ShipmentLineItemSchema,
   type ShipmentLineItem,
   type ShipmentLineItemCreate,
-  type ShipmentLineItemUpdate,
 } from '@/lib/types/vendors_inventory_ops';
 
 export type {
   ShipmentLineItem,
   ShipmentLineItemCreate,
-  ShipmentLineItemUpdate,
 };
 
 export async function listShipmentLineItems(
@@ -34,18 +32,6 @@ export async function createShipmentLineItem(
   const data = await apiRequest<unknown>(
     `/ops-api/shipments/${shipmentId}/line-items`,
     { method: 'POST', body: input },
-  );
-  return ShipmentLineItemSchema.parse(data);
-}
-
-export async function updateShipmentLineItem(
-  shipmentId: string,
-  lineId: string,
-  input: ShipmentLineItemUpdate,
-): Promise<ShipmentLineItem> {
-  const data = await apiRequest<unknown>(
-    `/ops-api/shipments/${shipmentId}/line-items/${lineId}`,
-    { method: 'PATCH', body: input },
   );
   return ShipmentLineItemSchema.parse(data);
 }

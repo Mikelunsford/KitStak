@@ -62,11 +62,6 @@ export async function createReceivingOrder(input: Partial<ReceivingOrder>): Prom
   return ReceivingOrderSchema.parse(data);
 }
 
-export async function updateReceivingOrder(id: string, input: Partial<ReceivingOrder>): Promise<ReceivingOrder> {
-  const data = await apiRequest<unknown>(`/ops-api/receiving-orders/${id}`, { method: 'PATCH', body: input });
-  return ReceivingOrderSchema.parse(data);
-}
-
 // WMS Body B receiving-to-dock (F-Wave12-WMS-RECEIVE-DOCK-01): the dock is
 // accepted ONLY on the transition to 'received'. The optional dock_location_id
 // rides the SAME /transition POST that flips status -> received so the
@@ -90,20 +85,6 @@ export async function transitionReceivingOrder(
   const data = await apiRequest<unknown>(
     `/ops-api/receiving-orders/${id}/transition`,
     { method: 'POST', body },
-  );
-  return ReceivingOrderSchema.parse(data);
-}
-
-export async function receiveReceivingOrder(
-  id: string,
-  payload: {
-    received_date?: string;
-    lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }>;
-  },
-): Promise<ReceivingOrder> {
-  const data = await apiRequest<unknown>(
-    `/ops-api/receiving-orders/${id}/receive`,
-    { method: 'POST', body: payload },
   );
   return ReceivingOrderSchema.parse(data);
 }

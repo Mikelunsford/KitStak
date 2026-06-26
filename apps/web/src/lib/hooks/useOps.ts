@@ -7,34 +7,34 @@ import {
   receivingOrdersKeys, productionRunsKeys, shipmentsKeys,
 } from '@/lib/queryKeys/ops';
 import {
-  listReceivingOrders, getReceivingOrder, createReceivingOrder, updateReceivingOrder,
-  transitionReceivingOrder, receiveReceivingOrder,
+  listReceivingOrders, getReceivingOrder, createReceivingOrder,
+  transitionReceivingOrder,
   type ReceivingOrder,
   type ListReceivingOrdersFilters,
   type TransitionReceivingOrderBody,
 } from '@/lib/services/receivingOrdersService';
 import {
-  listProductionRuns, getProductionRun, createProductionRun, updateProductionRun,
+  getProductionRun, updateProductionRun,
   startProductionRun, completeProductionRun,
   type ProductionRun, type CompleteRunInput,
 } from '@/lib/services/productionRunsService';
 import {
-  listShipments, getShipment, createShipment, updateShipment, transitionShipment,
+  listShipments, getShipment, createShipment, transitionShipment,
   shipShipment,
   type Shipment, type ShipmentStatus, type ShipShipmentInput,
   type ListShipmentsFilters,
 } from '@/lib/services/shipmentsService';
 import {
   listReceivingOrderLineItems, createReceivingOrderLineItem,
-  updateReceivingOrderLineItem, deleteReceivingOrderLineItem,
+  deleteReceivingOrderLineItem,
   type ReceivingOrderLineItem,
-  type ReceivingOrderLineItemCreate, type ReceivingOrderLineItemUpdate,
+  type ReceivingOrderLineItemCreate,
 } from '@/lib/services/receivingOrderLineItemsService';
 import {
   listShipmentLineItems, createShipmentLineItem,
-  updateShipmentLineItem, deleteShipmentLineItem,
+  deleteShipmentLineItem,
   type ShipmentLineItem,
-  type ShipmentLineItemCreate, type ShipmentLineItemUpdate,
+  type ShipmentLineItemCreate,
 } from '@/lib/services/shipmentLineItemsService';
 
 const C = { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 as const };
@@ -59,19 +59,6 @@ export function useCreateReceivingOrder() {
   return useMutation({
     mutationFn: (input: Partial<ReceivingOrder>) => createReceivingOrder(input),
     onSuccess: () => { qc.invalidateQueries({ queryKey: receivingOrdersKeys.all }); },
-  });
-}
-export function useUpdateReceivingOrder(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Partial<ReceivingOrder>) => updateReceivingOrder(id, input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: receivingOrdersKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: receiving order updates write an
-      // audit_log row; invalidate the timeline so the detail page reflects
-      // the latest entries.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', id) });
-    },
   });
 }
 export function useTransitionReceivingOrder(id: string) {
@@ -108,46 +95,13 @@ export function useTransitionReceivingOrder(id: string) {
     },
   });
 }
-export function useReceiveReceivingOrder(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { received_date?: string; lines: Array<{ item_id: string; quantity: number; unit_cost_cents?: number }> }) =>
-      receiveReceivingOrder(id, input),
-    onSuccess: (order, input) => {
-      // R-W13-UX-01: the receive RPC flips status -> received; invalidate the
-      // detail key explicitly so the stepper and totals update without reload.
-      // The shared transitionInvalidationKeys contract sweeps the detail key,
-      // the entity tree, and the audit timeline (draft -> received writes a row).
-      for (const queryKey of transitionInvalidationKeys(receivingOrdersKeys, 'receiving_order', id)) {
-        void qc.invalidateQueries({ queryKey });
-      }
-      // R-W13-OBS-01: emit the WMS receiving funnel event on the receive RPC.
-      // line_count is the count of received lines (not their item names or
-      // amounts); the receive RPC carries no dock so has_dock is false here.
-      track(
-        'receiving_received',
-        buildReceivingReceivedProps(order.id, order.status, false, input.lines.length),
-      );
-    },
-  });
-}
 
 // production
-export function useProductionRunsList() {
-  return useQuery({ queryKey: productionRunsKeys.list(), queryFn: listProductionRuns, ...C });
-}
 export function useProductionRun(id: string | undefined) {
   return useQuery({
     queryKey: id ? productionRunsKeys.detail(id) : ['ops', 'production_runs', 'detail', 'noop'],
     queryFn: () => getProductionRun(id as string),
     enabled: !!id, ...C,
-  });
-}
-export function useCreateProductionRun() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Partial<ProductionRun>) => createProductionRun(input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: productionRunsKeys.all }); },
   });
 }
 export function useUpdateProductionRun(id: string) {
@@ -217,19 +171,6 @@ export function useCreateShipment() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: shipmentsKeys.all }); },
   });
 }
-export function useUpdateShipment(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Partial<Shipment>) => updateShipment(id, input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: shipmentsKeys.all });
-      // F-Wave7-AUDIT-CACHE-SWEEP-01: shipment updates write an audit_log
-      // row; invalidate the timeline so the detail page reflects the
-      // latest entries.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', id) });
-    },
-  });
-}
 export function useTransitionShipment(id: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -295,19 +236,6 @@ export function useCreateReceivingOrderLineItem(receivingOrderId: string) {
   });
 }
 
-export function useUpdateReceivingOrderLineItem(receivingOrderId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: ReceivingOrderLineItemUpdate }) =>
-      updateReceivingOrderLineItem(receivingOrderId, args.lineId, args.body),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: receivingLineItemsKey(receivingOrderId) });
-      void qc.invalidateQueries({ queryKey: receivingOrdersKeys.detail(receivingOrderId) });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('receiving_order', receivingOrderId) });
-    },
-  });
-}
-
 export function useDeleteReceivingOrderLineItem(receivingOrderId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -349,19 +277,6 @@ export function useCreateShipmentLineItem(shipmentId: string) {
   });
 }
 
-export function useUpdateShipmentLineItem(shipmentId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (args: { lineId: string; body: ShipmentLineItemUpdate }) =>
-      updateShipmentLineItem(shipmentId, args.lineId, args.body),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: shipmentLineItemsKey(shipmentId) });
-      void qc.invalidateQueries({ queryKey: shipmentsKeys.detail(shipmentId) });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity('shipment', shipmentId) });
-    },
-  });
-}
-
 export function useDeleteShipmentLineItem(shipmentId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -377,6 +292,6 @@ export function useDeleteShipmentLineItem(shipmentId: string) {
 
 // Re-export types so consumer pages can import everything from useOps.
 export type {
-  ReceivingOrderLineItem, ReceivingOrderLineItemCreate, ReceivingOrderLineItemUpdate,
-  ShipmentLineItem, ShipmentLineItemCreate, ShipmentLineItemUpdate,
+  ReceivingOrderLineItem, ReceivingOrderLineItemCreate,
+  ShipmentLineItem, ShipmentLineItemCreate,
 };

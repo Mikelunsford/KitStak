@@ -61,11 +61,6 @@ export async function createShipment(input: Partial<Shipment>): Promise<Shipment
   return ShipmentSchema.parse(data);
 }
 
-export async function updateShipment(id: string, input: Partial<Shipment>): Promise<Shipment> {
-  const data = await apiRequest<unknown>(`/ops-api/shipments/${id}`, { method: 'PATCH', body: input });
-  return ShipmentSchema.parse(data);
-}
-
 export async function transitionShipment(id: string, to: ShipmentStatus): Promise<Shipment> {
   const data = await apiRequest<unknown>(
     `/ops-api/shipments/${id}/transition`,

@@ -3,7 +3,7 @@ import {
   warehousesKeys, stockLevelsKeys, stockMovementsKeys, bomItemsKeys,
 } from '@/lib/queryKeys/inventory';
 import {
-  listWarehouses, getWarehouse, createWarehouse, updateWarehouse, deleteWarehouse,
+  listWarehouses, getWarehouse, createWarehouse, updateWarehouse,
   type Warehouse,
 } from '@/lib/services/warehousesService';
 import { listStockLevels } from '@/lib/services/stockLevelsService';
@@ -40,14 +40,6 @@ export function useUpdateWarehouse(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<Warehouse>) => updateWarehouse(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: warehousesKeys.all }); },
-  });
-}
-
-export function useDeleteWarehouse() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteWarehouse(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: warehousesKeys.all }); },
   });
 }
