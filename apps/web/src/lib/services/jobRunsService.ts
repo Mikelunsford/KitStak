@@ -20,32 +20,24 @@ import {
   type JobRun,
   type JobRunStatus,
   type JobRunCreate,
-  type JobRunPatch,
   type JobRunDailyLog,
   type JobRunDailyLogCreate,
-  type JobRunDailyLogPatch,
   type JobRunDailyLogConsumedLine,
   type JobRunDailyLogConsumedLineCreate,
-  type JobRunDailyLogConsumedLineUpdate,
   type JobRunDailyLogProducedLine,
   type JobRunDailyLogProducedLineCreate,
-  type JobRunDailyLogProducedLineUpdate,
 } from '@/lib/types/threepl';
 
 export type {
   JobRun,
   JobRunStatus,
   JobRunCreate,
-  JobRunPatch,
   JobRunDailyLog,
   JobRunDailyLogCreate,
-  JobRunDailyLogPatch,
   JobRunDailyLogConsumedLine,
   JobRunDailyLogConsumedLineCreate,
-  JobRunDailyLogConsumedLineUpdate,
   JobRunDailyLogProducedLine,
   JobRunDailyLogProducedLineCreate,
-  JobRunDailyLogProducedLineUpdate,
 };
 
 const BASE = '/three-pl-api/job-runs';
@@ -106,25 +98,6 @@ export async function createJobRun(input: JobRunCreate): Promise<JobRun> {
   return JobRunSchema.parse(data);
 }
 
-export async function updateJobRun(
-  id: string,
-  input: JobRunPatch,
-): Promise<JobRun> {
-  const data = await apiRequest<unknown>(`${BASE}/${id}`, {
-    method: 'PATCH',
-    body: input,
-  });
-  return JobRunSchema.parse(data);
-}
-
-export async function softDeleteJobRun(
-  id: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiRequest<{ id: string; deleted: boolean }>(`${BASE}/${id}`, {
-    method: 'DELETE',
-  });
-}
-
 // FSM transitions. Each is a server RPC; the response is the updated run.
 export async function startJobRun(id: string): Promise<JobRun> {
   const data = await apiRequest<unknown>(`${BASE}/${id}/start`, { method: 'POST' });
@@ -165,18 +138,6 @@ export async function createJobRunDailyLog(
 ): Promise<JobRunDailyLog> {
   const data = await apiRequest<unknown>(`${BASE}/${runId}/daily-logs`, {
     method: 'POST',
-    body: input,
-  });
-  return JobRunDailyLogSchema.parse(data);
-}
-
-export async function updateJobRunDailyLog(
-  runId: string,
-  logId: string,
-  input: JobRunDailyLogPatch,
-): Promise<JobRunDailyLog> {
-  const data = await apiRequest<unknown>(`${BASE}/${runId}/daily-logs/${logId}`, {
-    method: 'PATCH',
     body: input,
   });
   return JobRunDailyLogSchema.parse(data);
@@ -234,19 +195,6 @@ export async function createJobRunDailyLogConsumedLine(
   return JobRunDailyLogConsumedLineSchema.parse(data);
 }
 
-export async function updateJobRunDailyLogConsumedLine(
-  runId: string,
-  logId: string,
-  lineId: string,
-  input: JobRunDailyLogConsumedLineUpdate,
-): Promise<JobRunDailyLogConsumedLine> {
-  const data = await apiRequest<unknown>(
-    `${BASE}/${runId}/daily-logs/${logId}/consumed-lines/${lineId}`,
-    { method: 'PATCH', body: input },
-  );
-  return JobRunDailyLogConsumedLineSchema.parse(data);
-}
-
 export async function deleteJobRunDailyLogConsumedLine(
   runId: string,
   logId: string,
@@ -279,19 +227,6 @@ export async function createJobRunDailyLogProducedLine(
   const data = await apiRequest<unknown>(
     `${BASE}/${runId}/daily-logs/${logId}/produced-lines`,
     { method: 'POST', body: input },
-  );
-  return JobRunDailyLogProducedLineSchema.parse(data);
-}
-
-export async function updateJobRunDailyLogProducedLine(
-  runId: string,
-  logId: string,
-  lineId: string,
-  input: JobRunDailyLogProducedLineUpdate,
-): Promise<JobRunDailyLogProducedLine> {
-  const data = await apiRequest<unknown>(
-    `${BASE}/${runId}/daily-logs/${logId}/produced-lines/${lineId}`,
-    { method: 'PATCH', body: input },
   );
   return JobRunDailyLogProducedLineSchema.parse(data);
 }

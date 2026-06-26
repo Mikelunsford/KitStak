@@ -14,7 +14,6 @@ import {
   updateAccount,
   deactivateAccount,
   reactivateAccount,
-  softDeleteAccount,
   listAccountServices,
   createAccountService,
   updateAccountService,
@@ -92,17 +91,6 @@ export function useReactivateAccount(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => reactivateAccount(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: accountsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(ACCOUNT_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteAccount(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteAccount(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: accountsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(ACCOUNT_ENTITY, id) });
