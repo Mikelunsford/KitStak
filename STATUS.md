@@ -1,5 +1,47 @@
 # Kitstak Status
 
+## 2026-06-26 Build-or-delete epic: edit surfaces, expense-category seed, dead-code sweep (PRs #397, #398, #400)
+
+A review of the codebase for dead code, unwired elements, incomplete features, and
+broken end-to-end logic drove a build-or-delete pass over a large built-but-unwired
+mutation surface (edit and delete chains plumbed service to hook to edge route
+across roughly ten domains with no UI caller). The scope resolved it about 85
+percent delete, 15 percent build. Both prior P0 or HIGH broken links from the
+2026-06-19 wiring map (the StockMovements source cells) were re-verified as already
+fixed by the nav redesign.
+
+Three v1-relevant edit surfaces shipped (PR #397, squash 41ccf2d, SPA-only over
+already-live cap-gated idempotent edge routes): account edit, project header edit
+(new updateProject service and useUpdateProject hook, UpdateProjectRequestSchema
+byte-identical in both sales.ts mirrors), and a read-only payment detail page with
+a guarded soft-delete, the sole mis-keyed-payment remedy since payments have no FSM
+cancel. Reviewed by three specialists; the one finding (the Project Edit button
+gating on projects.project.write) was fixed before merge.
+
+Migration 0142 (PR #398, squash cf77101) seeds eight default expense categories per
+org and wires the seed into provision_organization, mirroring 0130, fixing the one
+permanently-empty dropdown. Held for operator sign-off on the provision_organization
+change, then staging-validated (4 orgs to 8 categories each, idempotent re-run) and
+prod-verified after the migrate workflow (all 6 prod orgs now carry 8 categories,
+48 rows).
+
+The dead-code sweep (PR #400, squash 18feb4c, replacing the auto-closed #399)
+removed about 1,621 lines across 53 files, 8 whole files, in 6 domain batches: the
+unwired edit and soft-delete hooks and services across 3PL, inventory and ops,
+Co-Pack, WMS, purchasing, AR, KitForce, catalog, and CRM; the two unrouted legacy
+production pages; and the orphan shell components and stranded routes. Byte-mirror
+canon types kept, cap-gated edge routes left dormant, the three build-live symbols
+excluded.
+
+Gates green on every PR: typecheck, lint, 1141 regression passing, contract and
+parity (SHA256-verified mirror), build (index 38.45 kB gzip), bundle-budget, and CI
+with RLS and e2e against staging. Carried: the two review P1s outside this scope,
+R-W15-CRM-01 (lead conversion unreachable) and R-W15-EXPORT-01 (Exports CSV 404),
+plus the leave-dormant backend surfaces (quote versions and approvals, structured
+units, item_categories). Audits at `03-workspace/audits/review-codebase-2026-06-26.md`
+and `epic-build-or-delete-scope-2026-06-26.md`. Journal
+`03-workspace/journal/2026-06-26-w15-build-or-delete-epic.md`.
+
 ## 2026-06-24 Recurring-billing operationalization, tier-editor polish, audit symmetry (PRs #387 to #389)
 
 Three follow-ups from the same-day tiered-quoting and recurring-billing closeout.
