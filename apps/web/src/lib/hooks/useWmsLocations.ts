@@ -11,12 +11,9 @@ import {
   listWmsLocations,
   getWmsLocation,
   createWmsLocation,
-  updateWmsLocation,
   deactivateWmsLocation,
-  softDeleteWmsLocation,
   type WarehouseLocation,
   type WarehouseLocationCreate,
-  type WarehouseLocationPatch,
   type ListWmsLocationsFilters,
 } from '@/lib/services/wmsLocationsService';
 
@@ -63,34 +60,10 @@ export function useCreateWmsLocation() {
   });
 }
 
-export function useUpdateWmsLocation(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: WarehouseLocationPatch) => updateWmsLocation(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsLocationsKeys.all });
-      // The location UPDATE writes an audit_log row via the 0106 trigger;
-      // refresh the detail timeline so the operator sees the latest entry.
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(LOCATION_ENTITY, id) });
-    },
-  });
-}
-
 export function useDeactivateWmsLocation(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => deactivateWmsLocation(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsLocationsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(LOCATION_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteWmsLocation(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteWmsLocation(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: wmsLocationsKeys.all });
       void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(LOCATION_ENTITY, id) });

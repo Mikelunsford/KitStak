@@ -12,12 +12,9 @@ import {
   listWmsLots,
   getWmsLot,
   createWmsLot,
-  updateWmsLot,
-  softDeleteWmsLot,
   quarantineWmsLot,
   type Lot,
   type LotCreate,
-  type LotPatch,
   type ListWmsLotsFilters,
 } from '@/lib/services/wmsLotsService';
 
@@ -58,28 +55,6 @@ export function useCreateWmsLot() {
     mutationFn: (input: LotCreate) => createWmsLot(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: wmsLotsKeys.all });
-    },
-  });
-}
-
-export function useUpdateWmsLot(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: LotPatch) => updateWmsLot(id, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsLotsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(LOT_ENTITY, id) });
-    },
-  });
-}
-
-export function useSoftDeleteWmsLot(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => softDeleteWmsLot(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: wmsLotsKeys.all });
-      void qc.invalidateQueries({ queryKey: auditLogKeys.byEntity(LOT_ENTITY, id) });
     },
   });
 }
