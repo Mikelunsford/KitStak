@@ -1,9 +1,9 @@
 // ImportWizardPage. Three-step CSV import flow:
 //   1) pick entity_type
-//   2) paste CSV text (or upload file) -> parse -> validate dry-run
+//   2) upload a .csv file (or paste CSV text) -> parse -> validate dry-run
 //   3) review errors -> commit
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 
 import {
   validateImport,
@@ -16,6 +16,63 @@ import {
 } from '@/lib/types/cross_cutting';
 
 const ENTITIES: ImportEntityType[] = ImportEntityTypeSchema.options;
+
+// Per-entity CSV templates: the headers operators should use plus one example
+// row. These MUST track the imports-api RowSchemas + ColumnAliases
+// (supabase/functions/imports-api/index.ts). Friendly alias headers are used
+// where the server accepts them (customer email/phone, invoice/expense number)
+// so the downloaded template is operator-natural; the server maps them to the
+// canonical columns. Keep the two in sync when import fields change.
+const TEMPLATES: Record<ImportEntityType, { headers: string[]; example: string[] }> = {
+  customer: {
+    headers: ['display_name', 'email', 'phone'],
+    example: ['Acme Co', 'billing@acme.test', '555-0100'],
+  },
+  item: {
+    headers: ['sku', 'name'],
+    example: ['SKU-001', 'Widget'],
+  },
+  vendor: {
+    headers: ['display_name', 'email', 'phone'],
+    example: ['Globex Supply', 'ap@globex.test', '555-0200'],
+  },
+  invoice: {
+    headers: ['number', 'customer_id', 'total_cents', 'currency_code'],
+    example: ['INV-1001', 'paste-customer-uuid-here', '125000', 'USD'],
+  },
+  expense: {
+    headers: ['number', 'vendor_id', 'amount_cents', 'currency_code'],
+    example: ['EXP-1001', 'paste-vendor-uuid-here', '4999', 'USD'],
+  },
+};
+
+// Minimal RFC-4180-ish escaping for the generated template cells.
+function csvCell(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+function templateCsv(entity: ImportEntityType): string {
+  const t = TEMPLATES[entity];
+  const header = t.headers.map(csvCell).join(',');
+  const example = t.example.map(csvCell).join(',');
+  return `${header}\n${example}\n`;
+}
+
+// Client-side download of a generated text file (no network round-trip).
+function downloadTextFile(filename: string, text: string): void {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 function parseCsv(text: string): Array<Record<string, string>> {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -75,6 +132,36 @@ export function ImportWizardPage() {
 
   const rows = useMemo(() => parseCsv(csvText), [csvText]);
 
+  // Any change to the CSV (typed, pasted, or file-loaded) clears the prior
+  // dry-run result so Commit (gated on validRows !== null) cannot fire against
+  // rows that were never validated. The operator must re-validate first.
+  function resetResults() {
+    setErrors([]);
+    setTotalRows(null);
+    setValidRows(null);
+    setInserted(null);
+  }
+
+  function handleCsvChange(text: string) {
+    setCsvText(text);
+    resetResults();
+  }
+
+  function handleEntityChange(next: ImportEntityType) {
+    setEntity(next);
+    // A prior validation was scoped to the old entity's schema; drop it.
+    resetResults();
+  }
+
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset the input value so re-selecting the same file fires onChange again.
+    e.target.value = '';
+    if (!file) return;
+    const text = await file.text();
+    handleCsvChange(text);
+  }
+
   async function onValidate() {
     setBusy(true);
     setInserted(null);
@@ -122,25 +209,46 @@ export function ImportWizardPage() {
                 type="radio"
                 name="entity"
                 checked={entity === e}
-                onChange={() => setEntity(e)}
+                onChange={() => handleEntityChange(e)}
               />
               <span className="text-ink">{e}</span>
             </label>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            downloadTextFile(`${entity}-import-template.csv`, templateCsv(entity))
+          }
+          className="mt-3 border border-line px-2 py-1 text-xs hover:bg-bg-3"
+        >
+          Download {entity} template
+        </button>
       </fieldset>
 
       <fieldset className="border border-line p-4">
         <legend className="px-1 text-xs uppercase tracking-wider text-ink-dim">
           2. CSV
         </legend>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-ink-dim">Upload a .csv file</span>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={onFile}
+            className="text-xs text-ink-dim file:mr-3 file:border file:border-line file:bg-bg-2 file:px-3 file:py-1 file:text-ink hover:file:bg-bg-3"
+          />
+        </label>
+        <p className="mt-3 text-xs uppercase tracking-wider text-ink-faint">
+          or paste CSV text
+        </p>
         <textarea
           value={csvText}
-          onChange={(e) => setCsvText(e.target.value)}
+          onChange={(e) => handleCsvChange(e.target.value)}
           rows={10}
           spellCheck={false}
-          className="mt-2 w-full bg-bg-2 p-2 font-mono text-xs text-ink"
-          placeholder="display_name,email&#10;Acme,billing@acme.test"
+          className="mt-1 w-full bg-bg-2 p-2 font-mono text-xs text-ink"
+          placeholder={templateCsv(entity).trimEnd()}
         />
         <p className="mt-1 text-xs text-ink-dim">
           {rows.length} parsed rows.
