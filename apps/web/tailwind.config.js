@@ -45,9 +45,32 @@ export default {
         18: '4.5rem',
         22: '5.5rem',
       },
+      // Fully flat and sharp: every radius scale is 0 (including pills,
+      // capsules, and rounded-full) so no rounded shapes appear anywhere. The
+      // signature constraint of the KitStak design system.
       borderRadius: {
+        none: '0',
+        sm: '0',
         DEFAULT: '0',
-        pill: '9999px',
+        md: '0',
+        lg: '0',
+        xl: '0',
+        '2xl': '0',
+        '3xl': '0',
+        full: '0',
+      },
+      // No drop shadows anywhere: depth comes from borders and surface tint,
+      // never elevation. Focus rings use the separate ring-* utility and are
+      // unaffected.
+      boxShadow: {
+        none: 'none',
+        sm: 'none',
+        DEFAULT: 'none',
+        md: 'none',
+        lg: 'none',
+        xl: 'none',
+        '2xl': 'none',
+        inner: 'none',
       },
     },
   },

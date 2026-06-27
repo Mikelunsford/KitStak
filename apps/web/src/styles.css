@@ -90,6 +90,13 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Bebas Neue', system-ui, sans-serif;
     letter-spacing: 0.02em;
+    /* Bebas Neue ships weight 400 only. Force it so Tailwind font-bold /
+     * font-semibold utilities cannot synthesize a faux-bold on headings. */
+    font-weight: 400 !important;
+  }
+
+  h1, h2, h3 {
+    line-height: 1.05;
   }
 
   code, pre, .mono {
