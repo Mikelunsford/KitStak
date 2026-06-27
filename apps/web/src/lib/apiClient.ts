@@ -75,6 +75,41 @@ export async function apiRequest<T>(
 }
 
 /**
+ * Like apiRequest but returns the raw response Blob instead of parsing a JSON
+ * envelope. For endpoints that stream a file body (e.g. exports-api CSV) which
+ * must still go through the same authenticated request path: a top-level
+ * browser navigation cannot attach the bearer + apikey headers, so the only way
+ * to reach an auth-guarded function host is an authenticated fetch like this.
+ * Reuses prepareRequest so the bearer + apikey injection stays centralized; it
+ * deliberately bypasses executeRequest (no envelope parsing, no retry) because
+ * the body is an opaque blob, not a { data, meta } envelope.
+ */
+export async function apiRequestBlob(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<Blob> {
+  const { url, init } = await prepareRequest(path, options);
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    // Surface the server's error code/message when the failure body is a JSON
+    // envelope; fall back to an HTTP_<status> code otherwise. Never swallow it.
+    let code = `HTTP_${res.status}`;
+    let message = `Request failed with status ${res.status}`;
+    try {
+      const body = (await res.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      if (body?.error?.code) code = body.error.code;
+      if (body?.error?.message) message = body.error.message;
+    } catch {
+      // Non-JSON error body (or empty); keep the HTTP_<status> defaults.
+    }
+    throw new ApiError(code, res.status, message);
+  }
+  return res.blob();
+}
+
+/**
  * Like apiRequest but returns the full { data, meta } envelope. The keyset list
  * endpoints that carry next_cursor in meta (invoices, customers) use this; the
  * ones that carry it in data (quotes, items) use apiRequest. Same auth headers,
