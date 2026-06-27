@@ -42,7 +42,10 @@ export type EntityKind =
   | 'vendor'
   | 'project'
   | 'contact'
-  | 'account'
+  // Finance Chart-of-Accounts ledger account. Named 'ledger_account' (not
+  // 'account') to stay distinct from the 3PL commercial "Accounts" entity,
+  // which is a separate domain and resolves through its own pages.
+  | 'ledger_account'
   | 'opportunity'
   | 'sales_order'
   | 'copack_warehouse';
@@ -157,7 +160,9 @@ function ContactLabel({ id }: { id: string }) {
   );
 }
 
-function AccountLabel({ id }: { id: string }) {
+// Finance Chart-of-Accounts ledger account (e.g. journal-entry lines). Distinct
+// from the 3PL commercial Account entity; see the 'ledger_account' EntityKind.
+function LedgerAccountLabel({ id }: { id: string }) {
   const q = useChartOfAccounts();
   const state = classifyEntityLabel(q.data, id);
   if (state === 'pending') return <PendingLabel id={id} />;
@@ -225,8 +230,8 @@ export function EntityLabel({ kind, id }: EntityLabelProps) {
       return <ProjectLabel id={id} />;
     case 'contact':
       return <ContactLabel id={id} />;
-    case 'account':
-      return <AccountLabel id={id} />;
+    case 'ledger_account':
+      return <LedgerAccountLabel id={id} />;
     case 'opportunity':
       return <OpportunityLabel id={id} />;
     case 'sales_order':

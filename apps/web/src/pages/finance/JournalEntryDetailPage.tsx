@@ -108,7 +108,7 @@ export function JournalEntryDetailPage() {
               {lines.map((l) => (
                 <tr key={l.id} className="border-b border-line">
                   <td className="py-2 font-mono text-xs">
-                    <EntityLabel kind="account" id={l.account_id} />
+                    <EntityLabel kind="ledger_account" id={l.account_id} />
                   </td>
                   <td className="py-2 text-right tabular-nums">
                     {formatCents(l.debit_cents as number | string, 'USD')}
