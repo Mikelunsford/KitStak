@@ -414,6 +414,52 @@ describe('imports-api CSV commit round-trip and allowlist', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Job-history ledger: every commit writes one import_jobs row, and GET
+  // /imports/jobs returns the caller org's runs (org-scoped, newest first).
+  // -------------------------------------------------------------------------
+
+  it('commit writes an import_jobs history row', async () => {
+    const state = makeState({ customers: [], import_jobs: [] });
+    setActiveMockState(state);
+    await commit(handler, 'customer', [{ display_name: 'Acme', email: 'a@acme.test' }]);
+
+    const jobs = insertedRows(state, 'import_jobs');
+    expect(jobs).toHaveLength(1);
+    const job = jobs[0] as Record<string, unknown>;
+    expect(job.entity_type).toBe('customer');
+    expect(job.status).toBe('completed');
+    expect(job.total_rows).toBe(1);
+    expect(job.valid_rows).toBe(1);
+    expect(job.inserted_rows).toBe(1);
+    expect(job.error_count).toBe(0);
+    // server-set, never client-controlled
+    expect(job.org_id).toBe(ORG_A);
+    expect(job.created_by).toBe(USER_A);
+  });
+
+  it('GET /imports/jobs returns the org history newest-first and excludes other orgs', async () => {
+    const OTHER_ORG = '00000000-0000-4000-8000-0000000000f9';
+    const state = makeState({
+      import_jobs: [
+        { id: 'j1', org_id: ORG_A, entity_type: 'customer', status: 'completed', total_rows: 2, valid_rows: 2, inserted_rows: 2, error_count: 0, errors: [], created_at: '2026-06-28T01:00:00Z', created_by: USER_A, completed_at: '2026-06-28T01:00:00Z' },
+        { id: 'j2', org_id: ORG_A, entity_type: 'item', status: 'failed', total_rows: 1, valid_rows: 0, inserted_rows: 0, error_count: 1, errors: [], created_at: '2026-06-28T02:00:00Z', created_by: USER_A, completed_at: '2026-06-28T02:00:00Z' },
+        { id: 'jX', org_id: OTHER_ORG, entity_type: 'customer', status: 'completed', total_rows: 9, valid_rows: 9, inserted_rows: 9, error_count: 0, errors: [], created_at: '2026-06-28T03:00:00Z', created_by: USER_A, completed_at: null },
+      ],
+    });
+    setActiveMockState(state);
+    const req = new Request('https://example.test/imports/jobs', {
+      method: 'GET',
+      headers: { authorization: bearer(OWNER) },
+    });
+    const res = await handler(req);
+    expect(res.status).toBe(200);
+    const data = (await readJson(res)).data as Array<{ id: string; org_id: string }>;
+    // newest first (j2 @ 02:00 before j1 @ 01:00); the OTHER_ORG row is excluded
+    expect(data.map((d) => d.id)).toEqual(['j2', 'j1']);
+    expect(data.every((d) => d.org_id === ORG_A)).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
   // commit is idempotency-gated: a missing Idempotency-Key is rejected before
   // any insert (no row written).
   // -------------------------------------------------------------------------

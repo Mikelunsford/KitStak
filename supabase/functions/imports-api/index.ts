@@ -31,6 +31,13 @@ import { z } from 'zod';
 
 const BUNDLE = 'imports-api';
 
+// Per-row errors stored on the import_jobs ledger are capped to bound row size;
+// the full count is kept separately in error_count.
+const ERROR_SAMPLE_CAP = 50;
+
+// Recent import-history rows returned by GET /imports/jobs.
+const JOBS_PAGE_LIMIT = 50;
+
 // CSV booleans: tolerate the common truthy/falsey spellings an operator types
 // in a spreadsheet. Unrecognized values fall through to z.boolean(), which
 // errors with a clear per-field message. Empty cells are dropped upstream, so
@@ -446,15 +453,42 @@ const commit: Route = {
           updated_by: caller.userId,
         }));
         let inserted = 0;
+        let insertFailed = false;
         if (insertRows.length > 0) {
           const { error, count } = await admin()
             .from(table)
             .insert(insertRows, { count: 'exact' });
           if (error) {
             errors.push({ row_number: 0, field: null, message: error.message });
+            insertFailed = true;
           } else {
             inserted = count ?? insertRows.length;
           }
+        }
+
+        // Record the run in the import_jobs history ledger. Best-effort: a
+        // failure to write history must not fail an import whose rows already
+        // committed, but it is surfaced in the response rather than swallowed.
+        // Runs inside respondWithIdempotency, so a replayed commit returns the
+        // stored response without writing a duplicate job row.
+        const { error: jobErr } = await admin().from('import_jobs').insert({
+          org_id: caller.orgId,
+          entity_type: entity.data,
+          status: insertFailed ? 'failed' : 'completed',
+          total_rows: body.rows.length,
+          valid_rows: validRows.length,
+          inserted_rows: inserted,
+          error_count: errors.length,
+          errors: errors.slice(0, ERROR_SAMPLE_CAP),
+          created_by: caller.userId,
+          completed_at: new Date().toISOString(),
+        });
+        if (jobErr) {
+          errors.push({
+            row_number: 0,
+            field: null,
+            message: `import recorded but history write failed: ${jobErr.message}`,
+          });
         }
         return ok({ inserted, errors });
       },
@@ -462,6 +496,27 @@ const commit: Route = {
   },
 };
 
-Deno.serve((req) => route(req, [validate, commit], { bundle: BUNDLE }));
+// GET /imports/jobs: the org's recent import-history ledger, newest first.
+// Gated on imports.job.validate (the import audience); org-scoped read.
+const listJobs: Route = {
+  method: 'GET',
+  path: '/imports/jobs',
+  async handler({ req }) {
+    const caller = requireCaller(req);
+    requireCap(caller, 'imports.job.validate');
+    const { data, error } = await admin()
+      .from('import_jobs')
+      .select(
+        'id, org_id, entity_type, status, total_rows, valid_rows, inserted_rows, error_count, errors, created_at, created_by, completed_at',
+      )
+      .eq('org_id', caller.orgId)
+      .order('created_at', { ascending: false })
+      .limit(JOBS_PAGE_LIMIT);
+    if (error) throw internalError(BUNDLE, error);
+    return ok(data ?? []);
+  },
+};
 
-export { validate, commit };
+Deno.serve((req) => route(req, [listJobs, validate, commit], { bundle: BUNDLE }));
+
+export { validate, commit, listJobs };
