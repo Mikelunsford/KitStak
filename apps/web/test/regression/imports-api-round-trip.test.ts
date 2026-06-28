@@ -118,10 +118,12 @@ describe('imports-api CSV commit round-trip and allowlist', () => {
   });
 
   // -------------------------------------------------------------------------
-  // item: only sku + name are insertable; unit-of-measure is out of scope.
+  // item: sku + name + the free-text unit_of_measure label persist. UOM is a
+  // real column (migrations 0031 + 0115); it is distinct from the unit_id FK,
+  // which is only set when the `unit` FK-by-name column is supplied.
   // -------------------------------------------------------------------------
 
-  it('item commit writes sku + name and drops unit_of_measure', async () => {
+  it('item commit writes sku + name + unit_of_measure and leaves unit_id unset', async () => {
     const state = makeState({ items: [] });
     setActiveMockState(state);
     const res = await commit(handler, 'item', [
@@ -136,8 +138,9 @@ describe('imports-api CSV commit round-trip and allowlist', () => {
     const row = rows[0] as Record<string, unknown>;
     expect(row.sku).toBe('SKU-1');
     expect(row.name).toBe('Widget');
-    // unit_of_measure has no destination column and must be stripped
-    expect(row).not.toHaveProperty('unit_of_measure');
+    // unit_of_measure is now a real free-text column and persists.
+    expect(row.unit_of_measure).toBe('each');
+    // unit_id is the FK, set only via the `unit` resolver column (not supplied).
     expect(row).not.toHaveProperty('unit_id');
   });
 
@@ -243,13 +246,14 @@ describe('imports-api CSV commit round-trip and allowlist', () => {
       {
         display_name: 'Mallory',
         email: 'm@evil.test',
-        // none of these may reach the insert as client-controlled values
+        // none of these may reach the insert as client-controlled values:
+        // id / status / is_admin are undeclared, and the org/audit columns are
+        // server-set so the attacker's values must not override them.
         id: '00000000-0000-4000-8000-00000000beef',
         org_id: '00000000-0000-4000-8000-00000000face',
         created_by: attackerUserId,
         updated_by: attackerUserId,
         status: 'active',
-        tax_id: 'SHOULD-NOT-PERSIST',
         is_admin: true,
       },
     ]);
@@ -259,11 +263,20 @@ describe('imports-api CSV commit round-trip and allowlist', () => {
     expect(rows).toHaveLength(1);
     const row = rows[0] as Record<string, unknown>;
 
-    // the insert key set is exactly: allowlisted schema columns + server columns
+    // the insert key set is exactly: allowlisted schema columns + server
+    // columns. The customer allowlist is broader now, but undeclared fields
+    // still cannot ride in.
     const allowed = new Set([
       'display_name',
       'primary_email',
       'primary_phone',
+      'kind',
+      'tax_id',
+      'default_currency_code',
+      'default_payment_terms_days',
+      'billing_address',
+      'shipping_address',
+      'tags',
       ...SERVER_COLUMNS,
     ]);
     for (const key of Object.keys(row)) {
@@ -278,8 +291,126 @@ describe('imports-api CSV commit round-trip and allowlist', () => {
     // undeclared columns are gone
     expect(row).not.toHaveProperty('id');
     expect(row).not.toHaveProperty('status');
-    expect(row).not.toHaveProperty('tax_id');
     expect(row).not.toHaveProperty('is_admin');
+  });
+
+  // -------------------------------------------------------------------------
+  // item FK-by-name: category / unit / tax resolve against the org's lookup
+  // tables by name OR code, mapping to the *_id columns; the name columns are
+  // stripped from the insert.
+  // -------------------------------------------------------------------------
+
+  const CAT_ID = '00000000-0000-4000-8000-0000000000e1';
+  const UNIT_ID = '00000000-0000-4000-8000-0000000000e2';
+  const TAX_ID = '00000000-0000-4000-8000-0000000000e3';
+
+  function itemLookupState(): MockState {
+    return makeState({
+      items: [],
+      item_categories: [{ id: CAT_ID, org_id: ORG_A, code: 'HW', name: 'Hardware', deleted_at: null }],
+      units: [{ id: UNIT_ID, org_id: ORG_A, code: 'EA', label: 'Each', deleted_at: null }],
+      taxes: [{ id: TAX_ID, org_id: ORG_A, code: 'STD', name: 'Standard Rate', deleted_at: null }],
+    });
+  }
+
+  it('item commit resolves category/unit/tax by name or code to the *_id columns', async () => {
+    const state = itemLookupState();
+    setActiveMockState(state);
+    const res = await commit(handler, 'item', [
+      // category by name, unit by code, tax by name
+      { sku: 'SKU-2', name: 'Bolt', category: 'Hardware', unit: 'EA', tax: 'Standard Rate' },
+    ]);
+    expect(res.status).toBe(200);
+    const body = await readJson(res);
+    expect(body.data).toMatchObject({ inserted: 1, errors: [] });
+
+    const row = insertedRows(state, 'items')[0] as Record<string, unknown>;
+    expect(row.category_id).toBe(CAT_ID);
+    expect(row.unit_id).toBe(UNIT_ID);
+    expect(row.default_tax_id).toBe(TAX_ID);
+    // the name columns must not survive onto the insert
+    expect(row).not.toHaveProperty('category');
+    expect(row).not.toHaveProperty('unit');
+    expect(row).not.toHaveProperty('tax');
+  });
+
+  it('item commit errors per row and inserts nothing when a lookup name is not found', async () => {
+    const state = itemLookupState();
+    setActiveMockState(state);
+    const res = await commit(handler, 'item', [
+      { sku: 'SKU-3', name: 'Nut', category: 'Nonexistent' },
+    ]);
+    expect(res.status).toBe(200);
+    const body = (await readJson(res)).data as { inserted: number; errors: Array<{ field: string | null; message: string }> };
+    expect(body.inserted).toBe(0);
+    expect(insertedRows(state, 'items')).toHaveLength(0);
+    expect(body.errors).toEqual([
+      expect.objectContaining({ field: 'category', message: expect.stringContaining('not found') }),
+    ]);
+  });
+
+  it('item commit errors per row when a lookup name is ambiguous', async () => {
+    const state = makeState({
+      items: [],
+      item_categories: [
+        { id: CAT_ID, org_id: ORG_A, code: 'A', name: 'Dup', deleted_at: null },
+        { id: '00000000-0000-4000-8000-0000000000e9', org_id: ORG_A, code: 'B', name: 'Dup', deleted_at: null },
+      ],
+    });
+    setActiveMockState(state);
+    const res = await commit(handler, 'item', [
+      { sku: 'SKU-4', name: 'Washer', category: 'Dup' },
+    ]);
+    expect(res.status).toBe(200);
+    const body = (await readJson(res)).data as { inserted: number; errors: Array<{ field: string | null; message: string }> };
+    expect(body.inserted).toBe(0);
+    expect(body.errors).toEqual([
+      expect.objectContaining({ field: 'category', message: expect.stringContaining('ambiguous') }),
+    ]);
+  });
+
+  // -------------------------------------------------------------------------
+  // customer: flat address cells assemble into the *_address jsonb columns,
+  // tags split on ';' into a text[], and kind defaults to 'company'.
+  // -------------------------------------------------------------------------
+
+  it('customer commit assembles addresses, splits tags, and defaults kind', async () => {
+    const state = makeState({ customers: [] });
+    setActiveMockState(state);
+    const res = await commit(handler, 'customer', [
+      {
+        display_name: 'Acme',
+        billing_line1: '1 A St',
+        billing_city: 'Austin',
+        billing_country: 'US',
+        tags: 'wholesale;net30',
+      },
+    ]);
+    expect(res.status).toBe(200);
+    const row = insertedRows(state, 'customers')[0] as Record<string, unknown>;
+    expect(row.billing_address).toEqual({ line1: '1 A St', city: 'Austin', country: 'US' });
+    expect(row.tags).toEqual(['wholesale', 'net30']);
+    expect(row.kind).toBe('company');
+    // flat address cells must not survive as columns
+    expect(row).not.toHaveProperty('billing_line1');
+    expect(row).not.toHaveProperty('billing_city');
+  });
+
+  // -------------------------------------------------------------------------
+  // item: boolean flags parse from common CSV spellings.
+  // -------------------------------------------------------------------------
+
+  it('item commit parses boolean flags from CSV spellings', async () => {
+    const state = makeState({ items: [] });
+    setActiveMockState(state);
+    const res = await commit(handler, 'item', [
+      { sku: 'SKU-5', name: 'Screw', is_active: 'true', is_sellable: 'no', is_taxable: '1' },
+    ]);
+    expect(res.status).toBe(200);
+    const row = insertedRows(state, 'items')[0] as Record<string, unknown>;
+    expect(row.is_active).toBe(true);
+    expect(row.is_sellable).toBe(false);
+    expect(row.is_taxable).toBe(true);
   });
 
   // -------------------------------------------------------------------------
