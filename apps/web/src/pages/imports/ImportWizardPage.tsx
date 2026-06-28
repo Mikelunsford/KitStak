@@ -25,12 +25,38 @@ const ENTITIES: ImportEntityType[] = ImportEntityTypeSchema.options;
 // canonical columns. Keep the two in sync when import fields change.
 const TEMPLATES: Record<ImportEntityType, { headers: string[]; example: string[] }> = {
   customer: {
-    headers: ['display_name', 'email', 'phone'],
-    example: ['Acme Co', 'billing@acme.test', '555-0100'],
+    headers: [
+      'display_name', 'email', 'phone', 'kind', 'tax_id',
+      'default_currency_code', 'default_payment_terms_days',
+      'billing_line1', 'billing_city', 'billing_region', 'billing_postal', 'billing_country',
+      'shipping_line1', 'shipping_city', 'shipping_region', 'shipping_postal', 'shipping_country',
+      'tags',
+    ],
+    example: [
+      'Acme Co', 'billing@acme.test', '555-0100', 'company', 'TAX-123',
+      'USD', '30',
+      '100 Main St', 'Austin', 'TX', '78701', 'US',
+      '100 Main St', 'Austin', 'TX', '78701', 'US',
+      'wholesale;net30',
+    ],
   },
   item: {
-    headers: ['sku', 'name'],
-    example: ['SKU-001', 'Widget'],
+    // category / unit / tax accept a name OR code from your org's lists
+    // (case-insensitive); the import resolves them to the right record.
+    headers: [
+      'sku', 'name', 'description', 'kind',
+      'unit_price_cents', 'unit_cost_cents', 'currency_code',
+      'unit_of_measure', 'reorder_point', 'barcode', 'supply_source',
+      'is_active', 'is_taxable', 'is_sellable', 'is_purchasable',
+      'category', 'unit', 'tax',
+    ],
+    example: [
+      'SKU-001', 'Widget', 'A standard widget', 'product',
+      '1999', '1200', 'USD',
+      'Each', '25', '0123456789012', 'in_house',
+      'true', 'true', 'true', 'false',
+      'Hardware', 'EA', 'Standard Rate',
+    ],
   },
   vendor: {
     headers: ['display_name', 'email', 'phone'],

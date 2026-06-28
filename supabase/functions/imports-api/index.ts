@@ -5,6 +5,11 @@
 //
 // Sync-only at v1 per the audit. The body is JSON with parsed rows; the SPA
 // converts the operator's CSV upload into the JSON shape before posting.
+//
+// Pipeline per row: column-alias -> drop empty cells -> Zod (allowlist) ->
+// per-entity post-transform (customer address/tags) -> async FK-by-name
+// resolution (item category/unit/tax). Only declared, parsed, resolved columns
+// reach the insert; the server sets org and audit columns.
 
 import { route, type Route } from '../_shared/route.ts';
 import {
@@ -14,7 +19,7 @@ import {
   requireCap,
 } from '../_shared/handler-helpers.ts';
 import { assertRefsInOrg } from '../_shared/crud.ts';
-import { ApiError, ok } from '../_shared/responses.ts';
+import { ApiError, internalError, ok } from '../_shared/responses.ts';
 import { requireCaller } from '../_shared/tenant.ts';
 import {
   ImportValidateRequestSchema,
@@ -26,13 +31,27 @@ import { z } from 'zod';
 
 const BUNDLE = 'imports-api';
 
+// CSV booleans: tolerate the common truthy/falsey spellings an operator types
+// in a spreadsheet. Unrecognized values fall through to z.boolean(), which
+// errors with a clear per-field message. Empty cells are dropped upstream, so
+// an absent boolean column parses as not-provided (the DB default applies).
+const csvBool = z.preprocess((v) => {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 't'].includes(s)) return true;
+    if (['false', '0', 'no', 'n', 'f'].includes(s)) return false;
+  }
+  return v;
+}, z.boolean());
+
+const cents = z.coerce.number().int().nonnegative();
+
 // Per-entity row schemas. The KEYS here are the real destination-table column
-// names, because the commit handler inserts the Zod-parsed row directly (the
-// allowlist). A drift between a schema key and the actual column silently
-// dropped the value (Zod stripped the unknown key) or failed the insert, which
-// is why the import round-trip was broken for several entities before this fix.
-//
-// We tolerate unknown extra fields so operators can upload broader CSVs without
+// names (or, for FK-by-name and flattened addresses, intermediate keys that the
+// post-transform / resolver convert to real columns), because the commit
+// handler inserts the parsed+transformed row directly (the allowlist). We
+// tolerate unknown extra fields so operators can upload broader CSVs without
 // rejection; only the declared columns reach the insert.
 const RowSchemas: Record<string, z.ZodTypeAny> = {
   customer: z.object({
@@ -40,13 +59,58 @@ const RowSchemas: Record<string, z.ZodTypeAny> = {
     // customers stores contact details under primary_* (migration 0007).
     primary_email: z.string().email().optional().nullable(),
     primary_phone: z.string().optional().nullable(),
+    kind: z.enum(['company', 'individual']).default('company'),
+    tax_id: z.string().max(64).optional().nullable(),
+    default_currency_code: z.string().length(3).optional(),
+    default_payment_terms_days: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .nullable(),
+    // Flattened address cells; customerTransform assembles them into the
+    // billing_address / shipping_address jsonb columns and drops these keys.
+    billing_line1: z.string().optional().nullable(),
+    billing_line2: z.string().optional().nullable(),
+    billing_city: z.string().optional().nullable(),
+    billing_region: z.string().optional().nullable(),
+    billing_postal: z.string().optional().nullable(),
+    billing_country: z.string().optional().nullable(),
+    shipping_line1: z.string().optional().nullable(),
+    shipping_line2: z.string().optional().nullable(),
+    shipping_city: z.string().optional().nullable(),
+    shipping_region: z.string().optional().nullable(),
+    shipping_postal: z.string().optional().nullable(),
+    shipping_country: z.string().optional().nullable(),
+    // Semicolon-delimited in the CSV; customerTransform splits to text[].
+    tags: z.string().optional(),
   }),
   item: z.object({
-    // items has no free-text unit-of-measure column; unit_id is a UUID FK to
-    // public.units (migration 0012). A CSV UOM string cannot map to that FK
-    // without a lookup, so unit is intentionally out of scope for import here.
     sku: z.string().min(1),
     name: z.string().min(1),
+    description: z.string().optional().nullable(),
+    kind: z.enum(['product', 'service', 'kit', 'subscription', 'bundle']).optional(),
+    // Money stays integer minor units (BIGINT cents), never a float.
+    unit_price_cents: cents.optional(),
+    unit_cost_cents: cents.optional().nullable(),
+    currency_code: z.string().length(3).optional(),
+    // Free-text unit-of-measure label (migrations 0031 + 0115). Distinct from
+    // the unit_id FK, which is resolved by name below via the `unit` column.
+    unit_of_measure: z.string().optional().nullable(),
+    reorder_point: z.coerce.number().nonnegative().optional().nullable(),
+    barcode: z.string().optional().nullable(),
+    supply_source: z
+      .enum(['in_house', 'customer_supplied', 'vendor_consigned', 'third_party_consigned'])
+      .optional(),
+    is_active: csvBool.optional(),
+    is_taxable: csvBool.optional(),
+    is_sellable: csvBool.optional(),
+    is_purchasable: csvBool.optional(),
+    // FK-by-name: resolved to category_id / unit_id / default_tax_id against the
+    // caller org's lookup tables, then stripped. See LookupResolvers.
+    category: z.string().optional().nullable(),
+    unit: z.string().optional().nullable(),
+    tax: z.string().optional().nullable(),
   }),
   vendor: z.object({
     // vendors already uses email / phone (migration 0025), so these are the
@@ -58,27 +122,34 @@ const RowSchemas: Record<string, z.ZodTypeAny> = {
   invoice: z.object({
     invoice_number: z.string().min(1),
     customer_id: z.string().uuid(),
-    // CSV cells arrive as strings; coerce to an integer cent value. Stays
-    // BIGINT cents (never a float) per the money rules.
-    total_cents: z.coerce.number().int().nonnegative(),
+    total_cents: cents,
     currency_code: z.string().min(3).max(3),
   }),
   expense: z.object({
     expense_number: z.string().min(1),
     vendor_id: z.string().uuid(),
-    amount_cents: z.coerce.number().int().nonnegative(),
+    amount_cents: cents,
     currency_code: z.string().min(3).max(3),
   }),
 };
 
-// Friendly CSV header -> real column name, per entity. This lets an operator
-// keep a natural CSV header (email, phone, number) while the insert still uses
-// the canonical column. Aliasing runs BEFORE Zod parse; an explicit canonical
-// value already present on the row wins over the alias. This does NOT widen the
-// allowlist: anything not in the entity RowSchema is still stripped by Zod
-// before the insert, so a CSV cannot set an arbitrary DB field.
+// Friendly CSV header -> real column name, per entity. Aliasing runs BEFORE Zod
+// parse; an explicit canonical value already present on the row wins over the
+// alias. This does NOT widen the allowlist: anything not in the entity
+// RowSchema is still stripped by Zod before the insert.
 const ColumnAliases: Record<string, Record<string, string>> = {
-  customer: { email: 'primary_email', phone: 'primary_phone' },
+  customer: {
+    email: 'primary_email',
+    phone: 'primary_phone',
+    currency: 'default_currency_code',
+    payment_terms_days: 'default_payment_terms_days',
+  },
+  item: {
+    price: 'unit_price_cents',
+    cost: 'unit_cost_cents',
+    currency: 'currency_code',
+    uom: 'unit_of_measure',
+  },
   invoice: { number: 'invoice_number' },
   expense: { number: 'expense_number' },
 };
@@ -91,8 +162,6 @@ function applyColumnAliases(
   if (!aliases) return row;
   const mapped: Record<string, unknown> = { ...row };
   for (const [from, to] of Object.entries(aliases)) {
-    // Only fill the canonical column from the alias when the canonical column
-    // is not already supplied; never overwrite an explicit canonical value.
     if (from in mapped && !(to in mapped && mapped[to] !== undefined && mapped[to] !== '')) {
       mapped[to] = mapped[from];
     }
@@ -100,6 +169,34 @@ function applyColumnAliases(
   }
   return mapped;
 }
+
+// Per-entity synchronous post-Zod transform: reshape parsed scalar cells into
+// the real column shapes (nested jsonb, arrays) before insert.
+const PostTransforms: Record<string, (data: Record<string, unknown>) => Record<string, unknown>> = {
+  customer(data) {
+    const out: Record<string, unknown> = { ...data };
+    for (const prefix of ['billing', 'shipping'] as const) {
+      const addr: Record<string, unknown> = {};
+      for (const part of ['line1', 'line2', 'city', 'region', 'postal', 'country'] as const) {
+        const key = `${prefix}_${part}`;
+        const val = out[key];
+        if (typeof val === 'string' && val.trim() !== '') addr[part] = val;
+        delete out[key];
+      }
+      if (Object.keys(addr).length > 0) out[`${prefix}_address`] = addr;
+    }
+    const rawTags = out.tags;
+    if (typeof rawTags === 'string') {
+      const tags = rawTags
+        .split(';')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+      if (tags.length > 0) out.tags = tags;
+      else delete out.tags;
+    }
+    return out;
+  },
+};
 
 const TableForEntity: Record<string, string> = {
   customer: 'customers',
@@ -109,12 +206,29 @@ const TableForEntity: Record<string, string> = {
   expense: 'expenses',
 };
 
-// Org-scoped foreign-key columns per importable entity, mapped to the table
-// each id must belong to within the caller org. Only columns DECLARED in the
-// RowSchemas reach the insert (the commit handler inserts the Zod-parsed row,
-// not the raw row), so this lists just the schema-declared FK columns;
-// undeclared FK columns are stripped before insert and need no check. Distinct
-// non-null ids per field are validated in a single batched query.
+// FK-by-name resolvers: a CSV value (the `field` column) is matched against the
+// caller org's lookup table on any of `matchCols` (case-insensitive, active
+// rows only), then replaced with the destination `idColumn`. A miss or an
+// ambiguous match becomes a per-row error and drops the row from the insert.
+interface LookupResolver {
+  field: string;
+  table: string;
+  idColumn: string;
+  matchCols: string[];
+  label: string;
+}
+
+const LookupResolvers: Record<string, LookupResolver[]> = {
+  item: [
+    { field: 'category', table: 'item_categories', idColumn: 'category_id', matchCols: ['code', 'name'], label: 'category' },
+    { field: 'unit', table: 'units', idColumn: 'unit_id', matchCols: ['code', 'label'], label: 'unit' },
+    { field: 'tax', table: 'taxes', idColumn: 'default_tax_id', matchCols: ['code', 'name'], label: 'tax' },
+  ],
+};
+
+// Org-scoped raw-UUID foreign keys (invoice/expense). Item FKs are resolved
+// by name above against the caller org, so they are in-org by construction and
+// are not re-checked here.
 const ForeignKeysForEntity: Record<string, Record<string, string>> = {
   invoice: { customer_id: 'customers' },
   expense: { vendor_id: 'vendors' },
@@ -135,21 +249,113 @@ async function assertRowRefsInOrg(
   }
 }
 
-function validateRows(
-  entity: string,
-  rows: Array<Record<string, unknown>>,
-): { errors: ImportRowError[]; validRows: Array<Record<string, unknown>> } {
-  const schema = RowSchemas[entity];
-  const errors: ImportRowError[] = [];
-  const validRows: Array<Record<string, unknown>> = [];
-  if (!schema) {
-    return { errors: [{ row_number: 0, field: null, message: 'unsupported entity' }], validRows };
+interface RowState {
+  rowNumber: number;
+  data: Record<string, unknown> | null;
+}
+
+function pushZodErrors(
+  errors: ImportRowError[],
+  rowNumber: number,
+  error: z.ZodError,
+): void {
+  const flat = error.flatten();
+  for (const [field, msgs] of Object.entries(flat.fieldErrors)) {
+    for (const msg of msgs ?? []) errors.push({ row_number: rowNumber, field, message: msg });
   }
+  for (const msg of flat.formErrors) {
+    errors.push({ row_number: rowNumber, field: null, message: msg });
+  }
+}
+
+// Resolve every FK-by-name field for an entity, mutating row states (set the
+// id column / null the row on failure) and appending per-row errors.
+async function resolveLookups(
+  entity: string,
+  caller: { orgId: string },
+  states: RowState[],
+  errors: ImportRowError[],
+): Promise<void> {
+  const resolvers = LookupResolvers[entity];
+  if (!resolvers) return;
+  for (const r of resolvers) {
+    const needed = states.some(
+      (s) => s.data && typeof s.data[r.field] === 'string' && (s.data[r.field] as string).trim() !== '',
+    );
+    if (!needed) {
+      for (const s of states) if (s.data) delete s.data[r.field];
+      continue;
+    }
+    const { data: lookupRows, error } = await admin()
+      .from(r.table)
+      .select(['id', ...r.matchCols].join(','))
+      .eq('org_id', caller.orgId)
+      .is('deleted_at', null);
+    if (error) throw internalError(BUNDLE, error);
+
+    // value (lowercased) -> set of distinct ids it could mean.
+    const byKey = new Map<string, Set<string>>();
+    for (const lr of (lookupRows ?? []) as unknown as Array<Record<string, unknown>>) {
+      const id = String(lr.id);
+      for (const col of r.matchCols) {
+        const key = String(lr[col] ?? '').trim().toLowerCase();
+        if (!key) continue;
+        const set = byKey.get(key) ?? new Set<string>();
+        set.add(id);
+        byKey.set(key, set);
+      }
+    }
+
+    for (const s of states) {
+      if (!s.data) continue;
+      const raw = s.data[r.field];
+      if (raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+        delete s.data[r.field];
+        continue;
+      }
+      const key = String(raw).trim().toLowerCase();
+      const ids = byKey.get(key);
+      if (!ids || ids.size === 0) {
+        errors.push({ row_number: s.rowNumber, field: r.field, message: `${r.label} "${raw}" not found` });
+        s.data = null;
+        continue;
+      }
+      if (ids.size > 1) {
+        errors.push({
+          row_number: s.rowNumber,
+          field: r.field,
+          message: `${r.label} "${raw}" is ambiguous (matches ${ids.size})`,
+        });
+        s.data = null;
+        continue;
+      }
+      s.data[r.idColumn] = [...ids][0];
+      delete s.data[r.field];
+    }
+  }
+}
+
+// Full validate pipeline shared by both /validate (dry-run) and /commit. Runs
+// Zod, the per-entity transform, then FK-by-name resolution, returning the
+// flattened errors and the rows that survived every stage.
+async function validateAndResolve(
+  entity: string,
+  caller: { orgId: string },
+  rows: Array<Record<string, unknown>>,
+): Promise<{ errors: ImportRowError[]; validRows: Array<Record<string, unknown>> }> {
+  const schema = RowSchemas[entity];
+  if (!schema) {
+    return { errors: [{ row_number: 0, field: null, message: 'unsupported entity' }], validRows: [] };
+  }
+  const transform = PostTransforms[entity];
+  const errors: ImportRowError[] = [];
+  const states: RowState[] = [];
+
   rows.forEach((row, i) => {
-    // Map friendly CSV headers to canonical columns, then drop empty-string
-    // cells so an unfilled optional column parses as absent rather than failing
-    // a format check (a blank email cell is "not provided", not "invalid").
+    const rowNumber = i + 1;
     const aliased = applyColumnAliases(entity, row);
+    // Drop empty-string cells so an unfilled optional column parses as absent
+    // rather than failing a format check.
     const normalized: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(aliased)) {
       if (typeof v === 'string' && v.trim() === '') continue;
@@ -157,23 +363,20 @@ function validateRows(
     }
     const parsed = schema.safeParse(normalized);
     if (!parsed.success) {
-      const flat = parsed.error.flatten();
-      for (const [field, msgs] of Object.entries(flat.fieldErrors)) {
-        for (const msg of msgs ?? []) {
-          errors.push({ row_number: i + 1, field, message: msg });
-        }
-      }
-      if (flat.formErrors.length > 0) {
-        for (const msg of flat.formErrors) {
-          errors.push({ row_number: i + 1, field: null, message: msg });
-        }
-      }
-    } else {
-      // Push the Zod-parsed row (unknown fields stripped) so the commit insert
-      // is an allowlist of declared columns, not the raw client payload.
-      validRows.push(parsed.data as Record<string, unknown>);
+      pushZodErrors(errors, rowNumber, parsed.error);
+      states.push({ rowNumber, data: null });
+      return;
     }
+    const data = parsed.data as Record<string, unknown>;
+    states.push({ rowNumber, data: transform ? transform(data) : data });
   });
+
+  await resolveLookups(entity, caller, states, errors);
+
+  errors.sort((a, b) => a.row_number - b.row_number);
+  const validRows = states
+    .filter((s): s is RowState & { data: Record<string, unknown> } => s.data !== null)
+    .map((s) => s.data);
   return { errors, validRows };
 }
 
@@ -188,11 +391,7 @@ const validate: Route = {
 
     const body = await parseBody(req, ImportValidateRequestSchema);
     if (body.entity_type !== entity.data) {
-      throw new ApiError(
-        'VALIDATION_ERROR',
-        422,
-        'entity_type in body must match path',
-      );
+      throw new ApiError('VALIDATION_ERROR', 422, 'entity_type in body must match path');
     }
 
     return respondWithIdempotency(
@@ -202,12 +401,8 @@ const validate: Route = {
       '/imports/:entity/validate',
       body,
       async () => {
-        const { errors, validRows } = validateRows(entity.data, body.rows);
-        return ok({
-          total_rows: body.rows.length,
-          valid_rows: validRows.length,
-          errors,
-        });
+        const { errors, validRows } = await validateAndResolve(entity.data, caller, body.rows);
+        return ok({ total_rows: body.rows.length, valid_rows: validRows.length, errors });
       },
     );
   },
@@ -233,16 +428,17 @@ const commit: Route = {
       '/imports/:entity/commit',
       body,
       async () => {
-        const { errors, validRows } = validateRows(entity.data, body.rows);
+        const { errors, validRows } = await validateAndResolve(entity.data, caller, body.rows);
         const table = TableForEntity[entity.data];
         if (!table) throw new ApiError('NOT_FOUND', 404);
-        // Reject any cross-tenant foreign-key id before the bulk insert. A 404
-        // from assertRefsInOrg aborts the commit so no rows are written.
+        // Reject any cross-tenant raw-UUID foreign-key id before the bulk
+        // insert. A 404 from assertRefsInOrg aborts the commit so no rows are
+        // written.
         await assertRowRefsInOrg(entity.data, caller, validRows);
-        // Allowlist insert: validRows holds the Zod-parsed rows (unknown fields
-        // already stripped), so the spread carries only declared columns. The
-        // server sets org and audit columns; a client cannot inject created_by,
-        // id, status, or any other column through the import payload.
+        // Allowlist insert: validRows holds parsed + transformed + resolved
+        // rows, so the spread carries only declared/derived columns. The server
+        // sets org and audit columns; a client cannot inject created_by, id,
+        // status, or any other column through the import payload.
         const insertRows = validRows.map((r) => ({
           ...r,
           org_id: caller.orgId,
