@@ -506,6 +506,30 @@ export const ImportCommitResponseSchema = z.object({
 });
 export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>;
 
+export const ImportJobStatusSchema = z.enum([
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+]);
+export type ImportJobStatus = z.infer<typeof ImportJobStatusSchema>;
+
+export const ImportJobSchema = z.object({
+  id: z.string().uuid(),
+  org_id: z.string().uuid(),
+  entity_type: ImportEntityTypeSchema,
+  status: ImportJobStatusSchema,
+  total_rows: z.number().int().nonnegative(),
+  valid_rows: z.number().int().nonnegative(),
+  inserted_rows: z.number().int().nonnegative(),
+  error_count: z.number().int().nonnegative(),
+  errors: z.array(ImportRowErrorSchema),
+  created_at: z.string(),
+  created_by: z.string().uuid().nullable(),
+  completed_at: z.string().nullable(),
+});
+export type ImportJob = z.infer<typeof ImportJobSchema>;
+
 // ---------------------------------------------------------------------------
 // ExportJob
 // ---------------------------------------------------------------------------
