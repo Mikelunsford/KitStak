@@ -156,6 +156,7 @@ export function makeState(rows: RowMap = {}): MockState {
 
 type Filter =
   | { kind: 'eq'; col: string; val: unknown }
+  | { kind: 'neq'; col: string; val: unknown }
   | { kind: 'is'; col: string; val: unknown }
   | { kind: 'in'; col: string; val: ReadonlyArray<unknown> }
   | { kind: 'gte'; col: string; val: unknown };
@@ -170,6 +171,9 @@ function applyFilters(
       if (f.kind === 'is') {
         if (f.val === null) return cur === null || cur === undefined;
         return cur === f.val;
+      }
+      if (f.kind === 'neq') {
+        return cur !== f.val;
       }
       if (f.kind === 'in') {
         return f.val.includes(cur);
@@ -189,6 +193,7 @@ function applyFilters(
 interface QueryBuilder {
   select: (cols?: string, opts?: { count?: 'exact'; head?: boolean }) => QueryBuilder;
   eq: (col: string, val: unknown) => QueryBuilder;
+  neq: (col: string, val: unknown) => QueryBuilder;
   is: (col: string, val: unknown) => QueryBuilder;
   in: (col: string, val: ReadonlyArray<unknown>) => QueryBuilder;
   gte: (col: string, val: unknown) => QueryBuilder;
@@ -411,6 +416,10 @@ function makeQuery(state: MockState, table: string): QueryBuilder {
     },
     eq: (col, val) => {
       filters.push({ kind: 'eq', col, val });
+      return builder;
+    },
+    neq: (col, val) => {
+      filters.push({ kind: 'neq', col, val });
       return builder;
     },
     is: (col, val) => {

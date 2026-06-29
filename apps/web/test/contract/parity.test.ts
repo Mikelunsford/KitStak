@@ -102,6 +102,28 @@ const BESPOKE_PAIRS: ReadonlyArray<Pair> = [
     spa: 'src/lib/types/feedback.ts',
     shared: '../../supabase/functions/_shared/types/feedback.ts',
   },
+  // Estimate Engine (ADR 0006, P1b). Types-only side-car for the rate-card and
+  // estimate wire shapes; the estimates-api / rate-cards-api handlers keep any
+  // rules, not a workflow canon, matching the others.
+  {
+    name: 'types/estimate',
+    spa: 'src/lib/types/estimate.ts',
+    shared: '../../supabase/functions/_shared/types/estimate.ts',
+  },
+  // The Estimate Engine's pure pricing config. Both copies are byte-identical so
+  // the SPA wizard and the server-side convert price off the same rate model and
+  // family taxonomy. engine.ts itself is NOT byte-paired (Deno needs .ts import
+  // extensions); its math is asserted identical by estimate-engine.parity.test.ts.
+  {
+    name: 'estimate/families',
+    spa: 'src/lib/estimate/families.ts',
+    shared: '../../supabase/functions/_shared/estimate/families.ts',
+  },
+  {
+    name: 'estimate/rateCard',
+    spa: 'src/lib/estimate/rateCard.ts',
+    shared: '../../supabase/functions/_shared/estimate/rateCard.ts',
+  },
 ];
 
 const here = dirname(fileURLToPath(import.meta.url));

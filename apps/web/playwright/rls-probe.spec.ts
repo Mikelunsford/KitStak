@@ -1210,6 +1210,13 @@ test.describe('@rls cross-tenant probe matrix', () => {
     ['warehouse_locations', 'WMS'],
     ['putaway_tasks', 'WMS'],
     ['lots', 'WMS'],
+    // Estimate Engine (migration 0144, ADR 0006). All Pattern A
+    // (org_id uuid not null = current_org_id()) confirmed against the creating
+    // migration. Added with P1b (the backend wiring) to keep the matrix honest
+    // about the new tenant-scoped pricing/estimate tables.
+    ['rate_cards', 'Estimate Engine'],
+    ['rate_card_lines', 'Estimate Engine'],
+    ['estimates', 'Estimate Engine'],
   ];
 
   // PostgREST returns PGRST205 with HTTP 404 when a relation is not in the

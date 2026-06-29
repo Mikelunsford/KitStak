@@ -44,6 +44,8 @@ env:
     crm-api
     sales-config-api
     quotes-api
+    rate-cards-api
+    estimates-api
     projects-api
     invoicing-api
     finance-api
