@@ -98,5 +98,7 @@ export const LABEL_FIELD_DEFS: Record<string, LabelFieldDef[]> = {
 };
 
 export function labelFieldsFor(kind: string): LabelFieldDef[] {
-  return LABEL_FIELD_DEFS[kind] ?? LABEL_FIELD_DEFS.Custom;
+  // The trailing `?? []` satisfies noUncheckedIndexedAccess; Custom always
+  // exists, so it never actually falls through to the empty array.
+  return LABEL_FIELD_DEFS[kind] ?? LABEL_FIELD_DEFS.Custom ?? [];
 }
