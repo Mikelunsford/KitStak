@@ -8,21 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **Manufacturing pricing primitives** (ADR 0006 P3 follow-on, migration 0146
-  HELD for sign-off). The Estimate Engine gains two manufacturing rate-card
-  primitives: machine time (per hour) and raw materials (per unit). Both price
-  off the rate card like every other line, so they are tunable in the rate-card
-  editor under a new Manufacturing group, and a raw-materials cost only bills
-  when the estimate's materials are sourced (org-supplied), not customer-supplied.
-  The wizard surfaces the two inputs on the manufacturing families that use them.
-  This is the one part of the manufacturing work that extends the pricing core:
-  two new engine inputs and line-pricing branches (mirrored on the SPA and Deno
-  engines, behaviour-parity tested), two new rate codes (MFG-MACHINE-HR,
-  MFG-RAW-UNIT) seeded into every existing default rate card by migration 0146.
-  Rates are micros, every line total reduces to integer cents by banker's
-  rounding, no float reaches a money column. Migration 0146 is pure config DML
-  (idempotent, validated on staging in a rolled-back transaction) and is held for
-  operator sign-off before it ships.
+- **Manufacturing pricing primitives** (PR #419, ADR 0006 P3 follow-on, migration
+  0146). The Estimate Engine gains two manufacturing rate-card primitives: machine
+  time (per hour) and raw materials (per unit). Both price off the rate card like
+  every other line, so they are tunable in the rate-card editor under a new
+  Manufacturing group, and a raw-materials cost only bills when the estimate's
+  materials are sourced (org-supplied), not customer-supplied. The wizard surfaces
+  the two inputs on the manufacturing families that use them. This is the one part
+  of the manufacturing work that extends the pricing core: two new engine inputs
+  and line-pricing branches (mirrored on the SPA and Deno engines, behaviour-parity
+  tested), two new rate codes (MFG-MACHINE-HR, MFG-RAW-UNIT) seeded into every
+  existing default rate card by migration 0146. Rates are micros, every line total
+  reduces to integer cents by banker's rounding, no float reaches a money column.
+  Migration 0146 is pure config DML, idempotent, staging-validated in a rolled-back
+  transaction and prod-verified (both codes on all six default cards).
 - **Builder dashboard and Manufacturing estimating** (ADR 0006 P3, no migration).
   A new `/builder` launcher gathers the two engines in one place: the Estimate
   Engine (classify, price, produce a quote) and the Job Builder (turn an approved
@@ -73,6 +72,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   reaches a money column: receiving costs stay null at build and quantities are
   numeric, not currency. Builds on the migration 0145 run-scoped build artifacts
   and the P2b-1 artifact handlers.
+- **Job build-artifact handlers and the jacket start-gate** (PR #414, ADR 0006
+  P2b-1, no migration). three-pl-api gains CRUD for the four run-scoped build
+  artifacts from migration 0145 (labels, scope-of-work steps, the build timeline,
+  and the approval jacket) plus the jacket state machine (approve / reject /
+  reopen). An unapproved jacket now hard-gates start_job_run: a run seeded with a
+  draft jacket cannot start until it is approved, while a legacy run with no jacket
+  starts as before. Reads are RLS-only behind a parent-run assert (a cross-tenant
+  run resolves to 404); writes reuse threepl.job_run.update, idempotency-keyed and
+  org-scoped. Handlers return the raw rows; the SPA parses them against the
+  byte-mirrored canon.
+- **Job Builder build-artifact schema** (PR #413, ADR 0006 P2a, migration 0145).
+  Four run-scoped tables hung off a job_run, the build artifacts no existing
+  column carried: job_run_labels (printed data per label kind), job_run_sow_steps,
+  job_run_timeline (one per run, planned plus actual dates), and job_run_jacket
+  (the approval state machine, with an auto state-transition audit trigger). RLS
+  Pattern A on every table, org_id denormalized, ON DELETE CASCADE; the audit
+  entity-type check extended as a strict superset. Byte-mirrored canon types.
+  Staging-validated in a rolled-back transaction.
 - **Estimate Engine wizard and rate-card editor** (PR #412, ADR 0006 P1c, no
   migration). The operator-facing surfaces for the Estimate Engine, wired to the
   P1b bundles and reconciled to the live design system (semantic tokens, flat,
@@ -102,6 +119,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Deno mirror with a behaviour-parity test against the SPA engine, and the rate
   card and estimate types are byte-identical both sides. The three new tables join
   the nightly cross-tenant RLS probe.
+- **Estimate Engine schema** (PR #410, ADR 0006 P1a, migration 0144). The per-org
+  rate card and the estimates it produces: rate_cards plus rate_card_lines (rates
+  as rate_micros, one default card seeded per org from the app DEFAULT_RATE_CARD)
+  and estimates (draft to converted or cancelled, an inputs jsonb, a BIGINT-cents
+  snapshot, converted_to_quote_id linking the real quote). RLS Pattern A
+  throughout, audited, the audit entity-type check extended as a strict superset.
+  The pricing core itself (the family / engine taxonomy and the rate-card math)
+  shipped first in PR #409 as a pure, unit-tested library in cents. Validated on
+  staging in a rolled-back transaction.
 - **Recurring-billing operationalization and audit symmetry** (PRs #387 to #389,
   migration 0139). The ADR 0005 Phase 2 generator is now operable: invoicing-api
   gains a recurring-schedule endpoint set (create / pause / resume / end / list),
