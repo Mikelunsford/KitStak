@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Builder dashboard and Manufacturing estimating** (ADR 0006 P3, no migration).
+  A new `/builder` launcher gathers the two engines in one place: the Estimate
+  Engine (classify, price, produce a quote) and the Job Builder (turn an approved
+  quote into a buildable job). The dashboard shows only engines the org can reach,
+  so the Job Builder card appears with the 3PL plugin and the Estimate Engine is
+  always present; it is reached from a Builder item under Sell. Manufacturing
+  becomes a first-class estimating pillar: a family for each pricing engine
+  (production run, assembly, machining, finishing, shop time), added entirely
+  through the family configuration seam, so each reuses an existing engine and the
+  existing line vocabulary and the pricing core is untouched. The estimate family
+  wire enum was widened to carry them (the family column is free text, so no
+  migration). Manufacturing-specific pricing primitives such as machine hours and
+  raw materials are a separate engine effort, not this change.
 - **Job Builder** (PRs #416, #417, ADR 0006 P2c, no migration). The operator
   surface that turns a built job into a managed build. A new page under
   Production and Fulfillment lists every job as a buildable run and opens a

@@ -86,6 +86,9 @@ export type RateCardLinePatch = z.infer<typeof RateCardLinePatchSchema>;
 // API validates a family/engine without importing the pricing core.
 export const EstimateFamilySchema = z.enum([
   'display', 'copack', 'kitting', 'fulfillment', 'warehousing', 'valueadd', 'admin',
+  // Manufacturing pillar (ADR 0006 P3). estimates.family is free text (no DB
+  // check), so widening this wire enum needs no migration.
+  'mfg_production', 'mfg_assembly', 'mfg_machining', 'mfg_finishing', 'mfg_shop',
 ]);
 export type EstimateFamily = z.infer<typeof EstimateFamilySchema>;
 

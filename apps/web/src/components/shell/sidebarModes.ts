@@ -62,6 +62,7 @@ import {
   FileSpreadsheet,
   FileText,
   Flag,
+  Hammer,
   HardHat,
   Hash,
   KeyRound,
@@ -180,6 +181,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/crm/opportunities', label: 'Opportunities', icon: Target, group: 'CRM', requiresCap: 'crm.opportunities.read' },
       { path: '/crm/activities', label: 'Activities', icon: CalendarCheck, group: 'CRM', requiresCap: 'crm.activities.read' },
       // Quotes
+      { path: '/builder', label: 'Builder', icon: Hammer, group: 'Quotes', requiresCap: 'quotes.quote.read' },
       { path: '/estimates', label: 'Estimates', icon: Calculator, group: 'Quotes', requiresCap: 'quotes.quote.read' },
       { path: '/quotes', label: 'Quotes', icon: FileText, group: 'Quotes', requiresCap: 'quotes.quote.read' },
       // Projects
