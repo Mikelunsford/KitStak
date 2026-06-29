@@ -110,6 +110,15 @@ const BESPOKE_PAIRS: ReadonlyArray<Pair> = [
     spa: 'src/lib/types/estimate.ts',
     shared: '../../supabase/functions/_shared/types/estimate.ts',
   },
+  // Job Builder (ADR 0006 P2). Types-only side-car for the run-scoped build
+  // artifacts (labels / SOW / timeline / jacket) and the build-from-quote
+  // request shapes; the job-builder-api handler keeps any rules, not a workflow
+  // canon, matching the others.
+  {
+    name: 'types/jobbuilder',
+    spa: 'src/lib/types/jobbuilder.ts',
+    shared: '../../supabase/functions/_shared/types/jobbuilder.ts',
+  },
   // The Estimate Engine's pure pricing config. Both copies are byte-identical so
   // the SPA wizard and the server-side convert price off the same rate model and
   // family taxonomy. engine.ts itself is NOT byte-paired (Deno needs .ts import
