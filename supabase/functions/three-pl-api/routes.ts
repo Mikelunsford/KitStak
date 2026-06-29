@@ -28,6 +28,12 @@ import {
   listProducedLines, createProducedLine, patchProducedLine, deleteProducedLine,
 } from './handlers/job_runs.ts';
 import {
+  listJobRunLabels, createJobRunLabel, patchJobRunLabel, deleteJobRunLabel,
+  listJobRunSowSteps, createJobRunSowStep, patchJobRunSowStep, deleteJobRunSowStep,
+  getJobRunTimeline, upsertJobRunTimeline,
+  getJobRunJacket, ensureJobRunJacket, transitionJobRunJacket,
+} from './handlers/job_artifacts.ts';
+import {
   listBillingReviews, createBillingReview, getBillingReview, patchBillingReview,
   deleteBillingReview, approveBillingReview, cancelBillingReview,
 } from './handlers/billing_reviews.ts';
@@ -121,6 +127,27 @@ export const routes: Route[] = [
   { method: 'POST',   path: '/job-runs/:id/daily-logs/:lid/produced-lines',      handler: createProducedLine },
   { method: 'PATCH',  path: '/job-runs/:id/daily-logs/:lid/produced-lines/:pid', handler: patchProducedLine },
   { method: 'DELETE', path: '/job-runs/:id/daily-logs/:lid/produced-lines/:pid', handler: deleteProducedLine },
+
+  // -------------------------------------------------------------------------
+  // job build artifacts (ADR 0006 P2b): run-scoped labels / scope-of-work /
+  // timeline / approval jacket. Reads RLS-only; writes reuse job_run.update.
+  // -------------------------------------------------------------------------
+  { method: 'GET',    path: '/job-runs/:id/labels',                 handler: listJobRunLabels },
+  { method: 'POST',   path: '/job-runs/:id/labels',                 handler: createJobRunLabel },
+  { method: 'PATCH',  path: '/job-runs/:id/labels/:labelId',        handler: patchJobRunLabel },
+  { method: 'DELETE', path: '/job-runs/:id/labels/:labelId',        handler: deleteJobRunLabel },
+
+  { method: 'GET',    path: '/job-runs/:id/sow-steps',              handler: listJobRunSowSteps },
+  { method: 'POST',   path: '/job-runs/:id/sow-steps',              handler: createJobRunSowStep },
+  { method: 'PATCH',  path: '/job-runs/:id/sow-steps/:stepId',      handler: patchJobRunSowStep },
+  { method: 'DELETE', path: '/job-runs/:id/sow-steps/:stepId',      handler: deleteJobRunSowStep },
+
+  { method: 'GET',    path: '/job-runs/:id/timeline',               handler: getJobRunTimeline },
+  { method: 'PUT',    path: '/job-runs/:id/timeline',               handler: upsertJobRunTimeline },
+
+  { method: 'GET',    path: '/job-runs/:id/jacket',                 handler: getJobRunJacket },
+  { method: 'POST',   path: '/job-runs/:id/jacket',                 handler: ensureJobRunJacket },
+  { method: 'POST',   path: '/job-runs/:id/jacket/transition',      handler: transitionJobRunJacket },
 
   // -------------------------------------------------------------------------
   // billing_reviews (parent; FSM draft / approved / invoiced / cancelled)
