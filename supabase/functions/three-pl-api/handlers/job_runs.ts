@@ -37,6 +37,7 @@ import {
   BUNDLE, nowIso, loadJobRun, assertJobRunParent, loadJobRunDailyLog,
   assertDailyLogParent, nextDailyLogLinePosition, buildTemplateSnapshot,
 } from './_helpers.ts';
+import { loadJacketRow } from './job_artifacts.ts';
 
 // Workstream C (UI scan) server list toolbar allowlists. run_number is nullable
 // (migration 0098: org-scoped, nullable, unique only where present) so it is a
@@ -188,6 +189,15 @@ export async function startJobRun({ req, params }: RouteCtx): Promise<Response> 
   requireCap(caller, 'threepl.job_run.start');
   parseUuidParam(params.id);
   return respondWithIdempotency(req, caller, BUNDLE, '/job-runs/:id/start', null, async () => {
+    // ADR 0006 P2b (operator decision): an unapproved build jacket blocks start.
+    // The gate fires only when a jacket EXISTS: a Job Builder run is seeded with a
+    // draft jacket (so it must be approved before start), while a legacy 3PL run
+    // that never used the Job Builder has no jacket and starts as before.
+    const jacket = await loadJacketRow(caller.orgId, params.id);
+    if (jacket && jacket.status !== 'approved') {
+      throw new ApiError('STATE_CONFLICT', 409,
+        'job run cannot start until its build jacket is approved');
+    }
     const { error } = await admin().rpc('start_job_run', {
       p_run_id: params.id, p_actor: caller.userId, p_caller_org_id: caller.orgId,
     });
