@@ -71,6 +71,25 @@ export const jobRunDailyLogLinesKeys = {
     [...jobRunDailyLogsKeys.byRun(runId), logId, 'lines'] as const,
 };
 
+// Job Builder run-scoped build artifacts (ADR 0006 P2). Each hangs off the
+// parent run's detail key so a run invalidation sweeps them too. Labels and
+// SOW steps are collections; the timeline and jacket are singletons per run.
+export const jobRunLabelsKeys = {
+  byRun: (runId: string) => [...jobRunsKeys.detail(runId), 'labels'] as const,
+};
+
+export const jobRunSowStepsKeys = {
+  byRun: (runId: string) => [...jobRunsKeys.detail(runId), 'sow-steps'] as const,
+};
+
+export const jobRunTimelineKeys = {
+  byRun: (runId: string) => [...jobRunsKeys.detail(runId), 'timeline'] as const,
+};
+
+export const jobRunJacketKeys = {
+  byRun: (runId: string) => [...jobRunsKeys.detail(runId), 'jacket'] as const,
+};
+
 export const billingReviewsKeys = {
   all: ['threepl', 'billing_reviews'] as const,
   list: (filters: ListBillingReviewsFilters = {}) =>
