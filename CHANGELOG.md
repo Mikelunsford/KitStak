@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Job Builder build-from-quote** (PR #415, ADR 0006 P2b-2, no migration). An
+  approved quote becomes a buildable job in one call. A new `three-pl-api`
+  endpoint, POST /build-from-quote/:quoteId, reuses the existing 3PL chain: it
+  converts the quote to a project (the convert RPC owns the approved-state guard
+  and the cross-tenant boundary, so a non-approved or foreign quote surfaces as a
+  state conflict or a not-found), seeds a draft supply plan from the project
+  materials and the org default warehouse, opens a job run that inherits the
+  project's frozen job-template snapshot, and, by operator default, opens a draft
+  receiving order exploded from the job bill of materials with each component's
+  required quantity rolled up across the project lines. It then seeds a draft
+  build jacket and a build timeline (the must-arrive-by date taken from the
+  project due date) so the run lands gated behind jacket approval (the P2b-1
+  start-gate blocks the run until the jacket is approved). Every step is guarded,
+  so a re-run reuses the existing chain rather than minting duplicates; the
+  receiving order is skipped when the org has no default warehouse (warehouse_id
+  is required) or the bill of materials resolves to nothing. Gated on
+  threepl.job_run.create, idempotency-keyed, org-scoped throughout. No float
+  reaches a money column: receiving costs stay null at build and quantities are
+  numeric, not currency. Builds on the migration 0145 run-scoped build artifacts
+  and the P2b-1 artifact handlers.
 - **Estimate Engine wizard and rate-card editor** (PR #412, ADR 0006 P1c, no
   migration). The operator-facing surfaces for the Estimate Engine, wired to the
   P1b bundles and reconciled to the live design system (semantic tokens, flat,

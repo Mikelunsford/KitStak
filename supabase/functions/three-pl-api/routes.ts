@@ -33,6 +33,7 @@ import {
   getJobRunTimeline, upsertJobRunTimeline,
   getJobRunJacket, ensureJobRunJacket, transitionJobRunJacket,
 } from './handlers/job_artifacts.ts';
+import { buildJobFromQuote } from './handlers/build_from_quote.ts';
 import {
   listBillingReviews, createBillingReview, getBillingReview, patchBillingReview,
   deleteBillingReview, approveBillingReview, cancelBillingReview,
@@ -148,6 +149,13 @@ export const routes: Route[] = [
   { method: 'GET',    path: '/job-runs/:id/jacket',                 handler: getJobRunJacket },
   { method: 'POST',   path: '/job-runs/:id/jacket',                 handler: ensureJobRunJacket },
   { method: 'POST',   path: '/job-runs/:id/jacket/transition',      handler: transitionJobRunJacket },
+
+  // -------------------------------------------------------------------------
+  // build-from-quote (ADR 0006 P2b-2): an approved quote becomes a buildable
+  // job. Reuses the 3PL chain (convert -> supply plan -> job run -> receiving
+  // order) and seeds the build artifacts so the run lands gated.
+  // -------------------------------------------------------------------------
+  { method: 'POST',   path: '/build-from-quote/:quoteId',           handler: buildJobFromQuote },
 
   // -------------------------------------------------------------------------
   // billing_reviews (parent; FSM draft / approved / invoiced / cancelled)
