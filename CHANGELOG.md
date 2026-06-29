@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Estimate Engine wizard and rate-card editor** (PR #412, ADR 0006 P1c, no
+  migration). The operator-facing surfaces for the Estimate Engine, wired to the
+  P1b bundles and reconciled to the live design system (semantic tokens, flat,
+  not the handoff slate/brand classes). A four-step wizard at /estimates/new
+  classifies a job (real customer picker, family, facets), prices it (time-study,
+  touch, per-piece, menu, or flat, with a live 2.5x margin check), picks rate-card
+  pass-throughs, and produces an itemized estimate; Convert builds a real quote
+  through estimates-api and lands on it. The wizard previews from the shared
+  pricing core against the org's active rate card, so the per-piece base rate is
+  entered in dollars and carried as micros and every shown total is the engine's
+  integer cents. A list at /estimates gives saved drafts a home. A rate-card
+  editor under Settings edits the active card line by line, with rates entered in
+  dollars and stored as rate_micros so sub-cent precision survives. Sidebar adds
+  Estimates under SELL and Rate card under SETTINGS.
 - **Estimate Engine backend wiring** (PR #411, ADR 0006 P1b, no migration). The
   per-org rate card and draft estimates from migration 0144 get their CRUD
   surfaces and a convert path. New `rate-cards-api` lists, creates, patches, and
