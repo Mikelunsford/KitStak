@@ -39,9 +39,11 @@ export interface JobReceiving {
 
 export interface JobBuilderData {
   run: JobRun;
-  projectName?: string;
-  customerName?: string;
-  family?: string;
+  // Optional context. Widened to include undefined so callers can pass an
+  // unresolved query result directly under exactOptionalPropertyTypes.
+  projectName?: string | undefined;
+  customerName?: string | undefined;
+  family?: string | undefined;
   // Output units from the quote; drives the inbound rollup and floor counts.
   outputUnits: number;
   materials: JobMaterial[];

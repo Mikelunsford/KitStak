@@ -346,6 +346,13 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
       },
       {
+        path: '/3pl-operations/job-builder',
+        label: 'Job Builder',
+        icon: PackagePlus,
+        group: '3PL Operations',
+        requiresFlag: FEATURE_FLAGS.PLUGINS_THREE_PL,
+      },
+      {
         path: '/3pl-operations/billing-reviews',
         label: 'Billing review',
         icon: Receipt,
