@@ -125,6 +125,11 @@ export const EstimateInputsSchema = z.object({
   ecomPieces: z.number().nonnegative().default(0),
   programmingHrs: z.number().nonnegative().default(0),
   shopHours: z.number().nonnegative().default(0),
+  // Manufacturing primitives (ADR 0006 P3 follow-on). machineHours prices off
+  // MFG-MACHINE-HR; rawMaterialUnits off MFG-RAW-UNIT, gated on materialsSourced.
+  machineHours: z.number().nonnegative().default(0),
+  rawMaterialUnits: z.number().nonnegative().default(0),
+  materialsSourced: z.boolean().default(false),
   setupOn: z.boolean().default(false),
 });
 export type EstimateInputs = z.infer<typeof EstimateInputsSchema>;

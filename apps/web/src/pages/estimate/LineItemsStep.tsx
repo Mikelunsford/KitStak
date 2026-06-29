@@ -35,6 +35,8 @@ const LINE_FIELD: Record<LineKey, keyof EngineState> = {
   ecomPieces: 'ecomPieces',
   programmingHrs: 'programmingHrs',
   shopHours: 'shopHours',
+  machineHours: 'machineHours',
+  rawMaterials: 'rawMaterialUnits',
 };
 
 // Editable line cards for the active family. Amounts mirror the pricing engine
@@ -104,9 +106,25 @@ function describeLines(
       amountCents: cents(n('shopHours') * rateMicrosOf(card, 'ADM-SHOP')),
       step: 1,
     },
+    machineHours: {
+      label: 'Machine time',
+      rateHint: `${microsDisplay(rateMicrosOf(card, 'MFG-MACHINE-HR'))} / hr`,
+      amountCents: cents(n('machineHours') * rateMicrosOf(card, 'MFG-MACHINE-HR')),
+      step: 1,
+    },
+    rawMaterials: {
+      label: 'Raw materials',
+      rateHint: `${microsDisplay(rateMicrosOf(card, 'MFG-RAW-UNIT'))} / unit`,
+      amountCents: cents(n('rawMaterialUnits') * rateMicrosOf(card, 'MFG-RAW-UNIT')),
+      step: 25,
+    },
   };
 
-  return fam.lines.map((key) => ({ key, field: LINE_FIELD[key], ...meta[key] }));
+  // rawMaterials only bills when materials are sourced (org-supplied); hide the
+  // card otherwise so the wizard matches the engine's gating.
+  return fam.lines
+    .filter((key) => key !== 'rawMaterials' || state.materials === 'sourced')
+    .map((key) => ({ key, field: LINE_FIELD[key], ...meta[key] }));
 }
 
 // Step 3 - pick the rate-card pass-through lines for this family. Each is a

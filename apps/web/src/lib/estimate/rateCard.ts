@@ -19,7 +19,10 @@ export type RateGroup =
   | 'ecommerce'
   | 'admin'
   | 'materials'
-  | 'addons';
+  | 'addons'
+  // Manufacturing pricing primitives (ADR 0006 P3 follow-on): machine time and
+  // raw-material unit cost, tunable in the rate-card editor like every other rate.
+  | 'manufacturing';
 
 export interface RateCardLine {
   code: string;
@@ -64,6 +67,9 @@ export const DEFAULT_RATE_CARD: readonly RateCardLine[] = [
   dollars('MAT-PALLET-B', 'materials', 'Pallet, Grade B', 13),
   // Add-ons & change charges
   dollars('ADD-LABEL-APP', 'addons', 'Label print & apply', 0.12),
+  // Manufacturing primitives (machine time + raw material per unit)
+  dollars('MFG-MACHINE-HR', 'manufacturing', 'Machine time (per hour)', 75),
+  dollars('MFG-RAW-UNIT', 'manufacturing', 'Raw material (per unit)', 0.5),
 ];
 
 /** Look up a rate (micros) by code; missing codes price at 0, never throw. */

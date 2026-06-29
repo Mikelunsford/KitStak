@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Manufacturing pricing primitives** (ADR 0006 P3 follow-on, migration 0146
+  HELD for sign-off). The Estimate Engine gains two manufacturing rate-card
+  primitives: machine time (per hour) and raw materials (per unit). Both price
+  off the rate card like every other line, so they are tunable in the rate-card
+  editor under a new Manufacturing group, and a raw-materials cost only bills
+  when the estimate's materials are sourced (org-supplied), not customer-supplied.
+  The wizard surfaces the two inputs on the manufacturing families that use them.
+  This is the one part of the manufacturing work that extends the pricing core:
+  two new engine inputs and line-pricing branches (mirrored on the SPA and Deno
+  engines, behaviour-parity tested), two new rate codes (MFG-MACHINE-HR,
+  MFG-RAW-UNIT) seeded into every existing default rate card by migration 0146.
+  Rates are micros, every line total reduces to integer cents by banker's
+  rounding, no float reaches a money column. Migration 0146 is pure config DML
+  (idempotent, validated on staging in a rolled-back transaction) and is held for
+  operator sign-off before it ships.
 - **Builder dashboard and Manufacturing estimating** (ADR 0006 P3, no migration).
   A new `/builder` launcher gathers the two engines in one place: the Estimate
   Engine (classify, price, produce a quote) and the Job Builder (turn an approved
