@@ -412,6 +412,13 @@ const RateCardEditorPage = lazy(() =>
     default: m.RateCardEditorPage,
   })),
 );
+// ADR 0006 P3: the Builder dashboard launching both engines. Cross-pillar
+// (the Estimate Engine is universal), so it is not plugin-gated.
+const BuilderDashboard = lazy(() =>
+  import('./pages/builder/BuilderDashboard').then((m) => ({
+    default: m.BuilderDashboard,
+  })),
+);
 const ProjectsListPage = lazy(() =>
   import('./pages/3pl-operations/projects/ProjectsListPage').then((m) => ({
     default: m.ProjectsListPage,
@@ -1401,6 +1408,14 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   },
   // Estimate Engine (ADR 0006 P1c): standalone wizard + list. The wizard
   // produces a real quote via estimates-api convert.
+  // ADR 0006 P3: the Builder dashboard. Cross-pillar launcher; the route is not
+  // plugin-gated (the dashboard hides engines the org cannot reach).
+  {
+    path: '/builder',
+    element: BuilderDashboard,
+    guard: 'protected',
+    layout: 'shell',
+  },
   {
     path: '/estimates',
     element: EstimatesListPage,

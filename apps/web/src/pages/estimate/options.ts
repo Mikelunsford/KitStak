@@ -20,6 +20,11 @@ export const FORM_LABELS: Record<string, string> = {
   shipper_case: 'Shipper case',
   kit_box: 'Kit / box',
   individual: 'Individual unit',
+  // Manufacturing pillar forms (ADR 0006 P3).
+  production: 'Production run',
+  assembly: 'Assembly',
+  machined: 'Machined part',
+  finished: 'Finished good',
   na: '-',
 };
 
@@ -57,6 +62,7 @@ export const FAMILY_OPTIONS = (Object.keys(FAMILIES) as FamilyKey[]).map((value)
 export const FORM_OPTIONS = toOptions(FORM_LABELS, [
   'sidekick', 'power_wing', 'floorstand', 'pdq', 'pallet_display',
   'half_pallet', 'shipper_case', 'kit_box', 'individual',
+  'production', 'assembly', 'machined', 'finished',
 ]);
 
 export const CHANNEL_OPTIONS = toOptions(CHANNEL_LABELS, [

@@ -14,7 +14,16 @@ export type FamilyKey =
   | 'fulfillment'
   | 'warehousing'
   | 'valueadd'
-  | 'admin';
+  | 'admin'
+  // Manufacturing pillar (ADR 0006 P3). Added through this config seam alone:
+  // each reuses an existing engine and the existing line vocabulary, so the
+  // pricing core (engine.ts) is untouched. Manufacturing-specific pricing
+  // primitives (machine hours, raw materials) would be a separate engine phase.
+  | 'mfg_production'
+  | 'mfg_assembly'
+  | 'mfg_machining'
+  | 'mfg_finishing'
+  | 'mfg_shop';
 
 export type LineKey =
   | 'inbound'
@@ -48,6 +57,13 @@ export const FAMILIES: Record<FamilyKey, FamilyDef> = {
   warehousing: { key: 'warehousing', label: 'Warehousing / 3PL', engine: 'menu', form: 'pallet_display', channel: 'b2b', uom: 'per pallet', lines: ['inbound', 'storagePallets'], setup: false },
   valueadd: { key: 'valueadd', label: 'Value-Add Processing', engine: 'perpiece', form: 'individual', channel: 'dtc', uom: 'per piece', lines: ['labelQty'], setup: false },
   admin: { key: 'admin', label: 'Administration', engine: 'flat', form: 'na', channel: 'na', uom: 'per account', lines: ['programmingHrs', 'shopHours'], setup: true },
+  // Manufacturing pillar (ADR 0006 P3): a family per engine kind, mirroring the
+  // breadth 3PL has, all config-only (existing engines + existing line keys).
+  mfg_production: { key: 'mfg_production', label: 'Manufacturing / Production Run', engine: 'timestudy', form: 'production', channel: 'b2b', uom: 'per unit', lines: ['shopHours', 'labelQty', 'storagePallets'], setup: true },
+  mfg_assembly: { key: 'mfg_assembly', label: 'Manufacturing / Assembly', engine: 'touch', form: 'assembly', channel: 'b2b', uom: 'per touch', lines: ['labelQty'], setup: true },
+  mfg_machining: { key: 'mfg_machining', label: 'Manufacturing / Machining', engine: 'perpiece', form: 'machined', channel: 'b2b', uom: 'per piece', lines: ['labelQty'], setup: false },
+  mfg_finishing: { key: 'mfg_finishing', label: 'Manufacturing / Finishing', engine: 'menu', form: 'finished', channel: 'b2b', uom: 'per unit', lines: ['labelQty', 'storagePallets'], setup: true },
+  mfg_shop: { key: 'mfg_shop', label: 'Manufacturing / Shop Time', engine: 'flat', form: 'na', channel: 'na', uom: 'per hour', lines: ['shopHours', 'programmingHrs'], setup: true },
 };
 
 export const ENGINE_LABELS: Record<EngineKind, string> = {
