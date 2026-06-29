@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Estimate Engine backend wiring** (PR #411, ADR 0006 P1b, no migration). The
+  per-org rate card and draft estimates from migration 0144 get their CRUD
+  surfaces and a convert path. New `rate-cards-api` lists, creates, patches, and
+  soft-deletes a card and does CRUD on its lines (gated on settings.read /
+  settings.write, no new capability). New `estimates-api` does CRUD on draft
+  estimates plus convert / cancel, snapshotting subtotal / total / minimum
+  server-side from the rate card; converting builds a normal quotes-api quote
+  (one line per engine line at the engine's rounded cents, the 500 dollar project
+  minimum as an explicit adjustment line, then recompute and a converted stamp),
+  gated on quotes.quote.read / quotes.quote.write. Rate precision stays in
+  rate_micros and every line total reduces to BIGINT cents by banker's rounding,
+  so no float reaches a money column. The pricing core is ported server-side as a
+  Deno mirror with a behaviour-parity test against the SPA engine, and the rate
+  card and estimate types are byte-identical both sides. The three new tables join
+  the nightly cross-tenant RLS probe.
 - **Recurring-billing operationalization and audit symmetry** (PRs #387 to #389,
   migration 0139). The ADR 0005 Phase 2 generator is now operable: invoicing-api
   gains a recurring-schedule endpoint set (create / pause / resume / end / list),
