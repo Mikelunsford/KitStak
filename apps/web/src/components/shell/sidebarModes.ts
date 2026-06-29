@@ -50,6 +50,7 @@ import {
   Building,
   Building2,
   CalendarCheck,
+  Calculator,
   ClipboardList,
   Clock,
   Contact,
@@ -179,6 +180,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
       { path: '/crm/opportunities', label: 'Opportunities', icon: Target, group: 'CRM', requiresCap: 'crm.opportunities.read' },
       { path: '/crm/activities', label: 'Activities', icon: CalendarCheck, group: 'CRM', requiresCap: 'crm.activities.read' },
       // Quotes
+      { path: '/estimates', label: 'Estimates', icon: Calculator, group: 'Quotes', requiresCap: 'quotes.quote.read' },
       { path: '/quotes', label: 'Quotes', icon: FileText, group: 'Quotes', requiresCap: 'quotes.quote.read' },
       // Projects
       { path: '/projects', label: 'Projects', icon: Briefcase, group: 'Projects', requiresCap: 'projects.project.read' },
@@ -486,6 +488,7 @@ export const SIDEBAR_MODES: ReadonlyArray<ModeSpec> = [
         icon: SlidersHorizontal,
         group: 'Configuration',
       },
+      { path: '/settings/rate-cards', label: 'Rate card', icon: DollarSign, group: 'Configuration' },
       { path: '/admin/branding', label: 'Branding', icon: Palette, group: 'Configuration' },
       { path: '/admin/numbering', label: 'Numbering', icon: Hash, group: 'Configuration' },
       { path: '/admin/flags', label: 'Feature flags', icon: Flag, group: 'Configuration' },

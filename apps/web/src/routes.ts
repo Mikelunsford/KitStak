@@ -395,6 +395,23 @@ const QuoteCreatePage = lazy(() =>
     default: m.QuoteCreatePage,
   })),
 );
+// Estimate Engine (ADR 0006 P1c): standalone estimate wizard, its list, and the
+// rate-card editor (a Settings surface).
+const EstimatesListPage = lazy(() =>
+  import('./pages/estimate/EstimatesListPage').then((m) => ({
+    default: m.EstimatesListPage,
+  })),
+);
+const EstimateEnginePage = lazy(() =>
+  import('./pages/estimate/EstimateEnginePage').then((m) => ({
+    default: m.EstimateEnginePage,
+  })),
+);
+const RateCardEditorPage = lazy(() =>
+  import('./pages/estimate/RateCardEditorPage').then((m) => ({
+    default: m.RateCardEditorPage,
+  })),
+);
 const ProjectsListPage = lazy(() =>
   import('./pages/3pl-operations/projects/ProjectsListPage').then((m) => ({
     default: m.ProjectsListPage,
@@ -1350,6 +1367,14 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
     guard: 'protected',
     layout: 'shell',
   },
+  // Estimate Engine rate-card editor (ADR 0006 P1c). Rides the adminOnly
+  // SETTINGS sidebar section; server gates writes on settings.write.
+  {
+    path: '/settings/rate-cards',
+    element: RateCardEditorPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
   {
     path: '/catalog/vas',
     element: ValueAddedServicesPage,
@@ -1366,6 +1391,26 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   {
     path: '/catalog/vas/:id/edit',
     element: ValueAddedServiceEditPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  // Estimate Engine (ADR 0006 P1c): standalone wizard + list. The wizard
+  // produces a real quote via estimates-api convert.
+  {
+    path: '/estimates',
+    element: EstimatesListPage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/estimates/new',
+    element: EstimateEnginePage,
+    guard: 'protected',
+    layout: 'shell',
+  },
+  {
+    path: '/estimates/:id/edit',
+    element: EstimateEnginePage,
     guard: 'protected',
     layout: 'shell',
   },
