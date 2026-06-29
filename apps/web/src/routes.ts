@@ -587,6 +587,11 @@ const JobRunDetailPage = lazy(() =>
 const JobRunCreatePage = lazy(() =>
   import('./pages/3pl-operations/job-runs/JobRunCreatePage').then((m) => ({ default: m.JobRunCreatePage })),
 );
+// ADR 0006 P2c: the Job Builder. One lazy chunk serves both the list and the
+// per-run builder (the page switches on the :id param).
+const JobBuilderPage = lazy(() =>
+  import('./pages/jobbuilder/JobBuilderPage').then((m) => ({ default: m.JobBuilderPage })),
+);
 // Wave 12 Phase A7: 3PL Billing Review + Job Profitability.
 const BillingReviewsListPage = lazy(() =>
   import('./pages/3pl-operations/billing-reviews/BillingReviewsListPage').then((m) => ({ default: m.BillingReviewsListPage })),
@@ -1513,6 +1518,10 @@ const RAW_ROUTES: ReadonlyArray<RouteSpec> = [
   { path: '/3pl-operations/job-runs',               element: JobRunsListPage,           guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/job-runs/new',           element: JobRunCreatePage,          guard: 'protected', layout: 'shell' },
   { path: '/3pl-operations/job-runs/:id',           element: JobRunDetailPage,          guard: 'protected', layout: 'shell' },
+  // ADR 0006 P2c: Job Builder list + per-run builder (auto plugin-gated by the
+  // /3pl-operations prefix via inferPluginForPath).
+  { path: '/3pl-operations/job-builder',            element: JobBuilderPage,            guard: 'protected', layout: 'shell' },
+  { path: '/3pl-operations/job-builder/:id',        element: JobBuilderPage,            guard: 'protected', layout: 'shell' },
   // Wave 12 Phase A7: 3PL Billing Review + Job Profitability. /new before /:id.
   // Profitability is a read-only report (no /new, no /:id).
   { path: '/3pl-operations/billing-reviews',        element: BillingReviewsListPage,    guard: 'protected', layout: 'shell' },

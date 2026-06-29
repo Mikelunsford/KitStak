@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Job Builder** (PRs #416, #417, ADR 0006 P2c, no migration). The operator
+  surface that turns a built job into a managed build. A new page under
+  Production and Fulfillment lists every job as a buildable run and opens a
+  six-tab builder: a read-only bill of materials and the linked draft receiving
+  order, plus editable labels, scope of work, a build timeline run against the
+  must-arrive-by date, and the approval jacket whose state gates the run start.
+  A sticky readiness rail and a generated floor task list are driven by the
+  ported job logic through an adapter that maps the live backend rows (the job
+  run, its four build artifacts, the receiving order, and the project materials)
+  into the shape that logic already computes against, so the readiness, schedule,
+  and task math stay one implementation. An approved quote now offers a Build job
+  action that runs the build-from-quote orchestration and lands on the new job.
+  The page is reconciled to the live design system (semantic tokens, flat and
+  square) rather than the dropped prototype's styling, routed through the flat
+  routes table as its own lazy chunk, and gated on the 3PL plugin. The SPA data
+  layer (artifact and build-from-quote services, hooks, and the adapter) shipped
+  first in #416.
 - **Job Builder build-from-quote** (PR #415, ADR 0006 P2b-2, no migration). An
   approved quote becomes a buildable job in one call. A new `three-pl-api`
   endpoint, POST /build-from-quote/:quoteId, reuses the existing 3PL chain: it

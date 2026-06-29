@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 
 import { AuditTimeline } from '@/components/shell/AuditTimeline';
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs';
@@ -25,6 +25,7 @@ import {
   useCancelQuote, useSendQuote, useConvertQuoteToProject, useDuplicateQuote,
   useAddLineItem, useUpdateLineItem, useRemoveLineItem, useUpdateQuote,
 } from '@/lib/hooks/useQuotes';
+import { useBuildJobFromQuote } from '@/lib/hooks/useJobArtifacts';
 import { useCustomer } from '@/lib/hooks/useCustomer';
 import { useMe } from '@/lib/hooks/useMe';
 import { useJobTypes } from '@/lib/hooks/useJobTypes';
@@ -80,7 +81,9 @@ export { formatQuoteStateLabel };
 
 export function QuoteDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data, isLoading, error } = useQuote(id);
+  const buildJob = useBuildJobFromQuote();
   const addLine = useAddLineItem(id ?? '');
   const updateLine = useUpdateLineItem(id ?? '');
   const removeLine = useRemoveLineItem(id ?? '');
@@ -541,6 +544,31 @@ export function QuoteDetailPage() {
           >
             {duplicate.isPending ? 'Duplicating.' : 'Duplicate'}
           </Button>
+        )}
+        {/* ADR 0006 P2c: build an approved quote into a job (convert + supply
+            plan + job run + draft receiving order + gated jacket) in one call,
+            landing on the Job Builder. Gated on the 3PL plugin since the
+            endpoint and the builder live in that bundle. */}
+        {state === 'approved' && id && orgFlags.data[FEATURE_FLAGS.PLUGINS_THREE_PL] && (
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                buildJob.mutate(
+                  { quoteId: id, input: { tier_id: isTiered ? (convertTierId || firstTierId) : null } },
+                  { onSuccess: (res) => navigate(`/3pl-operations/job-builder/${res.job_run_id}`) },
+                )
+              }
+              disabled={buildJob.isPending}
+            >
+              {buildJob.isPending ? 'Building.' : 'Build job'}
+            </Button>
+            {buildJob.isError && (
+              <p className="font-sans text-sm text-accent">
+                {buildJob.error instanceof Error ? buildJob.error.message : 'Build failed.'}
+              </p>
+            )}
+          </div>
         )}
         {state === 'approved' && id && (() => {
           // F-Wave9-SEND-FEEDBACK-01: inline pending/success/error feedback
