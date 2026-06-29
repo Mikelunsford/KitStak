@@ -29,6 +29,9 @@ function baseInput(overrides: Partial<EstimateInput> = {}): EstimateInput {
     ecomPieces: 0,
     programmingHrs: 0,
     shopHours: 0,
+    machineHours: 0,
+    rawMaterialUnits: 0,
+    materialsSourced: false,
     setupOn: false,
     ...overrides,
   };
@@ -180,5 +183,41 @@ describe('rate card is the source of truth', () => {
     const result = computeEstimate(baseInput({ family: 'kitting', engine: 'touch', qty: 1000, touches: 36 }), bumped);
     // 36 x $0.20 x 1000 = $7,200.00 = 720000 cents.
     expect(result.productionCents).toBe(720_000);
+  });
+});
+
+describe('manufacturing primitives (machine time + raw materials)', () => {
+  const labelOf = (r: ReturnType<typeof computeEstimate>) =>
+    r.passThroughItems.map((i) => i.label);
+
+  it('bills machine time at the rate-card MFG-MACHINE-HR rate', () => {
+    const r = computeEstimate(baseInput({ family: 'mfg_machining', engine: 'perpiece', machineHours: 10 }), card);
+    const machine = r.passThroughItems.find((i) => i.label === 'Machine time');
+    // 10 hr x $75.00 = $750.00 = 75000 cents.
+    expect(machine?.amountCents).toBe(75_000);
+  });
+
+  it('bills raw materials only when materials are sourced (org-supplied)', () => {
+    const sourced = computeEstimate(
+      baseInput({ family: 'mfg_machining', engine: 'perpiece', rawMaterialUnits: 100, materialsSourced: true }),
+      card,
+    );
+    const raw = sourced.passThroughItems.find((i) => i.label === 'Raw materials');
+    // 100 units x $0.50 = $50.00 = 5000 cents.
+    expect(raw?.amountCents).toBe(5_000);
+  });
+
+  it('omits the raw-materials line when materials are customer-supplied', () => {
+    const customer = computeEstimate(
+      baseInput({ family: 'mfg_machining', engine: 'perpiece', rawMaterialUnits: 100, materialsSourced: false }),
+      card,
+    );
+    expect(labelOf(customer)).not.toContain('Raw materials');
+  });
+
+  it('does not surface a manufacturing line a 3PL family never lists', () => {
+    // family 'display' has no machineHours line, so machine hours never price.
+    const r = computeEstimate(baseInput({ family: 'display', machineHours: 10 }), card);
+    expect(labelOf(r)).not.toContain('Machine time');
   });
 });

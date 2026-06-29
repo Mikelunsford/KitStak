@@ -10,11 +10,14 @@ const MFG_KEYS: FamilyKey[] = [
   'mfg_production', 'mfg_assembly', 'mfg_machining', 'mfg_finishing', 'mfg_shop',
 ];
 
-// The engines and line keys that existed before the Manufacturing pillar.
+// The engines and line keys the pricing engine handles. The two manufacturing
+// primitives (machineHours, rawMaterials) were added to the pricing core in the
+// P3 follow-on; every other line predates the Manufacturing pillar.
 const KNOWN_ENGINES: EngineKind[] = ['timestudy', 'touch', 'perpiece', 'menu', 'flat'];
 const KNOWN_LINES: LineKey[] = [
   'inbound', 'palletsOut', 'labelQty', 'storagePallets',
   'ecomOrders', 'ecomPieces', 'programmingHrs', 'shopHours',
+  'machineHours', 'rawMaterials',
 ];
 
 describe('Manufacturing families', () => {
@@ -29,7 +32,7 @@ describe('Manufacturing families', () => {
     }
   });
 
-  it('reuses only existing line keys (no pricing-core change)', () => {
+  it('uses only line keys the pricing engine handles', () => {
     for (const k of MFG_KEYS) {
       for (const line of FAMILIES[k].lines) {
         expect(KNOWN_LINES).toContain(line);

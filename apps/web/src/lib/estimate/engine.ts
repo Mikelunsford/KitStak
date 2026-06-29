@@ -52,6 +52,11 @@ export interface EstimateInput {
   ecomPieces: number;
   programmingHrs: number;
   shopHours: number;
+  // manufacturing primitives: machine time (priced off MFG-MACHINE-HR) and raw
+  // material units (off MFG-RAW-UNIT, only when materialsSourced).
+  machineHours: number;
+  rawMaterialUnits: number;
+  materialsSourced: boolean;
   setupOn: boolean;
 }
 
@@ -155,6 +160,8 @@ export function computeEstimate(input: EstimateInput, card: readonly RateCardLin
   const nEcoP = safe(input.ecomPieces);
   const nProg = safe(input.programmingHrs);
   const nShop = safe(input.shopHours);
+  const nMach = safe(input.machineHours);
+  const nRaw = safe(input.rawMaterialUnits);
 
   const pgCode = input.palletGrade === 'a' ? 'MAT-PALLET-A' : 'MAT-PALLET-B';
   const pgLabel = input.palletGrade === 'a' ? 'Grade A / CHEP' : 'Grade B';
@@ -194,6 +201,14 @@ export function computeEstimate(input: EstimateInput, card: readonly RateCardLin
     } else if (key === 'shopHours' && nShop > 0) {
       const r = rateMicrosOf(card, 'ADM-SHOP');
       line('Shop hours (billable)', `${nShop} × ${fmtMicros(r)}`, r * nShop);
+    } else if (key === 'machineHours' && nMach > 0) {
+      const r = rateMicrosOf(card, 'MFG-MACHINE-HR');
+      line('Machine time', `${nMach} × ${fmtMicros(r)} / hr`, r * nMach);
+    } else if (key === 'rawMaterials' && nRaw > 0 && input.materialsSourced) {
+      // Only billed when materials are sourced (org-supplied); customer-supplied
+      // materials carry no cost line.
+      const r = rateMicrosOf(card, 'MFG-RAW-UNIT');
+      line('Raw materials', `${nRaw} × ${fmtMicros(r)} / unit`, r * nRaw);
     }
   }
 

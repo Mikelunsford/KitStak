@@ -24,7 +24,7 @@ const MICROS_PER_UNIT = 1_000_000;
 // under their raw key so a custom group_key still renders.
 const GROUP_ORDER = [
   'constants', 'receiving', 'storage', 'shipping',
-  'ecommerce', 'admin', 'materials', 'addons',
+  'ecommerce', 'admin', 'materials', 'addons', 'manufacturing',
 ] as const;
 
 const GROUP_TITLES: Record<string, string> = {
@@ -36,6 +36,7 @@ const GROUP_TITLES: Record<string, string> = {
   admin: 'Administration',
   materials: 'Materials & pallets',
   addons: 'Add-ons & change charges',
+  manufacturing: 'Manufacturing',
 };
 
 function microsToDollars(micros: number | string): string {

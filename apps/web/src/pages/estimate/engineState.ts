@@ -59,6 +59,9 @@ export interface EngineState {
   ecomPieces: string;
   programmingHrs: string;
   shopHours: string;
+  // manufacturing primitives (priced off MFG-MACHINE-HR / MFG-RAW-UNIT)
+  machineHours: string;
+  rawMaterialUnits: string;
   setupOn: boolean;
 }
 
@@ -91,6 +94,10 @@ export function defaultLineQty(key: LineKey, units: number): number {
       return 4;
     case 'shopHours':
       return 6;
+    case 'machineHours':
+      return 8;
+    case 'rawMaterials':
+      return Math.max(1, Math.round(units));
     default:
       return 1;
   }
@@ -105,6 +112,8 @@ const LINE_FIELD: Record<LineKey, keyof EngineState> = {
   ecomPieces: 'ecomPieces',
   programmingHrs: 'programmingHrs',
   shopHours: 'shopHours',
+  machineHours: 'machineHours',
+  rawMaterials: 'rawMaterialUnits',
 };
 
 const ZEROED_LINES: Partial<EngineState> = {
@@ -116,6 +125,8 @@ const ZEROED_LINES: Partial<EngineState> = {
   ecomPieces: '0',
   programmingHrs: '0',
   shopHours: '0',
+  machineHours: '0',
+  rawMaterialUnits: '0',
 };
 
 // Choosing a family pre-loads its engine, facets, and a default line set.
@@ -167,6 +178,8 @@ export function initialState(): EngineState {
     ecomPieces: '0',
     programmingHrs: '0',
     shopHours: '0',
+    machineHours: '0',
+    rawMaterialUnits: '0',
     setupOn: true,
   };
 }
@@ -205,6 +218,9 @@ export function toEstimateInput(state: EngineState): EstimateInput {
     ecomPieces: num(state.ecomPieces),
     programmingHrs: num(state.programmingHrs),
     shopHours: num(state.shopHours),
+    machineHours: num(state.machineHours),
+    rawMaterialUnits: num(state.rawMaterialUnits),
+    materialsSourced: state.materials === 'sourced',
     setupOn: state.setupOn,
   };
 }

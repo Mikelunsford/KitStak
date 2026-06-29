@@ -36,6 +36,9 @@ function base(over: Partial<Input>): Input {
     ecomPieces: 0,
     programmingHrs: 0,
     shopHours: 0,
+    machineHours: 0,
+    rawMaterialUnits: 0,
+    materialsSourced: false,
     setupOn: false,
     ...over,
   };
@@ -98,6 +101,23 @@ const CASES: ReadonlyArray<{ name: string; input: Input }> = [
     input: base({
       family: 'display', engine: 'timestudy',
       qty: 1000, studyMin: 0, studySec: 20, inflationPct: 0, markup: 1.5,
+    }),
+  },
+  {
+    name: 'manufacturing production with machine time + sourced raw materials',
+    input: base({
+      family: 'mfg_production', engine: 'timestudy',
+      qty: 2000, studySec: 30, inflationPct: 20, markup: 2.5,
+      machineHours: 16, rawMaterialUnits: 2000, materialsSourced: true,
+      shopHours: 8, labelQty: 2000, storagePallets: 40, storageMonths: 1, setupOn: true,
+    }),
+  },
+  {
+    name: 'manufacturing machining with customer-supplied materials (no raw line)',
+    input: base({
+      family: 'mfg_machining', engine: 'perpiece',
+      qty: 4000, baseRateMicros: 42_000,
+      machineHours: 24, rawMaterialUnits: 4000, materialsSourced: false, labelQty: 4000,
     }),
   },
 ];

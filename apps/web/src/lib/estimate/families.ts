@@ -33,7 +33,12 @@ export type LineKey =
   | 'ecomOrders'
   | 'ecomPieces'
   | 'programmingHrs'
-  | 'shopHours';
+  | 'shopHours'
+  // Manufacturing pricing primitives (ADR 0006 P3 follow-on). machineHours
+  // prices off MFG-MACHINE-HR; rawMaterials off MFG-RAW-UNIT and only when the
+  // estimate's materials are sourced (org-supplied), not customer-supplied.
+  | 'machineHours'
+  | 'rawMaterials';
 
 export type InboundMode = 'pallet' | 'case' | 'case_heavy';
 export type PalletGrade = 'a' | 'b';
@@ -59,11 +64,11 @@ export const FAMILIES: Record<FamilyKey, FamilyDef> = {
   admin: { key: 'admin', label: 'Administration', engine: 'flat', form: 'na', channel: 'na', uom: 'per account', lines: ['programmingHrs', 'shopHours'], setup: true },
   // Manufacturing pillar (ADR 0006 P3): a family per engine kind, mirroring the
   // breadth 3PL has, all config-only (existing engines + existing line keys).
-  mfg_production: { key: 'mfg_production', label: 'Manufacturing / Production Run', engine: 'timestudy', form: 'production', channel: 'b2b', uom: 'per unit', lines: ['shopHours', 'labelQty', 'storagePallets'], setup: true },
-  mfg_assembly: { key: 'mfg_assembly', label: 'Manufacturing / Assembly', engine: 'touch', form: 'assembly', channel: 'b2b', uom: 'per touch', lines: ['labelQty'], setup: true },
-  mfg_machining: { key: 'mfg_machining', label: 'Manufacturing / Machining', engine: 'perpiece', form: 'machined', channel: 'b2b', uom: 'per piece', lines: ['labelQty'], setup: false },
-  mfg_finishing: { key: 'mfg_finishing', label: 'Manufacturing / Finishing', engine: 'menu', form: 'finished', channel: 'b2b', uom: 'per unit', lines: ['labelQty', 'storagePallets'], setup: true },
-  mfg_shop: { key: 'mfg_shop', label: 'Manufacturing / Shop Time', engine: 'flat', form: 'na', channel: 'na', uom: 'per hour', lines: ['shopHours', 'programmingHrs'], setup: true },
+  mfg_production: { key: 'mfg_production', label: 'Manufacturing / Production Run', engine: 'timestudy', form: 'production', channel: 'b2b', uom: 'per unit', lines: ['machineHours', 'rawMaterials', 'shopHours', 'labelQty', 'storagePallets'], setup: true },
+  mfg_assembly: { key: 'mfg_assembly', label: 'Manufacturing / Assembly', engine: 'touch', form: 'assembly', channel: 'b2b', uom: 'per touch', lines: ['rawMaterials', 'labelQty'], setup: true },
+  mfg_machining: { key: 'mfg_machining', label: 'Manufacturing / Machining', engine: 'perpiece', form: 'machined', channel: 'b2b', uom: 'per piece', lines: ['machineHours', 'rawMaterials', 'labelQty'], setup: false },
+  mfg_finishing: { key: 'mfg_finishing', label: 'Manufacturing / Finishing', engine: 'menu', form: 'finished', channel: 'b2b', uom: 'per unit', lines: ['machineHours', 'rawMaterials', 'labelQty', 'storagePallets'], setup: true },
+  mfg_shop: { key: 'mfg_shop', label: 'Manufacturing / Shop Time', engine: 'flat', form: 'na', channel: 'na', uom: 'per hour', lines: ['machineHours', 'shopHours', 'programmingHrs'], setup: true },
 };
 
 export const ENGINE_LABELS: Record<EngineKind, string> = {
